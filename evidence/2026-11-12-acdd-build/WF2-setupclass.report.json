@@ -1,6 +1,6 @@
 {
   "contract_id": "WF2-setupclass",
-  "contract_sha256": "08dcc08ae43070af72b0552b5ea03c50501b9f5e36f7ace9541592722d3dfd91",
+  "contract_sha256": "e16079b76b5b0a79170e80b3515160750845b91f1710ddb195f9c2615d688333",
   "mode": "contract",
   "test_first": true,
   "phases": {

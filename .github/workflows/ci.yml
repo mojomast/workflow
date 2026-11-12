@@ -52,11 +52,13 @@ jobs:
           sudo apt-get install -y -qq bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: Cold start (fresh clones, clean HOME + venv)
-        # bundlebees#5 is on main, so require ACDD against the default ref (main).
+        # bundlebees#5 merged as 2f83ae4. Pin that exact commit (not a floating
+        # branch) and require ACDD against it. Bump the pin deliberately.
         env:
           ACCEPTANCE_MODE: local
           WORKFLOW_SRC: ${{ github.workspace }}
           BUNDLEBEES_REF: main
+          BUNDLEBEES_SHA: 2f83ae44261ae065f7b7413471ad1ebe039107dc
           ACCEPTANCE_ACDD: require
           ACCEPTANCE_PRIOR_INTERVENTIONS: "CI lifted the AppArmor userns restriction::GitHub ubuntu-24.04 runners block unprivileged user namespaces, which bwrap needs"
         run: |

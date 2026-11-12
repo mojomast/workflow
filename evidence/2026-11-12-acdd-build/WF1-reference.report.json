@@ -1,6 +1,6 @@
 {
   "contract_id": "WF1-reference",
-  "contract_sha256": "e976028da7cdf4e6192a6061e22a70a4d7e85e24182de9bf8426cf2fe772f7e8",
+  "contract_sha256": "b9e6894769d3de3c7817c99744b76e3e1e74e64f9e8b20c35f9c517bcc481c29",
   "mode": "contract",
   "test_first": true,
   "phases": {

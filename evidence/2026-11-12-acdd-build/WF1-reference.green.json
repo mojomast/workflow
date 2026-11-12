@@ -1,7 +1,7 @@
 {
   "evidence_version": "tdd-evidence/1",
   "contract_id": "WF1-reference",
-  "contract_sha256": "e976028da7cdf4e6192a6061e22a70a4d7e85e24182de9bf8426cf2fe772f7e8",
+  "contract_sha256": "b9e6894769d3de3c7817c99744b76e3e1e74e64f9e8b20c35f9c517bcc481c29",
   "phase": "green",
   "revision": "41af7d7ef27501074b7a53e70df07111d6bc7c89",
   "base_rev": "8045df0008cfcba949600755f4184ac5eb31163f",
@@ -21,7 +21,8 @@
   ],
   "environment": {
     "python": "3.13.5",
-    "isolation": "throwaway clone, minimal env, no sandbox (teaching)"
+    "sandbox": "bwrap",
+    "isolation": "throwaway clone, minimal env, bwrap: no network, private /tmp, home hidden"
   },
   "result": {
     "exit_code": 0,
@@ -297,7 +298,8 @@
         "error_type": "",
         "message": ""
       }
-    ]
+    ],
+    "sandbox": "none"
   },
   "classification": "passed",
   "criteria": {
@@ -311,5 +313,5 @@
     "name": "coordinator re-run on the box"
   },
   "test_first": true,
-  "at": "2026-11-12T18:23:08Z"
+  "at": "2026-11-12T21:59:50Z"
 }

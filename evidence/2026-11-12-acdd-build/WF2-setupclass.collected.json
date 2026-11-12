@@ -1,0 +1,54 @@
+{
+  "contract_id": "WF2-setupclass",
+  "collected_at_rev": "6adbbbd2ab54877c466265d80cccdc53a3a469dc",
+  "note": "unittest loader ids per approved test file; files are byte-identical at source_rev (see fingerprints in the red/green records)",
+  "ids": {
+    "tests/test_acdd.py": [
+      "tests/test_acdd.py::AcddContractTests::test_code_checks",
+      "tests/test_acdd.py::AcddContractTests::test_example_contract_in_templates_is_valid",
+      "tests/test_acdd.py::AcddContractTests::test_hash_freeze_and_tamper_detection",
+      "tests/test_acdd.py::AcddContractTests::test_helpers",
+      "tests/test_acdd.py::AcddContractTests::test_schema_violations_name_the_field",
+      "tests/test_acdd.py::AcddContractTests::test_valid_contract_round_trips_without_mutation",
+      "tests/test_acdd.py::AcddContractTests::test_validator_covers_every_schema_keyword"
+    ],
+    "tests/test_tdd.py": [
+      "tests/test_tdd.py::TddTests::test_class_setup_errors_are_attributed_to_the_test_class",
+      "tests/test_tdd.py::TddTests::test_classification_table",
+      "tests/test_tdd.py::TddTests::test_criteria_status_and_report_never_show_unrun_as_passed",
+      "tests/test_tdd.py::TddTests::test_fingerprints",
+      "tests/test_tdd.py::TddTests::test_records_validate_against_the_shared_schema",
+      "tests/test_tdd.py::TddTests::test_red_green_refactor_rules",
+      "tests/test_tdd.py::TddTests::test_unittest_runner_reports_cases_with_error_types"
+    ],
+    "tests/test_lifecycle.py": [
+      "tests/test_lifecycle.py::LifecycleTests::test_acceptance_report_links_evidence_and_marks_unrun",
+      "tests/test_lifecycle.py::LifecycleTests::test_demo_cli_defaults_to_acdd_and_keeps_legacy_flag",
+      "tests/test_lifecycle.py::LifecycleTests::test_green_and_refactor_keep_the_same_tests",
+      "tests/test_lifecycle.py::LifecycleTests::test_invalid_contract_rejected_before_dispatch",
+      "tests/test_lifecycle.py::LifecycleTests::test_legacy_demo_still_runs",
+      "tests/test_lifecycle.py::LifecycleTests::test_negative_workers_get_explicit_failure_states",
+      "tests/test_lifecycle.py::LifecycleTests::test_overall_ok",
+      "tests/test_lifecycle.py::LifecycleTests::test_parallel_contracts_accepted_and_integrated",
+      "tests/test_lifecycle.py::LifecycleTests::test_red_evidence_is_behavioural_and_against_tests_only",
+      "tests/test_lifecycle.py::LifecycleTests::test_worker_self_reports_are_not_authority"
+    ],
+    "tests/test_reference.py": [
+      "tests/test_reference.py::ContractTests::test_brief_requires_source_rev_assigned_files_and_acceptance",
+      "tests/test_reference.py::ContractTests::test_lease_is_immutable",
+      "tests/test_reference.py::ContractTests::test_teaching_fingerprint_is_not_tamper_proof",
+      "tests/test_reference.py::DemoTests::test_full_demo_accepts_two_and_rejects_out_of_scope",
+      "tests/test_reference.py::OutputDirTests::test_cli_refuses_non_empty_out_with_exit_2",
+      "tests/test_reference.py::OutputDirTests::test_demo_rerun_with_force_succeeds",
+      "tests/test_reference.py::OutputDirTests::test_force_replaces_only_a_marked_demo_run",
+      "tests/test_reference.py::OutputDirTests::test_new_and_empty_folders_are_claimed_with_a_marker",
+      "tests/test_reference.py::OutputDirTests::test_non_empty_folder_is_refused_and_untouched",
+      "tests/test_reference.py::OutputDirTests::test_protected_paths_are_always_refused",
+      "tests/test_reference.py::OutputDirTests::test_symlink_tricks_are_refused",
+      "tests/test_reference.py::OutputDirTests::test_symlinked_marker_does_not_count",
+      "tests/test_reference.py::VerificationTests::test_in_scope_pricing_patch_is_accepted",
+      "tests/test_reference.py::VerificationTests::test_out_of_scope_patch_is_rejected",
+      "tests/test_reference.py::VerificationTests::test_wrong_source_rev_is_rejected"
+    ]
+  }
+}
