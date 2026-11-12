@@ -28,7 +28,9 @@ Isolation backends, in the default `auto` order:
 |---|---|
 | **bubblewrap** (`bwrap`) | Preferred. `--unshare-all`, unprivileged uid 65534, no network, only `/usr`, the Python install and the copy mounted; host home and `/tmp` hidden |
 | **firejail** | `--net=none --private` |
-| **unshare** | `--user --net --pid`. Weakest fallback: network and PID isolation only; the filesystem stays readable |
+| **unshare** | `--user --net --pid`. Weakest: network and PID isolation only; the coordinator's filesystem stays readable |
+
+**Pending change ([bundlebees PR #4](https://github.com/mojomast/bundlebees/pull/4), open, not merged):** after an external review flagged that `unshare` does not hide the coordinator's files, `auto` will pick only bubblewrap or firejail. `unshare` will run only when `verify_isolation: unshare` is set *and* the documented-unsafe override `verify_allow_weak_unshare` (or `BUNDLEBEES_ALLOW_WEAK_UNSHARE=1`) is on; otherwise verify fails closed. Until that PR merges, `main` at `509649b` still lists `unshare` as the last `auto` fallback.
 
 With no backend, verify and integrate **fail closed** (`sandbox_unavailable`). The only way around that is the clearly labelled setting `verify_allow_unsafe_local` (default `false`), which still uses a temp copy and a scrubbed environment but runs as the same user with the network on. Use it only on a disposable single-user machine with no credentials; `hermes bundlebees doctor` warns when it is in effect.
 
@@ -50,6 +52,8 @@ Optional: `branch`, `tests`, `run_id`, `wave`, `retry_of`. Dispatch records a si
 File scope comes only from the coordinator, never from the worker's self-report.
 
 At dispatch, `bundlebees_dispatch` writes `leases/<attempt_id>.json` under plugin data: created with `O_EXCL`, mode `0400`, HMAC-SHA256 signed with a `0600` key. Verify refuses a missing or edited lease (`lease_missing`, `lease_tampered`) and ignores — then reports — any scope the worker result claims. Branch and tests for verify come from the user or the lease, never from worker metadata.
+
+The [reference demo](../reference/README.md) only illustrates this idea: its lease fingerprints are plain SHA-256 hashes stored next to the data, so anyone who can edit the store can recompute them. That is for teaching. Use the HMAC-signed bundlebees lease for real enforcement.
 
 `hermes bundlebees lease <attempt_id> --brief <file>` records a lease for a brief that was dispatched outside the tool. It refuses to overwrite.
 

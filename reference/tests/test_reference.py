@@ -6,6 +6,8 @@ Includes the required check that an out-of-scope patch is rejected.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,8 +16,8 @@ import sys
 REFERENCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REFERENCE))
 
-from workflow.contract import ContractError, LeaseStore, lease_record, validate_brief
-from workflow.orchestrator import run
+from workflow.contract import ContractError, LeaseStore, lease_fingerprint, lease_record, validate_brief
+from workflow.orchestrator import MARKER_NAME, UnsafeOutputDir, prepare_run_dir, run
 from workflow.packets import templates_dir, write_handoff
 from workflow.toy import create_toy_repo
 from workflow.verify import VerifyRejected, verify_manifest
@@ -46,6 +48,25 @@ class ContractTests(unittest.TestCase):
             got = store.get("W1")
             self.assertEqual(got["assigned_files"], ["shop/pricing.py"])
 
+
+    def test_teaching_fingerprint_is_not_tamper_proof(self):
+        """Documents the limit: an editor who recomputes SHA-256 wins.
+
+        That is why real systems need bundlebees' keyed (HMAC) leases.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "leases.json"
+            store = LeaseStore(path)
+            store.put(lease_record("W1", "a" * 40, ["shop/pricing.py"]))
+            data = json.loads(path.read_text())
+            data["W1"]["assigned_files"].append("shop/labels.py")
+            path.write_text(json.dumps(data))
+            with self.assertRaises(ContractError):
+                store.get("W1")  # naive edit is caught
+            data["W1"]["lease_sha256"] = lease_fingerprint(data["W1"])
+            path.write_text(json.dumps(data))
+            widened = store.get("W1")  # recomputed hash is accepted
+            self.assertIn("shop/labels.py", widened["assigned_files"])
 
 class VerificationTests(unittest.TestCase):
     def setUp(self):
@@ -136,6 +157,125 @@ class DemoTests(unittest.TestCase):
             # Combined lease store stayed immutable and unwidened.
             leases = json.loads((run_dir / "contracts" / "leases.json").read_text())
             self.assertEqual(leases["W3-out-of-scope"]["assigned_files"], ["shop/pricing.py"])
+
+
+class OutputDirTests(unittest.TestCase):
+    """--out never deletes a folder the demo did not create."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        # Neutral cwd/home/repo so the guard checks only what each test sets.
+        self.kw = {
+            "cwd": self.root / "elsewhere" / "cwd",
+            "home": self.root / "elsewhere" / "home",
+            "repo_root": self.root / "elsewhere" / "repo",
+        }
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_new_and_empty_folders_are_claimed_with_a_marker(self):
+        new = prepare_run_dir(self.root / "new" / "run", **self.kw)
+        self.assertTrue((new / MARKER_NAME).is_file())
+        empty = self.root / "empty"
+        empty.mkdir()
+        prepare_run_dir(empty, **self.kw)
+        self.assertTrue((empty / MARKER_NAME).is_file())
+
+    def test_non_empty_folder_is_refused_and_untouched(self):
+        target = self.root / "mine"
+        target.mkdir()
+        (target / "important.txt").write_text("keep", encoding="utf-8")
+        with self.assertRaises(UnsafeOutputDir):
+            prepare_run_dir(target, **self.kw)
+        with self.assertRaises(UnsafeOutputDir) as ctx:
+            prepare_run_dir(target, force=True, **self.kw)
+        self.assertIn("marker", str(ctx.exception))
+        self.assertEqual((target / "important.txt").read_text(encoding="utf-8"), "keep")
+
+    def test_force_replaces_only_a_marked_demo_run(self):
+        target = prepare_run_dir(self.root / "run", **self.kw)
+        (target / "old.txt").write_text("old", encoding="utf-8")
+        (target / "sub").mkdir()
+        outside = self.root / "outside.txt"
+        outside.write_text("outside", encoding="utf-8")
+        (target / "link").symlink_to(outside)
+        with self.assertRaises(UnsafeOutputDir):
+            prepare_run_dir(target, **self.kw)
+        prepare_run_dir(target, force=True, **self.kw)
+        self.assertEqual(sorted(p.name for p in target.iterdir()), [MARKER_NAME])
+        # The symlink was unlinked, its target left alone.
+        self.assertEqual(outside.read_text(encoding="utf-8"), "outside")
+
+    def test_symlinked_marker_does_not_count(self):
+        target = self.root / "fake"
+        target.mkdir()
+        (target / "data.txt").write_text("keep", encoding="utf-8")
+        real_marker = self.root / "real-marker"
+        real_marker.write_text("x", encoding="utf-8")
+        (target / MARKER_NAME).symlink_to(real_marker)
+        with self.assertRaises(UnsafeOutputDir):
+            prepare_run_dir(target, force=True, **self.kw)
+        self.assertTrue((target / "data.txt").exists())
+
+    def test_protected_paths_are_always_refused(self):
+        kw = dict(self.kw)
+        for key in ("cwd", "home", "repo_root"):
+            kw[key].mkdir(parents=True, exist_ok=True)
+        for path in (
+            Path("/"),
+            kw["home"],
+            kw["repo_root"],
+            kw["cwd"],
+            kw["cwd"].parent,
+            kw["cwd"].parent.parent,
+        ):
+            with self.subTest(path=str(path)):
+                with self.assertRaises(UnsafeOutputDir):
+                    prepare_run_dir(path, force=True, **kw)
+        # Real defaults: the actual repo root, cwd and home.
+        for path in (REFERENCE.parent, Path.cwd(), Path.home()):
+            with self.subTest(default=str(path)):
+                with self.assertRaises(UnsafeOutputDir):
+                    prepare_run_dir(path, force=True)
+
+    def test_symlink_tricks_are_refused(self):
+        home = self.kw["home"]
+        home.mkdir(parents=True)
+        (home / "precious.txt").write_text("keep", encoding="utf-8")
+        link = self.root / "looks-harmless"
+        link.symlink_to(home)
+        with self.assertRaises(UnsafeOutputDir):
+            prepare_run_dir(link, force=True, **self.kw)
+        # A path that resolves through a symlinked parent onto home.
+        parent_link = self.root / "parent-link"
+        parent_link.symlink_to(home.parent)
+        with self.assertRaises(UnsafeOutputDir):
+            prepare_run_dir(parent_link / "home", force=True, **self.kw)
+        self.assertTrue((home / "precious.txt").exists())
+
+    def test_cli_refuses_non_empty_out_with_exit_2(self):
+        target = self.root / "cli-target"
+        target.mkdir()
+        (target / "keep.txt").write_text("keep", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(REFERENCE / "run_demo.py"), "--out", str(target)],
+            capture_output=True, text=True, cwd=str(self.root),
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("not empty", proc.stderr)
+        self.assertTrue((target / "keep.txt").exists())
+
+    def test_demo_rerun_with_force_succeeds(self):
+        target = self.root / "rerun"
+        first = run(target)
+        self.assertTrue(first["ok"])
+        with self.assertRaises(UnsafeOutputDir):
+            run(target)
+        second = run(target, force=True)
+        self.assertTrue(second["ok"])
+        self.assertTrue((target / MARKER_NAME).is_file())
 
 
 if __name__ == "__main__":

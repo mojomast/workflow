@@ -1,0 +1,77 @@
+{
+  "accepted": true,
+  "attempts": {
+    "W1": "att-W1",
+    "W2": "att-W2",
+    "W3": "att-W3"
+  },
+  "branch": "wave/w1",
+  "bundlebees_rev": "509649b77d89f42dbcf7713f3a5178ad8f8de333",
+  "integration_head": "c027b48a3d886ef0bb108d2b71e847eed878fc1c",
+  "metrics": {
+    "accepted_changes": 2,
+    "attempts_dispatched": 3,
+    "attempts_verified": 3,
+    "cost_per_accepted": 0.0,
+    "cost_usd_total": 0.0,
+    "failed_worker_recoveries": 0,
+    "first_pass_rate": 0.6666666666666666,
+    "human_interventions": 0,
+    "plan_to_accepted_s": {
+      "max": 1.0,
+      "median": 1.0
+    },
+    "regressions_found": 0,
+    "run_id": "acceptance",
+    "tokens_per_accepted": 0.0,
+    "tokens_total": 0,
+    "waves_accepted": 1,
+    "waves_rejected": 0
+  },
+  "sandbox": "bwrap",
+  "source_rev": "b72122d96c1f8774a17e11ef02921b6c03ba23f7",
+  "verify": {
+    "W1": {
+      "code": "verified",
+      "ok": true,
+      "rc": 0
+    },
+    "W2": {
+      "code": "verified",
+      "ok": true,
+      "rc": 0
+    },
+    "W3": {
+      "code": "scope_violation",
+      "ok": false,
+      "rc": 1
+    }
+  },
+  "wave": {
+    "accepted": true,
+    "at": "2026-11-12T17:22:09Z",
+    "attempts": [
+      "att-W1",
+      "att-W2"
+    ],
+    "head_sha": "c027b48a3d886ef0bb108d2b71e847eed878fc1c",
+    "problems": {},
+    "regressions": 0,
+    "suite": {
+      "backend": "bwrap",
+      "duration_s": 0.15007673809304833,
+      "exit_code": 0,
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 4
+      },
+      "output_tail": "....                                                                     [100%]\n----------- generated xml file: /work/.bundlebees-evidence/junit.xml -----------\n4 passed in 0.01s",
+      "timed_out": false
+    },
+    "wave_id": "w1"
+  },
+  "worker_backend": "scripted-offline",
+  "workflow_rev": "183813f0ccdea4457c9720b9667640f9d9fd8496"
+}
