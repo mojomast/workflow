@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/lifecycle.schema.json",
+  "title": "Agent or bee lifecycle event (agent.lifecycle/v1)",
+  "description": "One event when an agent, bee, subagent, routine, or Cursor cloud agent starts, changes phase, blocks, finishes, or changes route. Join to the Hermes Forge usage record (draft schema_version bee.usage/v1) on attempt_id, card_id, run_id, project, and role when those keys are present.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "source",
+    "agent_id",
+    "state"
+  ],
+  "properties": {
+    "schema": {
+      "const": "agent.lifecycle/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "attempt_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "card_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "project": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/nullable_role"
+    },
+    "ts": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "source": {
+      "enum": [
+        "bee",
+        "grok-bot",
+        "hermes",
+        "subagent",
+        "routine",
+        "cursor-cloud",
+        "launcher"
+      ]
+    },
+    "parent_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "agent_id": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "state": {
+      "enum": [
+        "queued",
+        "starting",
+        "running",
+        "working",
+        "backoff",
+        "blocked",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "accepted",
+        "rejected",
+        "not_started",
+        "done"
+      ]
+    },
+    "phase": {
+      "$ref": "common.schema.json#/$defs/scrubbed_text"
+    },
+    "platform": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "route": {
+      "description": "Current inference route for a bee attempt. Prefer the Hermes Forge usage record once it is frozen; this field lets a lifecycle event show the route before that ledger path exists.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "enum": [
+            "go",
+            "deepseek"
+          ]
+        }
+      ]
+    },
+    "fallen_back": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "description": "True if this attempt has already fallen back from OpenCode Go to DeepSeek. Not a second usage schema."
+    },
+    "host_alias": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Optional local alias for a host (for example the Hermes host). Not a DNS name, tailnet name, IP address, or URL."
+    }
+  }
+}

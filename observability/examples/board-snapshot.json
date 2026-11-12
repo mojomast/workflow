@@ -1,0 +1,26 @@
+{
+  "schema": "board.snapshot/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:15:00Z",
+  "source": "orbit",
+  "attempt_id": null,
+  "card_id": null,
+  "run_id": null,
+  "project": null,
+  "role": null,
+  "group": "build",
+  "counts": {
+    "todo": 3,
+    "doing": 2,
+    "blocked": 1,
+    "completed": 8,
+    "canceled": 0,
+    "failed": 0
+  },
+  "in_flight_owners": [
+    "coordinator-1",
+    "bee-work-1"
+  ],
+  "open_blocker_count": 1,
+  "oldest_blocker_age_s": 7200
+}
