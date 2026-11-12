@@ -21,8 +21,10 @@ WF2 exists because recording WF1's own RED first gave `unrelated_failure`: the r
 | BC2 tdd + sandbox cases | `84aff4e` | 42/42 fail | `a0199a1` | 42/42 | DeepSeek bee |
 | BC3 CLI + verify | `dce3fae` | 11/11 fail | `4662e5e` | 11/11 | coordinator (dispatch paused) |
 | BC4 integrate | `ccb3a4f` | 3/3 fail | `3165fc3` | 3/3 | coordinator (dispatch paused) |
+| BC5 tdd refactor | `7125085` | 6/6 fail | `3b62162` | 6/6 (+4 bee tests) | bee `att_262feeef193f7e04`, re-run by coordinator |
+| LK1 lease-key race (regression) | `50bd936` | 1/1 fail | `427c116` | 1/1 | coordinator; reproduces a cold-start CI failure |
 
-At `868ed11`, the full suite was 442 passed and 0 failed. bundlebees records real evidence as HMAC-signed records in the coordinator's state directory. The table above is the coordinator's junit re-run, not those records.
+At `868ed11`, the full suite was 442 passed and 0 failed. At `427c116`, it was 453 passed and 0 failed. bundlebees records real evidence as HMAC-signed records in the coordinator's state directory. The table above is the coordinator's junit re-run, not those records.
 
 ## orbitdesktop ([PR #26](https://github.com/mojomast/orbitdesktop/pull/26))
 
