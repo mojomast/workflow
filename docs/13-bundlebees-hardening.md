@@ -8,13 +8,14 @@ The unit of progress is an accepted artifact with evidence, and every guarantee 
 
 | Item | State |
 |---|---|
-| Code | On `main` at [`509649b`](https://github.com/mojomast/bundlebees/commit/509649b77d89f42dbcf7713f3a5178ad8f8de333) **(verified)** |
-| Pull request | [PR #3](https://github.com/mojomast/bundlebees/pull/3) merged Nov 12, 11:54 AM ET **(verified)** |
+| Code | On `main` at [`c10aa42`](https://github.com/mojomast/bundlebees/commit/c10aa42eb90298460b8e2db1d7aba54e4688138f) **(verified)**: hardening from PR #3 plus the strong-sandbox fix and CI from PR #4 |
+| Pull requests | [PR #3](https://github.com/mojomast/bundlebees/pull/3) merged Nov 12, 11:54 AM ET; [PR #4](https://github.com/mojomast/bundlebees/pull/4) merged Nov 12, 12:36 PM ET **(verified)** |
+| ACDD + TDD | Contract validation, TDD evidence and contract-aware verify are on the `feat/acdd-tdd` branch, under review, **not merged**; see [16](16-acdd-tdd.md) |
 | Release | **Not tagged.** [v0.1.1](https://github.com/mojomast/bundlebees/releases/tag/v0.1.1) remains the latest release. The CHANGELOG lists this work as **0.2.0, unreleased** |
 | Catalog | [#153888](https://github.com/NousResearch/hermes-agent/pull/153888) was still open and still pointed at the v0.1.1 line when checked |
 | Live baseline | The plugin can now write a metrics log; those figures are not yet a measured baseline from live orchestrations |
 
-This repository does not tag or release bundlebees. Upstream docs for implementers are the plugin [README](https://github.com/mojomast/bundlebees/blob/509649b77d89f42dbcf7713f3a5178ad8f8de333/README.md) and [docs/ADAPTERS.md](https://github.com/mojomast/bundlebees/blob/509649b77d89f42dbcf7713f3a5178ad8f8de333/docs/ADAPTERS.md).
+This repository does not tag or release bundlebees. Upstream docs for implementers are the plugin [README](https://github.com/mojomast/bundlebees/blob/c10aa42eb90298460b8e2db1d7aba54e4688138f/README.md) and [docs/ADAPTERS.md](https://github.com/mojomast/bundlebees/blob/c10aa42eb90298460b8e2db1d7aba54e4688138f/docs/ADAPTERS.md).
 
 The historical bees path — Cua sandboxes on Kyle's PC, `verify.sh` on the box, Orbit as the transport — is still in [03](03-development-and-orchestration.md). That path is one implementation. The contracts below are what the plugin now enforces when you run its own verify and integrate commands.
 
@@ -22,19 +23,19 @@ The historical bees path — Cua sandboxes on Kyle's PC, `verify.sh` on the box,
 
 `hermes bundlebees verify` no longer runs worker tests in the coordinator worktree. It copies the worktree (without `.git`) to a temporary directory and runs the named tests there. The environment is rebuilt from scratch: no coordinator credentials, no SSH agent, an empty `HOME`. Only evidence comes back (backend, exit code, junit counts, an output tail, diff stats).
 
-Isolation backends, in the default `auto` order:
+Isolation backends. `auto` picks bubblewrap, then firejail, and nothing else:
 
 | Backend | What it provides |
 |---|---|
 | **bubblewrap** (`bwrap`) | Preferred. `--unshare-all`, unprivileged uid 65534, no network, only `/usr`, the Python install and the copy mounted; host home and `/tmp` hidden |
 | **firejail** | `--net=none --private` |
-| **unshare** | `--user --net --pid`. Weakest: network and PID isolation only; the coordinator's filesystem stays readable |
+| **unshare** | `--user --net --pid`. Weak: network and PID isolation only; the coordinator's filesystem stays readable. **Never auto-selected** (see below) |
 
-**Pending change ([bundlebees PR #4](https://github.com/mojomast/bundlebees/pull/4), open, not merged):** after an external review flagged that `unshare` does not hide the coordinator's files, `auto` will pick only bubblewrap or firejail. `unshare` will run only when `verify_isolation: unshare` is set *and* the documented-unsafe override `verify_allow_weak_unshare` (or `BUNDLEBEES_ALLOW_WEAK_UNSHARE=1`) is on; otherwise verify fails closed. Until that PR merges, `main` at `509649b` still lists `unshare` as the last `auto` fallback.
+**Weak backend needs an explicit opt-in ([PR #4](https://github.com/mojomast/bundlebees/pull/4), merged Nov 12):** after an external review flagged that `unshare` does not hide the coordinator's files, `auto` picks only bubblewrap or firejail. `unshare` runs only when `verify_isolation: unshare` is set *and* the documented-unsafe override `verify_allow_weak_unshare` (or `BUNDLEBEES_ALLOW_WEAK_UNSHARE=1`) is on; otherwise verify fails closed. PR #4 also added CI (tests under bubblewrap, plugin doctor, gitleaks).
 
 With no backend, verify and integrate **fail closed** (`sandbox_unavailable`). The only way around that is the clearly labelled setting `verify_allow_unsafe_local` (default `false`), which still uses a temp copy and a scrubbed environment but runs as the same user with the network on. Use it only on a disposable single-user machine with no credentials; `hermes bundlebees doctor` warns when it is in effect.
 
-`verify_isolation` can pin `auto`, `bwrap`, `firejail` or `unshare`. `verify_timeout_s` (default 900) is the wall-clock limit for one sandboxed run.
+`verify_isolation` can pin `auto`, `bwrap`, `firejail` or (with the override) `unshare`. `verify_timeout_s` (default 900) is the wall-clock limit for one sandboxed run.
 
 ## 2. Strict brief schema
 
@@ -106,7 +107,7 @@ Registered adapters:
 | `opencode` | Documented stub: every operation raises `unsupported_adapter` |
 | `codex` | Documented stub: same fail-closed behaviour |
 
-How to implement a stub, and what must stay in the trusted coordinator, is in [docs/ADAPTERS.md](https://github.com/mojomast/bundlebees/blob/509649b77d89f42dbcf7713f3a5178ad8f8de333/docs/ADAPTERS.md). Networking is a transport under this contract, not a second API; see [14](14-networking-and-worker-deploy.md).
+How to implement a stub, and what must stay in the trusted coordinator, is in [docs/ADAPTERS.md](https://github.com/mojomast/bundlebees/blob/c10aa42eb90298460b8e2db1d7aba54e4688138f/docs/ADAPTERS.md). Networking is a transport under this contract, not a second API; see [14](14-networking-and-worker-deploy.md).
 
 ## What this does not change
 

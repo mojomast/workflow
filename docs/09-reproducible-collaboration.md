@@ -64,6 +64,8 @@ The minimum setup is a repository or folder, a versioned handoff, the returned a
 
 ## Evidence must match the claim
 
+For code, the strongest form of this is the contract-first, test-first loop in [16](16-acdd-tdd.md): each acceptance criterion has an id and named tests, the tests fail first for the right reason (RED), pass after the change (GREEN), stay green after cleanup (REFACTOR) and on the combined branch (integration), and every result is recorded by the verifier, not the worker. A check that did not run is reported as not run.
+
 | Evidence | It supports | It does not establish |
 |---|---|---|
 | Source inspection | A behavior visible in the inspected code | That the application ran successfully |

@@ -45,6 +45,7 @@ The protocol is the set of rules that make work understandable, reviewable and r
 | Handoffs | A receiver can start from a packet and the listed inputs, without reconstructing a hidden conversation. Use [HANDOFF.md](../templates/HANDOFF.md) |
 | Evidence | A claim is only as strong as the check that produced it, tied to a revision. Self-reported worker results are not the same as independently reproduced results |
 | Acceptance | The unit of progress is an accepted artifact with evidence, not an agent's claim that a task is finished |
+| Contracts and test-first evidence | An ACDD contract (`acdd/1`) names each acceptance criterion with an id and the tests that prove it, is frozen by hash before work starts, and is checked with RED → GREEN → REFACTOR evidence (`tdd-evidence/1`). See [16](16-acdd-tdd.md) |
 
 [09](09-reproducible-collaboration.md) is the portable loop for this layer. [10](10-teaching-the-workflow.md) is the practice version. The [reference demo](../reference/README.md) is a runnable miniature that does not need this project's private infrastructure.
 
@@ -59,11 +60,13 @@ The protocol is the set of rules that make work understandable, reviewable and r
 
 The history of how bees were actually run — Cua sandboxes on Kyle's PC, `verify.sh` on the box, Orbit as the transport — is in [03](03-development-and-orchestration.md). That history is one implementation. The contracts are meant to stay usable if the sandbox, the model or the transport changes.
 
-That verifier is now hardened on bundlebees `main` at [`509649b`](https://github.com/mojomast/bundlebees/commit/509649b77d89f42dbcf7713f3a5178ad8f8de333) ([PR #3](https://github.com/mojomast/bundlebees/pull/3), merged Nov 12, 11:54 AM ET, **verified**): a disposable unprivileged environment (bubblewrap, then firejail, then unshare; fail closed), exact `source_rev` comparison, a mandatory suite on the combined branch, a metrics JSONL log with a summary CLI, a strict brief schema, an immutable coordinator lease, and a WorkerBackend adapter contract (DeepSeek bees are the default; OpenCode and Codex are stubs). It is **not tagged** as a release; v0.1.1 remains the latest tag. Details are in [13](13-bundlebees-hardening.md).
+That verifier is now hardened on bundlebees `main` at [`c10aa42`](https://github.com/mojomast/bundlebees/commit/c10aa42eb90298460b8e2db1d7aba54e4688138f) ([PR #3](https://github.com/mojomast/bundlebees/pull/3), merged Nov 12, 11:54 AM ET, and [PR #4](https://github.com/mojomast/bundlebees/pull/4), merged 12:36 PM ET, **verified**): a disposable unprivileged environment (bubblewrap, then firejail; `unshare` only with an explicit unsafe override; fail closed), exact `source_rev` comparison, a mandatory suite on the combined branch, a metrics JSONL log with a summary CLI, a strict brief schema, an immutable coordinator lease, and a WorkerBackend adapter contract (DeepSeek bees are the default; OpenCode and Codex are stubs). It is **not tagged** as a release; v0.1.1 remains the latest tag. Details are in [13](13-bundlebees-hardening.md). Contract-aware verify (ACDD + TDD evidence) is on a bundlebees feature branch under review, not on `main`; see [16](16-acdd-tdd.md).
 
 ## 3. Orbit — the coordination interface
 
 [Orbit Desktop](https://github.com/mojomast/orbitdesktop) is the coordination interface used in this project: collaboration boards, agent sessions (Grok Bots, Hermes, Pi and others), and the ⚡ Activity view for live work and subagents. The local-workers adapter is how board tasks become launcher attempts.
+
+Planned Orbit work (onboarding wizard, opt-in token router, SSH hosts, the ACDD evidence view) is in [17](17-orbit-plans.md).
 
 Orbit is a convenience, not a prerequisite for the protocol. A handoff can be a markdown file and a git branch. Boards, sessions and activity should remain swappable so that a different desktop, a different agent runtime or a plain repository can sit in this layer without rewriting acceptance rules.
 

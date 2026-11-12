@@ -85,6 +85,8 @@
 ## 3. Habits that worked
 
 - Contracts slice first, then leased parallel slices, then one integration PR.
+- Approved tests before code: the coordinator commits the tests on their own, confirms they fail for the right reason, and leases only implementation files to the bees, so a bee cannot weaken the tests that judge it. The ACDD + TDD work itself was built this way on Nov 12 ([16](16-acdd-tdd.md)).
+- Say when tests came after the code (`test_first: false`) instead of presenting them as test-first.
 - Measure tool-schema cost (o200k) on every change and report the delta; keep tool counts fixed (TempleOS: exactly 4 tools, new behaviour as ops).
 - Composable tools: EOH went from ~68–83 legacy tools to 11 composable ones.
 - Keep evidence in new folders; never overwrite earlier before/after sets.
@@ -102,4 +104,4 @@
 
 These examples support the proposed [operating guide](09-reproducible-collaboration.md); they do not change the authorization rules above.
 
-A miniature of the contract, lease, independent verification and integration loop is in the [reference demo](../reference/README.md). How that loop relates to bundlebees and Orbit is in [12](12-three-layer-architecture.md). The hardening now on bundlebees `main` (untagged), including the metrics JSONL and summary CLI, is in [13](13-bundlebees-hardening.md); those measures are not yet a live-orchestration baseline.
+A miniature of the contract-first, test-first loop (ACDD contracts, RED, GREEN, REFACTOR, independent verification and integration) is in the [reference demo](../reference/README.md); `--legacy` runs the earlier lease-and-verify version. How that loop relates to bundlebees and Orbit is in [12](12-three-layer-architecture.md). The hardening now on bundlebees `main` (untagged), including the metrics JSONL and summary CLI, is in [13](13-bundlebees-hardening.md); those measures are not yet a live-orchestration baseline.

@@ -22,8 +22,14 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Run the reference demo
-        run: python3 reference/run_demo.py
+      - name: Run the reference demo (ACDD + TDD, default)
+        run: python3 reference/run_demo.py --out "$RUNNER_TEMP/acdd-demo"
+      - name: Run the legacy reference demo
+        run: python3 reference/run_demo.py --legacy
+      - name: Check the schemas, the example contract and the demo evidence with jsonschema
+        run: |
+          python3 -m pip install --quiet "jsonschema==4.23.0"
+          python3 reference/check_schemas.py "$RUNNER_TEMP/acdd-demo"
       - name: Run the reference tests
         run: python3 -m unittest discover -s reference/tests -v
 
