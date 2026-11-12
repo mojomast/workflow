@@ -62,6 +62,21 @@ jobs:
       - name: Show report
         if: always()
         run: cat "$RUNNER_TEMP/acceptance-out/REPORT.md" || true
+      - name: Cold start with ACDD required (bundlebees feat/acdd-tdd)
+        # bundlebees main has no ACDD CLI yet, so the run above reports the
+        # ACDD check as UNRUN. This run requires it against the bundlebees PR
+        # branch. After bundlebees#5 merges, drop this step and set
+        # ACCEPTANCE_ACDD=require on the run above.
+        env:
+          ACCEPTANCE_MODE: local
+          WORKFLOW_SRC: ${{ github.workspace }}
+          BUNDLEBEES_REF: feat/acdd-tdd
+          ACCEPTANCE_ACDD: require
+          ACCEPTANCE_PRIOR_INTERVENTIONS: "CI lifted the AppArmor userns restriction::GitHub ubuntu-24.04 runners block unprivileged user namespaces, which bwrap needs"
+        run: acceptance/cold_start.sh "$RUNNER_TEMP/acceptance-acdd"
+      - name: Show ACDD report
+        if: always()
+        run: cat "$RUNNER_TEMP/acceptance-acdd/REPORT.md" || true
 
   secret-scan:
     name: gitleaks

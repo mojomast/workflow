@@ -20,6 +20,7 @@ Requirements: `git`, `python3`, and either docker or bubblewrap/firejail on the 
 | `WORKFLOW_SRC` | unset | Clone the workflow repo from this path/URL instead (CI uses the PR checkout; local mode only) |
 | `ACCEPTANCE_ADAPTER` | `scripted` | `scripted` is the offline worker. A real bundlebees adapter name (e.g. `launcher`) sends the two honest slices to a real backend; see below |
 | `ACCEPTANCE_ALLOW_UNSAFE_LOCAL` | unset | `1` lets verify run without bubblewrap/firejail. Logged as an escape hatch |
+| `ACCEPTANCE_ACDD` | `auto` | `require` fails the run when bundlebees has no ACDD CLI; `auto` reports the `acdd` step as UNRUN (never as passed) |
 
 ## What it does
 
@@ -35,7 +36,8 @@ Requirements: `git`, `python3`, and either docker or bubblewrap/firejail on the 
 | 6 | `verify-honest`, `verify-rejects-violation` | Runs the real `hermes bundlebees verify` handler per attempt, in the bubblewrap/firejail sandbox. W1 and W2 must verify; W3 must fail with `scope_violation` and leave nothing applied |
 | 7 | `integrate` | Runs `hermes bundlebees integrate` for W1+W2: full suite on the combined branch, accepted wave record |
 | 8 | `outputs` | Independently clones the combined branch from the bare remote, runs pytest itself, checks both features landed and W3's change did not, and reads the metrics summary |
-| 9 | `artifact` | Writes `acceptance-artifact.json` (shas, verify records, wave record, metrics) |
+| 9 | `acdd` | One ACDD contract end to end on a second toy repo: `contract freeze`, `tdd red` on the tests-only commit, a contract-carrying dispatch, `verify` records GREEN, a worker that weakens the approved tests is refused with `tests_tampered`, `tdd refactor --none`, `integrate`, `tdd review`, and `tdd report` must say accepted and test-first. Needs an ACDD-capable bundlebees (CI runs it against bundlebees `feat/acdd-tdd` until that merges) |
+| 10 | `artifact` | Writes `acceptance-artifact.json` (shas, verify records, wave record, ACDD result, metrics) |
 
 Outputs in the folder you pass: `REPORT.md` (filled from [REPORT_TEMPLATE.md](REPORT_TEMPLATE.md)), `summary.json`, `steps.jsonl`, `interventions.jsonl`, `acceptance-artifact.json`, `verify-W*.log`, `integrate.log`, `harness.log`.
 
