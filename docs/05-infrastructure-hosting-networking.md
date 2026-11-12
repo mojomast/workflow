@@ -1,6 +1,6 @@
 # 05 — Infrastructure, hosting, networking
 
-Machines, services and how things get deployed. Hostnames, IPs, ports bound to private networks, tokens and private URLs are left out on purpose. Public history stays at a high level in this chapter; current live-host ports, container names, filesystem paths and certificate layout belong in the authorized host runbook and in [INFRA-DEPLOY.md](../templates/INFRA-DEPLOY.md), not here.
+Machines, services and how things get deployed. Hostnames, IPs, ports bound to private networks, tokens and private URLs are left out on purpose. Public history stays at a high level in this chapter; current live-host ports, container names, filesystem paths and certificate layout belong in the authorized host runbook and in [INFRA-DEPLOY.md](../templates/INFRA-DEPLOY.md), not here. How a newcomer should wire remote workers — dial-out pairing, tailcat as the default NAT fallback, Cloudflare Tunnel for a public join URL, hosted Tailscale as an optional overlay — is in [14](14-networking-and-worker-deploy.md). Most of that join flow is planned; this chapter remains the historical map of Kyle's hosts.
 
 ## 1. Map
 
@@ -51,6 +51,8 @@ Live Orbit ran from local integration branches (`integ-deploy-2`, `integ-deploy-
 - Orbit, the PC launcher and moltussy-1 are reachable only inside Kyle's tailnet. The PC launcher binds to its tailnet address with a Windows firewall rule limiting it to Tailscale.
 - MagicDNS names can go stale: on Oct 24 Orbit's public origin had to move to a new node name because the old node was offline.
 - Nov 5: the box's Tailscale CLI broke (missing daemon socket) and `openssh-client` was missing, which blocked a moltussy-1 deploy. Fix: restart tailscaled; install the SSH client from Debian packages over HTTPS.
+
+Hosted Tailscale is what this project actually uses today. It is a power-user overlay, not the product default for someone adopting the workflow. The planned default (localhost first, then tailcat, with Cloudflare Tunnel when a public join URL is needed) is in [14](14-networking-and-worker-deploy.md).
 
 ## 5. Kyle's Windows PC (bee worker)
 

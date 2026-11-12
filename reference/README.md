@@ -2,7 +2,7 @@
 
 A miniature, offline run of the protocol described in this repository: a contract and an immutable file lease, two isolated workers, a deliberately out-of-scope patch, independent verification in a throwaway checkout, handoff and return packets filled from the repo templates, a combined integration suite, and a metrics log.
 
-This is not production [bundlebees](https://github.com/mojomast/bundlebees) and it does not talk to Orbit, a model, or the network. The "workers" are scripted patch generators. The [measurement fields](../docs/12-three-layer-architecture.md#measurement) are recorded here so the schema is visible; they are not a production baseline.
+This is not production [bundlebees](https://github.com/mojomast/bundlebees) and it does not talk to Orbit, a model, or the network. The "workers" are scripted patch generators. The [measurement fields](../docs/12-three-layer-architecture.md#4-measurement) are recorded here so the schema is visible; they are not a production baseline. The same fields are now logged by bundlebees on `main` (untagged); see [13](../docs/13-bundlebees-hardening.md).
 
 ## Requirements
 

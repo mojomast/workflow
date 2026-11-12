@@ -102,4 +102,4 @@
 
 These examples support the proposed [operating guide](09-reproducible-collaboration.md); they do not change the authorization rules above.
 
-A miniature of the contract, lease, independent verification and integration loop is in the [reference demo](../reference/README.md). How that loop relates to bundlebees and Orbit, and which outcome measures are not yet collected in production, is in [12](12-three-layer-architecture.md).
+A miniature of the contract, lease, independent verification and integration loop is in the [reference demo](../reference/README.md). How that loop relates to bundlebees and Orbit is in [12](12-three-layer-architecture.md). The hardening now on bundlebees `main` (untagged), including the metrics JSONL and summary CLI, is in [13](13-bundlebees-hardening.md); those measures are not yet a live-orchestration baseline.
