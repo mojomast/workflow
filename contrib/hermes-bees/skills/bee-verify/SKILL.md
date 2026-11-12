@@ -50,7 +50,10 @@ patch when leased file hashes match.
 
 The lease itself is only the coordinator-owned `brief.assigned_files` on the work attempt record. Never
 widen it: the worker's `in_assigned_scope` flags, its patch paths and this verify brief grant nothing. If
-that work `assigned_files` is missing or empty, verification fails closed (`lease_missing`).
+that work `assigned_files` is missing or empty, verification fails closed (`lease_missing`). If `bees.ps1 handoff`
+pinned the lease for the card (`lease-pins.json`), the work record's lease must match that pin, or verification
+fails closed (`lease_pin_mismatch`). Both records live on the worker host and are not coordinator-signed; see the
+contrib README "Trust boundary".
 
 ## Settle fails with "task is not in running/ready" -> close as reviewer
 If `bees.ps1 result <card>` returns `settled.ok:false` with

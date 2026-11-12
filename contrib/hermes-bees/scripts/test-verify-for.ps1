@@ -118,6 +118,32 @@ try {
   $w = New-Pair "dir-prefix-lease" $passClaims $pkgFiles $pkgFiles @("pkg/")
   Check "dir-prefix-lease" $w "pass" $true $false
 
+  # Handoff lease pin: the work attempt's assigned_files must match what the
+  # coordinator's brief leased at handoff (bees.ps1 handoff -> PinLease).
+  $env:BEES_LEASE_PINS = Join-Path $tmpAtt "lease-pins.json"
+  function PCheck($name, $work, $card, $expect, $expectPinned, $expectMismatch) {
+    $o = VerifyFor @($work) $card
+    $pass = ($o.verdict -eq $expect) -and ([bool]$o.lease_pinned -eq [bool]$expectPinned) -and ([bool]$o.lease_pin_mismatch -eq [bool]$expectMismatch)
+    if (-not $pass) { $script:fail = $true }
+    Write-Output ("case={0} verdict={1} expect={2} lease_pinned={3} lease_pin_mismatch={4} pass={5}" -f $name, $o.verdict, $expect, $o.lease_pinned, $o.lease_pin_mismatch, $pass)
+  }
+  PinLease "t_pinok" "pin-ok" @("test_calc.py", "./calc.py")
+  $w = New-Pair "pin-match-passes" $passClaims $null $null $assigned
+  PCheck "pin-match-passes" $w "t_pinok" "pass" $true $false
+
+  PinLease "t_pinnarrow" "pin-narrow" @("calc.py")
+  $w = New-Pair "pin-widened-after-handoff-fails" $passClaims $null $null $assigned
+  PCheck "pin-widened-after-handoff-fails" $w "t_pinnarrow" "fail" $true $true
+
+  PinLease "t_pinswap" "pin-swap" @("calc.py", "other.py")
+  $w = New-Pair "pin-swapped-file-fails" $passClaims $null $null $assigned
+  PCheck "pin-swapped-file-fails" $w "t_pinswap" "fail" $true $true
+
+  $w = New-Pair "pin-absent-is-unpinned" $passClaims $null $null $assigned
+  PCheck "pin-absent-is-unpinned" $w "t_nopin" "pass" $false $false
+
+  Remove-Item Env:\BEES_LEASE_PINS
+
   if ($fail) { Write-Output "verify_for_check=FAIL"; exit 2 }
   Write-Output "verify_for_check=ok"
 

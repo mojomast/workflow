@@ -213,5 +213,35 @@ class Decide(unittest.TestCase):
         self.assertEqual(d["secret_hits"], -1)
 
 
+
+class HandoffPin(unittest.TestCase):
+    """The work attempt record is written on the worker host; the handoff pin catches a lease changed after handoff."""
+
+    def _pair(self):
+        return (work_attempt(["src/a.py", "src/b.py"]), verify_attempt(),
+                patch(("src/a.py", "aaa")), {**patch(("src/a.py", "aaa")), **claims()})
+
+    def test_digest_is_order_and_dot_slash_insensitive(self):
+        self.assertEqual(RV.lease_digest(["src/b.py", "./src/a.py", "src/a.py"]), RV.lease_digest(["src/a.py", "src/b.py"]))
+        self.assertNotEqual(RV.lease_digest(["src/a.py"]), RV.lease_digest(["src/a.py", "src/b.py"]))
+
+    def test_matching_pin_passes(self):
+        d = RV.decide(*self._pair(), pinned_sha256=RV.lease_digest(["src/b.py", "src/a.py"]))
+        self.assertEqual(d["verdict"], "pass")
+        self.assertTrue(d["lease_pinned"])
+        self.assertFalse(d["lease_pin_mismatch"])
+
+    def test_widened_after_handoff_fails_closed(self):
+        d = RV.decide(*self._pair(), pinned_sha256=RV.lease_digest(["src/a.py"]))
+        self.assertEqual(d["verdict"], "fail")
+        self.assertTrue(d["lease_pin_mismatch"])
+        self.assertEqual(d["note"], RV.LEASE_PIN_NOTE)
+
+    def test_no_pin_is_reported_unpinned(self):
+        d = RV.decide(*self._pair())
+        self.assertEqual(d["verdict"], "pass")
+        self.assertFalse(d["lease_pinned"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

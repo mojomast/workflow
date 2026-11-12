@@ -132,6 +132,35 @@ function FileLease($workAtt) {
   foreach ($p in $assigned) { $lease[$p] = $true }
   return @{ lease = $lease; missing = $false }
 }
+function LeaseDigest($paths) {
+  # sha256 over the sorted, unique, normalized assigned_files joined by LF.
+  $n = @($paths | ForEach-Object { NormPath ([string]$_) } | Where-Object { $_ } | Sort-Object -Unique)
+  $bytes = (New-Object System.Text.UTF8Encoding $false).GetBytes(($n -join "`n"))
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { return (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join "") } finally { $sha.Dispose() }
+}
+function LeasePinPath { if ($env:BEES_LEASE_PINS) { return $env:BEES_LEASE_PINS }; return (Join-Path $env:USERPROFILE ".orbit-launcher\hermes-bees\lease-pins.json") }
+function ReadLeasePins {
+  $p = LeasePinPath
+  if (-not (Test-Path $p)) { return @{} }
+  try { $o = Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return @{} }
+  $h = @{}
+  if ($o -and $o.pins) { foreach ($prop in $o.pins.PSObject.Properties) { $h[$prop.Name] = $prop.Value } }
+  return $h
+}
+function PinLease([string]$card, [string]$taskId, $assigned) {
+  # Written at handoff from the coordinator's leased brief, before the beekeeper
+  # dispatches. Settle compares the work attempt's assigned_files against it, so
+  # a dispatch that widens or changes the lease after handoff fails closed.
+  if (-not $card) { return }
+  $p = LeasePinPath
+  $dir = Split-Path $p
+  if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  $pins = ReadLeasePins
+  $pins[$card] = @{ task_id = $taskId; assigned_sha256 = (LeaseDigest $assigned); n = @($assigned).Count }
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  [IO.File]::WriteAllText($p, (@{ pins = $pins } | ConvertTo-Json -Depth 5), $utf8)
+}
 function LeaseCovers($lease, [string]$p) {
   if (-not $lease -or -not $p) { return $false }
   if ($lease.ContainsKey($p)) { return $true }
@@ -140,7 +169,7 @@ function LeaseCovers($lease, [string]$p) {
   }
   return $false
 }
-function VerifyFor([string[]]$work) {
+function VerifyFor([string[]]$work, [string]$card = "") {
   # Newest verify bee whose brief.verify_of names one of this card's work attempts. Verdict is the verify bee's report,
   # cross-checked against launcher-observed data: it must have succeeded, leased sha256s must match the work patch
   # (patch_matches_work), and non-telemetry paths outside the lease are scope_violation (distinct from a content mismatch).
@@ -180,6 +209,19 @@ function VerifyFor([string[]]$work) {
       $vAssigned = @()
       if ($v.brief -and $v.brief.assigned_files) { $vAssigned = @($v.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ }) }
       $o.verify_scope_differs = [bool]((@($vAssigned | Sort-Object) -join "`n") -ne (@($lease.Keys | Sort-Object) -join "`n"))
+      # Handoff pin: the lease must equal what the coordinator's brief leased.
+      $o.lease_pinned = $false
+      $o.lease_pin_mismatch = $false
+      if ($card) {
+        $pins = ReadLeasePins
+        if ($pins.ContainsKey($card) -and $pins[$card].assigned_sha256) {
+          $o.lease_pinned = $true
+          if ([string]$pins[$card].assigned_sha256 -ne (LeaseDigest @($lease.Keys))) {
+            $o.lease_pin_mismatch = $true
+            $o.note = "lease differs from the handoff pin: work attempt assigned_files changed after handoff"
+          }
+        }
+      }
     }
     if ((Test-Path $wf) -and -not $o.lease_missing) {
       $wr = Get-Content $wf -Raw | ConvertFrom-Json
@@ -215,7 +257,7 @@ function VerifyFor([string[]]$work) {
       $o.secret_hits = if ($ss) { if ($ss.passed -eq $true -or [string]$ss.passed -eq "true") { 0 } else { 1 } } else { -1 }
     } else { $o.secret_hits = -1 }  # -1 = no scan reported (fails)
     $o.not_run = @($c.not_run | Where-Object { $_ }).Count
-    if ($o.lease_missing) { $o.verdict = "fail" }
+    if ($o.lease_missing -or $o.lease_pin_mismatch) { $o.verdict = "fail" }
     else { $o.verdict = if ($o.claimed -eq "pass" -and $o.patch_matches_work -and -not $o.scope_violation -and $o.failed_cmds -eq 0 -and $o.secret_hits -eq 0) { "pass" } else { "fail" } }
   }
   return $o
@@ -406,6 +448,7 @@ try {
       $tmp = [IO.Path]::GetTempFileName(); [IO.File]::WriteAllText($tmp, $body)
       try { $c = Hj @("kanban","create",$title,"--body-file",$tmp,"--assignee","beekeeper","--idempotency-key",$b.task_id,"--max-runtime","25m","--max-retries","1","--skill","bundlebees:bundlebees-operator","--created-by","box-coordinator","--json") } finally { Remove-Item $tmp -EA SilentlyContinue }
       RegisterOwned $b.task_id
+      PinLease ([string]$c.id) ([string]$b.task_id) @($b.assigned_files)
       $t0 = Get-Date
       $disp = $null
       try { $disp = Hj @("-p","beekeeper","kanban","dispatch","--max","1","--json") } catch { $disp = @{ error = (Scrub $_.Exception.Message) } }
@@ -426,7 +469,7 @@ try {
       $sum = [string]$s.latest_summary
       $ids = @(CardAttempts $s)
       $work = @($ids | Where-Object { $p = Join-Path $ATT "$_.json"; (Test-Path $p) -and -not (Get-Content $p -Raw | ConvertFrom-Json).brief.verify_of })
-      $v = VerifyFor $work
+      $v = VerifyFor $work ([string]$s.task.id)
       $settled = $null
       if ($v -and ([string]$v.verdict -in @("pass","fail"))) {
         try { $settled = SettleCard $s.task.id $v } catch { $settled = @{ ok = $false; error = (Scrub $_.Exception.Message) } }
@@ -442,7 +485,7 @@ try {
       $s = Hj @("kanban","show",$Arg,"--json")
       $ids = @(CardAttempts $s)
       $work = @($ids | Where-Object { $p = Join-Path $ATT "$_.json"; (Test-Path $p) -and -not (Get-Content $p -Raw | ConvertFrom-Json).brief.verify_of })
-      $v = VerifyFor $work
+      $v = VerifyFor $work ([string]$s.task.id)
       $settled = SettleCard $s.task.id $v
       Out-Json @{ ok = [bool]$settled.ok; card = $s.task.id; status = $settled.status; verdict = $v.verdict; settled = $settled }
     }
