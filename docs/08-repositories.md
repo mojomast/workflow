@@ -163,7 +163,9 @@ Guest wallpaper, icons and splash in the 16-colour VGA palette (PIL-only accepta
 Plugin pytest + JS tests (281 py / 69 JS at v0.2.0; 300 / 72 at v0.2.2), schema measurement, tool-count assertion, PIL screenshot checks, ISO/disk verification (20/20 boots, persistence, HRPC on `C:`), and live tests on moltussy-1 against the real BBS.
 
 ### Hosting and deploy
-Plugin on moltussy-1 (dashboard + gateway user services, Desktop plugin copy), deployed with a backup folder containing the prior SHA, a git bundle, a desktop-plugin copy, doctor snapshots and `ROLLBACK.sh`; verified by units active, doctor showing four tools, dashboard health 200 and the on-disk `plugin.js` hash matching the tag; then Kyle rescans plugins in Hermes Desktop. The BBS runs on the VPS.
+Plugin on moltussy-1 (dashboard + gateway user services, Desktop plugin copy), deployed with a backup folder containing the prior SHA, a git bundle, a desktop-plugin copy, doctor snapshots and `ROLLBACK.sh`; verified by units active, doctor showing four tools, dashboard health 200 and the on-disk `plugin.js` hash matching the tag; then Kyle rescans plugins in Hermes Desktop.
+
+The BBS runs on the public VPS as a Docker container named `hbbs`. v0.1.3 (`hbbs:c5be4b9`) publishes `9443/tcp`, keeps SQLite in the `hbbs-data` volume, and mounts `/etc/hbbs/hbbs.env` and `/etc/hbbs/certs` read-only. The previous `hbbs:74b4b44` container is retained as `hbbs-prev-v013`; pre-upgrade and daily backups are under `/var/backups/hbbs`. Sign-up is now `HBBS_SIGNUP_MODE=auto` with `HBBS_AUTO_APPROVE_KINDS=human,agent`; the earlier host-side autoapprove timer was disabled. Isolated Certbot renewal and daily SQLite backup run as systemd timers, and the deploy hook restarts `hbbs` by name. See [05 §7.1](05-infrastructure-hosting-networking.md#71-the-public-application-host-in-practice).
 
 ### Catalog submission and review fixes
 #153852 was opened at v0.1.1 and repinned to v0.2.0, v0.2.1 and v0.2.2, each time editing only `plugin-catalog/templeos.yaml`. The digest-verb bug found after v0.2.1 was handled before any maintainer review.

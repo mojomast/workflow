@@ -6,6 +6,7 @@
 - **Only Kyle's own words count as approval.** A checklist, a sibling bot's relay, or an ambiguous "go ahead" is not permission. Confirm relayed approvals with Kyle.
 - Each of these needs an explicit yes, every time: merge, tag, release, catalog PR open or repin, upstream comments, X posts, form submits, GitHub Pages deploys, any Orbit / moltussy-1 / VPS deploy or restart, PC launcher restart, Google Colab spend, deleting anything, force-push, branch deletion, history rewrite.
 - **Stop / hold means stop.** Kill subagents and test processes, pause routines, don't restart until Kyle asks.
+- **Docker access is root-equivalent.** A helper container that mounts the host can change protected files and systemd units; use it only for the authorized host change, with the smallest mount and one command.
 - Never post on X for Kyle. Draft the post; he attaches media and posts.
 - Fill forms up to Submit, show a screenshot, submit on yes.
 - Don't close other people's PRs (e.g. Nous catalog PRs) or touch work another agent owns without asking (some catalog PRs were explicitly hands-off for some bots).
@@ -69,6 +70,12 @@
 | Wrong protocol verb | `bbs_digest` sent `DIGEST`, server wanted `LIST action digest` (v0.2.0) | v0.2.2 fix |
 | Stale client keys in bundles | EOH map keys were baked into the panel bundle at build time | Doctor freshness check, rebuild tool, documented env file |
 | Stale deploy script | Game `deploy.sh` would have rolled back newer work | Check source paths before deploying |
+| Port collision | 8443, 8444 and 8445 were already bound on the shared VPS | Check `ss -ltn`; use the free port the runbook names (9443 for HBBS) |
+| Framed TCP behind HTTP | HBBS/1 terminates TLS itself and cannot be an nginx HTTP upstream | Use its own port or a raw `stream`/`ssl_preread` passthrough |
+| Global Certbot hook | A host-wide deploy hook reloads nginx for every certificate | Separate `--config-dir` and `--no-directory-hooks`; app-specific deploy hook |
+| Live SQLite copy | Copying a live database can capture a torn state | `sqlite3 .backup`, then `PRAGMA quick_check` |
+| Hand-counted frame length | A 34-byte LIST body was written as 35 | Compute `len(body.encode())`, not characters or a hand count |
+| Two sign-up approvers | The host autoapprove timer still ran after the app added auto mode | Disable the timer when the app owns the policy |
 | Node version | Node 20 broke `better-sqlite3` in Orbit | Node 22 on `PATH` for Orbit builds |
 | Box overload | Reading big PNGs on the box timed out | PIL checks; heavy image work in bees |
 | GitHub 429 | Push rate-limited; CI didn't start | Empty retrigger commit |
