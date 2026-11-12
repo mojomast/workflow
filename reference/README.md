@@ -2,6 +2,8 @@
 
 A miniature, offline run of the protocol described in this repository: a contract and an immutable file lease, two isolated workers, a deliberately out-of-scope patch, independent verification in a throwaway checkout, handoff and return packets filled from the repo templates, a combined integration suite, and a metrics log.
 
+> **Teaching only — not a security harness.** The demo's lease fingerprints (`lease_sha256`) are plain, unkeyed SHA-256 hashes stored in the same file as the leases. They catch accidental edits, but anyone who can edit the store can change a lease and recompute the hash (a test, `test_teaching_fingerprint_is_not_tamper_proof`, shows exactly that). Do not copy this lease code into a real system. For real use, [bundlebees](https://github.com/mojomast/bundlebees) writes coordinator leases that are HMAC-SHA256 signed with a separate `0600` key and created read-only with `O_EXCL`; see [13 §3](../docs/13-bundlebees-hardening.md#3-immutable-coordinator-lease).
+
 This is not production [bundlebees](https://github.com/mojomast/bundlebees) and it does not talk to Orbit, a model, or the network. The "workers" are scripted patch generators. The [measurement fields](../docs/12-three-layer-architecture.md#4-measurement) are recorded here so the schema is visible; they are not a production baseline. The same fields are now logged by bundlebees on `main` (untagged); see [13](../docs/13-bundlebees-hardening.md).
 
 ## Requirements
@@ -25,12 +27,20 @@ make demo
 make test
 ```
 
-`python3 reference/run_demo.py --out /tmp/workflow-reference-demo` writes the toy repo, contracts, packets, evidence and `metrics.jsonl` to that folder (replaced if it already exists). Exit status is 0 only when both in-scope workers are accepted, the out-of-scope worker is rejected, and the combined test suite passes.
+`python3 reference/run_demo.py --out /tmp/workflow-reference-demo` writes the toy repo, contracts, packets, evidence and `metrics.jsonl` to that folder.
+
+`--out` is guarded so a typo cannot erase unrelated files:
+
+- The folder must be new or empty. The demo writes a `.workflow-reference-demo` marker file into every run folder it creates.
+- A non-empty folder is refused (exit 2). `--force` replaces it **only** if it already holds that marker as a regular file; otherwise nothing is deleted. Symlinks inside a replaced run are unlinked, never followed.
+- `/`, your home directory, the repository root, the current directory and any of their parents are always refused, even with `--force`, as is an `--out` that is a symlink or resolves through one onto those paths.
+
+To rerun into the same folder: `python3 reference/run_demo.py --out /tmp/workflow-reference-demo --force`. Exit status is 0 only when both in-scope workers are accepted, the out-of-scope worker is rejected, and the combined test suite passes.
 
 ## What the demo does
 
 1. Creates a tiny `toy-shop` git repo with two modules (`shop/pricing.py`, `shop/labels.py`) and a green unittest suite.
-2. The orchestrator records a brief for each task with `source_rev`, `assigned_files` and `acceptance`, and writes an immutable lease. The lease hash is stored by the coordinator; workers cannot widen it.
+2. The orchestrator records a brief for each task with `source_rev`, `assigned_files` and `acceptance`, and writes a lease the API refuses to change. The (teaching-only, recomputable) lease hash is stored by the coordinator; worker claims cannot widen it.
 3. Two scripted workers each patch a separate slice (`apply_tax` and `format_receipt_line`), starting from the same baseline.
 4. A third worker also touches a file outside its lease and claims a wider file list. Verification ignores that claim and rejects the patch.
 5. Each accepted or rejected result is verified in a fresh clone at the exact `source_rev`. Only the evidence comes back.
@@ -62,7 +72,7 @@ Reference workflow demo
   result:         OK
 ```
 
-`make test` (and `python3 -m unittest discover -s reference/tests -v`) runs six tests, including `test_out_of_scope_patch_is_rejected`. All six should pass.
+`make test` (and `python3 -m unittest discover -s reference/tests -v`) runs 15 tests, including `test_out_of_scope_patch_is_rejected`, the `--out` guard tests and the teaching-fingerprint limit. All should pass.
 
 ## Layout
 
@@ -70,7 +80,7 @@ Reference workflow demo
 |---|---|
 | `run_demo.py` | One-command entry point |
 | `workflow/orchestrator.py` | Contracts, leases, dispatch, packets, integration |
-| `workflow/contract.py` | Brief validation and immutable lease store |
+| `workflow/contract.py` | Brief validation and lease store (teaching-only SHA-256 fingerprints) |
 | `workflow/workers.py` | Scripted patch generators, including the out-of-scope case |
 | `workflow/verify.py` | Throwaway checkout, baseline and lease checks, slice tests |
 | `workflow/integrate.py` | Combined branch and full suite |

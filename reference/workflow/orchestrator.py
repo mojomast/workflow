@@ -1,8 +1,20 @@
-"""Coordinator: contracts, leases, dispatch of scripted workers, verify, integrate."""
+"""Coordinator: contracts, leases, dispatch of scripted workers, verify, integrate.
+
+Teaching code. The lease fingerprints written here are plain SHA-256 hashes
+stored next to the data (see :mod:`workflow.contract`); anyone who can edit the
+store can recompute them. Real deployments should use bundlebees' HMAC-signed
+coordinator leases instead.
+
+Output safety: :func:`prepare_run_dir` never deletes a folder the demo did not
+create. A non-empty ``--out`` is refused unless ``force=True`` *and* the folder
+holds the demo's own marker file; ``/``, home, the repository root, the
+current directory and its parents, and symlinked targets are always refused.
+"""
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -53,6 +65,87 @@ TASKS = [
 ]
 
 
+#: Marker file the demo writes into every run directory it owns.
+MARKER_NAME = ".workflow-reference-demo"
+MARKER_TEXT = "workflow reference demo run directory; safe to replace with --force\n"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+class UnsafeOutputDir(ValueError):
+    """The requested run directory is refused to protect unrelated files."""
+
+
+def _is_same_or_parent(candidate: Path, path: Path) -> bool:
+    """True when *candidate* is *path* or one of its ancestors."""
+    return candidate == path or candidate in path.parents
+
+
+def _protected_paths(cwd: Path | None, home: Path | None, repo_root: Path | None) -> list[tuple[str, Path]]:
+    out: list[tuple[str, Path]] = [("the filesystem root", Path("/"))]
+    for label, value in (
+        ("your home directory", home if home is not None else Path.home()),
+        ("the repository root", repo_root if repo_root is not None else REPO_ROOT),
+        ("the current directory", cwd if cwd is not None else Path.cwd()),
+    ):
+        try:
+            out.append((label, Path(value).resolve()))
+        except OSError:
+            continue
+    return out
+
+
+def prepare_run_dir(
+    run_dir: Path,
+    *,
+    force: bool = False,
+    cwd: Path | None = None,
+    home: Path | None = None,
+    repo_root: Path | None = None,
+) -> Path:
+    """Validate and claim *run_dir* for a demo run; return its resolved path.
+
+    * A missing or empty folder is created/claimed and gets the marker file.
+    * A non-empty folder is refused unless ``force`` is true **and** it already
+      contains the regular-file marker this demo wrote; only then are its
+      contents replaced (symlinks inside are unlinked, never followed).
+    * ``/``, home, the repository root, the current directory, and any parent
+      of those are always refused, as is a ``run_dir`` that is itself a
+      symlink or resolves through one onto a protected path.
+    """
+    raw = Path(os.path.abspath(os.fspath(run_dir)))
+    if raw.is_symlink():
+        raise UnsafeOutputDir(f"refusing --out {run_dir}: it is a symlink; pass the real directory")
+    resolved = raw.resolve()
+    for label, protected in _protected_paths(cwd, home, repo_root):
+        if _is_same_or_parent(resolved, protected):
+            raise UnsafeOutputDir(
+                f"refusing --out {run_dir}: it is {label} or one of its parents"
+            )
+    if resolved.exists() and not resolved.is_dir():
+        raise UnsafeOutputDir(f"refusing --out {run_dir}: it exists and is not a directory")
+
+    marker = resolved / MARKER_NAME
+    if resolved.is_dir() and any(resolved.iterdir()):
+        if not force:
+            raise UnsafeOutputDir(
+                f"refusing --out {run_dir}: the folder is not empty. Pick a new or empty "
+                "folder, or pass --force to replace an earlier demo run."
+            )
+        if marker.is_symlink() or not marker.is_file():
+            raise UnsafeOutputDir(
+                f"refusing --force on {run_dir}: it has no {MARKER_NAME} marker, so it was "
+                "not created by this demo. Nothing was deleted."
+            )
+        for child in resolved.iterdir():
+            if child.is_symlink() or not child.is_dir():
+                child.unlink()
+            else:
+                shutil.rmtree(child)
+    resolved.mkdir(parents=True, exist_ok=True)
+    marker.write_text(MARKER_TEXT, encoding="utf-8")
+    return resolved
+
+
 def _write_brief(path: Path, task: dict, source_rev: str) -> dict:
     brief = {
         "title": task["title"],
@@ -68,12 +161,13 @@ def _write_brief(path: Path, task: dict, source_rev: str) -> dict:
     return brief
 
 
-def run(run_dir: Path) -> dict:
-    """Execute the full miniature workflow. Returns a result dict."""
-    run_dir = run_dir.resolve()
-    if run_dir.exists():
-        shutil.rmtree(run_dir)
-    run_dir.mkdir(parents=True)
+def run(run_dir: Path, *, force: bool = False) -> dict:
+    """Execute the full miniature workflow. Returns a result dict.
+
+    *run_dir* must be new, empty, or (with ``force``) an earlier demo run that
+    carries the marker file; see :func:`prepare_run_dir`.
+    """
+    run_dir = prepare_run_dir(Path(run_dir), force=force)
 
     toy = run_dir / "toy-shop"
     source_rev = create_toy_repo(toy)

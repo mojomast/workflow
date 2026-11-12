@@ -8,6 +8,9 @@ Usage (from the repository root):
 
 The demo is offline. It needs only Python 3 and git. It writes a throwaway
 run directory (default: a temp folder, or --out DIR) and prints a summary.
+--out must be new or empty; --force replaces only an earlier demo run (one
+that carries the demo's marker file). Lease fingerprints are SHA-256 teaching
+stand-ins, not a security control; see bundlebees for HMAC-signed leases.
 Exit status is 0 only when both in-scope workers are accepted, the
 out-of-scope worker is rejected, and the combined test suite passes.
 """
@@ -23,7 +26,7 @@ from pathlib import Path
 # Allow `python3 reference/run_demo.py` from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from workflow.orchestrator import run  # noqa: E402
+from workflow.orchestrator import UnsafeOutputDir, run  # noqa: E402
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -32,7 +35,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--out",
         type=Path,
         default=None,
-        help="Run directory (created or replaced). Default: a fresh temp directory.",
+        help=(
+            "Run directory. Must be new or empty; a non-empty folder is refused "
+            "unless --force is given and it holds this demo's marker file. "
+            "Default: a fresh temp directory."
+        ),
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an earlier demo run in --out (only if it has the demo marker file).",
     )
     parser.add_argument(
         "--keep",
@@ -82,7 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         out = args.out
     try:
-        result = run(out)
+        try:
+            result = run(out, force=args.force)
+        except UnsafeOutputDir as exc:
+            sys.stderr.write(f"error: {exc}\n")
+            return 2
         sys.stdout.write(format_summary(result))
         return 0 if result["ok"] else 1
     finally:

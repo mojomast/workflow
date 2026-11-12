@@ -1,4 +1,13 @@
-"""Brief schema, immutable lease records, and validation."""
+"""Brief schema, immutable lease records, and validation.
+
+TEACHING ONLY. ``lease_sha256`` is a plain, unkeyed SHA-256 of the lease body,
+stored in the same file as the lease. It catches accidental edits and makes the
+idea of an immutable coordinator record visible, but anyone who can edit the
+store can change a lease and recompute the hash. Do not copy this into a real
+system. For real use, bundlebees' coordinator leases are HMAC-SHA256 signed
+with a separate ``0600`` key and written read-only with ``O_EXCL``; see
+https://github.com/mojomast/bundlebees and ``docs/13-bundlebees-hardening.md``.
+"""
 
 from __future__ import annotations
 
@@ -43,6 +52,8 @@ def validate_brief(brief: dict) -> dict:
 
 
 def lease_fingerprint(record: dict) -> str:
+    """Unkeyed SHA-256 of the lease body. Teaching only: recomputable by anyone
+    who can edit the store. Production leases need a keyed signature (HMAC)."""
     body = {k: record[k] for k in ("task_id", "source_rev", "assigned_files")}
     return _sha256_bytes(canonical_json(body))
 
@@ -58,7 +69,12 @@ def lease_record(task_id: str, source_rev: str, assigned_files: list[str]) -> di
 
 
 class LeaseStore:
-    """Coordinator-owned leases. Once written, a lease cannot be mutated."""
+    """Coordinator-owned leases. Once written, the API refuses to mutate them.
+
+    Teaching only: the JSON file itself is writable, and the SHA-256
+    fingerprints can be recomputed, so this is not tamper-proof. bundlebees
+    uses HMAC-signed, read-only lease files for real enforcement.
+    """
 
     def __init__(self, path: Path):
         self.path = path
