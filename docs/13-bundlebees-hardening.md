@@ -10,7 +10,7 @@ The unit of progress is an accepted artifact with evidence, and every guarantee 
 |---|---|
 | Code | On `main` at [`c10aa42`](https://github.com/mojomast/bundlebees/commit/c10aa42eb90298460b8e2db1d7aba54e4688138f) **(verified)**: hardening from PR #3 plus the strong-sandbox fix and CI from PR #4 |
 | Pull requests | [PR #3](https://github.com/mojomast/bundlebees/pull/3) merged Nov 12, 11:54 AM ET; [PR #4](https://github.com/mojomast/bundlebees/pull/4) merged Nov 12, 12:36 PM ET **(verified)** |
-| ACDD + TDD | Contract validation, TDD evidence and contract-aware verify are on the `feat/acdd-tdd` branch, under review, **not merged**; see [16](16-acdd-tdd.md) |
+| ACDD + TDD | Contract validation, signed TDD evidence and contract-aware dispatch, verify and integrate are on the `feat/acdd-tdd` branch, under review, **not merged**; see [16](16-acdd-tdd.md) |
 | Release | **Not tagged.** [v0.1.1](https://github.com/mojomast/bundlebees/releases/tag/v0.1.1) remains the latest release. The CHANGELOG lists this work as **0.2.0, unreleased** |
 | Catalog | [#153888](https://github.com/NousResearch/hermes-agent/pull/153888) was still open and still pointed at the v0.1.1 line when checked |
 | Live baseline | The plugin can now write a metrics log; those figures are not yet a measured baseline from live orchestrations |

@@ -1,0 +1,124 @@
+{
+  "contract_version": "acdd/1",
+  "id": "WF1-reference",
+  "title": "Reference implementation of ACDD contracts, TDD evidence and the contract-first demo",
+  "outcome": {
+    "summary": "The offline reference demo validates and freezes contracts and records RED/GREEN/REFACTOR/integration evidence.",
+    "observable_behavior": [
+      "invalid contracts are refused with a code, field and fix",
+      "evidence is classified per the chapter 16 table",
+      "the demo rejects scope violations and weakened tests",
+      "--legacy keeps the original demo"
+    ]
+  },
+  "interfaces": [
+    {
+      "name": "acdd",
+      "kind": "module",
+      "change": "add"
+    },
+    {
+      "name": "tdd",
+      "kind": "module",
+      "change": "add"
+    },
+    {
+      "name": "lifecycle",
+      "kind": "module",
+      "change": "add"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "statement": "contracts are validated (schema + checks 1-8), hashed canonically and frozen",
+      "verification": "test",
+      "tests": [
+        "tests/test_acdd.py"
+      ]
+    },
+    {
+      "id": "AC-002",
+      "statement": "test runs are classified and evidence records validated; RED/GREEN/REFACTOR checks and the acceptance report behave as chapter 16 says",
+      "verification": "test",
+      "tests": [
+        "tests/test_tdd.py"
+      ]
+    },
+    {
+      "id": "AC-003",
+      "statement": "the default demo runs the ACDD lifecycle end to end and --legacy keeps the old demo",
+      "verification": "test",
+      "tests": [
+        "tests/test_lifecycle.py"
+      ]
+    },
+    {
+      "id": "AC-004",
+      "statement": "the 15 legacy reference tests keep passing",
+      "verification": "test",
+      "regression": true,
+      "tests": [
+        "tests/test_reference.py"
+      ]
+    }
+  ],
+  "dependencies": [],
+  "assumptions": [
+    "paths are relative to reference/"
+  ],
+  "scope": {
+    "assigned_files": [
+      "workflow/acdd.py",
+      "workflow/tdd.py",
+      "workflow/lifecycle.py",
+      "workflow/schema.py",
+      "run_demo.py"
+    ],
+    "test_files": [
+      "tests/test_acdd.py",
+      "tests/test_tdd.py",
+      "tests/test_lifecycle.py",
+      "tests/test_reference.py"
+    ],
+    "prohibited": []
+  },
+  "source_rev": "8045df0008cfcba949600755f4184ac5eb31163f",
+  "tdd": {
+    "applicable": true,
+    "test_first": true
+  },
+  "verification": {
+    "independent": true,
+    "commands": [
+      "python3 -m unittest discover -s tests"
+    ],
+    "integration": false
+  },
+  "evidence_required": [
+    "red",
+    "green"
+  ],
+  "authorization": {
+    "human_gates": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish"
+    ],
+    "not_authorized": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish"
+    ]
+  },
+  "review": {
+    "status": "approved",
+    "approved_by": "coordinator (delegated by Kyle, t1289u)",
+    "approved_at": "2026-11-12T18:10:00Z",
+    "contract_sha256": "e976028da7cdf4e6192a6061e22a70a4d7e85e24182de9bf8426cf2fe772f7e8"
+  }
+}

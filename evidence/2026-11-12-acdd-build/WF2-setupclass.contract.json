@@ -1,0 +1,97 @@
+{
+  "contract_version": "acdd/1",
+  "id": "WF2-setupclass",
+  "title": "Attribute class/module setup errors to the test class or module",
+  "outcome": {
+    "summary": "A setUpClass ImportError counts against the class's tests instead of matching nothing.",
+    "observable_behavior": [
+      "setUpClass errors get id path::Class and stage setup"
+    ]
+  },
+  "interfaces": [
+    {
+      "name": "tid",
+      "kind": "function",
+      "change": "modify"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "given": "a test class whose setUpClass raises ImportError",
+      "when": "run_unittest runs it",
+      "then": "the case id is tests/test_s.py::S with stage setup and it matches the class's tests",
+      "verification": "test",
+      "tests": [
+        "tests/test_tdd.py::TddTests::test_class_setup_errors_are_attributed_to_the_test_class"
+      ]
+    },
+    {
+      "id": "AC-002",
+      "statement": "every other reference test keeps passing",
+      "verification": "test",
+      "regression": true,
+      "tests": [
+        "tests/test_acdd.py",
+        "tests/test_lifecycle.py",
+        "tests/test_reference.py",
+        "tests/test_tdd.py::TddTests::test_classification_table",
+        "tests/test_tdd.py::TddTests::test_fingerprints"
+      ]
+    }
+  ],
+  "dependencies": [],
+  "assumptions": [
+    "paths are relative to reference/"
+  ],
+  "scope": {
+    "assigned_files": [
+      "workflow/tdd.py"
+    ],
+    "test_files": [
+      "tests/test_acdd.py",
+      "tests/test_tdd.py",
+      "tests/test_lifecycle.py",
+      "tests/test_reference.py"
+    ],
+    "prohibited": []
+  },
+  "source_rev": "0f8c30667f2e5d6d0e66f99f6dace63200ed6ad6",
+  "tdd": {
+    "applicable": true,
+    "test_first": true
+  },
+  "verification": {
+    "independent": true,
+    "commands": [
+      "python3 -m unittest discover -s tests"
+    ],
+    "integration": false
+  },
+  "evidence_required": [
+    "red",
+    "green"
+  ],
+  "authorization": {
+    "human_gates": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish"
+    ],
+    "not_authorized": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish"
+    ]
+  },
+  "review": {
+    "status": "approved",
+    "approved_by": "coordinator (delegated by Kyle, t1289u)",
+    "approved_at": "2026-11-12T18:10:00Z",
+    "contract_sha256": "08dcc08ae43070af72b0552b5ea03c50501b9f5e36f7ace9541592722d3dfd91"
+  }
+}
