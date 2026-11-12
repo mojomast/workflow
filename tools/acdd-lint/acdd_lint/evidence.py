@@ -17,8 +17,6 @@ Problem = dict[str, str]
 
 _AUTHORITY_ROLES = {"verifier", "human"}
 
-_PHASE_ORDER = {"red": 0, "green": 1, "refactor": 2, "integration": 3, "review": 4}
-
 
 def canonical(record: Mapping[str, Any]) -> bytes:
     """Return the canonical signed bytes for *record*."""
@@ -29,6 +27,21 @@ def canonical(record: Mapping[str, Any]) -> bytes:
     }
     text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return text.encode("utf-8")
+
+
+def record_digest(record: Mapping[str, Any]) -> str:
+    """Return the canonical sha256 of *record*, including its signature.
+
+    Private keys starting with ``_`` are ignored so a record's digest does not
+    depend on where it was loaded from.
+    """
+    body = {
+        key: value
+        for key, value in record.items()
+        if not str(key).startswith("_")
+    }
+    text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def verify_signature(record: Mapping[str, Any], key: bytes) -> bool:
@@ -58,13 +71,26 @@ def _phase(record: Mapping[str, Any]) -> str:
     return str(record.get("phase") or "")
 
 
-def _phase_rank(record: Mapping[str, Any]) -> int:
-    return _PHASE_ORDER.get(_phase(record), 5)
+def _sequence(record: Mapping[str, Any]) -> int | None:
+    """Return the signed sequence number, or None when it is not an integer."""
+    value = _mapping(record).get("sequence")
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
 
 
-def _sort_key(item: tuple[str, Mapping[str, Any]]) -> tuple[str, int, str]:
+def _time_sort_key(item: tuple[str, Mapping[str, Any]]) -> tuple[str, str]:
     filename, record = item
-    return (str(record.get("at") or ""), _phase_rank(record), filename)
+    return (str(_mapping(record).get("at") or ""), filename)
+
+
+def _sequence_sort_key(item: tuple[str, Mapping[str, Any]]) -> tuple[int, str]:
+    filename, record = item
+    return (_sequence(record) or 0, filename)
+
+
+def _stale(record: Mapping[str, Any], expected_sha: str) -> bool:
+    return str(_mapping(record).get("contract_sha256") or "") != expected_sha
 
 
 def _expected_contract_sha(contract: Mapping[str, Any]) -> str:
@@ -83,6 +109,51 @@ def _is_valid_red(record: Mapping[str, Any]) -> bool:
     )
 
 
+def _check_sequence_order(items: list[tuple[str, Mapping[str, Any]]]) -> list[Problem]:
+    """Return order_invalid problems when the signed sequence chain is broken."""
+    offending: list[str] = []
+    seen: set[str] = set()
+
+    def mark(filename: str) -> None:
+        if filename not in seen:
+            seen.add(filename)
+            offending.append(filename)
+
+    sequences = [_sequence(record) for _, record in items]
+    counts: dict[Any, int] = {}
+    first_index: dict[Any, int] = {}
+    for index, value in enumerate(sequences):
+        counts[value] = counts.get(value, 0) + 1
+        first_index.setdefault(value, index)
+
+    for index, (filename, _) in enumerate(items):
+        value = sequences[index]
+        if value != index + 1:
+            mark(filename)
+        if counts[value] > 1 and first_index[value] != index:
+            mark(filename)
+
+    for index, (filename, record) in enumerate(items):
+        previous = _mapping(record).get("prev_sha256")
+        if index == 0:
+            if previous is not None:
+                mark(filename)
+            continue
+        if sequences[index] != (sequences[index - 1] or 0) + 1:
+            mark(filename)
+        if previous != record_digest(items[index - 1][1]):
+            mark(filename)
+
+    return [
+        _problem(
+            "order_invalid",
+            filename,
+            "evidence sequence is not a gap-free signed chain from 1; re-record the history with contiguous sequence numbers and matching prev_sha256 links",
+        )
+        for filename in offending
+    ]
+
+
 def check_history(
     contract: Mapping[str, Any] | None,
     records: list[tuple[str, Mapping[str, Any]]],
@@ -90,7 +161,13 @@ def check_history(
 ) -> list[Problem]:
     """Check one contract's evidence history and return its protocol problems."""
     items = [(filename, record) for filename, record in records]
-    items.sort(key=_sort_key)
+    sequenced = bool(items) and all(_sequence(record) is not None for _, record in items)
+    if sequenced:
+        items.sort(key=_sequence_sort_key)
+        order_problems = _check_sequence_order(items)
+    else:
+        items.sort(key=_time_sort_key)
+        order_problems = []
 
     if contract is None:
         return [
@@ -104,12 +181,19 @@ def check_history(
 
     expected_sha = _expected_contract_sha(contract)
     require_test_first = _test_first(contract)
-    problems: list[Problem] = []
+    problems: list[Problem] = list(order_problems)
     last_valid_red: Mapping[str, Any] | None = None
 
-    for filename, record in items:
-        record = record if isinstance(record, Mapping) else {}
-        stale = str(record.get("contract_sha256") or "") != expected_sha
+    valid_reds: list[tuple[str, Mapping[str, Any]]] = []
+    if not sequenced:
+        for filename, record in items:
+            record = _mapping(record)
+            if not _stale(record, expected_sha) and _is_valid_red(record):
+                valid_reds.append((filename, record))
+
+    for filename, item in items:
+        record = _mapping(item)
+        stale = _stale(record, expected_sha)
         if stale:
             problems.append(
                 _problem(
@@ -154,15 +238,49 @@ def check_history(
                         f"GREEN classified as {classification!r}, expected passed; make the implementation pass the approved tests without editing them",
                     )
                 )
-            if require_test_first and last_valid_red is None:
-                problems.append(
-                    _problem(
-                        "red_missing",
-                        filename,
-                        "GREEN has no earlier verifier behavioral_failure RED; record RED on the baseline or set tdd.test_first: false honestly",
+
+            if sequenced:
+                candidate = last_valid_red
+                if require_test_first and candidate is None:
+                    problems.append(
+                        _problem(
+                            "red_missing",
+                            filename,
+                            "GREEN has no earlier verifier behavioral_failure RED; record RED on the baseline or set tdd.test_first: false honestly",
+                        )
                     )
-                )
-            if last_valid_red is not None and record.get("test_fingerprints") != last_valid_red.get("test_fingerprints"):
+            else:
+                at = str(record.get("at") or "")
+                earlier = [
+                    red
+                    for _, red in valid_reds
+                    if str(_mapping(red).get("at") or "") < at
+                ]
+                same_second = [
+                    red
+                    for _, red in valid_reds
+                    if str(_mapping(red).get("at") or "") == at
+                ]
+                candidate = earlier[-1] if earlier else (same_second[-1] if same_second else None)
+                if require_test_first and not earlier:
+                    if same_second:
+                        problems.append(
+                            _problem(
+                                "order_unproven",
+                                filename,
+                                "GREEN shares its timestamp with a valid RED but no signed sequence orders them; add sequence and prev_sha256 or record RED before GREEN",
+                            )
+                        )
+                    else:
+                        problems.append(
+                            _problem(
+                                "red_missing",
+                                filename,
+                                "GREEN has no earlier verifier behavioral_failure RED; record RED on the baseline or set tdd.test_first: false honestly",
+                            )
+                        )
+
+            if candidate is not None and record.get("test_fingerprints") != candidate.get("test_fingerprints"):
                 problems.append(
                     _problem(
                         "tests_tampered",

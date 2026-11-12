@@ -7,7 +7,7 @@ cd tools/acdd-lint
 python3 -m acdd_lint ../../evidence                       # text report
 python3 -m acdd_lint ../../evidence --json                # machine-readable
 python3 -m acdd_lint STATE_DIR --key-file verifier.key    # also check HMAC signatures
-python3 -m unittest discover -s tests -t .                # its own tests (35)
+python3 -m unittest discover -s tests -t .                # its own tests (44)
 ```
 
 **Exit codes:** `0` means clean. `1` means at least one problem. `2` is a usage error: a missing path, schemas not found, or a bad key file.
@@ -25,9 +25,11 @@ python3 -m unittest discover -s tests -t .                # its own tests (35)
 | `evidence_orphan` / `evidence_stale` | A record names no known contract, or was made against an older contract hash. Stale records never count as RED or GREEN. |
 | `red_missing` / `red_invalid` | GREEN has no earlier valid RED from a verifier, or a RED was not `behavioral_failure`. |
 | `green_failed` / `tests_tampered` | GREEN did not pass, or its test fingerprints differ from RED's. |
+| `order_unproven` | GREEN shares its `at` with a valid RED and no signed sequence orders them; RED-before-GREEN is not proven. |
+| `order_invalid` | The signed `sequence`/`prev_sha256` chain is not a gap-free `1..N` history with matching predecessor digests. |
 | `evidence_tampered` | The signature does not match (checked only with `--key-file`). |
 
-**Ordering:** records are ordered by `at`, then by phase (red, green, refactor, integration, review), then by file name. So records written in the same second still read in protocol order.
+**Ordering:** when every record in a history carries an integer `sequence`, the history is ordered by sequence and checked as a signed chain: sequences must run `1..N`, the record with sequence 1 must have `prev_sha256: null`, and each later record's `prev_sha256` must equal the digest of the record before it (the digest is canonical JSON with the signature included and private `_` keys excluded). A broken chain is reported as `order_invalid`, and the history is still checked in sequence order. Otherwise records are ordered by `at` then file name only, never by phase: a GREEN that shares its second with a valid RED has no proven RED-before-GREEN and is reported as `order_unproven`, while a RED with a later `at` never counts.
 
 **Discovery skips:** `.git`, `node_modules`, `__pycache__`, `.venv` and `venv`, symlinks, and files over 1 MiB. Without `--key-file`, the report says `signatures: not checked`, and the JSON output lists `signatures` under `unrun`. Key material is never printed.
 
@@ -35,4 +37,4 @@ python3 -m unittest discover -s tests -t .                # its own tests (35)
 
 ## How it was built
 
-acdd-lint was the first project built end to end with the workflow it checks, as an ACDD contract per slice. Approved tests were committed first, a verifier recorded RED, DeepSeek bees wrote GREEN, and then came REFACTOR, a coordinator review and integration. See [the dogfood evidence and lessons](../../evidence/2026-11-12-acdd-lint-dogfood/README.md).
+acdd-lint was the first project taken through the workflow it checks, as an ACDD contract per slice. The tool works, but the run was not accepted under the protocol (0 accepted changes, 2 rejected waves). Approved tests were committed first, a verifier recorded RED, DeepSeek bees wrote GREEN, and then came REFACTOR, a coordinator review and integration. See [the dogfood evidence and lessons](../../evidence/2026-11-12-acdd-lint-dogfood/README.md).
