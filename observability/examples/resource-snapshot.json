@@ -91,6 +91,16 @@
       "status": "ok"
     },
     {
+      "kind": "hyvv_host",
+      "resource_id": "hyvv",
+      "value": null,
+      "unit": null,
+      "cap": null,
+      "remaining": null,
+      "reset_at": null,
+      "status": "unavailable"
+    },
+    {
       "kind": "box_disk",
       "resource_id": null,
       "value": 0.72,

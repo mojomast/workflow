@@ -12,7 +12,7 @@
   "agent_id": "bee-work-1",
   "state": "running",
   "phase": "implementing the accepted contract",
-  "platform": "launcher",
+  "platform": "hyvv",
   "route": "go",
   "fallen_back": false,
   "host_alias": null

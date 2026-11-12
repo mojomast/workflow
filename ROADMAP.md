@@ -1,11 +1,11 @@
 # What's next
 
 Planned and in-flight work on this workflow and the Orbit, bundlebees, and
-launcher stack it coordinates. Status is one of **done**, **open PR**, or
+hyvv stack it coordinates. Status is one of **done**, **open PR**, or
 **planned**. Pull request numbers and SHAs were checked against GitHub on
 12 November 2026, America/Toronto. Items that spend resources, merge, tag,
-release, deploy, or change the live launcher still need an explicit yes
-from the repository operator before they happen.
+release, deploy, or change the live hyvv worker-host still need an
+explicit yes from the repository operator before they happen.
 
 ## Merge order
 
@@ -27,7 +27,7 @@ independently of that sequence, but also need a yes.
 **Planned** (no public pull request number verified for these items yet).
 
 - **P0 — Worker-result retrieval.** An authenticated, coordinator-only
-  artifact endpoint. No direct launcher file reads. Keep attempt identity,
+  artifact endpoint. No direct hyvv file reads. Keep attempt identity,
   revision, patch hash, metadata, and usage. Raw patches stay out of
   model-visible responses and logs. Validate ownership, state, size, and
   integrity. Handle pending, missing, disconnected, restarted, malformed,
@@ -52,7 +52,7 @@ independently of that sequence, but also need a yes.
 
 ## Real-agent dogfood rerun
 
-**Planned.** Runs once launcher 0.1.15 is validated. Needs the operator's
+**Planned.** Runs once hyvv (the current 0.1.15 launcher line) is validated. Needs the operator's
 explicit yes before it starts, and again before any workflow-repo allowlist
 entry is applied. Planned shape: two or more parallel workers, plus a
 deliberate out-of-scope rejection, and a signed integration record. A
@@ -111,12 +111,14 @@ repository).
 **Planned.** A release tag after the hardening and ACDD work that should go
 into it, with an explicit yes before tagging.
 
-## Launcher as its own worker-host repository
+## hyvv repo (approved, in progress by Hermes Forge; merges and first tag need Kyle's yes)
 
-**Planned, awaiting the operator's approval.** The PC launcher would become
-its own worker-host repository, with a versioned `/v1` API contract that
-Orbit and bundlebees test against, plus an install script. It is not
-approved, and nothing in this pull request starts that split.
+**Approved, in progress by Hermes Forge.** Merges and the first tag still
+need an explicit yes. hyvv (`mojomast/hyvv`) is the standalone worker-host
+runtime, a fourth layer next to this workflow, bundlebees, and Orbit. It
+owns the versioned `/v1` API contract that Orbit and bundlebees test
+against, plus an install script. Nothing in this pull request starts or
+vendors that work.
 
 ## Hermes Forge usage work
 

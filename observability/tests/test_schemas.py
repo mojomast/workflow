@@ -179,6 +179,27 @@ class ResourceUnknownTests(unittest.TestCase):
             self.validator.validate_file(doc, "resource-snapshot.schema.json")
 
 
+class HyvvHostTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.validator = Validator(SCHEMAS)
+
+    def test_hyvv_is_an_accepted_lifecycle_source(self) -> None:
+        doc = _load_example("lifecycle-bee-running.json")
+        self.assertEqual(doc["platform"], "hyvv")
+        doc["source"] = "hyvv"
+        self.validator.validate_file(doc, "lifecycle.schema.json")
+
+    def test_launcher_remains_a_transitional_lifecycle_source(self) -> None:
+        doc = _load_example("lifecycle-bee-running.json")
+        doc["source"] = "launcher"
+        self.validator.validate_file(doc, "lifecycle.schema.json")
+
+    def test_failure_example_is_sourced_from_hyvv(self) -> None:
+        doc = _load_example("failure-rate-limit.json")
+        self.assertEqual(doc["source"], "hyvv")
+        self.validator.validate_file(doc, "failure.schema.json")
+
+
 class LifecycleRouteTests(unittest.TestCase):
     def setUp(self) -> None:
         self.validator = Validator(SCHEMAS)

@@ -46,8 +46,10 @@
         "subagent",
         "routine",
         "cursor-cloud",
+        "hyvv",
         "launcher"
-      ]
+      ],
+      "description": "hyvv is the worker-host runtime (mojomast/hyvv) that owns the versioned /v1 worker API. launcher is a transitional alias for the current 0.1.15 line while hyvv is built."
     },
     "parent_id": {
       "$ref": "common.schema.json#/$defs/nullable_id"

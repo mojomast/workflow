@@ -78,8 +78,15 @@ and examples may show one operator's current defaults:
 - Shared bee cap: 12.
 - Version 1 resource kinds include DeepSeek credit, both OpenCode Go
   allowances, Google Colab compute units, Grok Bot usage, Cursor cloud
-  agents, the Hermes host, and box or PC disk, CPU, and RAM. A later version
-  can add the Temple of Hermes BBS.
+  agents, the Hermes host, hyvv (the worker-host runtime that owns the
+  versioned `/v1` worker API), and box or PC disk, CPU, and RAM. A later
+  version can add the Temple of Hermes BBS.
+
+hyvv (`mojomast/hyvv`) is the fourth layer next to this workflow,
+bundlebees, and Orbit. Hermes Forge is building it. It owns the versioned
+`/v1` worker API contract. Lifecycle `source` and example `platform` values
+use `hyvv` for that worker-host; `launcher` remains accepted as a
+transitional alias for the current 0.1.15 line.
 
 The official dashboard is a new Orbit view. That work is not in this
 repository.

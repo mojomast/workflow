@@ -12,7 +12,7 @@
   "agent_id": "bee-work-1",
   "state": "running",
   "phase": "retrying after a Go rate limit",
-  "platform": "launcher",
+  "platform": "hyvv",
   "route": "deepseek",
   "fallen_back": true,
   "host_alias": null

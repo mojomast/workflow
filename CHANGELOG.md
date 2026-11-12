@@ -1,7 +1,7 @@
 # What's new
 
 A dated account of recent, verified work on this workflow and the Orbit,
-bundlebees, and launcher stack it coordinates. Times are America/Toronto.
+bundlebees, and hyvv stack it coordinates. Times are America/Toronto.
 Pull request numbers and SHAs were checked against GitHub on 12 November
 2026. This file does not edit earlier documentation chapters.
 
@@ -47,15 +47,21 @@ and Orbit start; merged as `baec166` at 12:03 PM).
 - **Pull request #5** (open, `feat/acdd-tdd`, head `075bc1a`). Contracts,
   signed evidence, and contract-aware dispatch, verify, and integrate.
 
-### Launcher
+### hyvv
 
-The PC launcher moved through 0.1.13 to 0.1.15 (the handoff in
+At 4:26 PM America/Toronto, the standalone worker-host runtime was named
+**hyvv**, at `mojomast/hyvv`, which Hermes Forge is building. It is a fourth
+layer next to this workflow, bundlebees, and Orbit, and it owns the
+versioned `/v1` worker API contract. Merges and the first tag still need an
+explicit yes. This repository does not vendor hyvv source.
+
+The current PC launcher line, 0.1.13 to 0.1.15, is the runtime hyvv is
+being built from. The handoff in
 [workflow pull request #7](https://github.com/mojomast/workflow/pull/7)
-documents the 0.1.11–0.1.15 line). Documented behaviour in that handoff
-includes minting `attempt_id`, exporting unpushed or local branches,
-OpenCode Go / DeepSeek routing, and falling back to DeepSeek on a
-monthly-limit 429. The launcher source is not vendored in this repository.
-See [contrib/hermes-bees/README.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/README.md)
+documents the 0.1.11–0.1.15 line, including minting `attempt_id`, exporting
+unpushed or local branches, OpenCode Go / DeepSeek routing, and falling
+back to DeepSeek on a monthly-limit 429. See
+[contrib/hermes-bees/README.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/README.md)
 and [contrib/hermes-bees/OBSERVABILITY.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/OBSERVABILITY.md)
 on the #7 branch.
 
