@@ -21,6 +21,8 @@ Each pipeline we used or built, with its inputs, tools, outputs and where it liv
 | photo-to-part evals | Built | Real photos + sealed evals → scored rounds per release | [hermes-photo-to-part](https://github.com/mojomast/hermes-photo-to-part) |
 | Temple of Hermes ISO / disk | Built | HolyC sources → verified ISO + qcow2 + SHA256SUMS | [temple-of-hermes](https://github.com/mojomast/temple-of-hermes) releases |
 | Deploy with rollback | Built (as a practice + scripts) | Approved tag → running on a host, with backup and `ROLLBACK.sh` | Skill §10; Hermes Forge deploy scripts |
+| Independent review and correction | Used as a practice | Pinned revision + report → reproduction, fix brief, revised evidence | [Codex/DOLAN case](../examples/doppler-review-handoff.md); [common loop](09-reproducible-collaboration.md) |
+| Creative pack handoff | Used as a practice | Selected direction → editable source + exports + preview + integration brief | [Comfyrizz and Terry cases](../contrib/codex.md); [pack template](../templates/ASSET-PACK.md) |
 
 ## 1. Bees
 

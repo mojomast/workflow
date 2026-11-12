@@ -46,3 +46,9 @@ Many specs ended up committed: Comfyrizz `docs/specs/TIMELINE_REVIEW.md` on `fea
 - Free-model stalls made long plans slip (Oct 21–23): plans now state the model order and fallback rules up front (see [03 §4](03-development-and-orchestration.md#4-deepseek-bees-cua-sandboxes-on-kyles-pc)).
 - A spec that changed mid-flight (Emurizz N64 went from 2 to 4 players required) left the committed spec stale; memory notes record which spec text is superseded.
 - Gemini's first Comfyrizz UI overhaul was "too timid"; Kyle asked for a drastic revamp and the plan was rebuilt from a stronger model's audit.
+
+## 6. Planning across conversations
+
+The Emurizz planning session first proposed host-streamed play; Kyle clarified true netplay and selected SNES + N64. The revised spec and development plan traveled together to the builder. The later four-player N64 override in [Cheese's account](../contrib/cheese.md) supersedes the retained two-player draft. A handoff should carry the current revision and changed acceptance gates, not rely on the next agent discovering an override in chat.
+
+Use [HANDOFF.md](../templates/HANDOFF.md) to carry the outcome, baseline, decisions, inputs and return requirements. The [common loop](09-reproducible-collaboration.md) makes this practice usable for a single assistant as well as a parallel build.

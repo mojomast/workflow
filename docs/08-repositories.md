@@ -35,7 +35,7 @@ Dates and times are America/Toronto (GitHub's UTC timestamps converted). PR, tag
 | [hermes-morningdaw](https://github.com/mojomast/hermes-morningdaw) | Private | Hermes plugin for headless song making with MorningDAW | Private; no further record in memory |
 | [nous-application](https://github.com/mojomast/nous-application) | Private | Drafts for Kyle's Nous Research application | Private |
 | `mojomast/hermes-agent` (fork of NousResearch/hermes-agent) | Public fork | Catalog branches (`catalog/<name>-vX.Y.Z`, `catalog/desc-*`) | Working fork |
-| [workflow](https://github.com/mojomast/workflow) | Private | This documentation | New |
+| [workflow](https://github.com/mojomast/workflow) | Public (GitHub metadata checked Nov 12) | This documentation | New |
 
 Kyle's many older repos (Sept 2026 and earlier, e.g. hermesdashboard, COCS, the Ussyverse sites) predate the bots' memory and aren't covered here.
 
@@ -119,7 +119,7 @@ v0.2.10 is listed in the Nous catalog with an improved description and banner. P
 
 ## 2. Temple of Hermes
 
-**Repos:** [mojomast/hermes-templeos](https://github.com/mojomast/hermes-templeos) (the plugin), [mojomast/temple-of-hermes](https://github.com/mojomast/temple-of-hermes) (fork of `tinkeros/TinkerOS`: guest OS, HolyC apps, HBBS/1 server, ISO, disk image). **Catalog:** [#153852](https://github.com/NousResearch/hermes-agent/pull/153852) (open, v0.2.2). **Built by:** Hermes Forge (owner, coordinator) with Cursor cloud agents then DeepSeek bees; MR.INDIA built the Terry companion PR. Full first-person account: [contrib/hermes-forge.md](../contrib/hermes-forge.md).
+**Repos:** [mojomast/hermes-templeos](https://github.com/mojomast/hermes-templeos) (the plugin), [mojomast/temple-of-hermes](https://github.com/mojomast/temple-of-hermes) (fork of `tinkeros/TinkerOS`: guest OS, HolyC apps, HBBS/1 server, ISO, disk image). **Catalog:** [#153852](https://github.com/NousResearch/hermes-agent/pull/153852) (open, v0.2.2). **Built by:** Hermes Forge (owner, coordinator) with Cursor cloud agents then DeepSeek bees; MR.INDIA built the Terry companion PR. Kyle and Codex developed the HD artwork/animation pack whose six exports match the later plugin files; see [asset provenance](../contrib/codex.md). Full first-person implementation account: [contrib/hermes-forge.md](../contrib/hermes-forge.md).
 
 ### Origin and goal
 A TempleOS-family OS running in a local QEMU VM inside Hermes so the agent and the user share one live screen, with networking always off, ISOs and disks SHA-256 pinned, and a community BBS reachable only through a serial modem and a host relay. It grew into a branded guest OS ("Temple of Hermes") with its own launcher, apps, journal and BBS, plus a Terry A. Davis tribute companion.
@@ -258,7 +258,7 @@ The first deliverable was the skill with three scripts (`doppler_track.py`, `sco
 | Nov 2–3 | Evaluation on 12 → 37 dated clips (YouTube plane spotting, then Freesound and Radio aporee field recordings with exact pins and times), with held-out sets never tuned on. Honest result: ~1 km on clean multi-flyover clips (Carlsbad, Long Beach) but a ~10–13 km median on held-out clips; livestream audio has commentary and cut lows; most jet passes show only a broadband roar |
 | Nov 3 | Kyle: "research best practice and go ahead". New **broadband detector** reading Lloyd's-mirror ground-reflection interference bands (after published single-microphone aircraft tracking work by Lo and Ferguson) → draft [#4](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/4): two Manchester recordings went from no answer / 10 km to 0.19 and 0.33 km; held-out within 3 km went 1/14 → 2/18, answers 8 → 11, 95% areas contained the truth in 8/11 |
 | Nov 3, 3:03–3:04 PM | #4 and #2 merged → [v0.3.0](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/releases/tag/v0.3.0) with `docs/broadband.md` and `docs/evaluation.md`; #148043 had already merged at v0.1.1, so a new catalog PR **#148633** was opened (YAML-only) |
-| Nov 3, 6:41–6:46 PM | Efficiency pass [#5](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/5) (2,279 s → 960 s on 7 tuning clips, results bit-identical); community PR #3 by @Bortlesboat (`--smooth-s` for jittery ADS-B) reworked as [#6](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/6) with his authorship kept and a changelog credit |
+| Nov 3, 6:41–6:46 PM | Efficiency pass [#5](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/5) merged after precision/cache review fixes. Final author-reported run: 2,073 s → 746 s on 7 tuning clips, zero observed output differences; held-out equivalence unverified. The earlier 2,279 s → 960 s report is superseded. Community PR #3 by @Bortlesboat (`--smooth-s` for jittery ADS-B) reworked as [#6](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/6) with his authorship kept and a changelog credit |
 | Nov 3, 8:23–8:44 PM | [#7](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/7) CI (ruff + offline tests), [#8](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/8) small efficiency pass, [#9](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/9) new 1280×640 banner from synthetic data → [v0.3.1](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/releases/tag/v0.3.1) (94 tests, 2 skipped, CI green); #148633 repinned |
 | Nov 4 | Installed into Hermes on the box (config backed up first); [#10](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/10) opened so tools return plots as inline media and to fix a dependency pin conflict with Hermes |
 | Nov 5, 2:48 PM | #148633 merged by Nous |
@@ -270,6 +270,8 @@ README screenshots from real runs, real spectrograms, the summary charts, the ba
 
 ### Testing
 Synthetic self-tests, noise-rejection test, unit tests (5 → 94), held-out evaluation on dated real recordings with tuning/test splits, bit-identical regression checks for performance work, CI on PRs and main.
+
+The performance review crossed agents: Kyle brought Codex's efficiency brief to DOLAN and returned the results for independent review. The near-tie precision reproduction and incomplete-cache finding became fixes recorded in PR #5. Full-pipeline timings remained builder-reported; the warm-cache figures predated those fixes. See [the worked handoff](../examples/doppler-review-handoff.md).
 
 ### Current state
 v0.3.1 listed in the Nous catalog. PR #10 (inline plots, dependency fix) open, proposed as v0.3.2. Documented limits: dependable on clean, close, multi-flyover recordings with a known time; not yet dependable on new places; the "ok" rating isn't reliable out of sample.

@@ -84,3 +84,13 @@
 - Record every deploy's backup path and rollback in chat and memory.
 - Put off-host agents' briefs and assets on a public branch.
 - After a test on a shared host, restore only what the test changed.
+
+## 4. Lessons from the review and creative loop
+
+- Tie every review and measurement to its revision. Doppler's first timings and final equivalence results came from different runs; [the final PR report](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/5) supersedes the initial performance report.
+- Preserve the intended experience during planning. Streaming was not a substitute for Kyle's Emurizz netplay request; in-pane gameplay also needed its own acceptance gate.
+- Deliver selected artwork with editable sources and an integration brief. Comfyrizz PNG concepts needed vector refinement; Terry's transparent videos needed a renderer and fallback in the pane.
+- Keep technical and perceptual checks distinct. Decoding a video does not check natural arm movement, readable text or perceived sound quality.
+- Save corrections at their proper scope. The TempleOS companion's silent loops and sourced quotes do not inherit the separate tribute-film experiment's narration choices.
+
+These examples support the proposed [operating guide](09-reproducible-collaboration.md); they do not change the authorization rules above.

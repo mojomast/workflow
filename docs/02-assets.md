@@ -59,3 +59,9 @@ A one-night run produced **14,641 original 2D game assets in 23 style packs and 
 ## 7. Where assets live
 
 Finished deliverables live in the repos (`docs/`, `film/delivery/`, `site/assets/`) or as release assets. Working files lived under `/workspace/<project>` on the box; large scratch (raw downloads, old builds, voice-tool environments) was periodically deleted with Kyle's OK to keep the shared disk under control.
+
+## 8. Creative handoffs from Codex
+
+Comfyrizz's selected double-Z concept traveled as a brand pack with source references, variants, tokens, prompts, a preview and a refinement brief; the implementation agent made the SVG masters. Terry's HD animation pack traveled with editable parts, rig and pose data, validation, previews and six silent runtime exports. All six exports were matched by Git blob hash to the plugin repository on Nov 12. See [the contribution and evidence](../contrib/codex.md).
+
+The reusable [asset pack contract](../templates/ASSET-PACK.md) keeps the approved reference, editable source, runtime export and preview distinct. It requires target-runtime compatibility to be checked separately from file integrity. The original-game-asset rule above and the Terry tribute's specific quote/voice policy remain separate scopes.

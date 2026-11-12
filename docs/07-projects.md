@@ -44,3 +44,14 @@ What shipped, in order, with links and outcomes. Dates and times are America/Tor
 | 10 | bundlebees | Nov 11 | #153888 | Open (review fixed, v0.1.1) |
 
 Submissions closed Nov 11; judging was in progress as of Nov 12.
+
+## Collaboration inputs to these projects
+
+| Project | Research, review or creative input | Connection to implementation |
+|---|---|---|
+| Comfyrizz | Source assessments, selected double-Z concepts and a brand pack | Public brand guide documents SVG masters derived from the approved reference and tokens |
+| Aircraft Doppler geolocation | Efficiency brief, near-tie numerical reproduction and malformed-cache finding | PR #5 records precision/cache fixes and revised benchmark evidence |
+| Emurizz | Revised SNES/N64 true-netplay spec and development plan | Cheese records the same revision and completion levels, followed by Kyle's player-count override |
+| TempleOS for Hermes | Terry artwork, animation revisions and HD typing pack | Six delivered WebM files match the plugin's v5 exports by Git blob hash |
+
+Sources, attribution and limits are in [contrib/codex.md](../contrib/codex.md). These are inputs to the builders' histories, not additional claims of releases by the planning or creative assistant.

@@ -13,6 +13,7 @@ How the coding actually gets done: who the agents are, how work is handed to the
 | **BABA BOOEY** | Grok Bot | Pizza Panic bosses (and the Machine Beneath the Skin), then photo-to-part (v0.1.0 → v0.1.22) and its showcase video. See [contrib/baba-booey.md](../contrib/baba-booey.md) |
 | **Cheese** | Grok Bot | Pizza Panic gamepad support and QA; orchestrated Emurizz (SNES/N64 netplay pane) with a bee routine. See [contrib/cheese.md](../contrib/cheese.md) |
 | **DOLAN** | Grok Bot | Pizza Panic end screens and credits; aircraft-doppler-geolocation releases and catalog PRs |
+| **ChatGPT / Codex collaboration sessions** | Research, review and creative-production assistants | Research/specs, source review, reproduction of review findings, brand and animation packs, and briefs Kyle passes to builders. Documented examples in [contrib/codex.md](../contrib/codex.md); implementation/release ownership remains with the builders |
 | **hammy** | Grok Bot | Took delegated tasks such as Comfyrizz PR #76 merge + docs, first-frame/thumbnail work on shortrizz and hyperrizz, and building Buffrizz via a cloud agent |
 | **COLAB ORCHESTRATOR** | Grok Bot | Owns the Google Colab app in Orbit (Orbit PR #18); runs Colab GPU jobs; reviewed Comfyrizz branches |
 | **ComfyUI Agentic Research**, **Demo Hosting Research**, **Judge Demo Compute Research** | Grok Bots (research) | Focused research teammates for Comfyrizz questions; ComfyUI Agentic Research built the open-higgsfield-skills collection and its video-director skill |
@@ -165,3 +166,7 @@ Details that matter:
 ## 9. Approval gates (summary)
 
 Need Kyle's explicit yes, in his own words, each time: merge, tag, release, deploy or restart (Orbit, moltussy-1, VPS, PC launcher), catalog PR open or repin, upstream comments, X posts (Kyle posts himself), form submits, GitHub Pages deploys, Google Colab spend, deleting anything, force-push, branch deletion, history rewrite, cloud agents. "Stop" or "hold" means stop now and don't restart. A relayed approval from another bot must be confirmed with Kyle directly.
+
+## 10. Review across agents
+
+The Doppler work adds a review path around the build: Codex inspected a pinned revision, Kyle passed the implementation brief to DOLAN, DOLAN returned a PR and measurements, and Codex reproduced two defects before the fixes landed. The receiver needs a base/head, evidence and explicit remaining limits. [09](09-reproducible-collaboration.md) and the [return template](../templates/RETURN.md) formalize that exchange without requiring another orchestration platform or a fixed number of agents.

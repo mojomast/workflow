@@ -2,11 +2,13 @@
 
 How Kyle and his agents plan, build, ship and host software, written down from what actually happened between mid-October and mid-November 2026. It covers the agents roster, the orchestration patterns (executors, Cursor cloud agents, DeepSeek "bees" in Cua sandboxes), the pipelines we built for assets and video, the infrastructure (the box, Orbit, Tailscale, moltussy-1, Google Colab, GitHub Pages), and the rules and lessons that came out of it.
 
-Sources: the MR.INDIA bot's durable memory and shared memory (journal entries from MR.INDIA, Hermes Forge, Hermes Plugin Builder, BABA BOOEY, Cheese, DOLAN and hammy), the saved skills under the box's workflows folder, the scripts and briefs on the box, and `gh` data for the public repos. Teammate bots wrote their own accounts into [`contrib/`](contrib/). Nothing here is invented; where a source was missing, the doc says so.
+Sources: the MR.INDIA bot's durable memory and shared memory (journal entries from MR.INDIA, Hermes Forge, Hermes Plugin Builder, BABA BOOEY, Cheese, DOLAN and hammy), the saved skills under the box's workflows folder, the scripts and briefs on the box, and `gh` data for the public repos. Teammate bots wrote their own accounts into [`contrib/`](contrib/). The [Codex account](contrib/codex.md) adds accessible collaboration history, delivered artifacts and pinned public evidence. Historical accounts distinguish observed, reported and unverified outcomes; the operating guide and teaching exercise below are proposals distilled from those accounts.
 
 Secrets, tokens, tailnet hostnames, private IPs and private URLs are deliberately left out and described generically ("the tailnet-only Orbit URL").
 
 ## The workflow at a glance
+
+To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it.
 
 ```mermaid
 flowchart LR
@@ -41,8 +43,14 @@ Every arrow labelled "Kyle's yes" is a hard gate: merges, tags, releases, deploy
 | [06 Rules and lessons](docs/06-rules-and-lessons.md) | Standing rules, naming, approval gates, pitfalls and fixes |
 | [07 Projects](docs/07-projects.md) | Timeline of what shipped, with repo links and outcomes |
 | [08 Repositories](docs/08-repositories.md) | Every repo we worked on, plus deep build histories of Eye Of Hermes, Temple of Hermes, assetrizz and the aircraft Doppler geolocation plugin |
+| [09 Reproducible collaboration](docs/09-reproducible-collaboration.md) | Proposed common loop, roles, acceptance evidence, corrections and portable handoffs |
+| [10 Teaching the workflow](docs/10-teaching-the-workflow.md) | Practice session, exercises and a reproducibility rubric |
+| [Templates](templates/HANDOFF.md) | [Handoff](templates/HANDOFF.md), [work return](templates/RETURN.md) and [asset pack](templates/ASSET-PACK.md) contracts |
+| [Worked example](examples/doppler-review-handoff.md) | A concrete Doppler review, correction and evidence cycle |
 | [contrib/](contrib/) | First-person accounts from the teammate bots, kept as written (after a secret scan) |
 
 ## Who "we" is
 
 Kyle directs. MR.INDIA is his main Grok Bot and the general orchestrator. Hermes Forge and Hermes Plugin Builder are specialist bots for Hermes plugins. BABA BOOEY, Cheese, DOLAN and hammy are Grok Bots that took specific projects. Hermes (Nous Research's agent) and Pi run as agents inside Orbit. Coding labour mostly runs as DeepSeek Flash "bees" in Cua sandboxes on Kyle's Windows PC, with Cursor cloud agents used for the hardest work until their cost pushed most work to bees. Details in [03](docs/03-development-and-orchestration.md).
+
+ChatGPT/Codex sessions also contribute research, specifications, independent review, creative direction and delivered assets. Kyle transfers those packets to the builders and brings results back for review. The Comfyrizz brand pack, Emurizz spec, Doppler review and Terry animation exports show how that work joins the implementation history; see [contrib/codex.md](contrib/codex.md).
