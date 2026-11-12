@@ -2,6 +2,17 @@
 
 Teach this workflow by completing one small handoff, receiving evidence and improving the result. The learner should be able to explain why a decision was made and reproduce the relevant check without access to the original conversation. This is a proposed exercise, not a record of a completed training session.
 
+## A runnable miniature
+
+Someone cloning this repository can run a complete miniature of the loop without private infrastructure, models or network:
+
+```bash
+python3 reference/run_demo.py
+python3 -m unittest discover -s reference/tests -v
+```
+
+The demo is documented in [reference/README.md](../reference/README.md). It writes a contract and an immutable lease, runs two scripted workers on separate slices of a tiny repo, rejects a deliberately out-of-scope patch, verifies each result in a throwaway checkout, fills [HANDOFF.md](../templates/HANDOFF.md) and [RETURN.md](../templates/RETURN.md), runs the combined test suite, and writes a metrics log. It complements the practice session below; it does not replace it, and it does not authorize any production action. The architecture behind the loop is in [12](12-three-layer-architecture.md).
+
 ## A 60 to 90 minute practice session
 
 Use a disposable checkout and a small task with no paid generation, deployment or publishing. One learner can play both author and receiver in separate passes; a partner makes missing context easier to spot.
