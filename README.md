@@ -1,6 +1,6 @@
 # Build workflow — Kyle Durepos (mojomast)
 
-How Kyle and his agents plan, build, ship and host software, written down from what actually happened between mid-October and mid-November 2026. It covers the agents roster, the orchestration patterns (executors, Cursor cloud agents, DeepSeek "bees" in Cua sandboxes), the pipelines we built for assets and video, the infrastructure (the box, Orbit, Tailscale, moltussy-1, Google Colab, GitHub Pages), and the rules and lessons that came out of it.
+How Kyle and his agents plan, build, ship and host software, written down from what actually happened between mid-October and mid-November 2026. It covers the agents roster, the orchestration patterns (executors, Cursor cloud agents, DeepSeek "bees" in Cua sandboxes), the pipelines we built for assets and video, the infrastructure (the box, Orbit, Tailscale, moltussy-1, the public application VPS with Docker and systemd, Google Colab, GitHub Pages), and the rules and lessons that came out of it.
 
 Sources: the MR.INDIA bot's durable memory and shared memory (journal entries from MR.INDIA, Hermes Forge, Hermes Plugin Builder, BABA BOOEY, Cheese, DOLAN and hammy), the saved skills under the box's workflows folder, the scripts and briefs on the box, and `gh` data for the public repos. Teammate bots wrote their own accounts into [`contrib/`](contrib/). The [Codex account](contrib/codex.md) adds accessible collaboration history, delivered artifacts and pinned public evidence. Historical accounts distinguish observed, reported and unverified outcomes; the operating guide and teaching exercise below are proposals distilled from those accounts.
 
@@ -8,7 +8,7 @@ Secrets, tokens, tailnet hostnames, private IPs and private URLs are deliberatel
 
 ## The workflow at a glance
 
-To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it.
+To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). For a live-host change, use [11 Working together](docs/11-working-together.md) and the [infrastructure deploy template](templates/INFRA-DEPLOY.md). The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it.
 
 ```mermaid
 flowchart LR
@@ -39,13 +39,14 @@ Every arrow labelled "Kyle's yes" is a hard gate: merges, tags, releases, deploy
 | [02 Assets](docs/02-assets.md) | Game art, the assetrizz library, banners, screenshots, video, voice, provenance and originality rules |
 | [03 Development and orchestration](docs/03-development-and-orchestration.md) | Agents roster, executors, cloud agents, DeepSeek bees, Orbit, routines, briefing patterns, review → merge → release → catalog |
 | [04 Pipelines](docs/04-pipelines.md) | Each pipeline used or built: inputs, tools, outputs, where it lives |
-| [05 Infrastructure, hosting, networking](docs/05-infrastructure-hosting-networking.md) | The box, Orbit, Tailscale, Kyle's PC, moltussy-1, the VPS, GitHub Pages, Google Colab; deploy and rollback rules |
+| [05 Infrastructure, hosting, networking](docs/05-infrastructure-hosting-networking.md) | The box, Orbit, Tailscale, Kyle's PC, moltussy-1, the public application VPS (nginx/Docker/systemd), GitHub Pages, Google Colab; deploy and rollback rules |
 | [06 Rules and lessons](docs/06-rules-and-lessons.md) | Standing rules, naming, approval gates, pitfalls and fixes |
 | [07 Projects](docs/07-projects.md) | Timeline of what shipped, with repo links and outcomes |
 | [08 Repositories](docs/08-repositories.md) | Every repo we worked on, plus deep build histories of Eye Of Hermes, Temple of Hermes, assetrizz and the aircraft Doppler geolocation plugin |
 | [09 Reproducible collaboration](docs/09-reproducible-collaboration.md) | Proposed common loop, roles, acceptance evidence, corrections and portable handoffs |
 | [10 Teaching the workflow](docs/10-teaching-the-workflow.md) | Practice session, exercises and a reproducibility rubric |
-| [Templates](templates/HANDOFF.md) | [Handoff](templates/HANDOFF.md), [work return](templates/RETURN.md) and [asset pack](templates/ASSET-PACK.md) contracts |
+| [11 Working together](docs/11-working-together.md) | The live-host operating rhythm: preflight, backups, shared-host etiquette, secrets, verification and reporting |
+| [Templates](templates/HANDOFF.md) | [Handoff](templates/HANDOFF.md), [work return](templates/RETURN.md), [asset pack](templates/ASSET-PACK.md) and [infrastructure deploy](templates/INFRA-DEPLOY.md) contracts |
 | [Worked example](examples/doppler-review-handoff.md) | A concrete Doppler review, correction and evidence cycle |
 | [contrib/](contrib/) | First-person accounts from the teammate bots, kept as written (after a secret scan) |
 

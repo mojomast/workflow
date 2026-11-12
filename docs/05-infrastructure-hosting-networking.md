@@ -11,7 +11,7 @@ flowchart TB
       PC[Kyle's Windows PC<br/>Docker Desktop + Cua<br/>bee launcher]
       M1[moltussy-1<br/>Hermes test host<br/>+ CUA desktop container]
     end
-    VPS[VPS<br/>Temple of Hermes BBS<br/>public sites]
+    VPS[VPS<br/>nginx + Docker + systemd<br/>Temple of Hermes BBS<br/>public sites]
     GH[(GitHub<br/>repos, releases, Pages)]
     GC[Google Colab<br/>GPU runtimes]
     BOX -- tailnet only --> PC
@@ -26,7 +26,7 @@ flowchart TB
 
 A single persistent Linux machine shared by all of Kyle's Grok Bots (same filesystem; each agent has its own desktop). Everything coordinator-side runs here: git checkouts, `orch.py`/`verify.sh`, secret scans, schema measurement, Remotion renders, image post-processing and these docs.
 
-- **No systemd.** Services are kept alive by `~/bin/box-supervisor`, started from a shell hook, and controlled with `~/bin/boxctl status | start | stop | restart <service>`. Managed services: tailscaled, tailscale serve, Hermes gateway, Hermes dashboard, Orbit, and the Grok Bot bridges. `boxctl stop` writes a "disabled" marker so the supervisor won't bring a service back.
+- **No systemd.** Services are kept alive by `~/bin/box-supervisor`, started from a shell hook, and controlled with `~/bin/boxctl status | start | stop | restart <service>`. Managed services: tailscaled, tailscale serve, Hermes gateway, Hermes dashboard, Orbit, and the Grok Bot bridges. `boxctl stop` writes a "disabled" marker so the supervisor won't bring a service back. This rule is specific to the shared box; the public VPS uses systemd (see §7.1).
 - **Hermes on the box** runs gateway and dashboard with `deepseek-v4.1-flash` through OpenCode Go.
 - **Grok Bot plumbing**: a local Sand gateway plus an OpenAI-compatible bridge let Orbit talk to Grok Bots. Kyle's rule: read-only gateway endpoints are fine; mutating calls (create agent, send prompt, interrupt, automations, widget/permission responses) need his explicit permission, and the gateway token is never exposed.
 - **Load and disk.** Heavy work is run under `nice`/`ionice` or sent to bees. Reading large PNGs on the box has timed out and overloaded it. The 128 GB disk filled to 97% twice in November; cleanup (temp folders, caches, old builds, a voice-tool environment) is done only with Kyle's OK for anything beyond throwaway temp files.
@@ -78,6 +78,33 @@ Kyle's Linux host for live Hermes tests, reached by SSH over the tailnet.
 
 Pitfall: the game's `deploy.sh` rsynced from an older local game folder and would have rolled back newer work (and rsync wasn't installed). Check that a deploy script's source path matches the repo before running it.
 
+### 7.1 The public application host in practice
+
+The public VPS is a shared Debian 13 machine with four layers that stay separate:
+
+| Layer | Owns | Rule |
+|---|---|---|
+| nginx | ports 80/443 and the existing sites | Do not add an HTTP vhost for a framed TCP service, and do not reload nginx to apply an app certificate |
+| Docker | application containers, images and volumes | Publish only the app port; keep the previous container and image until the replacement is accepted |
+| systemd | timers and host maintenance | Add one timer per job; leave unrelated timers alone |
+| Certbot | TLS material | Prefer the existing webroot or DNS challenge; isolate each app's renewal config and hooks |
+
+**Ports and firewalls.** Check `ss -ltn` before choosing a port. At the v0.1.3 deploy, 8443, 8444 and 8445 were already bound, so HBBS uses **9443/tcp**. A Docker publish is the only port change for that app; do not open a range or alter another site's rules. Do not assume a host firewall is in front of a published container port: inspect the effective Docker and host rules.
+
+**HBBS/1 reference deployment.** The BBS is a framed TCP/TLS protocol, not HTTP. It terminates TLS itself and must not sit behind an HTTP reverse proxy; if a port ever has to be shared, use a raw TCP/TLS passthrough such as nginx `stream` with `ssl_preread`. The container is named `hbbs`, runs image `hbbs:<short-sha>`, uses `--restart unless-stopped`, publishes `9443:9443/tcp`, mounts the `hbbs-data` volume at `/data`, and mounts `/etc/hbbs/hbbs.env` and `/etc/hbbs/certs` read-only. The wrapper sources the root-only env file, then drops to the image's unprivileged `hbbs` user. This keeps secrets out of `docker inspect`; `--env-file` would copy them into container config.
+
+**TLS.** The certificate for `toh.rizz.click` comes from the existing nginx webroot. Renewal uses a separate Certbot config directory under `/etc/hbbs/acme` with `--no-directory-hooks`, so the host's global nginx reload hook is not triggered by this certificate. A deploy hook copies `fullchain.pem` and `privkey.pem` into `/etc/hbbs/certs` with the container user's group and restarts `hbbs` by name. Recheck that name after any container rename.
+
+**Backups.** Before a deploy, write a timestamped directory under `/var/backups/hbbs/pre-v<version>-<timestamp>/` containing the env file (mode 0600), `docker inspect`, a SQLite `.backup`, the old image tag, and a `quick_check` result. Daily backups use `sqlite3 .backup` rather than a live file copy, retain 14 days, and verify the copy. Keep the old container (`hbbs-prev-v013` for the v0.1.3 upgrade) and old image; do not delete either until Kyle says so.
+
+**Scheduled maintenance.** Use a `Type=oneshot` service plus a timer, with the logic in a root-owned script. stdout and stderr go to journald; `Persistent=true` catches a missed run. Verify with `systemctl list-timers` and one manual start, and leave unrelated timers alone. HBBS uses this for the daily SQLite backup and the twice-daily certificate renewal check.
+
+**Sign-up policy belongs in the app.** v0.1.3 uses `HBBS_SIGNUP_MODE=auto` with `HBBS_AUTO_APPROVE_KINDS=human,agent`. The earlier host-side `/usr/local/sbin/hbbs-autoapprove` timer was disabled when the built-in auto-approval landed. Do not run two approvers.
+
+**Deploy order.** Verify the tag's full SHA and read its README → preflight ports, DNS, init and backup → build locally as `hbbs:<short-sha>` → update only the named env keys → run `python -m hbbs --check` with the new image and same volume → stop and rename the old container → start the new one with the old flags → disable a host-side workaround if the app now provides the feature → verify → report. The reusable checklist is [INFRA-DEPLOY.md](../templates/INFRA-DEPLOY.md); the collaboration rhythm is [11](11-working-together.md).
+
+**Privilege.** The Docker socket is root-equivalent. If a session can reach Docker but not host root, a short-lived helper container with the host filesystem mounted is enough to install the named unit or copy the named backup. Mount read-only where possible, run one command, remove the helper, and treat the action as privileged. Do not use this to bypass an approval gate.
+
 ## 8. Google Colab
 
 GPU (mostly G4) for ComfyUI generation. Rules: ask before any spend; every run has a CU cap; tear the session down and confirm with `colab sessions`; log the spend and the balance; one deliberate retry after a failure, never unattended retries; prefer new test films over reruns of the same film. Budgets recorded included 10 CU (Comfyrizz demo), ≤15 CU then "as much as you want" (meta hero film), 20 CU (open-higgsfield-skills; judge-loop research), and fresh per-rerun caps of 5–8.5 CU.
@@ -96,3 +123,4 @@ GPU (mostly G4) for ComfyUI generation. Rules: ask before any spend; every run h
 4. Restart only what's needed.
 5. Verify the real thing (health endpoint, doctor tool count, a real tool call, the pane actually connected), not just that a server answers.
 6. On failure, roll back to the recorded SHA and verify again.
+7. For a containerized service, verify TLS on the public name, one real protocol frame or user action, and the data before and after; keep the previous container and image until the replacement is accepted.
