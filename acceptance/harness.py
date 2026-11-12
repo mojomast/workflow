@@ -46,6 +46,8 @@ import importlib
 import io
 import json
 import os
+import re
+import types
 import subprocess
 import sys
 import tempfile
@@ -285,6 +287,64 @@ class ScriptedWorkerBackend:
         return {"result": self.result(attempt_id)}
 
 
+class RoutingBackend:
+    """Optional real-backend mode: honest slices go to a real bundlebees
+    adapter, the deliberate violation stays scripted so it is reproducible.
+    Not exercised by the default offline run."""
+
+    def __init__(self, real: Any, scripted: ScriptedWorkerBackend, timeout_s: float) -> None:
+        self.real = real
+        self.scripted = scripted
+        self.timeout_s = timeout_s
+        self.name = f"{getattr(real, 'name', type(real).__name__)}+scripted-violation"
+        self.real_ids: set[str] = set()
+
+    def health(self) -> dict[str, Any]:
+        return self.real.health()
+
+    def projects(self) -> list[dict[str, Any]]:
+        return self.real.projects()
+
+    def attempts(self) -> list[dict[str, Any]]:
+        return self.real.attempts()
+
+    def create(self, brief: dict, *, model: str, kanban_task_id: str | None = None) -> dict:
+        if str(brief.get("objective", "")).startswith("W3:"):
+            return self.scripted.create(brief, model=model, kanban_task_id=kanban_task_id)
+        data = self.real.create(brief, model=model, kanban_task_id=kanban_task_id)
+        self.real_ids.add(str(data.get("attempt_id")))
+        return data
+
+    def result(self, attempt_id: str) -> dict:
+        if attempt_id not in self.real_ids:
+            return self.scripted.result(attempt_id)
+        deadline = time.monotonic() + self.timeout_s
+        while True:
+            data = self.real.result(attempt_id)
+            if data.get("patch") or time.monotonic() > deadline:
+                return data
+            time.sleep(10)
+
+
+def _install_env_secret_scope() -> None:
+    """Host shim for real-adapter mode: Hermes resolves get_secret from the
+    profile; here it reads BUNDLEBEES_LAUNCHER_TOKEN from the environment.
+    The value is never printed or written to the output directory."""
+    agent_mod = types.ModuleType("agent")
+    scope = types.ModuleType("agent.secret_scope")
+    scope.get_secret = lambda name, default=None: os.environ.get(name, default)
+    agent_mod.secret_scope = scope
+    sys.modules.setdefault("agent", agent_mod)
+    sys.modules.setdefault("agent.secret_scope", scope)
+
+
+_CODE_RE = re.compile(
+    r"\b(scope_violation|lease_missing|lease_tampered|base_undeclared|base_mismatch|"
+    r"source_rev_missing|patch_not_at_source_rev|branch_diverged|tests_failed|"
+    r"secret_detected|sandbox_unavailable|patch_failed|not_configured)\b"
+)
+
+
 def _write(work: Path, rel: str, text: str) -> None:
     path = work / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -411,31 +471,37 @@ def run(args: argparse.Namespace) -> int:
     scripted = ScriptedWorkerBackend(repo, work / "workers", SCRIPTS)
     (work / "workers").mkdir(exist_ok=True)
     if adapter == "scripted":
-        client = scripted
+        client: Any = scripted
     else:
         # Optional real backend: bundlebees' own adapter from settings/env.
         # Not exercised by the default offline run.
+        from bundlebees_plugin.adapters import adapter_from_config  # noqa: E402
+
+        _install_env_secret_scope()
         settings.update({
             "adapter": adapter,
             "launcher_url": os.environ.get("ACCEPTANCE_LAUNCHER_URL", ""),
             "allow_private": os.environ.get("ACCEPTANCE_ALLOW_PRIVATE") == "1",
         })
-        client = None
+        real = adapter_from_config(settings)
+        client = RoutingBackend(real, scripted, float(os.environ.get("ACCEPTANCE_RESULT_TIMEOUT", "1800")))
         log.intervention(f"used real adapter {adapter}", "ACCEPTANCE_ADAPTER set by the operator", kind="operator-choice")
     host = AcceptanceHost(settings, state_dir, client)
     plugin.register(host)
     started = "bundlebees" in host.cli_commands and "bundlebees_dispatch" in host.tools
     log.step("start", started, summary=f"plugin registered: {len(host.tools)} tools, sandbox={backend or 'none-unsafe-local'}",
              tools=sorted(host.tools), sandbox=backend or "none-unsafe-local")
-    health = (client or scripted).health()
+    health = client.health()
     log.step("register-worker", bool(health.get("ok")), summary=f"worker backend '{getattr(client, 'name', adapter)}' healthy", backend=getattr(client, "name", adapter))
 
     # 4/5. dispatch in parallel ----------------------------------------------
     dispatch = host.tools["bundlebees_dispatch"]["handler"]
+    model = "scripted-worker" if adapter == "scripted" else os.environ.get("ACCEPTANCE_MODEL", "deepseek-v4.1-flash")
+    project = "toy-shop" if adapter == "scripted" else os.environ.get("ACCEPTANCE_PROJECT", "toy-shop")
 
     def send(task: str) -> dict:
-        brief = dict(BRIEFS[task], source_rev=source_rev, branch=BRANCH, project="toy-shop", run_id=RUN_ID, wave=WAVE)
-        return json.loads(dispatch({"brief": brief, "model": "scripted-worker"}))
+        brief = dict(BRIEFS[task], source_rev=source_rev, branch=BRANCH, project=project, run_id=RUN_ID, wave=WAVE)
+        return json.loads(dispatch({"brief": brief, "model": model}))
 
     with futures.ThreadPoolExecutor(max_workers=3) as pool:
         replies = dict(zip(BRIEFS, pool.map(send, BRIEFS)))
@@ -454,11 +520,14 @@ def run(args: argparse.Namespace) -> int:
         rc, text = host.cli(["verify", attempts[task], "--workdir", str(repo), "--branch", BRANCH, "--state-dir", str(state_dir)])
         record_path = state_dir / "verify-results" / f"{attempts[task]}.json"
         record = json.loads(record_path.read_text()) if record_path.exists() else {}
-        verify[task] = {"rc": rc, "ok": record.get("ok"), "code": record.get("code"), "output_tail": text[-1500:]}
+        (out / f"verify-{task}.log").write_text(text, encoding="utf-8")
+        found = _CODE_RE.search(text)
+        code = record.get("code") or (found.group(1) if found else ("verified" if rc == 0 else None))
+        verify[task] = {"rc": rc, "ok": record.get("ok"), "code": code, "output_tail": text[-1500:]}
     honest_ok = all(verify[t]["rc"] == 0 and verify[t]["ok"] for t in ("W1", "W2"))
     log.step("verify-honest", honest_ok, summary=f"W1 rc={verify['W1']['rc']}, W2 rc={verify['W2']['rc']}")
     w3 = verify["W3"]
-    rejected = w3["rc"] != 0 and "scope_violation" in (w3["output_tail"] + str(w3["code"]))
+    rejected = w3["rc"] != 0 and w3["code"] == "scope_violation" and w3["ok"] is False
     log.step("verify-rejects-violation", rejected, summary=f"W3 rc={w3['rc']} code={w3['code']}")
 
     # 7. integrate ------------------------------------------------------------
@@ -468,6 +537,7 @@ def run(args: argparse.Namespace) -> int:
     wave_path = state_dir / "waves" / f"{WAVE}.json"
     wave = json.loads(wave_path.read_text()) if wave_path.exists() else {}
     accepted = rc == 0 and "accepted: yes" in text and all(revision.attempt_accepted(state_dir, attempts[t]) for t in ("W1", "W2"))
+    (out / "integrate.log").write_text(text, encoding="utf-8")
     log.step("integrate", accepted, summary=f"rc={rc}; wave record {'written' if wave else 'missing'}", output_tail=text[-1500:])
 
     # 8. independent output checks -------------------------------------------
