@@ -115,6 +115,26 @@ class TddTests(unittest.TestCase):
             self.assertEqual(out["exit_code"], 1)
             self.assertFalse(out["timed_out"])
 
+    def test_class_setup_errors_are_attributed_to_the_test_class(self):
+        # Found while recording the workflow repo's own RED: a setUpClass ImportError
+        # was reported as "setUpClass (tests.py::...)" and so matched no test.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tests").mkdir()
+            (root / "tests" / "__init__.py").write_text("")
+            (root / "tests" / "test_s.py").write_text(
+                "import unittest\n\nclass S(unittest.TestCase):\n"
+                "    @classmethod\n    def setUpClass(cls):\n        from os import no_such_name\n"
+                "    def test_a(self):\n        pass\n"
+            )
+            out = self.tdd.run_unittest(root, ["tests/test_s.py"])
+            (case,) = out["cases"]
+            self.assertEqual(case["id"], "tests/test_s.py::S")
+            self.assertEqual(case["stage"], "setup")
+            self.assertEqual(case["error_type"], "ImportError")
+            self.assertTrue(self.tdd.matches(case["id"], "tests/test_s.py::S::test_a"))
+            self.assertEqual(self.tdd.classify(out, ["tests/test_s.py::S::test_a"], ["no_such_name"]), "behavioral_failure")
+
     def test_fingerprints(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
