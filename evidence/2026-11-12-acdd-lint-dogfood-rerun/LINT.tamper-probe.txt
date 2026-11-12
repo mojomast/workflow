@@ -1,0 +1,5 @@
+acdd-lint 0.1.0
+evidence/D2-integration-gate/0004-integration.json: evidence_tampered: record: record signature is missing or invalid; re-record it with the coordinator key
+2 contracts, 8 evidence records, 1 problem
+signatures: checked
+exit=1

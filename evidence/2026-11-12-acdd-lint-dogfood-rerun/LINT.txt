@@ -1,0 +1,4 @@
+acdd-lint 0.1.0
+2 contracts, 8 evidence records, 0 problems
+signatures: checked
+exit=0

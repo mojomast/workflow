@@ -1,0 +1,29 @@
+{
+  "accepted": true,
+  "contract_id": "D2-integration-gate",
+  "contract_sha256": "9f60a91a11368f1cc89292352f6b1e58dbb87edd4ca0dae11ae05647a260b985",
+  "criteria": {
+    "AC-001": {
+      "evidence": "/tmp/dfrun/state/evidence/D2-integration-gate/0004-integration.json",
+      "status": "passed"
+    },
+    "AC-002": {
+      "evidence": "/tmp/dfrun/state/evidence/D2-integration-gate/0004-integration.json",
+      "status": "passed"
+    },
+    "AC-003": {
+      "evidence": "/tmp/dfrun/state/evidence/D2-integration-gate/0004-integration.json",
+      "status": "passed"
+    }
+  },
+  "generated_at": "2026-11-12T22:54:15Z",
+  "mode": "contract",
+  "phases": {
+    "green": "valid",
+    "integration": "valid",
+    "red": "valid"
+  },
+  "report_version": "acceptance_report/1",
+  "signature": "a6ff8eac214746c97cc9d3f13cc723d8237649d956a079801f6e3c916a56f063",
+  "test_first": true
+}

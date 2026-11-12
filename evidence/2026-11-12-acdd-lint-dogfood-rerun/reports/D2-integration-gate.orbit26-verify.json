@@ -1,0 +1,1 @@
+{"report_verified":true,"records":4,"records_verified":4,"accepted":true,"phases":{"red":"valid","green":"valid","integration":"valid"},"criteria":[["AC-001","passed"],["AC-002","passed"],["AC-003","passed"]],"failures":[],"tampered":false}

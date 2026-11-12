@@ -1,0 +1,99 @@
+{
+ "acceptance_criteria": [
+  {
+   "given": "an acdd-lint input",
+   "id": "AC-001",
+   "tests": [
+    "tools/acdd-lint/tests/test_integration_gate.py::IntegrationGate::test_failed_integration_is_reported"
+   ],
+   "then": "integration_failed names its file",
+   "verification": "test",
+   "when": "the only integration record failed"
+  },
+  {
+   "given": "an acdd-lint input",
+   "id": "AC-002",
+   "tests": [
+    "tools/acdd-lint/tests/test_integration_gate.py::IntegrationGate::test_a_later_failure_after_a_pass_is_reported"
+   ],
+   "then": "integration_failed is reported",
+   "verification": "test",
+   "when": "a failure after a pass"
+  },
+  {
+   "given": "an acdd-lint input",
+   "id": "AC-003",
+   "regression": true,
+   "tests": [
+    "tools/acdd-lint/tests/test_integration_gate.py::IntegrationGate::test_passed_integration_is_clean",
+    "tools/acdd-lint/tests/test_integration_gate.py::IntegrationGate::test_a_later_pass_supersedes_an_earlier_failure",
+    "tools/acdd-lint/tests/test_integration_gate.py::IntegrationGate::test_stale_integration_records_do_not_count"
+   ],
+   "then": "no false positives; stale stays evidence_stale",
+   "verification": "test",
+   "when": "passing, superseding and stale records"
+  }
+ ],
+ "assumptions": [
+  "stdlib only"
+ ],
+ "authorization": {
+  "human_gates": [
+   "merge",
+   "tag",
+   "release",
+   "deploy",
+   "publish"
+  ]
+ },
+ "contract_version": "acdd/1",
+ "dependencies": [],
+ "evidence_required": [
+  "red",
+  "green",
+  "integration"
+ ],
+ "id": "D2-integration-gate",
+ "interfaces": [
+  {
+   "change": "modify",
+   "kind": "function",
+   "name": "acdd_lint.evidence.check_history"
+  }
+ ],
+ "outcome": {
+  "observable_behavior": [
+   "failed latest integration reported",
+   "later pass clears it"
+  ],
+  "summary": "check_history reports integration_failed (where names the record file) when the latest current-hash verifier integration record is not passed; a later pass supersedes; stale records are ignored."
+ },
+ "review": {
+  "approved_at": "2026-11-12T22:55:00Z",
+  "approved_by": "coordinator (delegated by Kyle, 4:43 PM approval)",
+  "contract_sha256": "9f60a91a11368f1cc89292352f6b1e58dbb87edd4ca0dae11ae05647a260b985",
+  "status": "approved"
+ },
+ "scope": {
+  "assigned_files": [
+   "tools/acdd-lint/acdd_lint/evidence.py"
+  ],
+  "prohibited": [
+   ".github/*",
+   "tools/acdd-lint/tests/*"
+  ],
+  "test_files": [
+   "tools/acdd-lint/tests/test_integration_gate.py"
+  ]
+ },
+ "source_rev": "4a7cdadf70d039339fa3e3aff13a8e8dfeeb9a83",
+ "tdd": {
+  "applicable": true,
+  "test_first": true
+ },
+ "title": "acdd-lint reports integration_failed when the latest integration did not pass",
+ "verification": {
+  "independent": true,
+  "integration": true
+ }
+}

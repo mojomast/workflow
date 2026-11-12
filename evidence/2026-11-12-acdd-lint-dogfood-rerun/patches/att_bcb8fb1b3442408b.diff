@@ -1,0 +1,49 @@
+diff --git a/tools/acdd-lint/acdd_lint/contracts.py b/tools/acdd-lint/acdd_lint/contracts.py
+index a9afb42..0aac550 100644
+--- a/tools/acdd-lint/acdd_lint/contracts.py
++++ b/tools/acdd-lint/acdd_lint/contracts.py
+@@ -56,6 +56,7 @@ def _check_criteria(contract: Mapping[str, Any]) -> list[Problem]:
+     scope = _mapping(contract.get("scope"))
+     test_files = {_clean_path(str(path)) for path in _list_of(scope.get("test_files")) if isinstance(path, str)}
+     seen: set[str] = set()
++    referenced_files: set[str] = set()
+ 
+     for index, criterion in enumerate(criteria):
+         where = f"acceptance_criteria[{index}]"
+@@ -88,6 +89,20 @@ def _check_criteria(contract: Mapping[str, Any]) -> list[Problem]:
+         else:
+             seen.add(ac_id)
+ 
++        refs = [test for test in _list_of(criterion.get("tests")) if isinstance(test, str)]
++        for test_id in refs:
++            referenced_files.add(_test_file(test_id))
++            if "::" not in test_id:
++                continue
++            if any(not segment.strip() or segment != segment.strip() for segment in test_id.split("::")):
++                problems.append(
++                    _problem(
++                        "test_ref_malformed",
++                        where,
++                        f"test ref {test_id!r} has an empty or padded segment; refs look like 'file::Class::test' or 'file::test', so remove the extra '::' and surrounding whitespace",
++                    )
++                )
++
+         if criterion.get("verification") != "test":
+             continue
+ 
+@@ -110,6 +125,15 @@ def _check_criteria(contract: Mapping[str, Any]) -> list[Problem]:
+                         f"test {test_id!r} is not in scope.test_files; add its file to scope.test_files or use an approved test",
+                     )
+                 )
++    for test_file in sorted(test_files):
++        if test_file not in referenced_files:
++            problems.append(
++                _problem(
++                    "test_file_unreferenced",
++                    "scope.test_files",
++                    f"approved test file {test_file!r} is not referenced by any criterion; reference it from a criterion or drop it from scope.test_files",
++                )
++            )
+     return problems
+ 
+ 

@@ -1,0 +1,38 @@
+diff --git a/tools/acdd-lint/acdd_lint/evidence.py b/tools/acdd-lint/acdd_lint/evidence.py
+index f53f647..1045a00 100644
+--- a/tools/acdd-lint/acdd_lint/evidence.py
++++ b/tools/acdd-lint/acdd_lint/evidence.py
+@@ -183,6 +183,7 @@ def check_history(
+     require_test_first = _test_first(contract)
+     problems: list[Problem] = list(order_problems)
+     last_valid_red: Mapping[str, Any] | None = None
++    latest_integration: tuple[str, Mapping[str, Any]] | None = None
+ 
+     valid_reds: list[tuple[str, Mapping[str, Any]]] = []
+     if not sequenced:
+@@ -214,6 +215,9 @@ def check_history(
+             continue
+ 
+         role = _role(record)
++        if _phase(record) == "integration" and role == "verifier":
++            latest_integration = (filename, record)
++
+         if _phase(record) == "red" and role in _AUTHORITY_ROLES:
+             if record.get("classification") != "behavioral_failure":
+                 classification = record.get("classification")
+@@ -289,4 +293,15 @@ def check_history(
+                     )
+                 )
+ 
++    if latest_integration is not None:
++        filename, record = latest_integration
++        if record.get("classification") != "passed":
++            problems.append(
++                _problem(
++                    "integration_failed",
++                    filename,
++                    "the latest integration did not pass, so the contract is not accepted; re-run integration against the frozen contract and record a passing integration",
++                )
++            )
++
+     return problems

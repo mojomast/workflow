@@ -1,0 +1,98 @@
+{
+ "acceptance_criteria": [
+  {
+   "given": "an acdd-lint input",
+   "id": "AC-001",
+   "tests": [
+    "tools/acdd-lint/tests/test_test_refs.py::TestRefs::test_empty_or_padded_segments_are_malformed"
+   ],
+   "then": "test_ref_malformed is reported",
+   "verification": "test",
+   "when": "a criterion names a ref with an empty or padded segment"
+  },
+  {
+   "given": "an acdd-lint input",
+   "id": "AC-002",
+   "tests": [
+    "tools/acdd-lint/tests/test_test_refs.py::TestRefs::test_an_approved_test_file_no_criterion_names_is_reported"
+   ],
+   "then": "test_file_unreferenced is reported once",
+   "verification": "test",
+   "when": "an approved test file no criterion names"
+  },
+  {
+   "given": "an acdd-lint input",
+   "id": "AC-003",
+   "regression": true,
+   "tests": [
+    "tools/acdd-lint/tests/test_test_refs.py::TestRefs::test_node_ids_and_class_qualified_ids_are_clean",
+    "tools/acdd-lint/tests/test_test_refs.py::TestRefs::test_a_path_only_reference_counts_as_referencing_its_file"
+   ],
+   "then": "no false positives",
+   "verification": "test",
+   "when": "well-formed and path-only refs"
+  }
+ ],
+ "assumptions": [
+  "stdlib only"
+ ],
+ "authorization": {
+  "human_gates": [
+   "merge",
+   "tag",
+   "release",
+   "deploy",
+   "publish"
+  ]
+ },
+ "contract_version": "acdd/1",
+ "dependencies": [],
+ "evidence_required": [
+  "red",
+  "green",
+  "integration"
+ ],
+ "id": "D1-test-refs",
+ "interfaces": [
+  {
+   "change": "modify",
+   "kind": "function",
+   "name": "acdd_lint.contracts.check_contract"
+  }
+ ],
+ "outcome": {
+  "observable_behavior": [
+   "malformed refs reported",
+   "unreferenced approved files reported"
+  ],
+  "summary": "check_contract reports test_ref_malformed (empty/whitespace :: segments; message names file::Class::test) and test_file_unreferenced (an approved test file no criterion names), each with a fix."
+ },
+ "review": {
+  "approved_at": "2026-11-12T22:55:00Z",
+  "approved_by": "coordinator (delegated by Kyle, 4:43 PM approval)",
+  "contract_sha256": "8e6112c9a59b6345668fd49c5c31fd579fafc4432fb0c75fba25e0a4f4430652",
+  "status": "approved"
+ },
+ "scope": {
+  "assigned_files": [
+   "tools/acdd-lint/acdd_lint/contracts.py"
+  ],
+  "prohibited": [
+   ".github/*",
+   "tools/acdd-lint/tests/*"
+  ],
+  "test_files": [
+   "tools/acdd-lint/tests/test_test_refs.py"
+  ]
+ },
+ "source_rev": "4a7cdadf70d039339fa3e3aff13a8e8dfeeb9a83",
+ "tdd": {
+  "applicable": true,
+  "test_first": true
+ },
+ "title": "acdd-lint flags malformed test refs and unreferenced approved test files",
+ "verification": {
+  "independent": true,
+  "integration": true
+ }
+}

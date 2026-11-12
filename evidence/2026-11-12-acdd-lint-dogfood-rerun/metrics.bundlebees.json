@@ -1,0 +1,39 @@
+[
+  {
+    "accepted_changes": 2,
+    "attempts_dispatched": 0,
+    "attempts_verified": 3,
+    "cost_per_accepted": null,
+    "cost_usd_total": null,
+    "dispatch_events": 0,
+    "dispatch_events_without_attempt_id": 0,
+    "environmental_failures": 0,
+    "failed_worker_recoveries": 0,
+    "first_pass": {
+      "denominator": 3,
+      "excluded": {},
+      "passed": 2,
+      "rule": "first verify with a verdict per attempt passed; attempts whose verifies were all non-verdicts (waiting, launcher or lease problems) are excluded and listed"
+    },
+    "first_pass_rate": 0.6666666666666666,
+    "human_interventions": 0,
+    "legacy_unclassified_failures": null,
+    "plan_to_accepted_s": {
+      "max": null,
+      "median": null
+    },
+    "pre_existing_failures": 0,
+    "regression_tests": [],
+    "regressions_found": 0,
+    "run_id": "default",
+    "tokens_per_accepted": null,
+    "tokens_total": null,
+    "usage": {
+      "attempts_with_tokens": 0,
+      "attempts_without_tokens": 3,
+      "source": "unavailable"
+    },
+    "waves_accepted": 1,
+    "waves_rejected": 0
+  }
+]
