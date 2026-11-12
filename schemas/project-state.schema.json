@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/project-state.schema.json",
+  "title": "Project state (workflow.project-state/v1)",
+  "description": "Source of truth for whether a project is active, parked, or archived. Lives at .workflow/project-state.json in the project's primary repository. Orbit, the board, hyvv, and bundlebees all read this file. Do not put secrets, keys, tokens, private URLs, IP addresses, or hostnames in this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "project",
+    "state",
+    "changed_at",
+    "changed_by",
+    "reason",
+    "history"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workflow.project-state/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Stable project id. Must match the `project` join key used by agent.lifecycle/v1 (workflow pull request #8) when that key is present."
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Human-facing project name. Already-scrubbed; not a hostname or URL."
+    },
+    "state": {
+      "enum": [
+        "active",
+        "parked",
+        "archived"
+      ]
+    },
+    "changed_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "description": "UTC timestamp in RFC 3339 form with second precision."
+    },
+    "changed_by": {
+      "type": "string",
+      "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Who made the change, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Already-scrubbed free text. Must not contain secrets, keys, tokens, environment-file contents, patches, prompts, private URLs, IP addresses, or hostnames."
+    },
+    "snapshot_path": {
+      "type": "string",
+      "pattern": "^(?![.]{2}(/|$))(?!/)[A-Za-z0-9._][A-Za-z0-9._/-]{0,243}$",
+      "description": "Repo-relative path of the resume snapshot (usually PARKED.md) when state is parked or archived. Required for those states; omit or null when active."
+    },
+    "primary_repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,38}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+      "description": "Canonical owner/name of the repository that holds this file."
+    },
+    "history": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Append-only list of state transitions, oldest first. The last entry must match the top-level state, changed_at, changed_by, and reason.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "changed_at",
+          "changed_by",
+          "reason"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "active",
+              "parked",
+              "archived"
+            ]
+          },
+          "changed_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+            "description": "UTC timestamp in RFC 3339 form with second precision."
+          },
+          "changed_by": {
+            "type": "string",
+            "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "Who made the change, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Already-scrubbed free text. Must not contain secrets, keys, tokens, environment-file contents, patches, prompts, private URLs, IP addresses, or hostnames."
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "parked",
+              "archived"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "snapshot_path"
+        ]
+      }
+    }
+  ]
+}

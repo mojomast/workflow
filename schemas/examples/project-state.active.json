@@ -1,0 +1,19 @@
+{
+  "schema": "workflow.project-state/v1",
+  "schema_version": "v1",
+  "project": "example-project",
+  "display_name": "Example Project",
+  "state": "active",
+  "changed_at": "2026-11-01T15:00:00Z",
+  "changed_by": "human:owner",
+  "reason": "Project opened.",
+  "primary_repo": "example-org/example-project",
+  "history": [
+    {
+      "state": "active",
+      "changed_at": "2026-11-01T15:00:00Z",
+      "changed_by": "human:owner",
+      "reason": "Project opened."
+    }
+  ]
+}
