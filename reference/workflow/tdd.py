@@ -172,6 +172,12 @@ def _canonical(record: Mapping[str, Any]) -> bytes:
     return json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
 
 
+def record_digest(record: Mapping[str, Any]) -> str:
+    """sha256 of a whole record (signature included) for the ``prev_sha256`` chain."""
+    body = {k: v for k, v in record.items() if not str(k).startswith("_")}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()
+
+
 def sign_record(record: Mapping[str, Any], key: bytes) -> dict:
     """Return a copy of *record* with an HMAC-SHA256 ``signature`` (``_path`` is not signed)."""
     return {**record, "signature": hmac.new(key, _canonical(record), hashlib.sha256).hexdigest()}
