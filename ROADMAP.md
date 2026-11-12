@@ -76,10 +76,15 @@ Later phases, each needing its own yes:
    authorized bundlebees P1 metrics fix; do not fork it. **Planned.**
 4. **Phase 4 — Resource snapshots and alerts.** DeepSeek and both OpenCode
    Go balances (saved keys, never logged), Google Colab compute units, Grok
-   Bot usage, disk, CPU, and RAM. Alerts go to the Orbit dashboard and a
-   board note only (no chat, no Discord). At the shared cap of 12, warn
-   now; pausing non-priority bees is a later phase with its own yes.
-   Unknown values stay unavailable, never silent zero. **Planned.**
+   Bot usage, disk, CPU, and RAM. Default thresholds (`alert.thresholds/v1`
+   in this pull request) are: DeepSeek below $5, a Go key at 80% of monthly
+   allowance, 5 Go 429s in a row, a bee stuck 30 minutes, a blocker older
+   than 4 hours, disk below 10% free, bees at 12 of 12, and daily model
+   spend above $10 (this supersedes a $5/day draft). Alerts go to the Orbit
+   dashboard and a board note only (no chat, no Discord). At the shared cap
+   of 12, warn only; pausing non-priority bees is a later phase with its
+   own yes. Operators may override the defaults. Unknown values stay
+   unavailable, never silent zero. Collectors themselves remain **planned**.
 5. **Phase 5 — Git, pull request, and CI snapshots** for an allowlisted
    set of repositories. **Planned.**
 6. **Phase 6 — A new, read-only Orbit Observability view**, dark mode,

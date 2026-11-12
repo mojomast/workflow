@@ -29,6 +29,16 @@ Pull request numbers and SHAs were checked against GitHub on 12 November
   Schemas, examples, and tests for lifecycle, classified-failure, VCS, board
   and blocker, and resource snapshot records. The Hermes Forge usage record
   is referenced, not redefined. See `observability/README.md`.
+- **Default alert thresholds** (`alert.thresholds/v1` in
+  `observability/alerts.defaults.json`, set 4:34 PM). Warn when DeepSeek
+  balance is below $5, an OpenCode Go key has used 80% of its monthly
+  allowance, 5 Go 429 errors occur in a row, a bee is stuck with no
+  progress for 30 minutes, a board blocker is older than 4 hours, free
+  disk is below 10%, bees are at the shared cap of 12, or daily model
+  spend is above $10. Destinations are the Orbit dashboard and a board
+  note only; at the cap, warn only. The $10/day spend threshold
+  supersedes a Hermes Forge draft of $5/day. Operators override
+  individual keys with an `alert.thresholds.override/v1` file.
 
 Earlier documentation pull requests on this repository, already on `main`,
 are #1 (infrastructure and working-together), #2 (reference workflow and

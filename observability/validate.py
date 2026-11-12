@@ -2,7 +2,7 @@
 
 This is a deliberately small subset of draft 2020-12: type, const, enum,
 properties, required, additionalProperties, items, min/max items, min/max
-length, pattern, minimum, oneOf, anyOf, allOf, if/then, and $ref to local
+length, pattern, minimum, maximum, oneOf, anyOf, allOf, if/then, and $ref to local
 files or in-document $defs. It exists so these contracts can be tested
 without adding a dependency or editing CI.
 """
@@ -131,6 +131,9 @@ class Validator:
         if "minimum" in schema and isinstance(instance, (int, float)) and not isinstance(instance, bool):
             if instance < schema["minimum"]:
                 raise SchemaError(f"{path}: below minimum")
+        if "maximum" in schema and isinstance(instance, (int, float)) and not isinstance(instance, bool):
+            if instance > schema["maximum"]:
+                raise SchemaError(f"{path}: above maximum")
         if "oneOf" in schema:
             ok = 0
             errors = []
@@ -180,7 +183,7 @@ class Validator:
                     self._check(value, additional, base, f"{path}.{key}", doc)
             if "minProperties" in schema and len(instance) < schema["minProperties"]:
                 raise SchemaError(f"{path}: fewer than minProperties")
-        if isinstance(instance, list) and ("items" in schema or "minItems" in schema or "maxItems" in schema):
+        if isinstance(instance, list) and ("items" in schema or "minItems" in schema or "maxItems" in schema or "uniqueItems" in schema):
             if "minItems" in schema and len(instance) < schema["minItems"]:
                 raise SchemaError(f"{path}: fewer than minItems")
             if "maxItems" in schema and len(instance) > schema["maxItems"]:
@@ -188,6 +191,10 @@ class Validator:
             if "items" in schema:
                 for index, item in enumerate(instance):
                     self._check(item, schema["items"], base, f"{path}[{index}]", doc)
+            if schema.get("uniqueItems"):
+                for index, item in enumerate(instance):
+                    if item in instance[:index]:
+                        raise SchemaError(f"{path}: duplicate item at index {index}")
 
 
 def validate_instance(instance: Any, schema_name: str, schema_dir: Path | None = None) -> None:

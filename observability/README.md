@@ -19,6 +19,39 @@ JSON Schema is draft 2020-12. Shared join-key and timestamp definitions live in
 `schemas/common.schema.json`. Examples that validate against these schemas are
 in `examples/`.
 
+## Alert thresholds
+
+Versioned defaults live in `alerts.defaults.json` (`schema`: `alert.thresholds/v1`).
+They were set on 12 November 2026, 4:34 PM America/Toronto:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `deepseek_balance_below_usd` | `5` | Warn when a DeepSeek balance is below $5 |
+| `go_allowance_pct_used` | `80` | Warn when an OpenCode Go key has used 80% of its monthly allowance |
+| `go_429_streak` | `5` | Warn after 5 Go HTTP 429 errors in a row |
+| `stuck_bee_no_progress_s` | `1800` | Warn when a bee is stuck with no progress for 30 minutes |
+| `blocker_age_s` | `14400` | Warn when a board blocker is older than 4 hours |
+| `disk_free_pct` | `10` | Warn when free disk space is below 10% |
+| `bees_in_flight_warn_at` | `12` | Warn when bees in flight reach the shared cap of 12 |
+| `daily_model_spend_above_usd` | `10` | Warn when daily model spend is above $10 |
+
+Destinations are the Orbit dashboard and a board note only. At the bee cap,
+the v1 action is `warn` (not pause). The $10/day spend threshold supersedes
+a Hermes Forge draft of $5/day.
+
+Operators override individual keys with an `alert.thresholds.override/v1`
+document (see `examples/alerts.override.json`). Omitted keys keep the
+defaults. Load and merge with the stdlib helper:
+
+```python
+from observability.alerts import load_thresholds
+thresholds = load_thresholds("/path/to/alerts.override.json")  # or None for defaults
+```
+
+Schemas: `schemas/alert-thresholds.schema.json` and
+`schemas/alert-thresholds-override.schema.json`. Collectors and the dashboard
+are still later phases; this is the contract only.
+
 ## Hermes Forge usage record (not defined here)
 
 Token, cost, route totals, 429 and retry counts, Go allowance, and list-price

@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from validate import SchemaError, Validator
+from alerts import DEFAULTS_PATH, load_thresholds
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -54,6 +55,8 @@ class ExamplesValidateTests(unittest.TestCase):
         self.assertEqual(
             names,
             [
+                "alert-thresholds-override.schema.json",
+                "alert-thresholds.schema.json",
                 "board-snapshot.schema.json",
                 "common.schema.json",
                 "failure.schema.json",
@@ -227,19 +230,19 @@ class PrivacyTests(unittest.TestCase):
             "https://json-schema.org",
             "https://github.com/mojomast/workflow/observability/schemas/",
         )
+        paths = [DEFAULTS_PATH]
         for folder in (EXAMPLES, SCHEMAS):
-            for path in folder.glob("*"):
-                if not path.is_file():
-                    continue
-                raw = path.read_text(encoding="utf-8")
-                lowered = raw.lower()
-                for token in FORBIDDEN:
-                    self.assertNotIn(token.lower(), lowered, f"{path.name} contains {token!r}")
-                remainder = raw
-                for url in allowed_urls:
-                    remainder = remainder.replace(url, "")
-                self.assertNotIn("://", remainder, f"{path.name} has an unexpected URL")
-                self.assertNotRegex(raw, r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+            paths.extend(path for path in folder.glob("*") if path.is_file())
+        for path in paths:
+            raw = path.read_text(encoding="utf-8")
+            lowered = raw.lower()
+            for token in FORBIDDEN:
+                self.assertNotIn(token.lower(), lowered, f"{path.name} contains {token!r}")
+            remainder = raw
+            for url in allowed_urls:
+                remainder = remainder.replace(url, "")
+            self.assertNotIn("://", remainder, f"{path.name} has an unexpected URL")
+            self.assertNotRegex(raw, r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 class BoardAndVcsTests(unittest.TestCase):
@@ -263,6 +266,73 @@ class BoardAndVcsTests(unittest.TestCase):
         del doc["group"]
         with self.assertRaises(SchemaError):
             self.validator.validate_file(doc, "board-snapshot.schema.json")
+
+
+class AlertThresholdTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.validator = Validator(SCHEMAS)
+
+    def test_defaults_match_kyle_thresholds(self) -> None:
+        doc = load_thresholds()
+        self.validator.validate_file(doc, "alert-thresholds.schema.json")
+        self.assertEqual(doc["schema"], "alert.thresholds/v1")
+        self.assertEqual(doc["schema_version"], "v1")
+        self.assertEqual(doc["destinations"], ["orbit_dashboard", "board_note"])
+        self.assertEqual(doc["actions"]["at_bee_cap"], "warn")
+        th = doc["thresholds"]
+        self.assertEqual(th["deepseek_balance_below_usd"], 5)
+        self.assertEqual(th["go_allowance_pct_used"], 80)
+        self.assertEqual(th["go_429_streak"], 5)
+        self.assertEqual(th["stuck_bee_no_progress_s"], 1800)
+        self.assertEqual(th["blocker_age_s"], 14400)
+        self.assertEqual(th["disk_free_pct"], 10)
+        self.assertEqual(th["bees_in_flight_warn_at"], 12)
+        self.assertEqual(th["daily_model_spend_above_usd"], 10)
+
+    def test_override_merges_on_top_of_defaults(self) -> None:
+        merged = load_thresholds(EXAMPLES / "alerts.override.json")
+        self.validator.validate_file(merged, "alert-thresholds.schema.json")
+        self.assertEqual(merged["schema"], "alert.thresholds/v1")
+        self.assertEqual(merged["thresholds"]["daily_model_spend_above_usd"], 15)
+        self.assertEqual(merged["thresholds"]["deepseek_balance_below_usd"], 5)
+        self.assertEqual(merged["destinations"], ["orbit_dashboard", "board_note"])
+        self.assertEqual(merged["actions"]["at_bee_cap"], "warn")
+
+    def test_defaults_are_not_mutated_by_an_override(self) -> None:
+        load_thresholds(EXAMPLES / "alerts.override.json")
+        again = load_thresholds()
+        self.assertEqual(again["thresholds"]["daily_model_spend_above_usd"], 10)
+
+    def test_pause_at_bee_cap_is_rejected_in_v1(self) -> None:
+        doc = load_thresholds()
+        doc["actions"]["at_bee_cap"] = "pause"
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(doc, "alert-thresholds.schema.json")
+
+    def test_chat_destination_is_rejected(self) -> None:
+        doc = load_thresholds()
+        doc["destinations"] = ["orbit_dashboard", "chat"]
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(doc, "alert-thresholds.schema.json")
+
+    def test_percent_above_100_is_rejected(self) -> None:
+        doc = load_thresholds()
+        doc["thresholds"]["disk_free_pct"] = 101
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(doc, "alert-thresholds.schema.json")
+
+    def test_empty_override_is_rejected(self) -> None:
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(
+                {"schema": "alert.thresholds.override/v1", "schema_version": "v1"},
+                "alert-thresholds-override.schema.json",
+            )
+
+    def test_override_example_validates(self) -> None:
+        self.validator.validate_file(
+            _load_example("alerts.override.json"),
+            "alert-thresholds-override.schema.json",
+        )
 
 
 if __name__ == "__main__":
