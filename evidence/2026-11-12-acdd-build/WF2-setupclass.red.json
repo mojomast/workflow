@@ -1,7 +1,7 @@
 {
   "evidence_version": "tdd-evidence/1",
   "contract_id": "WF2-setupclass",
-  "contract_sha256": "08dcc08ae43070af72b0552b5ea03c50501b9f5e36f7ace9541592722d3dfd91",
+  "contract_sha256": "e16079b76b5b0a79170e80b3515160750845b91f1710ddb195f9c2615d688333",
   "phase": "red",
   "revision": "0f8c30667f2e5d6d0e66f99f6dace63200ed6ad6",
   "base_rev": "0f8c30667f2e5d6d0e66f99f6dace63200ed6ad6",
@@ -21,7 +21,8 @@
   ],
   "environment": {
     "python": "3.13.5",
-    "isolation": "throwaway clone, minimal env, no sandbox (teaching)"
+    "sandbox": "bwrap",
+    "isolation": "throwaway clone, minimal env, bwrap: no network, private /tmp, home hidden"
   },
   "result": {
     "exit_code": 1,
@@ -304,7 +305,8 @@
         "error_type": "",
         "message": ""
       }
-    ]
+    ],
+    "sandbox": "none"
   },
   "classification": "behavioral_failure",
   "criteria": {
@@ -316,5 +318,5 @@
     "name": "coordinator re-run on the box"
   },
   "test_first": true,
-  "at": "2026-11-12T18:23:10Z"
+  "at": "2026-11-12T21:59:53Z"
 }

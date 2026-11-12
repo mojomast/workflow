@@ -1,7 +1,7 @@
 {
   "evidence_version": "tdd-evidence/1",
   "contract_id": "WF1-reference",
-  "contract_sha256": "e976028da7cdf4e6192a6061e22a70a4d7e85e24182de9bf8426cf2fe772f7e8",
+  "contract_sha256": "b9e6894769d3de3c7817c99744b76e3e1e74e64f9e8b20c35f9c517bcc481c29",
   "phase": "red",
   "revision": "8045df0008cfcba949600755f4184ac5eb31163f",
   "base_rev": "8045df0008cfcba949600755f4184ac5eb31163f",
@@ -21,7 +21,8 @@
   ],
   "environment": {
     "python": "3.13.5",
-    "isolation": "throwaway clone, minimal env, no sandbox (teaching)"
+    "sandbox": "bwrap",
+    "isolation": "throwaway clone, minimal env, bwrap: no network, private /tmp, home hidden"
   },
   "result": {
     "exit_code": 1,
@@ -36,98 +37,98 @@
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_acdd.py::AcddContractTests::test_example_contract_in_templates_is_valid",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_acdd.py::AcddContractTests::test_hash_freeze_and_tamper_detection",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_acdd.py::AcddContractTests::test_helpers",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_acdd.py::AcddContractTests::test_schema_violations_name_the_field",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_acdd.py::AcddContractTests::test_valid_contract_round_trips_without_mutation",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_acdd.py::AcddContractTests::test_validator_covers_every_schema_keyword",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_tdd.py::TddTests::test_classification_table",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_tdd.py::TddTests::test_criteria_status_and_report_never_show_unrun_as_passed",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_tdd.py::TddTests::test_fingerprints",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_tdd.py::TddTests::test_records_validate_against_the_shared_schema",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_tdd.py::TddTests::test_red_green_refactor_rules",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_tdd.py::TddTests::test_unittest_runner_reports_cases_with_error_types",
         "outcome": "error",
         "stage": "call",
         "error_type": "ImportError",
-        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_lifecycle.py::LifecycleTests",
         "outcome": "error",
         "stage": "setup",
         "error_type": "ImportError",
-        "message": "cannot import name 'lifecycle' from 'workflow' (/tmp/tmp7rkfx5no/wt/reference/workflow/__init__.py)"
+        "message": "cannot import name 'lifecycle' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
       },
       {
         "id": "tests/test_reference.py::ContractTests::test_brief_requires_source_rev_assigned_files_and_acceptance",
@@ -234,7 +235,8 @@
         "error_type": "",
         "message": ""
       }
-    ]
+    ],
+    "sandbox": "none"
   },
   "classification": "behavioral_failure",
   "criteria": {
@@ -248,5 +250,5 @@
     "name": "coordinator re-run on the box"
   },
   "test_first": true,
-  "at": "2026-11-12T18:23:06Z"
+  "at": "2026-11-12T21:59:48Z"
 }
