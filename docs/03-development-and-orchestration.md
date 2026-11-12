@@ -2,6 +2,8 @@
 
 How the coding actually gets done: who the agents are, how work is handed to them, how results are verified, and how a change travels from a feature branch to a merged Nous catalog entry.
 
+The three layers behind this chapter — the protocol, the execution system and the coordination interface — are spelled out in [12](12-three-layer-architecture.md). A disposable version of the leased-worker loop, with no private infrastructure, is in the [reference demo](../reference/README.md).
+
 ## 1. Agents roster
 
 | Agent | Kind | Role in practice |
@@ -94,11 +96,11 @@ flowchart LR
 - Sandboxes only get a git archive, so host fixture paths are invisible to bees (Cheese).
 - On Oct 22 Kyle's PC ran low on memory and the launcher died (Docker backend leaked to 26 GB plus a local llama-server); restarting Docker Desktop is the fix.
 
-The whole setup was packaged twice: as an agent-agnostic **bees setup prompt** Kyle shared with a friend on Nov 11 (phases 0–3 plus hard rules), and as the Hermes plugin **[bundlebees](https://github.com/mojomast/bundlebees)** (four tools, worker launcher, briefs, leases, verify).
+The whole setup was packaged twice: as an agent-agnostic **bees setup prompt** Kyle shared with a friend on Nov 11 (phases 0–3 plus hard rules), and as the Hermes plugin **[bundlebees](https://github.com/mojomast/bundlebees)** (four tools, worker launcher, briefs, leases, verify). Further verifier hardening (a disposable unprivileged environment, exact `source_rev` checks, a mandatory suite on the combined branch, and production metrics) is in progress in a separate bundlebees pull request and is not claimed as done here. The [reference demo](../reference/README.md) shows the same contracts in miniature, offline.
 
 ## 5. Orbit
 
-[Orbit Desktop](https://github.com/mojomast/orbitdesktop) is Kyle's agent-shaped browser desktop powered by Hermes, and it doubled as the coordination layer: the Grok Bots app (chat with Grok Bots, Hermes and Pi, group chats with @mentions, live ⚡ Activity), the Collab app and collaboration board (`~/bin/collab-board` CLI), the Google Colab app, and the local-workers adapter that talks to the PC launcher. A separate public repo, [orbit-control-plane](https://github.com/mojomast/orbit-control-plane), is an observability dashboard for boards, workers and chat. Deploy rules are in [05](05-infrastructure-hosting-networking.md).
+[Orbit Desktop](https://github.com/mojomast/orbitdesktop) is Kyle's agent-shaped browser desktop powered by Hermes, and it doubled as the coordination interface in the [three-layer split](12-three-layer-architecture.md): the Grok Bots app (chat with Grok Bots, Hermes and Pi, group chats with @mentions, live ⚡ Activity), the Collab app and collaboration board (`~/bin/collab-board` CLI), the Google Colab app, and the local-workers adapter that talks to the PC launcher. A separate public repo, [orbit-control-plane](https://github.com/mojomast/orbit-control-plane), is an observability dashboard for boards, workers and chat. Deploy rules are in [05](05-infrastructure-hosting-networking.md).
 
 ## 6. Routines
 

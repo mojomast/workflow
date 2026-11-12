@@ -1,6 +1,6 @@
 # 05 — Infrastructure, hosting, networking
 
-Machines, services and how things get deployed. Hostnames, IPs, ports bound to private networks, tokens and private URLs are left out on purpose.
+Machines, services and how things get deployed. Hostnames, IPs, ports bound to private networks, tokens and private URLs are left out on purpose. Public history stays at a high level in this chapter; current live-host ports, container names, filesystem paths and certificate layout belong in the authorized host runbook and in [INFRA-DEPLOY.md](../templates/INFRA-DEPLOY.md), not here.
 
 ## 1. Map
 
@@ -78,32 +78,34 @@ Kyle's Linux host for live Hermes tests, reached by SSH over the tailnet.
 
 Pitfall: the game's `deploy.sh` rsynced from an older local game folder and would have rolled back newer work (and rsync wasn't installed). Check that a deploy script's source path matches the repo before running it.
 
-### 7.1 The public application host in practice
+### 7.1 Public application host — pattern and history
 
-The public VPS is a shared Debian 13 machine with four layers that stay separate:
+The public VPS is a shared machine that already hosts more than one site. The operational pattern, independent of any one service:
 
 | Layer | Owns | Rule |
 |---|---|---|
-| nginx | ports 80/443 and the existing sites | Do not add an HTTP vhost for a framed TCP service, and do not reload nginx to apply an app certificate |
-| Docker | application containers, images and volumes | Publish only the app port; keep the previous container and image until the replacement is accepted |
-| systemd | timers and host maintenance | Add one timer per job; leave unrelated timers alone |
-| Certbot | TLS material | Prefer the existing webroot or DNS challenge; isolate each app's renewal config and hooks |
+| Edge proxy (here, nginx) | ports 80/443 and the existing HTTP sites | Do not add an HTTP vhost for a framed TCP service, and do not reload the shared proxy just to apply an app certificate |
+| Containers | application processes, images and volumes | Publish only the app's port; keep the previous container and image until the replacement is accepted |
+| Host supervisor (here, systemd) | timers and host maintenance | Add one unit or timer per job; leave unrelated ones alone |
+| Certificate issuance | TLS material | Prefer an existing webroot or DNS challenge; isolate each app's renewal config and hooks from the host's global reload hook |
 
-**Ports and firewalls.** Check `ss -ltn` before choosing a port. At the v0.1.3 deploy, 8443, 8444 and 8445 were already bound, so HBBS uses **9443/tcp**. A Docker publish is the only port change for that app; do not open a range or alter another site's rules. Do not assume a host firewall is in front of a published container port: inspect the effective Docker and host rules.
+**Ports.** Check listening sockets before choosing a port. A previous deploy found the first candidate ports already bound, so the BBS had to use a different host port. A container publish should be the only port change for that app; do not open a range or alter another site's rules. Do not assume a host firewall sits in front of a published container port: inspect the effective container and host rules.
 
-**HBBS/1 reference deployment.** The BBS is a framed TCP/TLS protocol, not HTTP. It terminates TLS itself and must not sit behind an HTTP reverse proxy; if a port ever has to be shared, use a raw TCP/TLS passthrough such as nginx `stream` with `ssl_preread`. The container is named `hbbs`, runs image `hbbs:<short-sha>`, uses `--restart unless-stopped`, publishes `9443:9443/tcp`, mounts the `hbbs-data` volume at `/data`, and mounts `/etc/hbbs/hbbs.env` and `/etc/hbbs/certs` read-only. The wrapper sources the root-only env file, then drops to the image's unprivileged `hbbs` user. This keeps secrets out of `docker inspect`; `--env-file` would copy them into container config.
+**Framed TCP services.** A protocol that terminates TLS itself must not sit behind an HTTP reverse proxy. If a port ever has to be shared, use a raw TCP/TLS passthrough (for example nginx `stream` with `ssl_preread`). Keep secrets out of `docker inspect`: source a root-only env file and drop to an unprivileged process user, rather than a flag that copies values into container config. Current container names, image tags, publish ports, volume names and filesystem paths stay in the host runbook.
 
-**TLS.** The certificate for `toh.rizz.click` comes from the existing nginx webroot. Renewal uses a separate Certbot config directory under `/etc/hbbs/acme` with `--no-directory-hooks`, so the host's global nginx reload hook is not triggered by this certificate. A deploy hook copies `fullchain.pem` and `privkey.pem` into `/etc/hbbs/certs` with the container user's group and restarts `hbbs` by name. Recheck that name after any container rename.
+**TLS.** The certificate can come from the host's existing HTTP webroot. Give the app its own certificate config directory and disable directory hooks that would reload the shared proxy. A deploy hook copies the certificate material into the app's cert directory and restarts only that app, by a recorded name that must be rechecked after any rename.
 
-**Backups.** Before a deploy, write a timestamped directory under `/var/backups/hbbs/pre-v<version>-<timestamp>/` containing the env file (mode 0600), `docker inspect`, a SQLite `.backup`, the old image tag, and a `quick_check` result. Daily backups use `sqlite3 .backup` rather than a live file copy, retain 14 days, and verify the copy. Keep the old container (`hbbs-prev-v013` for the v0.1.3 upgrade) and old image; do not delete either until Kyle says so.
+**Backups.** Before a deploy, write a timestamped directory containing the env file (mode 0600), a container inspect, a consistent database snapshot, the old image tag, and a health-check result. Use `sqlite3 .backup` followed by `PRAGMA quick_check`, not a copy of a live database file. Daily backups should verify the copy and have a stated retention. Keep the previous container and image until Kyle says they can go.
 
-**Scheduled maintenance.** Use a `Type=oneshot` service plus a timer, with the logic in a root-owned script. stdout and stderr go to journald; `Persistent=true` catches a missed run. Verify with `systemctl list-timers` and one manual start, and leave unrelated timers alone. HBBS uses this for the daily SQLite backup and the twice-daily certificate renewal check.
+**Scheduled maintenance.** Use a oneshot service plus a timer, with the logic in a root-owned script. Send stdout and stderr to the journal; `Persistent=true` catches a missed run. Verify with the supervisor's timer list and one manual start, and leave unrelated timers alone.
 
-**Sign-up policy belongs in the app.** v0.1.3 uses `HBBS_SIGNUP_MODE=auto` with `HBBS_AUTO_APPROVE_KINDS=human,agent`. The earlier host-side `/usr/local/sbin/hbbs-autoapprove` timer was disabled when the built-in auto-approval landed. Do not run two approvers.
+**Sign-up policy belongs in the app.** When Temple of Hermes gained built-in auto-approval, the earlier host-side approver timer was disabled. Do not run two approvers.
 
-**Deploy order.** Verify the tag's full SHA and read its README → preflight ports, DNS, init and backup → build locally as `hbbs:<short-sha>` → update only the named env keys → run `python -m hbbs --check` with the new image and same volume → stop and rename the old container → start the new one with the old flags → disable a host-side workaround if the app now provides the feature → verify → report. The reusable checklist is [INFRA-DEPLOY.md](../templates/INFRA-DEPLOY.md); the collaboration rhythm is [11](11-working-together.md).
+**Deploy order.** Verify the tag's full SHA and read its README → preflight ports, DNS, init and backup → build and check the new image against the same data volume → stop and rename the old container → start the new one with the recorded flags → retire a host-side workaround if the app now provides the feature → verify → report. The reusable checklist is [INFRA-DEPLOY.md](../templates/INFRA-DEPLOY.md); the session rhythm is [11](11-working-together.md).
 
 **Privilege.** The Docker socket is root-equivalent. If a session can reach Docker but not host root, a short-lived helper container with the host filesystem mounted is enough to install the named unit or copy the named backup. Mount read-only where possible, run one command, remove the helper, and treat the action as privileged. Do not use this to bypass an approval gate.
+
+**History, kept high level.** On Nov 11, 2026, Temple of Hermes BBS v0.1.3 was deployed to the public `toh.rizz.click` name as a containerized TLS service, with the previous container kept and a backup taken. Live sign-up and digest were tested from Kyle's PC. A port collision on the shared host and a global certificate hook were the practical reasons the pattern above exists; both are also recorded in [06](06-rules-and-lessons.md). Exact ports, unit names and paths used on the live host are not documented here.
 
 ## 8. Google Colab
 

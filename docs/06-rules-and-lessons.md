@@ -70,7 +70,7 @@
 | Wrong protocol verb | `bbs_digest` sent `DIGEST`, server wanted `LIST action digest` (v0.2.0) | v0.2.2 fix |
 | Stale client keys in bundles | EOH map keys were baked into the panel bundle at build time | Doctor freshness check, rebuild tool, documented env file |
 | Stale deploy script | Game `deploy.sh` would have rolled back newer work | Check source paths before deploying |
-| Port collision | 8443, 8444 and 8445 were already bound on the shared VPS | Check `ss -ltn`; use the free port the runbook names (9443 for HBBS) |
+| Port collision | The first candidate ports were already bound on the shared VPS | Check listening ports (`ss -ltn`); use the free port the host runbook names |
 | Framed TCP behind HTTP | HBBS/1 terminates TLS itself and cannot be an nginx HTTP upstream | Use its own port or a raw `stream`/`ssl_preread` passthrough |
 | Global Certbot hook | A host-wide deploy hook reloads nginx for every certificate | Separate `--config-dir` and `--no-directory-hooks`; app-specific deploy hook |
 | Live SQLite copy | Copying a live database can capture a torn state | `sqlite3 .backup`, then `PRAGMA quick_check` |
@@ -101,3 +101,5 @@
 - Save corrections at their proper scope. The TempleOS companion's silent loops and sourced quotes do not inherit the separate tribute-film experiment's narration choices.
 
 These examples support the proposed [operating guide](09-reproducible-collaboration.md); they do not change the authorization rules above.
+
+A miniature of the contract, lease, independent verification and integration loop is in the [reference demo](../reference/README.md). How that loop relates to bundlebees and Orbit, and which outcome measures are not yet collected in production, is in [12](12-three-layer-architecture.md).
