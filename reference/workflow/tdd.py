@@ -47,6 +47,15 @@ sys.path.insert(0, root)
 cases = []
 def tid(test):
     raw = test.id()
+    desc = getattr(test, "description", "")
+    if raw == desc and desc.endswith(")") and " (" in desc:
+        # unittest's _ErrorHolder for setUpClass/setUpModule (and tearDown*) failures:
+        # "setUpClass (tests.test_x.Cls)" -> tests/test_x.py::Cls
+        kind, target = desc[:-1].split(" (", 1)
+        parts = target.split(".")
+        if kind.endswith("Module"):
+            return "/".join(parts) + ".py", "setup" if kind.startswith("setUp") else "teardown"
+        return "/".join(parts[:-1]) + ".py::" + parts[-1], "setup" if kind.startswith("setUp") else "teardown"
     if raw.startswith("unittest.loader._FailedTest."):
         return raw.split("_FailedTest.", 1)[1].replace(".", "/") + ".py", "collection"
     parts = raw.split(".")
