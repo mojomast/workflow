@@ -1,0 +1,122 @@
+{
+  "contract_version": "acdd/1",
+  "id": "W1-pricing",
+  "title": "Add apply_tax to the pricing module",
+  "outcome": {
+    "summary": "Callers can add a tax rate to a price in cents.",
+    "observable_behavior": [
+      "apply_tax(1000, 10) returns 1100",
+      "a negative rate raises ValueError",
+      "existing discount behaviour is unchanged"
+    ]
+  },
+  "interfaces": [
+    {
+      "name": "apply_tax",
+      "kind": "function",
+      "change": "add",
+      "notes": "shop.pricing.apply_tax(price_cents: int, rate_percent: int) -> int, rounds down"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "given": "a price of 1000 cents",
+      "when": "apply_tax(1000, 10) is called",
+      "then": "it returns 1100",
+      "verification": "test",
+      "tests": [
+        "tests/test_pricing.py::PricingTests::test_apply_tax"
+      ]
+    },
+    {
+      "id": "AC-002",
+      "given": "a negative tax rate",
+      "when": "apply_tax(100, -1) is called",
+      "then": "it raises ValueError",
+      "verification": "test",
+      "tests": [
+        "tests/test_pricing.py::PricingTests::test_apply_tax_rejects_negative_rate"
+      ]
+    },
+    {
+      "id": "AC-003",
+      "statement": "existing apply_discount tests keep passing",
+      "verification": "test",
+      "regression": true,
+      "tests": [
+        "tests/test_pricing.py::PricingTests::test_ten_percent_off",
+        "tests/test_pricing.py::PricingTests::test_rejects_negative_price",
+        "tests/test_pricing.py::PricingTests::test_rejects_bad_percent"
+      ]
+    },
+    {
+      "id": "AC-004",
+      "statement": "the combined branch with every accepted contract passes the full suite",
+      "verification": "integration"
+    }
+  ],
+  "dependencies": [],
+  "assumptions": [
+    "prices are non-negative integer cents",
+    "rounding down matches apply_discount"
+  ],
+  "scope": {
+    "assigned_files": [
+      "shop/pricing.py"
+    ],
+    "test_files": [
+      "tests/test_pricing.py"
+    ],
+    "read_only": [
+      "shop/__init__.py"
+    ],
+    "prohibited": [
+      "shop/labels.py",
+      "tests/test_labels.py"
+    ]
+  },
+  "source_rev": "0000000000000000000000000000000000000000",
+  "tdd": {
+    "applicable": true,
+    "test_first": true
+  },
+  "verification": {
+    "independent": true,
+    "commands": [
+      "python3 -m unittest discover -s tests"
+    ],
+    "integration": true
+  },
+  "evidence_required": [
+    "red",
+    "green",
+    "refactor",
+    "integration"
+  ],
+  "authorization": {
+    "human_gates": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish"
+    ],
+    "authorized": [
+      "implement shop/pricing.py in an isolated worker"
+    ],
+    "not_authorized": [
+      "editing tests/test_pricing.py",
+      "merge",
+      "release",
+      "deploy",
+      "publish"
+    ]
+  },
+  "review": {
+    "status": "approved",
+    "approved_by": "reviewer (example)",
+    "approved_at": "2026-11-12T18:00:00Z",
+    "contract_sha256": "80ca8939cf3f04c6da6b3e56e691a512fff89b3b226ae462618b6576ab648be2"
+  }
+}
