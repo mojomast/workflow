@@ -140,7 +140,7 @@ Every stop has a name, so reports and Orbit can show it without interpretation:
 
 ## 9. Orbit
 
-In progress: a read-only model and panel renderer are built (orbitdesktop `server/acdd-evidence.mjs`, `src/acdd-evidence-panel.ts`, on a branch under review), but they are not wired into the board yet. When they are, Orbit shows each contract's criteria with their latest verifier status, the RED → GREEN → REFACTOR timeline, failure codes from [§7](#7-failure-states), and unrun checks in their own colour. Orbit only displays; the decision stays with bundlebees' verifier and Kyle's gates. The integration contract for that view is a separate Orbit plan, tracked in [17](17-orbit-plans.md).
+In progress: a read-only model and panel renderer (orbitdesktop `server/acdd-evidence.mjs`, `src/acdd-evidence-panel.ts`) and a token-gated `GET /api/acdd-evidence` route are on a branch under review ([orbitdesktop#26](https://github.com/mojomast/orbitdesktop/pull/26)). The view opens from the Hermes menu and the command palette ("ACDD evidence"), dark mode only; board chips and the activity feed are not wired yet. Orbit shows each contract's criteria with their latest verifier status, the RED → GREEN → REFACTOR timeline, failure codes from [§7](#7-failure-states), and unrun checks in their own colour. Orbit only displays; the decision stays with bundlebees' verifier and Kyle's gates. The integration contract for that view is a separate Orbit plan, tracked in [17](17-orbit-plans.md).
 
 ## 10. Where this is enforced
 
@@ -149,6 +149,21 @@ In progress: a read-only model and panel renderer are built (orbitdesktop `serve
 | Workflow (protocol) | This chapter, the two schemas, [`templates/CONTRACT.md`](../templates/CONTRACT.md) | Defined |
 | Reference demo | `reference/workflow/acdd.py`, `reference/workflow/tdd.py`, `reference/workflow/lifecycle.py` (the default run of `run_demo.py`), `reference/check_schemas.py` | Implemented, tested in CI. Evidence is HMAC-signed with a demo key kept in the run directory; runs use bwrap when available and say `sandbox: none` otherwise; workers and the reviewer are scripted (teaching only) |
 | bundlebees | `contract.py` (validation, hash, freezing, the dispatch gate and `require_contract`), `tdd.py` (classification, signed append-only records, RED/GREEN/REFACTOR checks, acceptance report), and the CLI: `contract validate\|freeze`, `tdd red\|refactor\|review\|report`, a contract-aware `verify` (approved tests read-only, RED required, signed GREEN) and `integrate` (GREEN required, signed integration record) | On `feat/acdd-tdd`, under review; not on `main`, not released. `tdd refactor --rev SHA` reruns the read-only approved tests on a descendant of GREEN and refuses edited tests or out-of-scope paths; `tdd refactor --none --note` records "no refactor needed". `tdd review` records a signed REVIEW by a named reviewer or human; `integrate` requires REFACTOR too when the contract lists it |
-| Orbit | Read-only contract and evidence view | Model and panel built on a branch under review; wiring into the board, routes and activity feed is planned |
+| Orbit | Read-only contract and evidence view | On a branch under review: model, panel, the `/api/acdd-evidence` route and a Hermes menu / command-palette entry. Board chips and the activity feed are planned; no live-server smoke test yet |
+| Any repository | [`tools/acdd-lint`](../tools/acdd-lint/README.md): zero-dependency check of contracts and evidence against the schemas and this chapter's rules | On a branch under review; run in CI on this repository's evidence and the reference demo's signed output |
 
 The ACDD + TDD work itself was built this way; the RED/GREEN evidence for all three repositories is in [`evidence/2026-11-12-acdd-build/`](../evidence/2026-11-12-acdd-build/README.md).
+
+## 11. Checking a repository with acdd-lint
+
+`python3 -m acdd_lint PATH... [--key-file KEY] [--json]` (from [`tools/acdd-lint`](../tools/acdd-lint/README.md)) finds every `acdd/1` contract and `tdd-evidence/1` record under the paths. It validates them against the shared schemas and applies the checks from [§2](#2-the-contract-acdd1) and [§5](#5-red-green-refactor): AC ids, named tests inside `scope.test_files`, frozen hashes, RED before GREEN by a verifier, unchanged test fingerprints, stale or orphaned records, and HMAC signatures when a key is given. Records written in the same second are ordered by phase. A stale record never counts as RED or GREEN. Exit codes: 0 clean, 1 problems, 2 usage. Without a key, signatures are reported as not checked, never as passed.
+
+## 12. Lessons from the first dogfood run
+
+acdd-lint was the first project built end to end with this protocol: 4 contracts, 35 approved tests written first, 4 bee attempts, 4 first-try passes. The [evidence and friction write-up](../evidence/2026-11-12-acdd-lint-dogfood/LESSONS.md) has the details. The rules it adds:
+
+- Name tests by their **JUnit id** (`path::Class::test` for unittest-style classes). A reference that matches no collected test makes RED fail as `red_incomplete`.
+- Never let a brief suggest files outside the lease, even "only locally". Give parallel slices a committed package skeleton instead.
+- Keep superseded contracts out of the lint path, and keep their stale evidence: the linter should flag it.
+- Dispatch through `bundlebees_dispatch` when you want signed GREEN. A launcher call without a bundlebees lease can only be verified by the coordinator, unsigned.
+- Read metrics with their notes: an integration that fails in the sandbox shows up as "regressions".

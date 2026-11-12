@@ -32,6 +32,24 @@ jobs:
           python3 reference/check_schemas.py "$RUNNER_TEMP/acdd-demo"
       - name: Run the reference tests
         run: python3 -m unittest discover -s reference/tests -v
+      - name: acdd-lint tests
+        working-directory: tools/acdd-lint
+        run: python3 -m unittest discover -s tests -t . -v
+      - name: acdd-lint on the build evidence and the demo's signed output
+        working-directory: tools/acdd-lint
+        run: |
+          python3 -m acdd_lint ../../evidence/2026-11-12-acdd-build
+          python3 -m acdd_lint "$RUNNER_TEMP/acdd-demo" --key-file "$RUNNER_TEMP/acdd-demo/keys/verifier.key"
+      - name: acdd-lint flags exactly the known stale record in the dogfood evidence
+        # L1's first RED was made against the superseded v1 contract; it is kept as history.
+        working-directory: tools/acdd-lint
+        run: |
+          set +e
+          python3 -m acdd_lint ../../evidence/2026-11-12-acdd-lint-dogfood --json > "$RUNNER_TEMP/dogfood-lint.json"
+          rc=$?
+          set -e
+          test "$rc" = 1
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); got=[(p['code'],p['file']) for p in d['problems']]; want=[('evidence_stale','evidence/L1-schema/0001-red.json')]; print(got); sys.exit(got!=want)" "$RUNNER_TEMP/dogfood-lint.json"
 
   acceptance-light:
     name: cold-start acceptance (light, offline worker)

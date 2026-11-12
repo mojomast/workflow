@@ -1,0 +1,179 @@
+{
+ "contract_version": "acdd/1",
+ "id": "L2-checks",
+ "title": "acdd-lint: contract and evidence protocol checks",
+ "outcome": {
+  "summary": "acdd_lint.contracts and acdd_lint.evidence find the protocol problems a schema cannot: bad or duplicate AC ids, untested criteria, tests outside scope, unfrozen or edited contracts, and evidence histories that break RED-before-GREEN, fingerprints, hashes or signatures.",
+  "observable_behavior": [
+   "check_contract returns problem dicts {code, where, message}",
+   "check_history orders records by (at, filename) and enforces RED before GREEN by a verifier",
+   "signatures are checked only when a key is given"
+  ]
+ },
+ "interfaces": [
+  {
+   "name": "acdd_lint.contracts.contract_sha256",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "acdd_lint.contracts.check_contract",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "acdd_lint.evidence.verify_signature",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "acdd_lint.evidence.check_history",
+   "kind": "function",
+   "change": "add"
+  }
+ ],
+ "acceptance_criteria": [
+  {
+   "id": "AC-001",
+   "given": "a frozen contract",
+   "when": "contract_sha256 and check_contract run",
+   "then": "the hash is the canonical protocol hash and a clean contract has no problems",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_checks.py::test_canonical_hash_matches_the_protocol",
+    "tools/acdd-lint/tests/test_checks.py::test_clean_frozen_contract_has_no_problems",
+    "tools/acdd-lint/tests/test_checks.py::test_problem_shape"
+   ]
+  },
+  {
+   "id": "AC-002",
+   "given": "a contract with bad ids, untested test criteria, or tests outside scope.test_files",
+   "when": "check_contract runs",
+   "then": "ac_id_invalid, ac_id_duplicate, ac_untested, test_not_in_scope",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_checks.py::test_bad_and_duplicate_ac_ids",
+    "tools/acdd-lint/tests/test_checks.py::test_test_criteria_need_named_tests_in_scope"
+   ]
+  },
+  {
+   "id": "AC-003",
+   "given": "an unapproved or edited contract",
+   "when": "check_contract runs",
+   "then": "contract_not_frozen or contract_changed",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_checks.py::test_unfrozen_and_changed_contracts"
+   ]
+  },
+  {
+   "id": "AC-004",
+   "given": "an evidence history",
+   "when": "check_history runs",
+   "then": "RED must precede GREEN, be behavioral_failure and come from a verifier; GREEN must pass with the RED fingerprints; test_first false needs no RED",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_checks.py::test_clean_history",
+    "tools/acdd-lint/tests/test_checks.py::test_green_needs_an_earlier_valid_red",
+    "tools/acdd-lint/tests/test_checks.py::test_tests_after_code_contract_needs_no_red",
+    "tools/acdd-lint/tests/test_checks.py::test_failed_green_and_changed_fingerprints",
+    "tools/acdd-lint/tests/test_checks.py::test_worker_records_are_not_authority"
+   ]
+  },
+  {
+   "id": "AC-005",
+   "given": "stale, orphaned, forged or unsigned evidence",
+   "when": "check_history runs with and without a key",
+   "then": "evidence_stale, evidence_orphan, evidence_tampered (key only); problems name the file",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_checks.py::test_signature_round_trip",
+    "tools/acdd-lint/tests/test_checks.py::test_stale_orphan_and_tampered",
+    "tools/acdd-lint/tests/test_checks.py::test_problems_name_the_file"
+   ]
+  },
+  {
+   "id": "AC-006",
+   "statement": "a reviewer confirms the rules match docs/ACDD.md and the messages say how to fix the problem",
+   "verification": "review"
+  }
+ ],
+ "dependencies": [],
+ "assumptions": [
+  "standard library only",
+  "python3 3.12+",
+  "runs standalone outside bundlebees"
+ ],
+ "scope": {
+  "assigned_files": [
+   "tools/acdd-lint/acdd_lint/contracts.py",
+   "tools/acdd-lint/acdd_lint/evidence.py"
+  ],
+  "test_files": [
+   "tools/acdd-lint/tests/test_checks.py"
+  ],
+  "read_only": [
+   "tools/acdd-lint/tests/support.py",
+   "tools/acdd-lint/tests/__init__.py",
+   "docs/ACDD.md",
+   "bundlebees_plugin/schemas/contract.schema.json",
+   "bundlebees_plugin/schemas/evidence.schema.json"
+  ],
+  "prohibited": [
+   ".github/*",
+   "bundlebees_plugin/*",
+   "tests/*",
+   "plugin.yaml",
+   "README.md",
+   "CHANGELOG.md"
+  ]
+ },
+ "source_rev": "bfd9f30237ac9b26d76c27b73dce6f2a3f5163c4",
+ "tdd": {
+  "applicable": true,
+  "test_first": true
+ },
+ "verification": {
+  "independent": true,
+  "commands": [
+   "cd tools/acdd-lint && timeout 300 python3 -m unittest discover -s tests -t ."
+  ],
+  "integration": true
+ },
+ "evidence_required": [
+  "red",
+  "green",
+  "refactor",
+  "review",
+  "integration"
+ ],
+ "authorization": {
+  "human_gates": [
+   "merge",
+   "tag",
+   "release",
+   "deploy",
+   "publish",
+   "catalog",
+   "post"
+  ],
+  "authorized": [
+   "implement assigned files on an isolated worker",
+   "coordinator may push dogfood/acdd-lint and open an unmerged PR"
+  ],
+  "not_authorized": [
+   "merge",
+   "tag",
+   "release",
+   "publish",
+   "deploy",
+   "editing approved tests"
+  ]
+ },
+ "review": {
+  "status": "approved",
+  "approved_by": "coordinator (delegated by Kyle, t1289u)",
+  "approved_at": "2026-11-12T18:10:00Z",
+  "contract_sha256": "27c22e103caa48afcc311a11a349caa5f900c7774402531c67e4e61c478304f0"
+ }
+}
