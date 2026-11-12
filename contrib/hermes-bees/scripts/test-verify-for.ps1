@@ -1,10 +1,3 @@
-<#
-Reference implementation only. This is Windows/PowerShell reference code for one
-host. Paths and host-specific values in a live checkout must be replaced with
-local values. This tree includes no key files and is not an installer.
-Not the PC launcher (that remains a private tree; see the README).
-#>
-
 # Unit check: VerifyFor accepts worker_claims shape A (verdict/commands/secret_scan)
 # and shape B (checks[]/passed). Also leased-hash compare vs telemetry extras vs scope_violation.
 # Never prints secrets. Exit 0 on pass.
@@ -126,6 +119,41 @@ try {
   LCheck "compact-not-truncated" (($j -notmatch "truncated") -and ($j.Length -gt 0) -and ($j -match "telemetry_extras"))
   if ($lf) { Write-Output "lifecycle_check=FAIL"; exit 2 }
   Write-Output "lifecycle_check=ok"
+
+  $cf = $false
+  function CCheck($name, $cond) {
+    if (-not $cond) { $script:cf = $true }
+    Write-Output ("cli_contract={0} pass={1}" -f $name, [bool]$cond)
+  }
+  $plain = ParseHermesOut "Unblocked t_abc: verify pass; resume to record verdict`n" 0
+  CCheck "unblock-plain-ok" ($plain.ok -and ($plain.exit_code -eq 0) -and ($null -eq $plain.json) -and -not $plain.unrecognized_json)
+  $js = ParseHermesOut "{`"task`":{`"id`":`"t_abc`",`"status`":`"review`"}}" 0
+  CCheck "show-json-ok" ($js.ok -and $js.json.task.status -eq "review")
+  $bad = ParseHermesOut "hermes: error: unrecognized arguments: --json`n" 2
+  CCheck "unrecognized-json-flag" ((-not $bad.ok) -and $bad.unrecognized_json -and ($bad.exit_code -eq 2))
+  $failtxt = ParseHermesOut "error: task is not blocked" 1
+  CCheck "nonzero-exit-no-json" ((-not $failtxt.ok) -and ($failtxt.exit_code -eq 1) -and ($null -eq $failtxt.json))
+  $mixed = ParseHermesOut "note: ok`n{`"ok`":true,`"id`":`"t_1`"}`n" 0
+  CCheck "json-after-preamble" ($mixed.ok -and $mixed.json.ok -eq $true -and $mixed.json.id -eq "t_1")
+  CCheck "find-verb-plain" ((FindKanbanVerb @("kanban","unblock","t_x")) -eq "unblock")
+  CCheck "find-verb-profile" ((FindKanbanVerb @("-p","beekeeper","kanban","dispatch","--max","1")) -eq "dispatch")
+
+  $ownedTmp = Join-Path $env:TEMP ("bees-owned-" + [guid]::NewGuid().ToString("n") + ".json")
+  $env:BEES_OWNED_FILE = $ownedTmp
+  try {
+    RegisterOwned "pilot-calc-0116"
+    RegisterOwned "pilot-calc-0116"
+    RegisterOwned "other-card"
+    $o = Get-Content $ownedTmp -Raw | ConvertFrom-Json
+    $ids = @($o.task_ids)
+    CCheck "owned-registry-idempotent" (($ids -contains "pilot-calc-0116") -and ($ids -contains "other-card") -and ($ids.Count -eq 2))
+  } finally {
+    Remove-Item $ownedTmp -Force -ErrorAction SilentlyContinue
+    Remove-Item Env:BEES_OWNED_FILE -ErrorAction SilentlyContinue
+  }
+
+  if ($cf) { Write-Output "cli_contract_check=FAIL"; exit 2 }
+  Write-Output "cli_contract_check=ok"
 } finally {
   Remove-Item $tmpFn -Force -ErrorAction SilentlyContinue
   Remove-Item $tmpAtt -Recurse -Force -ErrorAction SilentlyContinue

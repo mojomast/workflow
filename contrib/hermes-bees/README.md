@@ -8,17 +8,20 @@ The token and cost design lives in [OBSERVABILITY.md](OBSERVABILITY.md). That sc
 
 ## Layout
 
-- `scripts/bees.ps1` — the one small link between the box coordinator and the PC beekeeper.
-- `scripts/test-verify-for.ps1` — unit checks for `VerifyFor` (leased-hash compare, telemetry extras, scope violations) plus lifecycle checks for `SettlePlan` / `ResultSummary`.
+- `scripts/bees.ps1` — the one small link between the box coordinator and the PC beekeeper. Verbs: `status`, `handoff`, `result`, `settle`, `usage`.
+- `scripts/test-verify-for.ps1` — 26 checks: `VerifyFor` (leased-hash compare, telemetry extras, scope violations), lifecycle for `SettlePlan` / `ResultSummary`, and the Hermes CLI `--json` contract used by `SettleCard`, plus UTF-8 (no BOM) writes of `owned-cards.json`.
 - `scripts/make-verify-brief.py` — renders the default verify-bee brief for a succeeded work bee.
 - `scripts/templates/render_brief.py`, `scripts/templates/verify.md`, `scripts/templates/_house-rules.md` — brief templates. Commands are rewritten to `python3`.
-- `scripts/bee-watch.py` — Hermes cron pre-check that wakes the beekeeper when a leased attempt goes terminal or looks stuck. On the live host this file is kept under the beekeeper profile's `scripts/` directory, not next to `bees.ps1`.
+- `scripts/bee-watch.py` and `scripts/test_bee_watch.py` — Hermes cron pre-check: a level-triggered reconcile that wakes the beekeeper when desired and actual state diverge, including short bees that finished between ticks. 11 unit tests. On the live host this file is kept under the beekeeper profile's `scripts/` directory, not next to `bees.ps1`.
+- `scripts/beekeeper/beekeeper-guard.py` and `scripts/test_beekeeper_guard.py` — `pre_tool_call` harness guard that denies mid-run parks (`kanban_block` / `kanban_schedule` and the equivalent CLI) while a bee is in flight or waiting for verify. 9 unit tests. On the live host the guard lives under the profile's `agent-hooks/` directory; the hook snippet is in `profile/hooks.yaml`.
+- `profile/SOUL.md` — sanitized rules sections from the live beekeeper profile.
+- `skills/bee-verify/SKILL.md` — sanitized rules sections of the bee-verify skill, plus `skills/bee-verify/scripts/replay_verify.py` for a read-only VerifyFor replay when PowerShell cannot run.
 
 Do not edit `docs/` chapters, the repository root `README.md`, the demo, `tools/`, or `.github/` from this contribution. Those belong to other workstreams.
 
 ## The PC launcher (docs only)
 
-The launcher itself is **not vendored here**. As of 12 November 2026 it is a private tree on the Windows bee host (`orbit-local-workers/pc-launcher`): no public repository under mojomast, no license file, and no git remote. Until that tree is published under a license that allows it, this document is the reference for behaviour, not the source.
+The launcher itself is **not vendored here**. It is becoming [`mojomast/hyvv`](https://github.com/mojomast/hyvv), a standalone worker-host runtime with a versioned `/v1` API contract. As of 12 November 2026 the live tree is still the private checkout on the Windows bee host (`orbit-local-workers/pc-launcher`); hyvv is being set up and is not yet the source of truth. Until that repository is published and this snapshot is pointed at it, this document is the reference for behaviour, not the source.
 
 It is a local Windows Python service (`launcher.py`, version **0.1.15** as of this snapshot) that runs OpenCode bees in CUA sandboxes and writes attempt and result files under `%USERPROFILE%\.orbit-launcher\attempts\`. It binds only to loopback by default, with an optional extra loopback listener. It will refuse to bind any address that is not loopback or a Tailscale address (0.1.11). Provider keys are read by environment name first, then from a user-only file, and are never logged: `ORBIT_WORKER_GO_KEY` for OpenCode Go, `DEEPSEEK_API_KEY` for DeepSeek official.
 
@@ -51,7 +54,8 @@ After 0.1.15, name important slices `deepseek:deepseek-flash` (or set `priority:
 - **Telemetry extras vs scope vs content.** `shots/**` and `**/PROGRESS.log` are `telemetry_extras` (a warning only). Any other path outside the lease is `scope_violation`, which fails the card. A hash difference on a leased path is a content mismatch, not a scope problem.
 - **python3.** Work and verify commands use `python3`, not `python`. `make-verify-brief.py` and `render_brief.py` rewrite a leading `python` token.
 - **Verify against the seeded base.** The launcher (>= 0.1.11) seeds a fresh tree and uploads the work patch. The seeded base is `local_base_rev` when the work result recorded it. The verify template applies the patch to that tree; it must not require `HEAD` to equal `source_rev` or the branch name to match the work branch.
-- **SettleCard.** Idempotent. A pass unblocks the card if it was `blocked` / `scheduled` / `needs_input`, then `request-review` (with `--force` if the card is still `running`). A fail keeps or moves the card to `blocked`. Already `review` or `done` on a pass, or already `blocked` on a fail, is a no-op. `bees.ps1 result` prints a compact verdict summary first, with no 1 KB cap, and then settles.
+- **SettleCard.** Idempotent. A pass unblocks the card if it was `blocked` / `scheduled` / `needs_input`, then `request-review` (with `--force` if the card is still `running`). A fail keeps or moves the card to `blocked`. Already `review` or `done` on a pass, or already `blocked` on a fail, is a no-op. `bees.ps1 result` prints a compact verdict summary first, with no 1 KB cap, and then settles. Settlement follows the Hermes CLI contract: `--json` is passed only on verbs that support it (`show`, `list`, `create`, `dispatch`, …); `unblock`, `block` and `request-review` are judged by process exit code, with JSON parsed only when stdout actually contains it.
+- **owned-cards.json.** Handoff registers the card id in this file, written as UTF-8 without a BOM (`utf-8-sig` is accepted on read). bee-watch uses it, with bundlebees leases, as the ownership source.
 - **No mid-run park.** The handoff body tells the beekeeper not to `kanban_block` or park the card as `needs_input` while a bee is running. That mid-run park sticks the card so later complete/review updates are refused.
 
 ## Verify-bee authority
@@ -86,20 +90,22 @@ Cache-hit share on these pilots was above 99%. List-price estimates at DeepSeek 
 
 ## Staged fixes
 
-TODO. Fixes were being staged next to the live files, not applied, when this snapshot was taken. Known leftovers, all in scripts (no launcher restart required unless later work says otherwise):
+The 0116 pass applied the earlier leftovers in the live scripts (no launcher restart). Findings as of 12 November 2026:
 
-- The bee watcher can miss a very quick bee, so the verify step may stall until it is nudged.
-- The beekeeper can still park a card mid-run, against the no-mid-run-park rule.
-- The coordinator's closing step can trip on a Hermes command that does not return JSON.
-
-This section should be filled in once those fixes are applied and re-piloted.
+- **bee-watch is a level-triggered reconcile.** It compares desired vs actual state every tick (Kubernetes-controller style). A short bee that finished between ticks still wakes the beekeeper; there is no requirement to have seen a non-terminal edge first.
+- **The harness guard denies mid-run parks.** A `pre_tool_call` hook runs `beekeeper-guard.py` on `terminal`, `execute_code`, `process`, `kanban_block` and `kanban_schedule`. Waiting-for-a-bee parks are rejected while an owned bee is in flight or work has succeeded and verify has not been dispatched. Stuck and verify-fail reports are still allowed.
+- **SettleCard follows the CLI's `--json` contract.** Hermes 0.23.1 `kanban unblock` / `block` / `request-review` have no `--json`. `Kanban` only adds `--json` on verbs that accept it, honors the process exit code, and parses JSON only when stdout actually contains it (retrying without the flag if the CLI says the argument is unrecognized).
+- **owned-cards.json uses UTF-8 without a BOM.** `RegisterOwned` writes with `UTF8Encoding($false)`. Readers accept a BOM (`utf-8-sig`) so an older file still loads.
+- **Tests (0116, live host):** bee-watch 11/11, guard 9/9, and `bees.ps1` 26/26 (`test-verify-for.ps1`: VerifyFor + lifecycle + CLI contract + owned-registry).
+- **Remaining issue:** Hermes auto-blocks a card when the beekeeper exits without a terminal board call. bee-watch or SettleCard recovers it. The proposed fix is a first-class yield/wait transition so ending a turn mid-flight is a valid wait, not a protocol violation.
 
 ## Running the reference tests
 
-On Windows, from the directory that contains `bees.ps1`:
+From the directory that contains `bees.ps1`:
 
 ```powershell
 powershell -File .\test-verify-for.ps1
+python -m unittest test_bee_watch.py test_beekeeper_guard.py
 ```
 
-The script copies `bees.ps1` functions into a temporary scope, writes fake attempt files under `$env:TEMP`, and prints `verify_for_check=ok` then `lifecycle_check=ok` on success.
+`test-verify-for.ps1` copies `bees.ps1` functions into a temporary scope, writes fake attempt files under `$env:TEMP`, and prints `verify_for_check=ok`, `lifecycle_check=ok`, then `cli_contract_check=ok` on success (26 cases). The Python tests are stdlib-only (11 + 9).

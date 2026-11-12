@@ -1,6 +1,4 @@
 <#
-Reference implementation only. This is Windows/PowerShell reference code for one host. Paths and host-specific values in a live checkout must be replaced with local values. This tree includes no key files and is not an installer. Not the PC launcher (that remains a private tree; see the README).
-
 bees.ps1 - the one small link between the box coordinator and the PC beekeeper.
   bees.ps1 status [<card>]            compact JSON: gateway/cron/launcher view, or one card + its attempts (under 1 KB)
   bees.ps1 handoff <brief.json> [-DryRun]   validate a brief and create a beekeeper kanban card (idempotent on task_id)
@@ -27,7 +25,74 @@ function Out-Json($o) {
   if ($s.Length -gt 1000) { $s = (@{ ok = $o.ok; truncated = $true; note = "reply over 1 KB; use 'result' or 'status <card>'" } | ConvertTo-Json -Compress) }
   Write-Output $s
 }
-function Hj([string[]]$a) { $r = '' | & $H @a 2>$null; if ($LASTEXITCODE -ne 0) { throw "hermes $($a[0]) $($a[1]) failed" }; return ($r -join "`n") | ConvertFrom-Json }
+function FindKanbanVerb([string[]]$a) {
+  for ($i = 0; $i -lt $a.Count; $i++) {
+    if ($a[$i] -eq "kanban" -and ($i + 1) -lt $a.Count) { return $a[$i + 1] }
+  }
+  if ($a.Count) { return $a[0] }
+  return ""
+}
+function ParseHermesOut([string]$text, [int]$code) {
+  # Robust CLI contract: honor the process exit code; parse JSON only when stdout
+  # actually contains it. Hermes 0.23.1 `kanban unblock` / `block` / `request-review`
+  # have no --json (docs: https://hermes-agent.nousresearch.com/docs/reference/cli-commands
+  # and https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban).
+  $trim = if ($null -eq $text) { "" } else { [string]$text }
+  $trim = $trim.Trim()
+  $json = $null
+  $i = $trim.IndexOf("{"); $j = $trim.IndexOf("[")
+  $start = -1
+  if ($i -ge 0 -and ($j -lt 0 -or $i -le $j)) { $start = $i }
+  elseif ($j -ge 0) { $start = $j }
+  if ($start -ge 0) {
+    try { $json = $trim.Substring($start) | ConvertFrom-Json } catch { $json = $null }
+  }
+  return @{
+    ok = ($code -eq 0)
+    exit_code = $code
+    raw = $trim
+    json = $json
+    unrecognized_json = [bool]($trim -match "unrecognized arguments: --json")
+  }
+}
+function Kanban([string[]]$a) {
+  $verb = FindKanbanVerb $a
+  $jsonVerbs = @("show","list","ls","create","dispatch","runs","context","specify","decompose")
+  $argv = @($a)
+  if (($jsonVerbs -contains $verb) -and ($argv -notcontains "--json")) { $argv += "--json" }
+  $out = "" | & $H @argv 2>&1 | Out-String
+  $code = $LASTEXITCODE
+  $p = ParseHermesOut $out $code
+  if ((-not $p.ok) -and ($argv -contains "--json") -and $p.unrecognized_json) {
+    $argv2 = @($argv | Where-Object { $_ -ne "--json" })
+    $out = "" | & $H @argv2 2>&1 | Out-String
+    $code = $LASTEXITCODE
+    $p = ParseHermesOut $out $code
+    $p.retry_without_json = $true
+  }
+  $p.verb = $verb
+  return $p
+}
+function Hj([string[]]$a) {
+  $r = Kanban $a
+  if (-not $r.ok) { throw "hermes $(FindKanbanVerb $a) failed (exit $($r.exit_code))" }
+  if ($null -eq $r.json) { throw "hermes $(FindKanbanVerb $a) produced no JSON (exit $($r.exit_code))" }
+  return $r.json
+}
+function RegisterOwned([string]$taskId) {
+  if (-not $taskId) { return }
+  $p = if ($env:BEES_OWNED_FILE) { $env:BEES_OWNED_FILE } else { Join-Path $env:USERPROFILE ".orbit-launcher\hermes-bees\owned-cards.json" }
+  $dir = Split-Path $p
+  if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  $ids = @()
+  if (Test-Path $p) {
+    try { $o = Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json; $ids = @($o.task_ids) } catch { $ids = @() }
+  }
+  $ids = @($ids + $taskId | Where-Object { $_ } | Select-Object -Unique)
+  $json = (@{ task_ids = @($ids) } | ConvertTo-Json)
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  [IO.File]::WriteAllText($p, $json, $utf8)
+}
 function AttemptInfo([string]$aid) {
   $p = Join-Path $ATT "$aid.json"
   if (-not (Test-Path $p)) { return @{ id = $aid; state = "unknown" } }
@@ -194,6 +259,7 @@ function SettlePlan([string]$status, [string]$blockKind, [string]$verdict) {
 }
 function SettleCard([string]$card, $verify) {
   # Execute SettlePlan against the live board. Idempotent. Never touches other cards.
+  # Mutations use Kanban (exit code + optional JSON); state is always re-read via show --json.
   $s = Hj @("kanban","show",$card,"--json")
   $status = [string]$s.task.status
   $kind = [string]$s.task.block_kind
@@ -203,26 +269,39 @@ function SettleCard([string]$card, $verify) {
   $actions = @()
   if ($plan.action -eq "review") {
     if ($plan.unblock) {
-      $null = Hj @("kanban","unblock",$card,"--reason","verify pass; resume to record verdict")
+      $u = Kanban @("kanban","unblock",$card,"--reason","verify pass; resume to record verdict")
       $actions += "unblocked"
+      $after = Hj @("kanban","show",$card,"--json")
+      $st = [string]$after.task.status
+      if (-not $u.ok) { $out.ok = $false; $out.error = "unblock exit $($u.exit_code)"; $out.status = $st; $out.actions = $actions; return $out }
+      if ($st -eq "review") { $out.settled = $true; $out.status = "review"; $out.actions = $actions; return $out }
     }
     $sum = "verified by bee, ready for the box to secret-scan and push"
-    try {
-      $args = @("kanban","request-review",$card,"--summary",$sum)
-      if ($plan.force) { $args += "--force" }
-      $null = Hj $args
-      $actions += "request-review"
-    } catch {
-      $null = Hj @("kanban","request-review",$card,"--summary",$sum,"--force")
+    $rrArgs = @("kanban","request-review",$card,"--summary",$sum)
+    if ($plan.force) { $rrArgs += "--force" }
+    $rr = Kanban $rrArgs
+    if ($rr.ok) { $actions += "request-review" }
+    else {
+      $rr = Kanban @("kanban","request-review",$card,"--summary",$sum,"--force")
       $actions += "request-review-force"
     }
-    $out.settled = $true; $out.status = "review"; $out.actions = $actions
+    $after = Hj @("kanban","show",$card,"--json")
+    $out.status = [string]$after.task.status
+    $out.actions = $actions
+    $out.settled = ($out.status -eq "review")
+    $out.ok = [bool]($rr.ok -and $out.settled)
+    if (-not $out.ok) { $out.error = "request-review exit $($rr.exit_code); status $($out.status)" }
     return $out
   }
   if ($plan.action -eq "block") {
     $reason = "verify fail claimed=$($verify.claimed) patch_matches=$($verify.patch_matches_work) scope_violation=$($verify.scope_violation) secret_hits=$($verify.secret_hits) failed_cmds=$($verify.failed_cmds)"
-    $null = Hj @("kanban","block","--kind","needs_input",$card,$reason)
-    $out.settled = $true; $out.status = "blocked"; $out.actions = @("blocked")
+    $bk = Kanban @("kanban","block","--kind","needs_input",$card,$reason)
+    $after = Hj @("kanban","show",$card,"--json")
+    $out.status = [string]$after.task.status
+    $out.actions = @("blocked")
+    $out.settled = ($out.status -eq "blocked")
+    $out.ok = [bool]($bk.ok -and $out.settled)
+    if (-not $out.ok) { $out.error = "block exit $($bk.exit_code); status $($out.status)" }
     return $out
   }
   return $out
@@ -307,10 +386,11 @@ try {
       $chk = $raw -replace '\b[0-9a-f]{40}\b', 'SHA'; if ((Scrub $chk) -ne $chk) { $errs += "brief contains a path, url, ip, token-like string or banned word" }
       if ($errs.Count) { Out-Json @{ ok = $false; errors = $errs }; exit 2 }
       $obj = [string]$b.objective; $title = "bee: $($b.task_id) " + $obj.Substring(0, [Math]::Min(60, $obj.Length))
-      $body = "Dispatch this leased brief with bundlebees_dispatch (model deepseek-v4.1-flash), comment the attempt id here, then end your turn. Do not kanban_block or park this card as needs_input while a bee is running; that mid-run park sticks the card. bee-watch wakes you when it finishes; then dispatch the default verify bee (make-verify-brief.py). If the leased brief has verify_priority, run make-verify-brief.py <attempt> --priority <that value> so the verify bee uses that route. When verify finishes, run bees.ps1 result <card> (it settles: pass -> unblock if needed then request-review; fail -> blocked). Never push, merge, tag or deploy.`n``````json`n$raw`n``````"
+      $body = "Dispatch this leased brief with bundlebees_dispatch (model deepseek-v4.1-flash), comment the attempt id here, then end your turn. Do not kanban_block or park this card as needs_input while a bee is running or waiting for verify; the beekeeper-guard hook will reject that mid-run park. bee-watch wakes you when a gap appears (level-triggered; short bees included). Then dispatch the default verify bee (make-verify-brief.py) only if no verify_of attempt already exists. If the leased brief has verify_priority, run make-verify-brief.py <attempt> --priority <that value> so the verify bee uses that route. When verify finishes, run bees.ps1 result <card> (it settles: pass -> unblock if needed then request-review; fail -> blocked). Never push, merge, tag or deploy.`n``````json`n$raw`n``````"
       if ($DryRun) { Out-Json @{ ok = $true; dry_run = $true; would_create = @{ title = $title; assignee = "beekeeper"; idempotency_key = $b.task_id; max_runtime = "25m"; max_retries = 1; body_bytes = $body.Length }; would_dispatch = "hermes -p beekeeper kanban dispatch --max 1" }; break }
       $tmp = [IO.Path]::GetTempFileName(); [IO.File]::WriteAllText($tmp, $body)
       try { $c = Hj @("kanban","create",$title,"--body-file",$tmp,"--assignee","beekeeper","--idempotency-key",$b.task_id,"--max-runtime","25m","--max-retries","1","--skill","bundlebees:bundlebees-operator","--created-by","box-coordinator","--json") } finally { Remove-Item $tmp -EA SilentlyContinue }
+      RegisterOwned $b.task_id
       $t0 = Get-Date
       $disp = $null
       try { $disp = Hj @("-p","beekeeper","kanban","dispatch","--max","1","--json") } catch { $disp = @{ error = (Scrub $_.Exception.Message) } }
@@ -351,6 +431,39 @@ try {
       $settled = SettleCard $s.task.id $v
       Out-Json @{ ok = [bool]$settled.ok; card = $s.task.id; status = $settled.status; verdict = $v.verdict; settled = $settled }
     }
-    default { Out-Json @{ ok = $false; error = "verbs: status [card] | handoff <brief.json> [-DryRun] | result <card> [-Full] [-OutFile path] | settle <card>" }; exit 2 }
+    "usage" {
+      # bees.ps1 usage [YYYY-MM-DD] [-Full]: refresh the bee.usage/v1 ledger, print the day's rollup and warn-only alerts.
+      # Never blocks, dispatches, cancels or restarts anything. Alert thresholds come from usage\alerts.defaults.json,
+      # a verbatim copy of workflow observability/alerts.defaults.json (alert.thresholds/v1); no numbers live here.
+      # OTLP export runs only when usage\otlp.json has "enabled": true (loopback endpoint only).
+      $ErrorActionPreference = "Continue"
+      $U = Join-Path $env:USERPROFILE ".orbit-launcher\usage"
+      $bin = Join-Path $U "bin\scripts"
+      $ledger = Join-Path $U "usage-ledger.jsonl"
+      $hdb = Join-Path $env:LOCALAPPDATA "hermes\profiles\beekeeper\state.db"
+      $py = "python"
+      $b = @("$bin\usage_ledger.py","build","--attempts",$ATT,"--ledger",$ledger)
+      if (Test-Path $hdb) { $b += @("--hermes-db",$hdb) }
+      $build = (& $py @b 2>$null | Select-Object -Last 1)
+      $rep = @("$bin\usage_report.py","--ledger",$ledger)
+      if ($Arg -match '^\d{4}-\d{2}-\d{2}$') { $rep += @("--day",$Arg) } else { $rep += "--today" }
+      $af = Join-Path $U "alerts.defaults.json"
+      if (Test-Path $af) { $rep += @("--alerts",$af) }
+      if ($Full) { $rep += "--full" }
+      $report = (& $py @rep 2>$null) -join "`n"
+      $otlp = $null
+      $of = Join-Path $U "otlp.json"
+      if (Test-Path $of) {
+        $oc = Get-Content $of -Raw | ConvertFrom-Json
+        if ($oc.enabled -and $oc.endpoint) {
+          $vpy = Join-Path $U "otel-venv\Scripts\python.exe"; if (-not (Test-Path $vpy)) { $vpy = $py }
+          $otlp = (& $vpy "$bin\usage_otlp.py" export --ledger $ledger --endpoint $oc.endpoint 2>$null | Select-Object -Last 1)
+        }
+      }
+      if (-not $report) { $report = '{"ok":false,"error":"usage_report produced no output"}' }
+      Write-Output (Scrub $report)
+      Write-Output (Scrub ('{"ledger":' + $(if ($build) { $build } else { 'null' }) + ',"otlp":' + $(if ($otlp) { $otlp } else { 'null' }) + '}'))
+    }
+    default { Out-Json @{ ok = $false; error = "verbs: status [card] | handoff <brief.json> [-DryRun] | result <card> [-Full] [-OutFile path] | settle <card> | usage [YYYY-MM-DD] [-Full]" }; exit 2 }
   }
 } catch { Out-Json @{ ok = $false; error = (Scrub $_.Exception.Message) }; exit 1 }

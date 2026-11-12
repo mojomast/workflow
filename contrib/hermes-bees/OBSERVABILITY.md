@@ -1,14 +1,15 @@
 # Bee token observability
 
-Draft design for a first-class usage record across the PC launcher, `bees.ps1`, the beekeeper coordinator, bundlebees, and (later) Orbit. This document is the schema the wider dashboard should link to; it is not a second, competing format.
+Draft design for a first-class usage record across the PC launcher (becoming [`mojomast/hyvv`](https://github.com/mojomast/hyvv)), `bees.ps1`, the beekeeper coordinator, bundlebees, and (later) Orbit. This document is the schema the wider dashboard should link to; it is not a second, competing format.
 
 **Schema status: draft v1; freezes when slice 1 lands.**
 
 Decisions already taken (12 November 2026):
 
-- Daily dollar cap is **$5**, **warn only**. Hitting the cap never blocks dispatch.
+- Daily spend alert is **$10/day, warn only** (Kyle, 4:39 PM ET / America/Toronto). Hitting the cap never blocks dispatch. Shared alert thresholds live in [`observability/alerts.defaults.json`](https://github.com/mojomast/workflow/blob/feat/observability-records/observability/alerts.defaults.json) (workflow [PR #8](https://github.com/mojomast/workflow/pull/8), schema `alert.thresholds/v1`). This document points at that file instead of restating the numbers.
 - Go-routed bees show **both** list-price dollars and Go allowance percent.
 - Phoenix is set up **now** as the local dashboard on the Windows bee host, reachable on **loopback only**, with no prompt or response text stored.
+- The PC launcher is becoming [`mojomast/hyvv`](https://github.com/mojomast/hyvv). Until that repository is the source of truth, launcher behaviour in this snapshot is still the live Windows checkout.
 - Slices 1–3 run as bees. The bundlebees usage-parse fix is a separate pull request and waits for an explicit yes before merge. Surfacing numbers in Orbit is a later step and also waits for a yes before deploy.
 
 ## What exists today
@@ -179,7 +180,7 @@ Versioned; one entry per provider snapshot, never edited in place.
 
 - **Ledger.** Append-only JSONL at `%USERPROFILE%\.orbit-launcher\usage\usage-YYYY-MM.jsonl`, user-only ACL, hash-chained like bundlebees metrics. This is the source of truth a wider dashboard should read.
 - **Rollups.** `usage-daily.json` by day × role × card × project × model × route: tokens per bucket, list-price cost, attempts, 429s, fallbacks, p50/p95 duration, cache-hit share, and Go allowance percent where applicable.
-- **Budget alert.** Warn at a **$5 / day** list-price cap. Warn only; never block dispatch. Also warn when the Go 5-hour, weekly, or monthly allowance passes 80%, and when three or more 429s land in an hour. Alerts land in `bees.ps1 usage` / `status`, the beekeeper's reply, and (later) a note on the Orbit card. Nothing external.
+- **Budget alert.** Warn-only; never block dispatch. The spend cap and the other warn thresholds are not restated here: read [`observability/alerts.defaults.json`](https://github.com/mojomast/workflow/blob/feat/observability-records/observability/alerts.defaults.json) (workflow [PR #8](https://github.com/mojomast/workflow/pull/8)). Kyle set the daily spend warning to **$10/day, warn only** at 4:39 PM ET (America/Toronto) on 12 November 2026, which is the `daily_model_spend_above_usd` value in that file. Alerts land in `bees.ps1 usage` / `status`, the beekeeper's reply, and (later) a note on the Orbit card. Nothing external.
 - **`bees.ps1 usage [--day|--card]`.** The same rollup in the terminal, with both dollars and Go allowance percent for Go-routed rows.
 - **Optional OTLP.** A tailer exports the ledger as `invoke_agent` spans and `gen_ai.client.inference.usage.*` counters. Off by default; `NO_CONTENT`.
 - **Phoenix.** One container with SQLite on the Windows bee host, bound to loopback only. No prompt text, completions, tool arguments, hosts, or keys. Data stays on that host.
@@ -202,9 +203,9 @@ Restart means a launcher idle-swap with backup and rollback, each needing an exp
 | # | Slice | Restart? | Notes |
 | --- | --- | --- | --- |
 | 1 | `prices.json` plus a ledger script that derives records from existing result files and the beekeeper `state.db`, read-only, with tests | No | Freezes this draft schema. In flight as a bee. |
-| 2 | `bees.ps1 usage` rollups, $5/day warn-only cap, Go allowance percent, peak-hour pricing | No | In flight as a bee. |
+| 2 | `bees.ps1 usage` rollups, warn-only alerts from `observability/alerts.defaults.json` (PR #8; $10/day spend warning), Go allowance percent, peak-hour pricing | No | In flight as a bee. |
 | 3 | bundlebees: parse string or camelCase usage, carry the full split and cost into metrics | No | Feature-branch PR; wait for an explicit yes before merge. |
-| 4 | Launcher 0.1.16: write the record at finish; add queue time, 429s, retries, fallback, `traceparent`, Go allowance if reachable | Yes | Code can land first; the swap waits. |
+| 4 | Launcher 0.1.16 (and, once it exists, [`mojomast/hyvv`](https://github.com/mojomast/hyvv)): write the record at finish; add queue time, 429s, retries, fallback, `traceparent`, Go allowance if reachable | Yes | Code can land first; the swap waits. |
 | 5 | Orbit adapter and workbench metrics show usage | No | Code can land; deploy waits for a yes. |
 | 6 | Hermes Desktop pane usage view | No | |
 | 7 | Optional OTLP tailer plus Phoenix; Hermes OTLP export for the coordinator | No | Phoenix setup on the Windows host is already approved and should bind loopback only. |
