@@ -43,7 +43,7 @@
         }
       }
     },
-    "classification": {"enum": ["behavioral_failure", "passed", "syntax_error", "collection_error", "environment_error", "unrelated_failure", "timeout", "not_run"]},
+    "classification": {"enum": ["behavioral_failure", "passed", "syntax_error", "collection_error", "environment_error", "unrelated_failure", "timeout", "not_run", "failed"], "description": "Test-run phases use the docs/16 §4 table. \"failed\" is only for a review record whose reviewer rejected the change."},
     "criteria": {
       "type": "object",
       "propertyNames": {"pattern": "^AC-[0-9]{3,}$"},
