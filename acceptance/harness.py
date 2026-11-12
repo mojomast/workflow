@@ -241,6 +241,21 @@ class AcceptanceHost:
             rc = record["handler_fn"](args)
         return int(rc or 0), buf.getvalue()
 
+    def cli_help(self, argv: list[str]) -> str:
+        """Return ``--help`` text for a subcommand without exiting."""
+        import argparse as _argparse
+
+        record = self.cli_commands["bundlebees"]
+        parser = _argparse.ArgumentParser(prog="hermes bundlebees")
+        record["setup_fn"](parser)
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            try:
+                parser.parse_args([*argv, "--help"])
+            except SystemExit:
+                pass
+        return buf.getvalue()
+
 
 class ScriptedWorkerBackend:
     """Offline worker runtime implementing bundlebees' WorkerBackend contract.
@@ -494,8 +509,14 @@ def acdd_end_to_end(log: "Log", host: "AcceptanceHost", work: Path, settings: di
     draft = root / "contract.json"
     draft.write_text(json.dumps(_acdd_contract(red_rev), indent=2), encoding="utf-8")
     frozen = root / "contract.frozen.json"
-    rc, text = host.cli(["contract", "freeze", str(draft), "--approved-by", "acceptance reviewer", "--out", str(frozen)])
+    freeze = ["contract", "freeze", str(draft), "--approved-by", "acceptance reviewer", "--out", str(frozen)]
+    # bundlebees after the Nov 12 review collects the approved test ids at
+    # source_rev before freezing (needs --workdir); older pins lack the flag.
+    if host.cli_help(["contract", "freeze"]).find("--workdir") >= 0:
+        freeze += ["--workdir", str(repo), "--state-dir", str(state)]
+    rc, text = host.cli(freeze)
     checks["freeze"] = rc == 0 and frozen.exists()
+    (out / "acdd-freeze.log").write_text(text, encoding="utf-8")
     contract = json.loads(frozen.read_text()) if frozen.exists() else {}
     rc, text = host.cli(["tdd", "red", str(frozen), "--workdir", str(repo), "--state-dir", str(state)])
     checks["red"] = rc == 0
