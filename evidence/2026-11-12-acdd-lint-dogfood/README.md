@@ -1,6 +1,8 @@
 # Dogfood run: acdd-lint built with ACDD + TDD (Nov 12, 2026)
 
-This is the first full run of the workflow on a small new project: [`tools/acdd-lint`](../../tools/acdd-lint/README.md), a zero-dependency checker for ACDD contracts and TDD evidence. Each slice ran the full protocol:
+> **Outcome, stated plainly.** This run is an implementation success and a revealing experiment. It is **not** an accepted run. The tool works: every slice reached a verified GREEN, and the acdd-lint suite passes. But no change was accepted under the protocol's own rules: `accepted_changes: 0`, `waves_accepted: 0`, `waves_rejected: 2` ([metrics.json](metrics.json)), and `tdd report` says `accepted: no` for L3 and L4. Two slices (L1, L2) also have only unsigned, coordinator-run GREEN, and their RED was first refused because of the wrong test-id form. What the run proves is that the gates refuse what they should, including our own work. It doesn't prove the end-to-end loop accepts a change. That still needs a clean sandboxed integration and a required real-agent round trip.
+
+This is the first full run of the workflow on a small new project: [`tools/acdd-lint`](../../tools/acdd-lint/README.md), a zero-dependency checker for ACDD contracts and TDD evidence. Each slice was taken through the protocol (where a step was skipped or failed, the table says so):
 
 contract with AC ids → approved tests committed alone (RED) → verifier records RED → bee writes GREEN → independent verify → REFACTOR → review → integrate → metrics.
 
@@ -18,7 +20,7 @@ The work was built in `mojomast/bundlebees` on the branch `dogfood/acdd-lint`, b
 ## Results
 
 - **Tests:** 35/35 acdd-lint tests pass with `python3 -m unittest`. bundlebees' own suite on the final branch is 469 passed, 0 failed (coordinator run outside the sandbox).
-- **Bees:** 4 attempts, 4 first-try passes, 0 redispatches, all `deepseek-v4.1-flash`. L1 and L2 ran in parallel. Bee claims were not used as evidence: every GREEN was re-run independently.
+- **Bees:** 4 attempts, 4 first-try GREENs (passing the approved tests; none of them were *accepted*), 0 redispatches, all `deepseek-v4.1-flash`. L1 and L2 ran in parallel. Bee claims were not used as evidence: every GREEN was re-run independently.
 - **Lint of this folder** ([LINT.txt](LINT.txt), with the evidence key): 4 contracts, 13 signed records, 1 problem. The problem is real: `L1-schema/0001-red.json` is the RED made against the superseded v1 contract (`evidence_stale`). It is kept on purpose as history; see LESSONS §1.
 - **Lint of the reference demo** (with its verifier key): 4 contracts, 10 records, 0 problems after L4. It reported 2 false `red_missing` problems before L4.
 - **Acceptance:** `hermes bundlebees tdd report` shows `accepted: no` for L3 and L4, because the bundlebees integration step failed inside its own sandbox. That outcome is reported as it happened, not overridden.
