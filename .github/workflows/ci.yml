@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference:
+    name: reference demo + tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Run the reference demo
+        run: python3 reference/run_demo.py
+      - name: Run the reference tests
+        run: python3 -m unittest discover -s reference/tests -v
+
+  acceptance-light:
+    name: cold-start acceptance (light, offline worker)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install bubblewrap and allow unprivileged user namespaces
+        # Ubuntu 24.04 runners restrict unprivileged user namespaces via
+        # AppArmor, which makes bwrap unusable. Lift it on this throwaway runner.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: Cold start (fresh clones, clean HOME + venv)
+        env:
+          ACCEPTANCE_MODE: local
+          WORKFLOW_SRC: ${{ github.workspace }}
+          ACCEPTANCE_PRIOR_INTERVENTIONS: "CI lifted the AppArmor userns restriction::GitHub ubuntu-24.04 runners block unprivileged user namespaces, which bwrap needs"
+        run: |
+          git checkout -B ci-under-test
+          acceptance/cold_start.sh "$RUNNER_TEMP/acceptance-out"
+      - name: Show report
+        if: always()
+        run: cat "$RUNNER_TEMP/acceptance-out/REPORT.md" || true
+
+  secret-scan:
+    name: gitleaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks 8.21.2 (checksum-verified)
+        run: |
+          curl -sSfL -o gitleaks.tgz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          echo "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+      - name: Scan history
+        run: ./gitleaks detect --source . --redact --no-banner
