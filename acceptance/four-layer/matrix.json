@@ -1,46 +1,206 @@
 {
-  "matrix_version": "rizzstack.four-layer-matrix/1",
-  "note": "Pinned merge candidates for the four-layer acceptance run. Each repo is built as base + merges (local only, never pushed). A merge conflict blocks every step that needs that repo. Update the SHAs when PR heads move; the runner records exactly what it ran.",
-  "repos": {
-    "workflow": {
-      "url": "https://github.com/mojomast/workflow.git",
-      "base": "main",
-      "merges": []
-    },
-    "hyvv": {
-      "url": "https://github.com/mojomast/hyvv.git",
-      "base": "28ad423d63913245e46f0c6ebaa89c8d011f9222",
-      "merges": [],
-      "lineage": "hyvv #1 feat/initial-import"
-    },
-    "bundlebees": {
-      "url": "https://github.com/mojomast/bundlebees.git",
-      "base": "46a8d20",
-      "merges": ["750b10b2978f5cf46a3d513020d955931c45a7b8"],
-      "fallback_without_merges": true,
-      "lineage": "#9 (artifact client) -> #10 (sandbox/self-integration) -> #11 (metrics, pre-BM2 merge 46a8d20) + #12 (C1/C6 collected ids, reviews)"
-    },
-    "orbitdesktop": {
-      "url": "https://github.com/mojomast/orbitdesktop.git",
-      "base": "96916aa",
-      "merges": ["d08b8f6390e89cdf7ac150b9677991ae459e60c7", "d7cf47afd8c0dec34aa42e2a40b408ad8128f3ca"],
-      "lineage": "#25 (onboarding, S1/S5) + #26 (evidence view, S3) + #28 (artifact API, S2/S6/S7)"
-    }
+ "matrix_version": "rizzstack.four-layer-matrix/1",
+ "note": "Pinned merge candidates for the four-layer acceptance run. Each repo is built as base + merges (local only, never pushed). A merge conflict blocks every step that needs that repo. Update the SHAs when PR heads move; the runner records exactly what it ran.",
+ "repos": {
+  "workflow": {
+   "url": "https://github.com/mojomast/workflow.git",
+   "base": "main",
+   "merges": []
   },
-  "steps": [
-    {"n": 1,  "id": "orbit-fresh",       "title": "Fresh Orbit deployment and initial agent setup", "needs": ["orbitdesktop"], "provided_by": ["orbitdesktop#25"]},
-    {"n": 2,  "id": "hyvv-capabilities", "title": "Compatible hyvv host advertising its actual capabilities", "needs": ["hyvv"], "provided_by": ["hyvv#1"]},
-    {"n": 3,  "id": "dispatch",          "title": "Coordinator-authenticated worker dispatch", "needs": ["bundlebees", "orbitdesktop", "hyvv"], "provided_by": ["bundlebees#9", "orbitdesktop#28"]},
-    {"n": 4,  "id": "frozen-contract",   "title": "Frozen ACDD contract with collected test IDs", "needs": ["bundlebees"], "provided_by": ["bundlebees#12"]},
-    {"n": 5,  "id": "red",               "title": "Genuine, independently recorded RED evidence", "needs": ["bundlebees"], "provided_by": ["bundlebees#5 (merged)"]},
-    {"n": 6,  "id": "parallel-real",     "title": "At least two parallel real-agent workers", "needs": ["hyvv", "live-launcher"], "provided_by": ["hyvv 0.1.15 (live)"]},
-    {"n": 7,  "id": "scope",             "title": "Enforced file ownership and refusal of an out-of-scope attempt", "needs": ["bundlebees", "orbitdesktop", "hyvv"], "provided_by": ["bundlebees (verify lease)"]},
-    {"n": 8,  "id": "artifact-auth",     "title": "Authenticated worker artifact retrieval", "needs": ["bundlebees", "orbitdesktop", "hyvv"], "provided_by": ["orbitdesktop#28", "bundlebees#9"]},
-    {"n": 9,  "id": "integrity",         "title": "Patch integrity and source revision checks", "needs": ["bundlebees", "orbitdesktop", "hyvv"], "provided_by": ["orbitdesktop#28", "bundlebees#9"]},
-    {"n": 10, "id": "green-refactor-review", "title": "GREEN, REFACTOR and independent REVIEW", "needs": ["bundlebees"], "provided_by": ["bundlebees#5", "bundlebees#12"]},
-    {"n": 11, "id": "integration",       "title": "Successful sandboxed combined integration", "needs": ["bundlebees"], "provided_by": ["bundlebees#10"]},
-    {"n": 12, "id": "metrics",           "title": "Accurate token, cost and failure metrics", "needs": ["bundlebees"], "provided_by": ["bundlebees#11", "bundlebees#6"]},
-    {"n": 13, "id": "evidence-view",     "title": "Trustworthy evidence view in Orbit", "needs": ["orbitdesktop", "bundlebees"], "provided_by": ["orbitdesktop#26", "bundlebees (signed report)"]},
-    {"n": 14, "id": "human-separate",    "title": "Human authorization separate from technical acceptance", "needs": ["bundlebees"], "provided_by": ["bundlebees#12"]}
-  ]
+  "hyvv": {
+   "url": "https://github.com/mojomast/hyvv.git",
+   "base": "4629459",
+   "merges": [],
+   "lineage": "hyvv #1 feat/initial-import (head 4629459)"
+  },
+  "bundlebees": {
+   "url": "https://github.com/mojomast/bundlebees.git",
+   "base": "988b858",
+   "merges": [
+    "750b10b2978f5cf46a3d513020d955931c45a7b8"
+   ],
+   "fallback_without_merges": true,
+   "lineage": "#9 d987f8d -> #10 64a4ad5 -> #11 988b858 (single stack) + #12 750b10b (C1/C6), merged locally if clean"
+  },
+  "orbitdesktop": {
+   "url": "https://github.com/mojomast/orbitdesktop.git",
+   "base": "104c3e3",
+   "merges": [
+    "d7cf47afd8c0dec34aa42e2a40b408ad8128f3ca"
+   ],
+   "lineage": "#26 104c3e3 (contains #25 96916aa via 2ddb745) + #28 d7cf47a"
+  }
+ },
+ "steps": [
+  {
+   "n": 1,
+   "id": "orbit-fresh",
+   "title": "Fresh Orbit deployment and initial agent setup",
+   "needs": [
+    "orbitdesktop"
+   ],
+   "provided_by": [
+    "orbitdesktop#25"
+   ]
+  },
+  {
+   "n": 2,
+   "id": "hyvv-capabilities",
+   "title": "Compatible hyvv host advertising its actual capabilities",
+   "needs": [
+    "hyvv"
+   ],
+   "provided_by": [
+    "hyvv#1"
+   ]
+  },
+  {
+   "n": 3,
+   "id": "dispatch",
+   "title": "Coordinator-authenticated worker dispatch",
+   "needs": [
+    "bundlebees",
+    "orbitdesktop",
+    "hyvv"
+   ],
+   "provided_by": [
+    "bundlebees#9",
+    "orbitdesktop#28"
+   ]
+  },
+  {
+   "n": 4,
+   "id": "frozen-contract",
+   "title": "Frozen ACDD contract with collected test IDs",
+   "needs": [
+    "bundlebees"
+   ],
+   "provided_by": [
+    "bundlebees#12"
+   ]
+  },
+  {
+   "n": 5,
+   "id": "red",
+   "title": "Genuine, independently recorded RED evidence",
+   "needs": [
+    "bundlebees"
+   ],
+   "provided_by": [
+    "bundlebees#5 (merged)"
+   ]
+  },
+  {
+   "n": 6,
+   "id": "parallel-real",
+   "title": "At least two parallel real-agent workers",
+   "needs": [
+    "hyvv",
+    "live-launcher"
+   ],
+   "provided_by": [
+    "hyvv 0.1.15 (live)"
+   ]
+  },
+  {
+   "n": 7,
+   "id": "scope",
+   "title": "Enforced file ownership and refusal of an out-of-scope attempt",
+   "needs": [
+    "bundlebees",
+    "orbitdesktop",
+    "hyvv"
+   ],
+   "provided_by": [
+    "bundlebees (verify lease)"
+   ]
+  },
+  {
+   "n": 8,
+   "id": "artifact-auth",
+   "title": "Authenticated worker artifact retrieval",
+   "needs": [
+    "bundlebees",
+    "orbitdesktop",
+    "hyvv"
+   ],
+   "provided_by": [
+    "orbitdesktop#28",
+    "bundlebees#9"
+   ]
+  },
+  {
+   "n": 9,
+   "id": "integrity",
+   "title": "Patch integrity and source revision checks",
+   "needs": [
+    "bundlebees",
+    "orbitdesktop",
+    "hyvv"
+   ],
+   "provided_by": [
+    "orbitdesktop#28",
+    "bundlebees#9"
+   ]
+  },
+  {
+   "n": 10,
+   "id": "green-refactor-review",
+   "title": "GREEN, REFACTOR and independent REVIEW",
+   "needs": [
+    "bundlebees"
+   ],
+   "provided_by": [
+    "bundlebees#5",
+    "bundlebees#12"
+   ]
+  },
+  {
+   "n": 11,
+   "id": "integration",
+   "title": "Successful sandboxed combined integration",
+   "needs": [
+    "bundlebees"
+   ],
+   "provided_by": [
+    "bundlebees#10"
+   ]
+  },
+  {
+   "n": 12,
+   "id": "metrics",
+   "title": "Accurate token, cost and failure metrics",
+   "needs": [
+    "bundlebees"
+   ],
+   "provided_by": [
+    "bundlebees#11",
+    "bundlebees#6"
+   ]
+  },
+  {
+   "n": 13,
+   "id": "evidence-view",
+   "title": "Trustworthy evidence view in Orbit",
+   "needs": [
+    "orbitdesktop",
+    "bundlebees"
+   ],
+   "provided_by": [
+    "orbitdesktop#26",
+    "bundlebees (signed report)"
+   ]
+  },
+  {
+   "n": 14,
+   "id": "human-separate",
+   "title": "Human authorization separate from technical acceptance",
+   "needs": [
+    "bundlebees"
+   ],
+   "provided_by": [
+    "bundlebees#12"
+   ]
+  }
+ ]
 }

@@ -486,8 +486,17 @@ def scenario(rep: Report, srcs: dict[str, Path], work: Path, real_agents: bool) 
             if code_e != 200:
                 rep.set(13, "component", "failed", f"evidence route {code_e}")
             elif accepted_cli and not view.get("accepted"):
-                rep.set(13, "component", "blocked", f"Orbit verified {view.get('verification', {}).get('verified')} signed records but cannot show "
-                        "acceptance: bundlebees reports accepted on stdout only and writes no signed reports/<id>.json for Orbit to verify")
+                pending = [c.get("id") + "=" + str(c.get("status")) for c in view.get("criteria", []) if c.get("status") != "passed"]
+                has_report = (state / "reports" / f"{fc['id']}.json").is_file()
+                why = (f"signed reports/{fc['id']}.json present; " if has_report else "no signed reports/<id>.json written; ")
+                rep.set(13, "component", "blocked", f"bundlebees signed accepted=true but Orbit shows accepted=false "
+                        f"(verificationState={view.get('verificationState')}, verified {view.get('verification', {}).get('verified')} records; "
+                        f"{why}non-passed criteria: {', '.join(pending) or 'none'}; notes: {'; '.join(view.get('notes', []))[:200]})",
+)
+                if has_report and pending:
+                    rep.finding("X2", "bundlebees signs acceptance_report/1 accepted=true while a review criterion is still "
+                                f"{', '.join(pending)}; Orbit (fail-closed, no human-review verifier) shows incomplete. "
+                                "The two layers disagree on what accepted means.", "medium")
             elif not accepted_cli:
                 rep.set(13, "component", "unrun", f"nothing accepted to display (bundlebees accepted=False); Orbit verified "
                         f"{view.get('verification', {}).get('verified')} signed records and showed accepted={view.get('accepted')}")

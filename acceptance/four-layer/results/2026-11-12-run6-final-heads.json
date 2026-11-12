@@ -1,0 +1,364 @@
+{
+  "report_version": "rizzstack.four-layer-report/1",
+  "started": "2026-11-12T17:51:04-0500",
+  "finished": "2026-11-12T17:51:13-0500",
+  "revisions": {
+    "workflow": {
+      "head": "ab21f588e0d53d1810ab5bc8f560d48e616e57d0",
+      "built": "base ab21f58",
+      "conflicts": []
+    },
+    "hyvv": {
+      "head": "4629459e05611727abab7ec6e247ceb2bff80b6b",
+      "built": "base 4629459",
+      "conflicts": []
+    },
+    "bundlebees": {
+      "head": "988b858eb55912ae4c6e3e23ebaaee95c387f565",
+      "built": "base 988b858; merge 750b10b CONFLICT ['bundlebees_plugin/acdd_cli.py', 'bundlebees_plugin/sandbox.py']",
+      "conflicts": [
+        {
+          "merge": "750b10b2978f5cf46a3d513020d955931c45a7b8",
+          "files": [
+            "bundlebees_plugin/acdd_cli.py",
+            "bundlebees_plugin/sandbox.py"
+          ]
+        }
+      ]
+    },
+    "orbitdesktop": {
+      "head": "cf3a2e8d66b2c246bac651f4657a6200dfd8c794",
+      "built": "base 104c3e3; merge d7cf47a ok",
+      "conflicts": []
+    }
+  },
+  "steps": [
+    {
+      "n": 1,
+      "id": "orbit-fresh",
+      "title": "Fresh Orbit deployment and initial agent setup",
+      "needs": [
+        "orbitdesktop"
+      ],
+      "provided_by": [
+        "orbitdesktop#25"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "S1/S5 probes refused every unauthenticated approval and default grant",
+        "evidence": {
+          "probe": {
+            "s1_string": "refused:approval_refused",
+            "s1_status": "refused:approval_refused",
+            "s1_decision": "refused:approval_refused",
+            "s1_true": "refused:approval_refused",
+            "s1_timeout": "refused:approval_required",
+            "s1_null": "refused:approval_refused",
+            "s5_setup": "refused:permission_denied",
+            "s5_setup_put": "refused:permission_denied",
+            "s5_unknown": "refused:permission_denied"
+          }
+        }
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "fresh container deployment + first-agent onboarding not executed by this runner (needs the docker compose path of Orbit #25 on a clean host); routes were run from the checkout instead"
+      }
+    },
+    {
+      "n": 2,
+      "id": "hyvv-capabilities",
+      "title": "Compatible hyvv host advertising its actual capabilities",
+      "needs": [
+        "hyvv"
+      ],
+      "provided_by": [
+        "hyvv#1"
+      ],
+      "component": {
+        "status": "blocked",
+        "reason": "hyvv 0.1.15 answers /v1/health but /v1/version is 404: capability advertisement is specified, not implemented",
+        "evidence": {
+          "health_version": "0.1.15"
+        }
+      },
+      "final": {
+        "status": "blocked",
+        "reason": "hyvv 0.1.15 answers /v1/health but /v1/version is 404: capability advertisement is specified, not implemented"
+      }
+    },
+    {
+      "n": 3,
+      "id": "dispatch",
+      "title": "Coordinator-authenticated worker dispatch",
+      "needs": [
+        "bundlebees",
+        "orbitdesktop",
+        "hyvv"
+      ],
+      "provided_by": [
+        "bundlebees#9",
+        "orbitdesktop#28"
+      ],
+      "component": {
+        "status": "failed",
+        "reason": "bundlebees -> Orbit (board key) -> hyvv (bearer); signed leases, 0600 capabilities; parallel states {'A1': 'superseded', 'A2': 'succeeded'}; re-dispatched sequentially -> {'A1': 'succeeded', 'A2': 'succeeded'}"
+      },
+      "final": {
+        "status": "blocked",
+        "reason": "parallel dispatch supersedes attempts (FL-2)"
+      }
+    },
+    {
+      "n": 4,
+      "id": "frozen-contract",
+      "title": "Frozen ACDD contract with collected test IDs",
+      "needs": [
+        "bundlebees"
+      ],
+      "provided_by": [
+        "bundlebees#12"
+      ],
+      "component": {
+        "status": "blocked",
+        "reason": "pinned bundlebees freezes without collecting test ids (C1 lives in bundlebees #12, not in this build)"
+      },
+      "final": {
+        "status": "blocked",
+        "reason": "pinned bundlebees freezes without collecting test ids (C1 lives in bundlebees #12, not in this build) (contract step needs no worker)"
+      }
+    },
+    {
+      "n": 5,
+      "id": "red",
+      "title": "Genuine, independently recorded RED evidence",
+      "needs": [
+        "bundlebees"
+      ],
+      "provided_by": [
+        "bundlebees#5 (merged)"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "verifier recorded signed behavioral RED at source_rev in the sandbox"
+      },
+      "final": {
+        "status": "passed",
+        "reason": "verifier recorded signed behavioral RED at source_rev in the sandbox (RED needs no worker)"
+      }
+    },
+    {
+      "n": 6,
+      "id": "parallel-real",
+      "title": "At least two parallel real-agent workers",
+      "needs": [
+        "hyvv",
+        "live-launcher"
+      ],
+      "provided_by": [
+        "hyvv 0.1.15 (live)"
+      ],
+      "component": {
+        "status": "unrun",
+        "reason": "scripted worker (hyvv FakeBackend + diff): component evidence only, never final"
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "real-agent mode not run: see README 'When to run --real-agents'"
+      }
+    },
+    {
+      "n": 7,
+      "id": "scope",
+      "title": "Enforced file ownership and refusal of an out-of-scope attempt",
+      "needs": [
+        "bundlebees",
+        "orbitdesktop",
+        "hyvv"
+      ],
+      "provided_by": [
+        "bundlebees (verify lease)"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "A2 edited shop/labels.py outside its lease and was refused with scope_violation"
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "needs --real-agents"
+      }
+    },
+    {
+      "n": 8,
+      "id": "artifact-auth",
+      "title": "Authenticated worker artifact retrieval",
+      "needs": [
+        "bundlebees",
+        "orbitdesktop",
+        "hyvv"
+      ],
+      "provided_by": [
+        "orbitdesktop#28",
+        "bundlebees#9"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "shared board key without capability -> 403 send the attempt artifact_capability from create; forged capability -> 403; owner capability -> artifact"
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "needs --real-agents"
+      }
+    },
+    {
+      "n": 9,
+      "id": "integrity",
+      "title": "Patch integrity and source revision checks",
+      "needs": [
+        "bundlebees",
+        "orbitdesktop",
+        "hyvv"
+      ],
+      "provided_by": [
+        "orbitdesktop#28",
+        "bundlebees#9"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "verify fetched A1 via Orbit, patch_sha256 matches the scripted diff, source_rev pinned"
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "needs --real-agents"
+      }
+    },
+    {
+      "n": 10,
+      "id": "green-refactor-review",
+      "title": "GREEN, REFACTOR and independent REVIEW",
+      "needs": [
+        "bundlebees"
+      ],
+      "provided_by": [
+        "bundlebees#5",
+        "bundlebees#12"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "GREEN rc 0, REFACTOR(--none) rc 0, REVIEW rc 0; review is the runner, not an independent human"
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "needs --real-agents and an independent reviewer"
+      }
+    },
+    {
+      "n": 11,
+      "id": "integration",
+      "title": "Successful sandboxed combined integration",
+      "needs": [
+        "bundlebees"
+      ],
+      "provided_by": [
+        "bundlebees#10"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "combined branch integrated in the sandbox"
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "needs --real-agents"
+      }
+    },
+    {
+      "n": 12,
+      "id": "metrics",
+      "title": "Accurate token, cost and failure metrics",
+      "needs": [
+        "bundlebees"
+      ],
+      "provided_by": [
+        "bundlebees#11",
+        "bundlebees#6"
+      ],
+      "component": {
+        "status": "passed",
+        "reason": "attempts_dispatched=3 distinct (dispatch events 3); tokens null; a duplicate event for one attempt is not exercised here",
+        "evidence": {
+          "summary": {
+            "attempts_dispatched": 3,
+            "first_pass": {
+              "passed": 1,
+              "denominator": 2,
+              "excluded": {},
+              "rule": "first verify with a verdict per attempt passed; attempts whose verifies were all non-verdicts (waiting, launcher or lease problems) are excluded and listed"
+            }
+          }
+        }
+      },
+      "final": {
+        "status": "unrun",
+        "reason": "needs real usage from real workers"
+      }
+    },
+    {
+      "n": 13,
+      "id": "evidence-view",
+      "title": "Trustworthy evidence view in Orbit",
+      "needs": [
+        "orbitdesktop",
+        "bundlebees"
+      ],
+      "provided_by": [
+        "orbitdesktop#26",
+        "bundlebees (signed report)"
+      ],
+      "component": {
+        "status": "blocked",
+        "reason": "bundlebees signed accepted=true but Orbit shows accepted=false (verificationState=incomplete, verified 5 records; signed reports/FL-apply-tax.json present; non-passed criteria: AC-004=review_required; notes: Only verifier output is authoritative; ignored the review record 5.)"
+      },
+      "final": {
+        "status": "blocked",
+        "reason": "bundlebees signed accepted=true but Orbit shows accepted=false (verificationState=incomplete, verified 5 records; signed reports/FL-apply-tax.json present; non-passed criteria: AC-004=review_required; notes: Only verifier output is authoritative; ignored the review record 5.)"
+      }
+    },
+    {
+      "n": 14,
+      "id": "human-separate",
+      "title": "Human authorization separate from technical acceptance",
+      "needs": [
+        "bundlebees"
+      ],
+      "provided_by": [
+        "bundlebees#12"
+      ],
+      "component": {
+        "status": "blocked",
+        "reason": "report does not state human authorization at all (needs bundlebees #12 semantics)"
+      },
+      "final": {
+        "status": "blocked",
+        "reason": "report does not state human authorization at all (needs bundlebees #12 semantics)"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "MERGE-bundlebees",
+      "severity": "high",
+      "text": "merge candidate conflict: 750b10b in bundlebees_plugin/acdd_cli.py, bundlebees_plugin/sandbox.py; built without it"
+    },
+    {
+      "id": "FL-2",
+      "severity": "high",
+      "text": "Parallel dispatch through Orbit is impossible from bundlebees: OrbitAdapterClient sends no task_id (only kanban_task_id), Orbit keys attempts by task_id, so every task-less attempt shares task_id=undefined and each new dispatch supersedes and cancels the previous active one (here ['A1']). Owners: bundlebees #9 client + Orbit #28 create."
+    },
+    {
+      "id": "X2",
+      "severity": "medium",
+      "text": "bundlebees signs acceptance_report/1 accepted=true while a review criterion is still AC-004=review_required; Orbit (fail-closed, no human-review verifier) shows incomplete. The two layers disagree on what accepted means."
+    }
+  ],
+  "final_accepted": false
+}

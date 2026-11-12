@@ -71,3 +71,12 @@ See [`results/2026-11-12-component-run.md`](results/2026-11-12-component-run.md)
 * **Step 14:** the pinned bundlebees line does not yet state human authorization
   separately (that is in #12).
 * **Steps 1 and 6:** no fresh-container Orbit deployment and no real-agent run yet.
+
+## Run 6 (2026-11-12 ~6:00 PM ET, heads: hyvv 4629459, bundlebees 988b858 (+750b10b conflicts, built without), orbitdesktop 104c3e3 + d7cf47a)
+
+Final: NOT ACCEPTED. Blockers: FL-2 parallel dispatch supersedes attempts (bundlebees sends no task_id);
+bundlebees #12 (750b10b) conflicts with #11 in acdd_cli.py and sandbox.py, so C1 is not in the build;
+hyvv 0.1.15 has no /v1/version; X2: bundlebees now writes a signed reports/<id>.json (BR1), and Orbit
+#26 verifies all records, but bundlebees signs accepted=true while the review criterion is still
+review_required, and Orbit (fail-closed, no human-review verifier) shows incomplete; step 14 still
+has no human-authorization field. See results/2026-11-12-run6-final-heads.md.
