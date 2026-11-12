@@ -16,7 +16,7 @@ When to use: bee-watch wakes you with a level-triggered gap: `WORK_NEEDS_VERIFY`
 
 ## Verify bee finished
 1. `powershell -File bees.ps1 result <card>` (optionally `-Full`). Read the compact summary first
-   (`verdict`, `claimed`, `patch_matches_work`, `scope_violation`, `secret_hits`, `failed_cmds`,
+   (`verdict`, `claimed`, `patch_matches_work`, `scope_violation`, `lease_missing`, `secret_hits`, `failed_cmds`,
    `telemetry_extras`, `tokens`). That command also settles the card idempotently: pass -> unblock
    if the card is blocked or needs_input, then request-review; fail -> keep or move the card to blocked.
    Settlement uses the CLI exit code and re-reads card status; `unblock` is not a JSON command.
@@ -47,6 +47,10 @@ the dispatch was faithful.
 `shots/` and `**/PROGRESS.log` are coordinator telemetry. `bees.ps1` FileSet/VerifyFor treats them as
 `telemetry_extras` (warning only). Do not block a card just because a progress log appears in the verify
 patch when leased file hashes match.
+
+The lease itself is only the coordinator-owned `brief.assigned_files` on the work attempt record. Never
+widen it: the worker's `in_assigned_scope` flags, its patch paths and this verify brief grant nothing. If
+that work `assigned_files` is missing or empty, verification fails closed (`lease_missing`).
 
 ## Settle fails with "task is not in running/ready" -> close as reviewer
 If `bees.ps1 result <card>` returns `settled.ok:false` with
@@ -96,7 +100,8 @@ bees.ps1's VerifyFor read-only over the launcher records, comment the compact ve
 what SettleCard would do: pass -> `kanban_request_review` with summary
 "verified by bee, ready for the box to secret-scan and push"; fail -> `kanban_block` with the fail reasons.
 Say in the comment that `bees.ps1 result` could not be executed and that its logic was replayed. Never
-invent a verdict: the replay must agree on patch sha256s, scope, command rcs and secret hits.
+invent a verdict: the replay must agree on patch sha256s, scope, command rcs and secret hits, and must
+agree that the lease came from the work brief's `assigned_files` (never the worker's self-report).
 
 ### Blocked PowerShell + card already claimed from the review lane
 Check the `claimed` event's `source_status` before choosing the terminal call. If it says `review`, the

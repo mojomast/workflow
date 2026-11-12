@@ -116,23 +116,29 @@ function PatchMap($r) {
   }
   return $m
 }
-function FileLease($workResult, $workAtt, $verifyAtt) {
-  # Lease = assigned_files, plus work-patch paths already leased (in_assigned_scope). If assigned_files is empty, the work patch is the lease.
-  $assigned = @()
-  if ($workAtt -and $workAtt.brief -and $workAtt.brief.assigned_files) { $assigned = @($workAtt.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ }) }
-  if (($assigned.Count -eq 0) -and $verifyAtt -and $verifyAtt.brief -and $verifyAtt.brief.assigned_files) { $assigned = @($verifyAtt.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ }) }
+function FileLease($workAtt) {
+  # The lease comes ONLY from the coordinator-owned work attempt record:
+  # <work_attempt>.json brief.assigned_files, which the launcher writes from the
+  # coordinator's create request. The verify brief, the work result (in_assigned_scope
+  # flags, patch.files paths) and the verify result never add paths. Directory entries
+  # ending in "/" cover files under them. Returns @{ lease = path->$true; missing = bool };
+  # missing or empty assigned_files is a missing lease, and VerifyFor fails closed.
   $lease = @{}
-  foreach ($p in $assigned) { $lease[$p] = $true }
-  $wm = PatchMap $workResult
-  if ($assigned.Count -eq 0) { foreach ($p in $wm.Keys) { $lease[$p] = $true } }
-  elseif ($workResult -and $workResult.patch -and $workResult.patch.files) {
-    foreach ($f in @($workResult.patch.files)) {
-      $p = NormPath $f.path
-      if (-not $p) { continue }
-      if ($lease.ContainsKey($p) -or $f.in_assigned_scope -eq $true -or [string]$f.in_assigned_scope -eq "true") { $lease[$p] = $true }
-    }
+  $assigned = @()
+  if ($workAtt -and $workAtt.brief -and $workAtt.brief.assigned_files) {
+    $assigned = @($workAtt.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ })
   }
-  return $lease
+  if ($assigned.Count -eq 0) { return @{ lease = $lease; missing = $true } }
+  foreach ($p in $assigned) { $lease[$p] = $true }
+  return @{ lease = $lease; missing = $false }
+}
+function LeaseCovers($lease, [string]$p) {
+  if (-not $lease -or -not $p) { return $false }
+  if ($lease.ContainsKey($p)) { return $true }
+  foreach ($k in @($lease.Keys)) {
+    if ([string]$k -match '/$' -and $p.StartsWith([string]$k, [StringComparison]::Ordinal)) { return $true }
+  }
+  return $false
 }
 function VerifyFor([string[]]$work) {
   # Newest verify bee whose brief.verify_of names one of this card's work attempts. Verdict is the verify bee's report,
@@ -162,26 +168,34 @@ function VerifyFor([string[]]$work) {
     $o.scope_violation = $false
     $o.scope_extras = @()
     $o.mismatch = @()
-    if (Test-Path $wf) {
+    $wAtt = $null
+    $wAttPath = Join-Path $ATT "$($v.brief.verify_of).json"
+    if (Test-Path $wAttPath) { $wAtt = Get-Content $wAttPath -Raw | ConvertFrom-Json }
+    $fl = FileLease $wAtt
+    $lease = $fl.lease
+    $o.lease_missing = [bool]$fl.missing
+    if ($o.lease_missing) {
+      $o.note = "no coordinator lease: work brief assigned_files missing"
+    } else {
+      $vAssigned = @()
+      if ($v.brief -and $v.brief.assigned_files) { $vAssigned = @($v.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ }) }
+      $o.verify_scope_differs = [bool]((@($vAssigned | Sort-Object) -join "`n") -ne (@($lease.Keys | Sort-Object) -join "`n"))
+    }
+    if ((Test-Path $wf) -and -not $o.lease_missing) {
       $wr = Get-Content $wf -Raw | ConvertFrom-Json
-      $wAtt = $null
-      $wAttPath = Join-Path $ATT "$($v.brief.verify_of).json"
-      if (Test-Path $wAttPath) { $wAtt = Get-Content $wAttPath -Raw | ConvertFrom-Json }
       $wm = PatchMap $wr
       $vm = PatchMap $r
-      $lease = FileLease $wr $wAtt $v
       $mismatch = @()
-      foreach ($p in @($lease.Keys)) {
-        $inW = $wm.ContainsKey($p); $inV = $vm.ContainsKey($p)
-        if (-not $inW -and -not $inV) { continue }
-        $sw = if ($inW) { [string]$wm[$p] } else { "" }
-        $sv = if ($inV) { [string]$vm[$p] } else { "" }
+      $all = @(@($wm.Keys) + @($vm.Keys) | Select-Object -Unique)
+      foreach ($p in $all) {
+        if (-not (LeaseCovers $lease $p)) { continue }
+        $sw = if ($wm.ContainsKey($p)) { [string]$wm[$p] } else { "" }
+        $sv = if ($vm.ContainsKey($p)) { [string]$vm[$p] } else { "" }
         if ($sw -ne $sv) { $mismatch += $p }
       }
       $tel = @(); $scope = @()
-      $all = @(@($wm.Keys) + @($vm.Keys) | Select-Object -Unique)
       foreach ($p in $all) {
-        if ($lease.ContainsKey($p)) { continue }
+        if (LeaseCovers $lease $p) { continue }
         if (IsTelemetryPath $p) { $tel += $p } else { $scope += $p }
       }
       $o.patch_matches_work = ($mismatch.Count -eq 0)
@@ -201,7 +215,8 @@ function VerifyFor([string[]]$work) {
       $o.secret_hits = if ($ss) { if ($ss.passed -eq $true -or [string]$ss.passed -eq "true") { 0 } else { 1 } } else { -1 }
     } else { $o.secret_hits = -1 }  # -1 = no scan reported (fails)
     $o.not_run = @($c.not_run | Where-Object { $_ }).Count
-    $o.verdict = if ($o.claimed -eq "pass" -and $o.patch_matches_work -and -not $o.scope_violation -and $o.failed_cmds -eq 0 -and $o.secret_hits -eq 0) { "pass" } else { "fail" }
+    if ($o.lease_missing) { $o.verdict = "fail" }
+    else { $o.verdict = if ($o.claimed -eq "pass" -and $o.patch_matches_work -and -not $o.scope_violation -and $o.failed_cmds -eq 0 -and $o.secret_hits -eq 0) { "pass" } else { "fail" } }
   }
   return $o
 }

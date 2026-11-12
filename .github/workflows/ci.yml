@@ -73,3 +73,58 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks
       - name: Scan history
         run: ./gitleaks detect --source . --redact --no-banner
+
+  hermes-bees-windows:
+    name: hermes-bees helpers (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: PowerShell helper tests (pwsh 7)
+        shell: pwsh
+        run: |
+          ./contrib/hermes-bees/scripts/test-verify-for.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: PowerShell helper tests (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          ./contrib/hermes-bees/scripts/test-verify-for.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Python tests (bee-watch, beekeeper guard, replay verify)
+        shell: pwsh
+        run: |
+          Push-Location contrib/hermes-bees/scripts
+          python -m unittest -v test_bee_watch test_beekeeper_guard
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Pop-Location
+          Push-Location contrib/hermes-bees/skills/bee-verify/scripts
+          python -m unittest -v test_replay_verify
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Pop-Location
+
+  hermes-bees-python:
+    name: hermes-bees helpers (Python)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Python tests (bee-watch, beekeeper guard, replay verify)
+        run: |
+          cd contrib/hermes-bees/scripts
+          python3 -m unittest -v test_bee_watch test_beekeeper_guard
+          cd ../skills/bee-verify/scripts
+          python3 -m unittest -v test_replay_verify
