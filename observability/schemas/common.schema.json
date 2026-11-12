@@ -66,6 +66,16 @@
           "$ref": "#/$defs/nullable_role"
         }
       }
+    },
+    "provider_label": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "description": "Extension identifier for an open vocabulary (agent source kinds, routes, resource kinds, providers). Lower-case token: not a URL, path, hostname, or secret. Known values are listed next to each field; other providers (for example openrouter) are valid extension labels."
+    },
+    "record_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{0,63}/v[0-9]+$",
+      "description": "Common envelope discriminator: <record name>/v<major>. These records carry it in `schema`; the frozen Hermes Forge usage record carries it in `schema_version` (bee.usage/v1). See observability/envelope.py."
     }
   }
 }

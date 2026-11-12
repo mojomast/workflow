@@ -1,7 +1,7 @@
 # What's next
 
-Planned and in-flight work on this workflow and the Orbit, bundlebees, and
-hyvv stack it coordinates. Status is one of **done**, **open PR**, or
+Planned and in-flight work on the rizzstack: workflow (method), hyvv (worker
+host), bundlebees (orchestration) and Orbit (control surface), bottom to top. Status is one of **done**, **open PR**, or
 **planned**. Pull request numbers and SHAs were checked against GitHub on
 12 November 2026, America/Toronto. Items that spend resources, merge, tag,
 release, deploy, or change the live hyvv worker-host still need an
@@ -9,22 +9,43 @@ explicit yes from the repository operator before they happen.
 
 ## Merge order
 
-When the open work below is ready, the agreed order is:
+This follows the dependency order recommended by the independent review on 12
+November. It's a plan, not permission: every merge needs Kyle's own yes.
 
-1. bundlebees [#5](https://github.com/mojomast/bundlebees/pull/5) (open, head `075bc1a`)
-2. workflow [#5](https://github.com/mojomast/workflow/pull/5) (open, head `3d12fae`)
-3. workflow [#6](https://github.com/mojomast/workflow/pull/6) (open, head `8a2cad3`; based on workflow #5)
-4. Orbit [#25](https://github.com/mojomast/orbitdesktop/pull/25) (open, head `e596edb`)
-5. Orbit [#26](https://github.com/mojomast/orbitdesktop/pull/26) (open, head `9a88c29`; reconcile onto #25 after #25 is validated)
-
-Each merge still needs its own explicit yes. Workflow
-[#7](https://github.com/mojomast/workflow/pull/7) (open, head `f5ca267`) and
-this observability formats pull request are on `main` and can merge
-independently of that sequence, but also need a yes.
+1. **Authority fixes first.** Orbit [#25](https://github.com/mojomast/orbitdesktop/pull/25)
+   requires an explicit, successful approval response. [#28](https://github.com/mojomast/orbitdesktop/pull/28)
+   requires authenticated coordinator ownership. [#26](https://github.com/mojomast/orbitdesktop/pull/26)
+   verifies evidence or uses a verifier-authenticated acceptance report. **Open PR.**
+2. **bundlebees review fixes**, [#12](https://github.com/mojomast/bundlebees/pull/12)
+   (collected test ids, coordinator-recorded reviews, CI jsonschema; #5 is
+   already merged as `2f83ae4`). **Open PR.**
+3. **Artifact protocol:** Orbit #28, then bundlebees #7/#9, rebased on the
+   final bundlebees base. The cross-repo round trip becomes a required CI
+   test. **Open PR.**
+4. **Reconcile bundlebees #8/#10 with #7/#9** (both change the CLI), with a
+   fully accepted combined run inside the real bwrap sandbox; then metrics
+   ([#11](https://github.com/mojomast/bundlebees/pull/11)) and usage parsing
+   ([#6](https://github.com/mojomast/bundlebees/pull/6)). **Open PR.**
+5. **workflow [#5](https://github.com/mojomast/workflow/pull/5)**, pinned to
+   bundlebees `2f83ae4` with ACDD required. Bump the pin on purpose after
+   bundlebees #12. **Open PR.**
+6. **workflow [#6](https://github.com/mojomast/workflow/pull/6)** (stacked on #5). **Open PR.**
+7. **workflow [#7](https://github.com/mojomast/workflow/pull/7)** (Hermes
+   Forge), then **[#8](https://github.com/mojomast/workflow/pull/8)** (this
+   PR). [#9](https://github.com/mojomast/workflow/pull/9) is independent. **Open PR.**
+8. **Orbit #25, then #26** rebased on the final onboarding branch, with the
+   browser matrix re-run after the security fixes. **Open PR.**
+9. **hyvv** ([#1](https://github.com/mojomast/hyvv/pull/1)) is reviewed as its
+   own runtime deliverable once source, installer and `/v1` contract tests are
+   public. Then comes the full four-layer cold-start and real-agent
+   acceptance run. **Open PR.**
 
 ## Hardening (P0 and P1)
 
-**Planned** (no public pull request number verified for these items yet).
+**Open PR / in review.** These are now open pull requests: artifact retrieval in
+Orbit [#28](https://github.com/mojomast/orbitdesktop/pull/28) and bundlebees
+#7/#9, self-integration in bundlebees #8/#10, metrics in bundlebees #11, and
+collected-test-id validation in bundlebees #12. None of them is merged.
 
 - **P0 — Worker-result retrieval.** An authenticated, coordinator-only
   artifact endpoint. No direct hyvv file reads. Keep attempt identity,
@@ -41,7 +62,7 @@ independently of that sequence, but also need a yes.
 - **P1 — Metrics.** No double counting. Tell environmental failures apart
   from real regressions. Tell unavailable values apart from zero. Capture
   per-attempt usage. Use explicit denominators. Represent every approved
-  contract test file. Validate test references against collected test ids.
+  contract test file. Validate test references against collected test ids (bundlebees #12).
   Preserve history. Add regression tests.
 - **P1 — Orbit CI and branches.** Separate real regressions from failures
   that also happen on the base. Use a pinned Playwright or tested runner
@@ -61,12 +82,16 @@ incomplete.
 
 ## Observability
 
-**Open PR / planned.** Record formats are this pull request (Phase 1).
+**Open PR (formats) / planned (everything that runs).** Only the record
+formats exist, in this pull request (Phase 1). They're frozen contracts, not
+a working pipeline. **The collectors, the Orbit Observability dashboard, alert
+delivery, board notes and the lifecycle visualization are all planned.**
 Later phases, each needing its own yes:
 
 1. **Phase 1 — Contracts** (this pull request). Lifecycle, classified
    failure, VCS, board, and resource snapshot schemas, examples, and tests.
-   Usage stays with Hermes Forge (`bee.usage/v1` draft in
+   Plus a common envelope discriminator and open provider labels (review P1
+   and P3). Usage stays with Hermes Forge (`bee.usage/v1`, now frozen; earlier draft in
    [contrib/hermes-bees/OBSERVABILITY.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/OBSERVABILITY.md)
    on [workflow #7](https://github.com/mojomast/workflow/pull/7)).
 2. **Phase 2 — Snapshot collector.** Pull board, local-workers, and
@@ -84,10 +109,12 @@ Later phases, each needing its own yes:
    dashboard and a board note only (no chat, no Discord). At the shared cap
    of 12, warn only; pausing non-priority bees is a later phase with its
    own yes. Operators may override the defaults. Unknown values stay
-   unavailable, never silent zero. Collectors themselves remain **planned**.
+   unavailable, never silent zero. The thresholds exist as data only:
+   collectors, alert delivery and board notes remain **planned**.
 5. **Phase 5 — Git, pull request, and CI snapshots** for an allowlisted
    set of repositories. **Planned.**
-6. **Phase 6 — A new, read-only Orbit Observability view**, dark mode,
+6. **Phase 6 — A new, read-only Orbit Observability view** (dashboard and
+   lifecycle visualization), dark mode,
    after Orbit #25 is validated and #26 is reconciled onto it, or as a
    later PR that merges cleanly. No Docker socket. **Planned.**
 7. **Phase 7 — Optional OTLP export, Bifrost labels,** and a decision
@@ -125,9 +152,23 @@ owns the versioned `/v1` API contract that Orbit and bundlebees test
 against, plus an install script. Nothing in this pull request starts or
 vendors that work.
 
+## Parking projects
+
+**Open PR.** [workflow #9](https://github.com/mojomast/workflow/pull/9)
+(chapter 18) is the protocol for parking and resuming a project. Parking
+stops new dispatch, lets running bees finish, and moves queued cards to a
+Parked column. A `PARKED.md` snapshot makes resuming auditable. It's a
+protocol spec, not a deployed service. Enforcement in hyvv, the bee
+scripts, Orbit and bundlebees is **planned**.
+
+## Rename bundlebees to swrm
+
+**Planned, not started, pending Kyle.** A proposed rename of the bundlebees
+plugin to **swrm**. Nothing has been renamed, and no repository, package,
+plugin id or doc changes until Kyle decides.
+
 ## Hermes Forge usage work
 
-**Open PR / planned.** Workflow #7 carries the draft usage schema and
-handoff. A freeze notice and ledger path come once Hermes Forge slice 1
-passes. Hermes Forge owns bundlebees usage parsing and the usage record
+**Done (schema) / open PR.** Hermes Forge froze `bee.usage/v1` (orbitdesktop
+`feat/bee-usage-observability`, `1617ae0`). Workflow #7 carries the handoff. Hermes Forge owns bundlebees usage parsing and the usage record
 fields, and is staging the Orbit adapter pass-through separately.

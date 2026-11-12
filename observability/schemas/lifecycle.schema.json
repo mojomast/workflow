@@ -15,7 +15,8 @@
   ],
   "properties": {
     "schema": {
-      "const": "agent.lifecycle/v1"
+      "const": "agent.lifecycle/v1",
+      "description": "Envelope discriminator (see common.schema.json#/$defs/record_type)."
     },
     "schema_version": {
       "const": "v1"
@@ -39,17 +40,24 @@
       "$ref": "common.schema.json#/$defs/utc_timestamp"
     },
     "source": {
-      "enum": [
-        "bee",
-        "grok-bot",
-        "hermes",
-        "subagent",
-        "routine",
-        "cursor-cloud",
-        "hyvv",
-        "launcher"
-      ],
-      "description": "hyvv is the worker-host runtime (mojomast/hyvv) that owns the versioned /v1 worker API. launcher is a transitional alias for the current 0.1.15 line while hyvv is built."
+      "description": "hyvv is the worker-host runtime (mojomast/hyvv) that owns the versioned /v1 worker API. launcher is a transitional alias for the current 0.1.15 line while hyvv is built. Recognized kinds are listed in the first branch; any other lower-case provider label (second branch) is a valid extension, for example openrouter.",
+      "anyOf": [
+        {
+          "enum": [
+            "bee",
+            "grok-bot",
+            "hermes",
+            "subagent",
+            "routine",
+            "cursor-cloud",
+            "hyvv",
+            "launcher"
+          ]
+        },
+        {
+          "$ref": "common.schema.json#/$defs/provider_label"
+        }
+      ]
     },
     "parent_id": {
       "$ref": "common.schema.json#/$defs/nullable_id"
@@ -81,15 +89,22 @@
       "$ref": "common.schema.json#/$defs/id_token"
     },
     "route": {
-      "description": "Current inference route for a bee attempt. Prefer the Hermes Forge usage record once it is frozen; this field lets a lifecycle event show the route before that ledger path exists.",
+      "description": "Current inference route for a bee attempt. Prefer the Hermes Forge usage record once it is frozen; this field lets a lifecycle event show the route before that ledger path exists. Recognized routes: go, deepseek. Other providers (for example openrouter) use an extension label.",
       "oneOf": [
         {
           "type": "null"
         },
         {
-          "enum": [
-            "go",
-            "deepseek"
+          "anyOf": [
+            {
+              "enum": [
+                "go",
+                "deepseek"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/provider_label"
+            }
           ]
         }
       ]

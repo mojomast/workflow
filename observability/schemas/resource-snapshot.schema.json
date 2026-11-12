@@ -66,21 +66,29 @@
       ],
       "properties": {
         "kind": {
-          "enum": [
-            "deepseek_credit",
-            "go_allowance",
-            "google_colab_cu",
-            "grok_bot_usage",
-            "bees_in_flight",
-            "cursor_cloud_agents",
-            "hermes_host",
-            "hyvv_host",
-            "box_disk",
-            "box_cpu",
-            "box_ram",
-            "pc_disk",
-            "pc_cpu",
-            "pc_ram"
+          "description": " Recognized kinds are in the first branch; other resources (for example an openrouter_credit balance) use an extension label.",
+          "anyOf": [
+            {
+              "enum": [
+                "deepseek_credit",
+                "go_allowance",
+                "google_colab_cu",
+                "grok_bot_usage",
+                "bees_in_flight",
+                "cursor_cloud_agents",
+                "hermes_host",
+                "hyvv_host",
+                "box_disk",
+                "box_cpu",
+                "box_ram",
+                "pc_disk",
+                "pc_cpu",
+                "pc_ram"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/provider_label"
+            }
           ]
         },
         "resource_id": {

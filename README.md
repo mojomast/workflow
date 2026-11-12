@@ -12,15 +12,28 @@ Sources: the MR.INDIA bot's durable memory and shared memory (journal entries fr
 
 Secrets, tokens, tailnet hostnames, private IPs and private URLs are deliberately left out and described generically ("the tailnet-only Orbit URL").
 
+## The rizzstack: four layers
+
+The stack this workflow describes has four layers, bottom to top:
+
+| Layer | Repo | Role | State on 12 Nov 2026 |
+|---|---|---|---|
+| **workflow** (method) | [mojomast/workflow](https://github.com/mojomast/workflow) (this repo) | The protocol: plans, contracts (ACDD), test-first evidence (TDD), handoffs, review gates | `main` at #4; ACDD/TDD, lint, observability formats and parking are open PRs |
+| **hyvv** (worker host) | [mojomast/hyvv](https://github.com/mojomast/hyvv) | Runs the bees and owns the versioned `/v1` worker API | Initial import is [hyvv #1](https://github.com/mojomast/hyvv/pull/1), open. It's being extracted from the runtime earlier chapters call "the PC launcher" (0.1.11–0.1.15). |
+| **bundlebees** (orchestration) | [mojomast/bundlebees](https://github.com/mojomast/bundlebees) | Hermes plugin: dispatch, leases, sandboxed verify, contracts and signed evidence | ACDD + TDD merged as [#5](https://github.com/mojomast/bundlebees/pull/5) (`2f83ae4`); no new tag |
+| **Orbit** (control surface) | [mojomast/orbitdesktop](https://github.com/mojomast/orbitdesktop) | Desktop, board, agents, local-workers adapter, evidence and (planned) observability views | Hardening and onboarding are open PRs (#25, #26, #28) |
+
+**Naming note.** Chapters 03–15 were written before hyvv was named, so they say "PC launcher" or "Orbit launcher". Read that as the worker-host runtime that hyvv is replacing. Nothing about it changed when it was named. What's new and what's next are in [CHANGELOG.md](CHANGELOG.md) and [ROADMAP.md](ROADMAP.md).
+
 ## The workflow at a glance
 
-To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). The [three-layer architecture](docs/12-three-layer-architecture.md) explains how the protocol, bundlebees and Orbit fit together; [bundlebees hardening](docs/13-bundlebees-hardening.md) is what the plugin now enforces on `main`; [networking and worker deploy](docs/14-networking-and-worker-deploy.md) covers how remote workers should join (much of that is still planned); and [Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) is the agent-agnostic first-run goal (in progress). The [reference demo](reference/README.md) runs a miniature of the loop offline (Python 3 and git; no private infrastructure). The [cold-start acceptance test](acceptance/README.md) clones both public repos into a clean environment and runs the real bundlebees dispatch → verify → integrate path end to end, logging every manual intervention. For a live-host change, use [11 Working together](docs/11-working-together.md) and the [infrastructure deploy template](templates/INFRA-DEPLOY.md). Current live-host ports, container names and paths stay in the authorized host runbook, not in this public repository. The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it.
+To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). The [three-layer architecture](docs/12-three-layer-architecture.md) explains how the protocol, bundlebees and Orbit fit together (hyvv has since become a fourth layer, between the protocol and bundlebees; see above); [bundlebees hardening](docs/13-bundlebees-hardening.md) is what the plugin now enforces on `main`; [networking and worker deploy](docs/14-networking-and-worker-deploy.md) covers how remote workers should join (much of that is still planned); and [Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) is the agent-agnostic first-run goal (in progress). The [reference demo](reference/README.md) runs a miniature of the loop offline (Python 3 and git; no private infrastructure). The [cold-start acceptance test](acceptance/README.md) clones both public repos into a clean environment and runs the real bundlebees dispatch → verify → integrate path end to end, logging every manual intervention. For a live-host change, use [11 Working together](docs/11-working-together.md) and the [infrastructure deploy template](templates/INFRA-DEPLOY.md). Current live-host ports, container names and paths stay in the authorized host runbook, not in this public repository. The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it.
 
 ```mermaid
 flowchart LR
     K([Kyle: idea / ask]) --> P[Plan & spec<br/>research, PLAN.md / SPEC.md,<br/>task slices + file leases]
     P -->|Kyle approves plan| O{Orchestrator bot<br/>MR.INDIA / Hermes Forge /<br/>Hermes Plugin Builder / Cheese}
-    O --> B[DeepSeek bees<br/>Cua sandboxes on Kyle's PC<br/>via Orbit launcher]
+    O --> B[DeepSeek bees<br/>Cua sandboxes on Kyle's PC<br/>via the hyvv worker host]
     O --> C[Cursor cloud agents<br/>Opus / Sonnet, last resort]
     O --> E[Executor subagents<br/>on the box]
     O --> G[Asset pipelines<br/>GenerateImage, Google Colab<br/>ComfyUI, Remotion, HyperFrames]
@@ -52,10 +65,11 @@ Every arrow labelled "Kyle's yes" is a hard gate: merges, tags, releases, deploy
 | [09 Reproducible collaboration](docs/09-reproducible-collaboration.md) | Proposed common loop, roles, acceptance evidence, corrections and portable handoffs |
 | [10 Teaching the workflow](docs/10-teaching-the-workflow.md) | Practice session, exercises and a reproducibility rubric |
 | [11 Working together](docs/11-working-together.md) | The live-host operating rhythm: preflight, backups, shared-host etiquette, secrets, verification and reporting |
-| [12 Three-layer architecture](docs/12-three-layer-architecture.md) | Workflow as the protocol, bundlebees as the execution system, Orbit as the coordination interface; measurement fields now logged by the plugin, not yet a live baseline |
-| [13 Bundlebees hardening](docs/13-bundlebees-hardening.md) | Sandboxed verify, strict briefs, immutable leases, `source_rev` and combined-branch checks, metrics JSONL, and the WorkerBackend contract, now on bundlebees `main` (untagged) |
+| [12 Three-layer architecture](docs/12-three-layer-architecture.md) | Workflow as the protocol, bundlebees as the execution system, Orbit as the coordination interface; measurement fields now logged by the plugin, not yet a live baseline. Since then hyvv has become the fourth layer (the worker host), see [the rizzstack](#the-rizzstack-four-layers) |
+| [13 Bundlebees hardening](docs/13-bundlebees-hardening.md) | Sandboxed verify, strict briefs, immutable leases, `source_rev` and combined-branch checks, metrics JSONL, and the WorkerBackend contract, now on bundlebees `main` (untagged; ACDD + TDD joined it as #5 on 12 Nov) |
 | [14 Networking and worker deploy](docs/14-networking-and-worker-deploy.md) | Dial-out workers, pairing, tailcat, Cloudflare Tunnel and optional Tailscale; built versus planned is marked throughout |
 | [15 Agent-agnostic goal and Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) | Deploy Orbit, start with a Pi API key or a free OpenCode model, and let that first agent set up the rest; orbitdesktop PR #24 and the runnable-by-anyone work are in progress, not done |
+| *In open pull requests* | [16 ACDD + TDD](https://github.com/mojomast/workflow/pull/5) and the Orbit plans chapter (workflow #5); [acdd-lint](https://github.com/mojomast/workflow/pull/6) (#6); [hermes-bees reference](https://github.com/mojomast/workflow/pull/7) (#7, Hermes Forge); [observability record formats](https://github.com/mojomast/workflow/pull/8) (#8); [18 Parking projects](https://github.com/mojomast/workflow/pull/9) (#9). Not on `main` until Kyle approves each merge. |
 | [Reference demo](reference/README.md) | Runnable miniature: two workers, an out-of-scope rejection, throwaway verification, templates, integration and a metrics log (Python 3 + git, no network) |
 | [Templates](templates/HANDOFF.md) | [Handoff](templates/HANDOFF.md), [work return](templates/RETURN.md), [asset pack](templates/ASSET-PACK.md) and [infrastructure deploy](templates/INFRA-DEPLOY.md) contracts |
 | [Worked example](examples/doppler-review-handoff.md) | A concrete Doppler review, correction and evidence cycle |

@@ -217,11 +217,38 @@ class LifecycleRouteTests(unittest.TestCase):
         self.validator.validate_file(running, "lifecycle.schema.json")
         self.validator.validate_file(fallback, "lifecycle.schema.json")
 
-    def test_unknown_route_is_rejected(self) -> None:
+    # Review P1: routes and source kinds are open vocabularies. Known values
+    # stay recognized, but another provider is a valid extension label.
+    def test_extension_route_and_source_labels_are_accepted(self) -> None:
         doc = _load_example("lifecycle-bee-running.json")
         doc["route"] = "openrouter"
+        doc["source"] = "openrouter-agent"
+        self.validator.validate_file(doc, "lifecycle.schema.json")
+
+    def test_malformed_route_labels_are_rejected(self) -> None:
+        for bad in ("OpenRouter", "https://openrouter.ai", "a/b", "", "x" * 65, "-go"):
+            doc = _load_example("lifecycle-bee-running.json")
+            doc["route"] = bad
+            with self.subTest(route=bad), self.assertRaises(SchemaError):
+                self.validator.validate_file(doc, "lifecycle.schema.json")
+
+    def test_extension_fallback_and_resource_kind_are_accepted(self) -> None:
+        failure = _load_example("failure-rate-limit.json")
+        failure["fallback_to"] = "openrouter"
+        self.validator.validate_file(failure, "failure.schema.json")
+        snapshot = _load_example("resource-snapshot.json")
+        snapshot["resources"][0]["kind"] = "openrouter_credit"
+        self.validator.validate_file(snapshot, "resource-snapshot.schema.json")
+
+    def test_stable_vocabularies_stay_closed(self) -> None:
+        doc = _load_example("lifecycle-bee-running.json")
+        doc["state"] = "exploded"
         with self.assertRaises(SchemaError):
             self.validator.validate_file(doc, "lifecycle.schema.json")
+        failure = _load_example("failure-rate-limit.json")
+        failure["class"] = "openrouter"
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(failure, "failure.schema.json")
 
 
 class PrivacyTests(unittest.TestCase):

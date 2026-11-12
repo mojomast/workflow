@@ -1,92 +1,106 @@
 # What's new
 
-A dated account of recent, verified work on this workflow and the Orbit,
-bundlebees, and hyvv stack it coordinates. Times are America/Toronto.
-Pull request numbers and SHAs were checked against GitHub on 12 November
-2026. This file does not edit earlier documentation chapters.
+A dated account of recent, verified work on this workflow and the rizzstack
+it coordinates. Times are America/Toronto. Pull request numbers, heads and
+merge SHAs were checked against GitHub on 12 November 2026 at about 5:15 PM.
+Heads of open pull requests move; GitHub is the source of truth. This file
+does not edit earlier documentation chapters.
 
 ## 12 November 2026
 
-### This repository
+### The rizzstack: four layers
 
-- **Workflow pull request #4** (merged as `ab21f58`, 12:36 PM). Demo `--out`
-  guard, teaching-only lease labels, CI, and a cold-start acceptance test.
-  This is the current `main`.
-- **Workflow pull request #5** (open, `feat/acdd-tdd`, head `3d12fae`).
-  Agent-agnostic ACDD + TDD: work-item contracts, RED / GREEN / REFACTOR /
-  REVIEW evidence, profiles, a reference demo, an Orbit plans chapter, and a
-  docs pass. Contracts and evidence stay portable across agent frameworks.
-- **Workflow pull request #6** (open, `tools/acdd-lint`, head `8a2cad3`,
-  based on #5). `acdd-lint`, built test-first, including dogfood evidence
-  from this date.
-- **Workflow pull request #7** (open, `contrib/hermes-bees`, head `f5ca267`).
-  Hermes Forge's sanitized reference tree for the Windows bee pipeline:
-  [contrib/hermes-bees/](https://github.com/mojomast/workflow/tree/contrib/hermes-bees/contrib/hermes-bees)
-  adds a launcher and bees handoff document, draft usage-record
-  documentation, and sanitized scripts. See
-  [pull request #7](https://github.com/mojomast/workflow/pull/7).
-- **Observability record formats** (this pull request, on `main`). JSON
-  Schemas, examples, and tests for lifecycle, classified-failure, VCS, board
-  and blocker, and resource snapshot records. The Hermes Forge usage record
-  is referenced, not redefined. See `observability/README.md`.
-- **Default alert thresholds** (`alert.thresholds/v1` in
-  `observability/alerts.defaults.json`, set 4:34 PM). Warn when DeepSeek
-  balance is below $5, an OpenCode Go key has used 80% of its monthly
-  allowance, 5 Go 429 errors occur in a row, a bee is stuck with no
-  progress for 30 minutes, a board blocker is older than 4 hours, free
-  disk is below 10%, bees are at the shared cap of 12, or daily model
-  spend is above $10. Destinations are the Orbit dashboard and a board
-  note only; at the cap, warn only. The $10/day spend threshold
-  supersedes a Hermes Forge draft of $5/day. Operators override
-  individual keys with an `alert.thresholds.override/v1` file.
+Bottom to top: **workflow** (the method, this repo), **hyvv** (the worker
+host, `mojomast/hyvv`, owns the versioned `/v1` worker API), **bundlebees**
+(orchestration, a Hermes plugin), and **Orbit** (the control surface,
+`mojomast/orbitdesktop`). hyvv was named at 4:26 PM. It's being extracted
+from the runtime earlier chapters call "the PC launcher" (the 0.1.11–0.1.15
+line), and its initial import is [hyvv #1](https://github.com/mojomast/hyvv/pull/1)
+(open).
 
-Earlier documentation pull requests on this repository, already on `main`,
-are #1 (infrastructure and working-together), #2 (reference workflow and
-three-layer architecture), and #3 (poster, bundlebees hardening, networking,
-and Orbit start; merged as `baec166` at 12:03 PM).
+### Merged today
 
-### bundlebees
+- **bundlebees [#5](https://github.com/mojomast/bundlebees/pull/5)**, merged
+  at 4:44 PM as `2f83ae4`: ACDD contracts, HMAC-signed TDD evidence, and
+  contract-aware dispatch, verify, integrate, refactor and review. No new
+  tag; published tags are still `v0.1.0` and `v0.1.1`.
+- **workflow [#4](https://github.com/mojomast/workflow/pull/4)** (`ab21f58`,
+  12:36 PM), bundlebees [#3](https://github.com/mojomast/bundlebees/pull/3)
+  (`509649b`) and [#4](https://github.com/mojomast/bundlebees/pull/4)
+  (`c10aa42`), and Orbit [#24](https://github.com/mojomast/orbitdesktop/pull/24)
+  (`47f2fc9`), all earlier in the day.
 
-- **Pull request #3** (merged as `509649b`, 11:54 AM). Hardened verifier and
-  contracts: sandbox, strict briefs, leases, revision checks, outcome
-  metrics, and agent adapters.
-- **Pull request #4** (merged as `c10aa42`, 12:36 PM). Never auto-select the
-  unshare sandbox; add CI. Current published tags remain `v0.1.0` and
-  `v0.1.1` (the latter from earlier today at 8:55 AM); a new release tag is
-  still ahead (see ROADMAP.md).
-- **Pull request #5** (open, `feat/acdd-tdd`, head `075bc1a`). Contracts,
-  signed evidence, and contract-aware dispatch, verify, and integrate.
+Every other merge Kyle approved at 4:43 PM (workflow #5–#8) was paused at
+4:53 PM after the independent review below. Each still needs his yes.
 
-### hyvv
+### Independent engineering review (about 4:50 PM)
 
-At 4:26 PM America/Toronto, the standalone worker-host runtime was named
-**hyvv**, at `mojomast/hyvv`, which Hermes Forge is building. It is a fourth
-layer next to this workflow, bundlebees, and Orbit, and it owns the
-versioned `/v1` worker API contract. Merges and the first tag still need an
-explicit yes. This repository does not vendor hyvv source.
+An independent review of workflow #5–#8, bundlebees #5, Orbit #25/#26/#28 and
+hyvv found blocking issues. It concluded that the components show real
+progress but aren't yet a production-ready four-layer workflow. Kyle
+approved fixing every blocking finding on the existing branches, then asking
+him before any merge. Status at the time of writing:
 
-The current PC launcher line, 0.1.13 to 0.1.15, is the runtime hyvv is
-being built from. The handoff in
-[workflow pull request #7](https://github.com/mojomast/workflow/pull/7)
-documents the 0.1.11–0.1.15 line, including minting `attempt_id`, exporting
-unpushed or local branches, OpenCode Go / DeepSeek routing, and falling
-back to DeepSeek on a monthly-limit 429. See
-[contrib/hermes-bees/README.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/README.md)
-and [contrib/hermes-bees/OBSERVABILITY.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/OBSERVABILITY.md)
-on the #7 branch.
+| Finding | Where | Status |
+|---|---|---|
+| AC test refs checked only by file, not by collected test id (C1) | bundlebees | Fix in [bundlebees #12](https://github.com/mojomast/bundlebees/pull/12) (open): sandboxed collect-only check and a signed manifest, required before freeze and dispatch |
+| A review record implied authenticated human identity (C6) | bundlebees | Fix in bundlebees #12: coordinator-recorded reviews, human authorization reserved |
+| Optional jsonschema test skipped in CI | bundlebees | Fix in bundlebees #12 |
+| Floating CI dependency on a bundlebees branch; file-level AC refs in evidence | workflow #5 | Fixed on #5: CI pins `2f83ae4` with ACDD required; build contracts re-frozen with exact test ids |
+| RED-before-GREEN inferred from phase labels on a timestamp tie (C2) | workflow #6 | Fixed on #6: signed `sequence` + `prev_sha256`, ties are `order_unproven` (bee-built, coordinator-verified) |
+| Dogfood described as more than it was (C3) | workflow #6 | Fixed on #6: an implementation success and a revealing experiment, not an accepted run |
+| Observability tests never ran in CI; closed route and source vocabularies (P1); no common discriminator with `bee.usage/v1` (P3) | workflow #8 | Fixed on #8 (this pull request) |
+| PowerShell verify helper widened its lease from worker-result data | workflow #7 | Hermes Forge's branch |
+| Any text reply treated as a host approval | Orbit #25 | Being fixed on the branch |
+| Evidence shown without verifying its signature; accepted view unreachable | Orbit #26 | Being fixed on the branch |
+| Coordinator name trusted against only the shared board key | Orbit #28 | Being fixed on the branch |
+| bundlebees #7 and #8 both change the CLI; full sandboxed combined run | bundlebees #7–#10 | Reconciliation pending |
+
+### This repository: open pull requests
+
+- **[#5](https://github.com/mojomast/workflow/pull/5)** `feat/acdd-tdd`:
+  agent-agnostic ACDD + TDD (chapter 16), reference demo, Orbit plans
+  chapter, cold-start acceptance with a required ACDD step.
+- **[#6](https://github.com/mojomast/workflow/pull/6)** `tools/acdd-lint`
+  (stacked on #5): `acdd-lint` and the first dogfood run. 4 bee attempts,
+  4 first-try GREENs, the 35 approved tests passing, integration failed in
+  the sandbox, **0 accepted changes and 2 rejected waves**.
+- **[#7](https://github.com/mojomast/workflow/pull/7)** `contrib/hermes-bees`
+  (draft, Hermes Forge): the sanitized Windows bee pipeline reference.
+- **[#8](https://github.com/mojomast/workflow/pull/8)** `feat/observability-records`
+  (this pull request): frozen record formats, default alert thresholds
+  (`alert.thresholds/v1`, set 4:34 PM), an envelope discriminator, and this
+  changelog and roadmap. **Formats only, not a working pipeline:** there are
+  no collectors, dashboard, alert delivery or board notes yet.
+- **[#9](https://github.com/mojomast/workflow/pull/9)** `feat/park-project`:
+  the protocol for parking and resuming a project (chapter 18). It's a
+  protocol, not a deployed service.
+
+### bundlebees: open pull requests
+
+[#6](https://github.com/mojomast/bundlebees/pull/6) usage parsing (Hermes
+Forge), [#7](https://github.com/mojomast/bundlebees/pull/7) and
+[#9](https://github.com/mojomast/bundlebees/pull/9) the Orbit artifact client,
+[#8](https://github.com/mojomast/bundlebees/pull/8) and
+[#10](https://github.com/mojomast/bundlebees/pull/10) sandboxed
+self-integration, [#11](https://github.com/mojomast/bundlebees/pull/11)
+metrics accounting, and [#12](https://github.com/mojomast/bundlebees/pull/12)
+the review fixes above. No tag until Kyle says so.
+
+### Orbit: open pull requests
+
+[#25](https://github.com/mojomast/orbitdesktop/pull/25) runnable by anyone
+(draft), [#26](https://github.com/mojomast/orbitdesktop/pull/26) read-only
+ACDD evidence view, [#27](https://github.com/mojomast/orbitdesktop/pull/27)
+onboarding Connect GitHub and repo picker (draft, stacked on #25), and
+[#28](https://github.com/mojomast/orbitdesktop/pull/28) the coordinator-only
+worker artifact API. Older drafts #16–#21 stay open by choice.
+
+### Usage record
+
+Hermes Forge froze `bee.usage/v1` (orbitdesktop `feat/bee-usage-observability`,
+`1617ae0`). This repository references it and doesn't redefine it.
+`observability/envelope.py` maps its `schema_version` discriminator onto the
+`schema` field these records use.
 
 The operational bee cap is 12, shared across coordinators.
-
-### Orbit
-
-- **Pull request #24** (merged as `47f2fc9`, 12:55 PM). Reconcile `main`
-  with the live Orbit tree as of this date.
-- **Pull request #25** (open, `feat/runnable-by-anyone`, head `e596edb`).
-  One-command deploy, onboarding wizard, adapters, an opt-in router, and SSH
-  hosts. Kept separate until it is validated.
-- **Pull request #26** (open, `feat/acdd-evidence-view`, head `9a88c29`).
-  Read-only ACDD evidence view (slice 1, not fully wired). Reconcile onto
-  #25 after #25 is validated.
-
-The official observability dashboard is planned as a new Orbit view, not as
-an extension of the older control-plane app.

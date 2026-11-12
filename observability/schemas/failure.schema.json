@@ -62,17 +62,24 @@
       "type": "boolean"
     },
     "fallback_to": {
+      "description": "Set when a rate-limit (or similar) event caused a route fallback. Do not treat fallback itself as a regression.",
       "oneOf": [
         {
           "type": "null"
         },
         {
-          "enum": [
-            "deepseek"
+          "anyOf": [
+            {
+              "enum": [
+                "deepseek"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/provider_label"
+            }
           ]
         }
-      ],
-      "description": "Set when a rate-limit (or similar) event caused a route fallback. Do not treat fallback itself as a regression."
+      ]
     },
     "http_429": {
       "type": [
