@@ -1,0 +1,2 @@
+bundlebees: error (scope_violation): patch changes files outside assigned_files: shop/pricing.py
+fix: Reject this worker result or amend the brief lease; nothing was applied.

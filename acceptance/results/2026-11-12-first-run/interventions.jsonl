@@ -1,0 +1,1 @@
+{"kind": "environment", "t_s": 0.0, "what": "ran in a clean temp HOME + venv instead of a container", "why": "docker not used (ACCEPTANCE_MODE=local)"}

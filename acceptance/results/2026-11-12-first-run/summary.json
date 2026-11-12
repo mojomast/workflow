@@ -1,0 +1,65 @@
+{
+  "ok": true,
+  "steps": [
+    {
+      "step": "reference-demo",
+      "ok": true,
+      "summary": "result:         OK"
+    },
+    {
+      "step": "start",
+      "ok": true,
+      "summary": "plugin registered: 4 tools, sandbox=bwrap"
+    },
+    {
+      "step": "register-worker",
+      "ok": true,
+      "summary": "worker backend 'scripted-offline' healthy"
+    },
+    {
+      "step": "dispatch",
+      "ok": true,
+      "summary": "3 parallel dispatches, signed leases: ['att-W1.json', 'att-W2.json', 'att-W3.json']"
+    },
+    {
+      "step": "violation",
+      "ok": true,
+      "summary": "W3 edited shop/pricing.py outside its lease and claimed it"
+    },
+    {
+      "step": "verify-honest",
+      "ok": true,
+      "summary": "W1 rc=0, W2 rc=0"
+    },
+    {
+      "step": "verify-rejects-violation",
+      "ok": true,
+      "summary": "W3 rc=1 code=scope_violation"
+    },
+    {
+      "step": "integrate",
+      "ok": true,
+      "summary": "rc=0; wave record written"
+    },
+    {
+      "step": "outputs",
+      "ok": true,
+      "summary": "independent pytest: 4 passed in 0.01s; W3 change absent"
+    },
+    {
+      "step": "artifact",
+      "ok": true,
+      "summary": "acceptance-artifact.json accepted=True"
+    }
+  ],
+  "interventions": [
+    {
+      "kind": "environment",
+      "t_s": 0.0,
+      "what": "ran in a clean temp HOME + venv instead of a container",
+      "why": "docker not used (ACCEPTANCE_MODE=local)"
+    }
+  ],
+  "manual_interventions": 0,
+  "elapsed_s": 1.17
+}

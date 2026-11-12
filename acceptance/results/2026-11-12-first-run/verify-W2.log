@@ -1,0 +1,11 @@
+bundlebees verify
+attempt: att-W2
+branch: wave/w1
+sha: c027b48a3d886ef0bb108d2b71e847eed878fc1c
+files: shop/labels.py, tests/test_labels.py
+tests: tests/test_labels.py
+sandbox: bwrap
+pushed: feature branch only (no merge, tag, force-push, or hook skip)
+verify result: /[redacted].json
+wave: not accepted until `hermes bundlebees integrate` passes the full suite
+suggested: hermes kanban comment <task_id> "bundlebees verify passed for att-W2"

@@ -1,0 +1,7 @@
+bundlebees integrate
+wave: w1
+branch: wave/w1
+sha: c027b48a3d886ef0bb108d2b71e847eed878fc1c
+attempts: att-W1, att-W2
+suite: exit 0 via bwrap junit={"tests": 4, "failures": 0, "errors": 0, "skipped": 0}
+accepted: yes
