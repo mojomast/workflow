@@ -10,9 +10,10 @@
     "schema_version",
     "project",
     "state",
-    "changed_at",
-    "changed_by",
+    "at",
+    "by",
     "reason",
+    "generation",
     "history"
   ],
   "properties": {
@@ -40,15 +41,15 @@
         "archived"
       ]
     },
-    "changed_at": {
+    "at": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
-      "description": "UTC timestamp in RFC 3339 form with second precision."
+      "description": "When the current state was set: RFC 3339 timestamp, second precision, UTC preferred. Same name as hyvv's project_parked proposal (state/at/by)."
     },
-    "changed_by": {
+    "by": {
       "type": "string",
       "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-      "description": "Who made the change, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret."
+      "description": "Who set the current state, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret. A parked to active or archived to active transition must be by human:*."
     },
     "reason": {
       "type": "string",
@@ -56,10 +57,16 @@
       "maxLength": 500,
       "description": "Already-scrubbed free text. Must not contain secrets, keys, tokens, environment-file contents, patches, prompts, private URLs, IP addresses, or hostnames."
     },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic state generation. Equals the number of history entries and increases by exactly one on every transition. Dispatchers record the generation they gated on and refuse to start work if it has changed (project_state_changed)."
+    },
     "snapshot_path": {
       "type": "string",
-      "pattern": "^(?![.]{2}(/|$))(?!/)[A-Za-z0-9._][A-Za-z0-9._/-]{0,243}$",
-      "description": "Repo-relative path of the resume snapshot (usually PARKED.md) when state is parked or archived. Required for those states; omit or null when active."
+      "pattern": "^(?!/)(?!.*(?:^|/)[.]{1,2}(?:/|$))(?!.*//)(?!.*/$)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+      "description": "Repo-relative path of the resume snapshot (usually PARKED.md). Not absolute; no empty, '.' or '..' segment anywhere (leading or interior); no backslash. Schema checks the text only: a reader must also resolve it inside the repository root, refuse any symlink component, and require a regular file (docs/18 section 5, tools/project-state/check.py).",
+      "maxLength": 244
     },
     "primary_repo": {
       "type": "string",
@@ -69,14 +76,14 @@
     "history": {
       "type": "array",
       "minItems": 1,
-      "description": "Append-only list of state transitions, oldest first. The last entry must match the top-level state, changed_at, changed_by, and reason.",
+      "description": "Append-only list of state transitions, oldest first. The last entry must match the top-level state, at, by, and reason; its length must equal generation. Entries are never rewritten or removed.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "state",
-          "changed_at",
-          "changed_by",
+          "at",
+          "by",
           "reason"
         ],
         "properties": {
@@ -87,12 +94,12 @@
               "archived"
             ]
           },
-          "changed_at": {
+          "at": {
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
-            "description": "UTC timestamp in RFC 3339 form with second precision."
+            "description": "When the current state was set: RFC 3339 timestamp, second precision, UTC preferred."
           },
-          "changed_by": {
+          "by": {
             "type": "string",
             "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
             "description": "Who made the change, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret."

@@ -11,7 +11,8 @@
     "ts",
     "project",
     "state",
-    "changed_by",
+    "generation",
+    "by",
     "reason",
     "source"
   ],
@@ -54,7 +55,12 @@
       ],
       "description": "State before this transition. Null if this is the first recorded state."
     },
-    "changed_by": {
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The state file's generation after this transition."
+    },
+    "by": {
       "type": "string",
       "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
       "description": "Who made the change, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret."
@@ -83,8 +89,9 @@
         },
         {
           "type": "string",
-          "pattern": "^(?![.]{2}(/|$))(?!/)[A-Za-z0-9._][A-Za-z0-9._/-]{0,243}$",
-          "description": "Repo-relative path. Not absolute, and must not contain '..'."
+          "pattern": "^(?!/)(?!.*(?:^|/)[.]{1,2}(?:/|$))(?!.*//)(?!.*/$)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+          "description": "Repo-relative path of the resume snapshot (usually PARKED.md). Not absolute; no empty, '.' or '..' segment anywhere (leading or interior); no backslash. Schema checks the text only: a reader must also resolve it inside the repository root, refuse any symlink component, and require a regular file (docs/18 section 5, tools/project-state/check.py).",
+          "maxLength": 244
         }
       ]
     }

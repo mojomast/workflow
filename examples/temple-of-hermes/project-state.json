@@ -4,22 +4,23 @@
   "project": "temple-of-hermes",
   "display_name": "Temple of Hermes",
   "state": "parked",
-  "changed_at": "2026-11-12T21:36:00Z",
-  "changed_by": "human:owner",
+  "at": "2026-11-12T21:36:00Z",
+  "by": "human:owner",
   "reason": "Set aside at the owner's request. Snapshot details are to be filled by Hermes Forge.",
+  "generation": 2,
   "snapshot_path": "PARKED.md",
   "primary_repo": "OWNER/REPO",
   "history": [
     {
       "state": "active",
-      "changed_at": "2026-11-01T00:00:00Z",
-      "changed_by": "human:owner",
+      "at": "2026-11-01T00:00:00Z",
+      "by": "human:owner",
       "reason": "Project opened. Opening date and actor are to be filled by Hermes Forge if they differ."
     },
     {
       "state": "parked",
-      "changed_at": "2026-11-12T21:36:00Z",
-      "changed_by": "human:owner",
+      "at": "2026-11-12T21:36:00Z",
+      "by": "human:owner",
       "reason": "Set aside at the owner's request. Snapshot details are to be filled by Hermes Forge."
     }
   ]

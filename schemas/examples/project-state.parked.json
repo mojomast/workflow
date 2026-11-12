@@ -4,22 +4,23 @@
   "project": "example-project",
   "display_name": "Example Project",
   "state": "parked",
-  "changed_at": "2026-11-12T21:36:00Z",
-  "changed_by": "human:owner",
+  "at": "2026-11-12T21:36:00Z",
+  "by": "human:owner",
   "reason": "Set aside at the owner's request while other work takes priority.",
+  "generation": 2,
   "snapshot_path": "PARKED.md",
   "primary_repo": "example-org/example-project",
   "history": [
     {
       "state": "active",
-      "changed_at": "2026-11-01T15:00:00Z",
-      "changed_by": "human:owner",
+      "at": "2026-11-01T15:00:00Z",
+      "by": "human:owner",
       "reason": "Project opened."
     },
     {
       "state": "parked",
-      "changed_at": "2026-11-12T21:36:00Z",
-      "changed_by": "human:owner",
+      "at": "2026-11-12T21:36:00Z",
+      "by": "human:owner",
       "reason": "Set aside at the owner's request while other work takes priority."
     }
   ]

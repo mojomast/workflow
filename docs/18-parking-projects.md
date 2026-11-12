@@ -2,6 +2,8 @@
 
 A project can be set aside without throwing away its work. This chapter is the protocol for that: three states, a machine-readable source of truth in the repo, a drain so in-flight work can finish safely, a resume snapshot, and a one-command unpark that checks for drift.
 
+> **Status: a protocol, not a deployed service.** This chapter, its schemas, and the reference checker in [`tools/project-state/`](../tools/project-state/check.py) define and test the contract. No Orbit, hyvv, bundlebees, or board instance enforces it today. hyvv's `project_parked` gate is a proposal in hyvv pull request #1, not running code. Don't describe a project as "parked" to anyone as if the system will stop it until a layer that enforces this has been merged and deployed with the owner's yes.
+
 It is a **spec**. Nothing in this pull request implements enforcement in hyvv, bundlebees, or Orbit. Interface proposals for those layers are listed as proposals. Implementation work is split at the end of this chapter. Merging, tagging, releasing, or deploying any of that still needs the human owner's yes.
 
 This chapter is numbered 18 so it can sit after the contract-first chapters that land in [workflow pull request #5](https://github.com/mojomast/workflow/pull/5). It does not edit those files, and it does not edit the observability records in [workflow pull request #8](https://github.com/mojomast/workflow/pull/8).
@@ -16,6 +18,19 @@ The same mechanism works in reverse: one unpark command validates the snapshot, 
 
 The mechanism is **agent-agnostic**. The source of truth is a file in the project's primary repository, not a setting inside Orbit, hyvv, bundlebees, a Grok Bot, or Hermes. Those systems read the file. They do not each keep a second, competing state.
 
+## Design contract
+
+Every implementation in any layer must keep these invariants. Each maps to the acceptance criteria in [§9](#9-acceptance-criteria).
+
+1. **There's one authoritative state.** `.workflow/project-state.json` in the primary repository is the only authority. Caches, board columns, Orbit settings, and copies in other repositories are views of it. They can't be used to start new work when they can't be refreshed from it. (AC-PARK-01)
+2. **Dispatch is gated on generation.** Every state file has a `generation` equal to its number of history entries. A dispatcher reads the state and its generation, and records both on the attempt. It then re-reads immediately before the lease starts (or atomically, in the same operation). If the generation changed, the dispatcher refuses with `project_state_changed` rather than starting on stale state. So a park that lands between "checked" and "started" is never missed. (AC-PARK-05, AC-PARK-22)
+3. **An invalid state fails closed.** If the file is present but unreadable, invalid, a symlink, oversized, or inconsistent (the last history entry doesn't match, a transition isn't allowed, or the generation doesn't match), new bees and new work cards are refused. Only an absent file defaults to `active`, and that default is recorded. (AC-PARK-02, AC-PARK-03)
+4. **Drain safely.** Parking stops *new* work. In-flight bees finish their current lease and push their branches, and nothing is lost or force-stopped. (AC-PARK-07)
+5. **No implicit cancel.** Neither parking, an invalid file, nor an override ever cancels in-flight work. Cancellation is a separate operation that needs an explicit human yes naming the bees. (AC-PARK-08)
+6. **Human override and resume are authenticated.** A park override needs a non-empty reason and an *authenticated* actor taken from the dispatcher's credentials, not from a self-declared request field, and it's persisted. Unpark (`→ active`) and resuming routines need a human yes. A transition to `active` whose `by` isn't `human:*` is invalid. The agent that wants to continue the work can't supply that yes. (AC-PARK-16, AC-PARK-18, AC-PARK-20)
+7. **Transitions are auditable.** Each transition appends exactly one history entry (`state`, `at`, `by`, `reason`) and increments `generation` by one. History is append-only and never rewritten. A `project.state/v1` event carries the same generation. (AC-PARK-04, AC-PARK-14)
+8. **Nothing is silently lost.** Queued cards move to Parked and keep their ids and previous columns. A routine with no recorded owner is reported as unpaused-unknown. Missing approvals leave items paused and are reported. No field, card, or branch is dropped to make a park or unpark succeed. (AC-PARK-09, AC-PARK-10, AC-PARK-19)
+
 ## 2. States
 
 A project is in exactly one of three states:
@@ -29,9 +44,12 @@ A project is in exactly one of three states:
 Every change of state records:
 
 - `state` — the new state
-- `changed_at` — an RFC 3339 UTC timestamp at second precision
-- `changed_by` — a kind-prefixed actor id, such as `human:owner` or `agent:hermes-forge` (not an email, hostname, or secret)
+- `at` — an RFC 3339 UTC timestamp at second precision
+- `by` — a kind-prefixed actor id, such as `human:owner` or `agent:hermes-forge` (not an email, hostname, or secret)
 - `reason` — already-scrubbed text. When the human set the project aside, this is the human's own words, or a faithful short paraphrase the human has accepted.
+- `generation` — the new history length. It goes up by exactly one per transition.
+
+The names `at` and `by` match hyvv's `project_parked` proposal (`contract/v1/proposals/`, hyvv pull request #1), which reads `state`, `reason`, `at`, and `by`. An earlier draft of this chapter used `changed_at` and `changed_by`. Readers must not accept those names: a file that uses them is invalid and fails closed.
 
 Allowed transitions are `active → parked`, `active → archived`, `parked → active`, `parked → archived`, and `archived → active`. A no-op write that does not change `state` is not a transition and must not append history. There is no `parking` state: the project becomes `parked` (or `archived`) immediately, and drain is a consequence of that state, not a fourth value.
 
@@ -51,7 +69,19 @@ For a project that spans several repositories, one repository is primary and hol
 | File is present but invalid or unreadable | **Refuse** new bees and new work cards (fail closed). Report that the state file is invalid. | Unchanged. Do not cancel in-flight work because the file is invalid. |
 | File is valid | Honor `state`. | Drain rules in [§4](#4-parking-is-a-drain) when `state` is `parked` or `archived`. |
 
-The current state's `state`, `changed_at`, `changed_by`, and `reason` are also the last entry in `history`. `history` is append-only, oldest first. `snapshot_path` is required when the state is `parked` or `archived`, and is a repo-relative path, usually `PARKED.md`.
+The current state's `state`, `at`, `by`, and `reason` are also the last entry in `history`, and `generation` equals the number of history entries. `history` is append-only, oldest first. `snapshot_path` is required when the state is `parked` or `archived`, and is a repo-relative path, usually `PARKED.md`.
+
+The state file itself must be a regular file, not a symlink, and `.workflow/` must not be a symlink. The reference checker refuses files over 256 KiB.
+
+### Snapshot path containment
+
+`snapshot_path` is untrusted input from a repository. A reader must:
+
+1. **Check the text.** Same rule as the schema pattern: it's relative, there's no empty, `.` or `..` segment anywhere (`a/../x.md` is refused as well as `../x.md`), there's no backslash, and it's at most 244 characters.
+2. **Check every component on disk.** Walk each path component with `lstat` and refuse if any of them is a symlink (`snapshot_path_symlink`).
+3. **Check the target.** It must be a regular file (`snapshot_missing` or `snapshot_path_invalid` otherwise), and its resolved real path must be inside the resolved repository root (`snapshot_path_escape`).
+
+A failure in any of these makes the state invalid, which fails closed. [`tools/project-state/check.py`](../tools/project-state/check.py) is the reference implementation, with tests.
 
 The file, the snapshot, and any `project.state/v1` event must not contain secrets, keys, tokens, environment-file contents, patches, prompts, private URLs, IP addresses, or hostnames.
 
@@ -115,10 +145,12 @@ The hyvv `/v1` operation that starts a bee or attempt for a project (dispatch) *
 Proposed error:
 
 - HTTP **409**
-- machine-readable code `project_parked` or `project_archived`
-- body includes `project`, `state`, and a short message, with no secrets or hosts
+- machine-readable code `project_parked` for **both** parked and archived projects (as in hyvv's proposal). The body's `state` says which one.
+- body includes `project`, `state`, `at`, `by`, `reason`, and a short message, with no secrets or hosts
+- a dispatch that saw a different `generation` from the one current at lease start: HTTP **409**, `project_state_changed`
+- an invalid state file: refused, `invalid_project_state` (hyvv's proposal uses HTTP 400)
 
-Proposed override: a request field such as `park_override` with a required non-empty `reason`. The override is attributable (`changed_by` or the authenticated dispatcher) and is persisted in the attempt or audit log. A missing reason is not an override. This spec recommends that production deployments also require a human yes for an override; the minimum contract is flag plus reason, persisted.
+Proposed override: `project_parked_override: true` with a required non-empty `project_parked_override_reason` (hyvv's field names). The override is attributable to the **authenticated** dispatcher, not a self-declared field, and is persisted in the attempt or audit log together with the state's `state`/`at`/`by` and `generation`. A missing reason is not an override. This spec recommends that production deployments also require a human yes for an override; the minimum contract is flag plus reason, persisted.
 
 `GET /v1/version` (or the equivalent capabilities document) should advertise `project_state: v1` once this is implemented, so clients can detect the refusal instead of treating it as a generic conflict.
 
@@ -147,7 +179,7 @@ Token and cost figures stay in the Hermes Forge usage record (`bee.usage/v1`, dr
 
 ## 9. Acceptance criteria
 
-These criteria are ACDD-ready. Each has a stable id. Implementation work in Orbit, hyvv, and bundlebees should map each `test` or `review` criterion to a collected test id when those changes are built. This pull request is documentation and schema only, so the criteria are the contract, not a claim that tests already exist.
+These criteria are ACDD-ready. Each has a stable id. Implementation work in Orbit, hyvv, and bundlebees should map each `test` or `review` criterion to a collected test id when those changes are built. This pull request is documentation, schemas, and a stdlib reference checker. The checker's tests ([`tools/project-state/tests/`](../tools/project-state/tests/test_check.py), run in CI) cover AC-PARK-02, 03, 04 (shape), 05 (gate decision), 12 (path rules only), 22, and 23 at the protocol level. The criteria remain the contract for the enforcing layers, not a claim that those layers pass them.
 
 ### AC-PARK-01 — Source of truth
 
@@ -171,7 +203,7 @@ These criteria are ACDD-ready. Each has a stable id. Implementation work in Orbi
 
 - **Given** a project changes between `active`, `parked`, and `archived`
 - **When** the state file is written
-- **Then** the write includes `state`, `changed_at`, `changed_by`, and `reason`, and those same values are appended as the last `history` entry
+- **Then** the write includes `state`, `at`, `by`, and `reason`, those same values are appended as the last `history` entry, and `generation` increases by exactly one
 
 ### AC-PARK-05 — No new bees while set aside
 
@@ -237,7 +269,7 @@ These criteria are ACDD-ready. Each has a stable id. Implementation work in Orbi
 
 - **Given** a project is `parked` or `archived` and no valid override is present
 - **When** hyvv `/v1` dispatch is called for that project
-- **Then** the response is HTTP 409 with code `project_parked` or `project_archived`
+- **Then** the response is HTTP 409 with code `project_parked` and the body's `state` is `parked` or `archived`
 
 ### AC-PARK-16 — Override needs a reason
 
@@ -269,6 +301,18 @@ These criteria are ACDD-ready. Each has a stable id. Implementation work in Orbi
 - **When** those items would be resumed
 - **Then** each item (or a named group) resumes only after a human yes, performed by the owning bot
 
+### AC-PARK-22 — Generation-checked dispatch
+
+- **Given** a dispatcher read the project as `active` at generation N
+- **When** the state file reaches generation N+1 (for example the project is parked) before the lease starts
+- **Then** the dispatch is refused with `project_state_changed`, and nothing already in flight is cancelled
+
+### AC-PARK-23 — Snapshot path stays inside the repository
+
+- **Given** a parked state whose `snapshot_path` has a `..` segment anywhere, an absolute path, or a symlink component, or resolves outside the repository root
+- **When** the state file is validated
+- **Then** it is invalid and new work is refused (fail closed)
+
 ### AC-PARK-21 — Agent-agnostic and portable
 
 - **Given** a person or agent other than the original maintainers has the primary repository
@@ -283,7 +327,7 @@ These criteria are ACDD-ready. Each has a stable id. Implementation work in Orbi
 | Orbit board state, the Parked column, and card restore on unpark | MR.INDIA | Later, in orbitdesktop. Needs the human owner's yes to merge. |
 | Orbit observability filter (in-flight and spend omit parked and archived projects; history keeps them) | MR.INDIA | Later, in the official Orbit observability view. Consumes `project.state/v1` and the state file. Does not redefine token usage. |
 | bundlebees check (coordinator gate and/or tests that refusals hold) | MR.INDIA | Later, in bundlebees. Complements, and does not replace, the beekeeper work below. |
-| hyvv `/v1` dispatch refusal (409 `project_parked` / `project_archived`, override with reason, capabilities advertisement) | Hermes Forge | Interface proposed in [§7](#7-enforcement-interface-proposals). |
+| hyvv `/v1` dispatch refusal (409 `project_parked`, override with reason, generation check, capabilities advertisement) | Hermes Forge | Interface proposed in [§7](#7-enforcement-interface-proposals). |
 | bees.ps1 and beekeeper refusal | Hermes Forge | Same codes and override rules. |
 | Temple of Hermes `PARKED.md` and the real `.workflow/project-state.json` in that project's primary repository | Hermes Forge | Fill in [`examples/temple-of-hermes/`](../examples/temple-of-hermes/README.md); do not include secrets or hosts. |
 
@@ -299,4 +343,5 @@ No implementation in hyvv, bundlebees, or Orbit, and no merge of this pull reque
 | [`schemas/examples/project-state.parked.json`](../schemas/examples/project-state.parked.json) | Valid parked example |
 | [`schemas/examples/project-state-event.json`](../schemas/examples/project-state-event.json) | Valid event example |
 | [`templates/PARKED.md`](../templates/PARKED.md) | Resume snapshot template |
+| [`tools/project-state/check.py`](../tools/project-state/check.py) | Reference checker: validation, fail-closed gate, generation check, snapshot containment. Standard library only. Exit 0 = allow, 3 = refuse |
 | [`examples/temple-of-hermes/`](../examples/temple-of-hermes/README.md) | Worked skeleton, to be filled by Hermes Forge |

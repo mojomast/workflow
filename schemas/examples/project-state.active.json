@@ -4,15 +4,16 @@
   "project": "example-project",
   "display_name": "Example Project",
   "state": "active",
-  "changed_at": "2026-11-01T15:00:00Z",
-  "changed_by": "human:owner",
+  "at": "2026-11-01T15:00:00Z",
+  "by": "human:owner",
   "reason": "Project opened.",
+  "generation": 1,
   "primary_repo": "example-org/example-project",
   "history": [
     {
       "state": "active",
-      "changed_at": "2026-11-01T15:00:00Z",
-      "changed_by": "human:owner",
+      "at": "2026-11-01T15:00:00Z",
+      "by": "human:owner",
       "reason": "Project opened."
     }
   ]
