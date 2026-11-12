@@ -77,6 +77,79 @@ class SnapshotPath(unittest.TestCase):
                 check.safe_snapshot(r.root, "PARKED.md")
 
 
+class ReparsePoints(unittest.TestCase):
+    """Windows junctions and other reparse points are not caught by is_symlink/S_ISLNK."""
+
+    REPARSE = 0x400  # FILE_ATTRIBUTE_REPARSE_POINT
+
+    def _fake_lstat(self, flagged):
+        real = os.lstat
+
+        class St:
+            def __init__(self, st, attrs):
+                self.st_mode = st.st_mode
+                self.st_size = st.st_size
+                self.st_file_attributes = attrs
+
+        def lstat(p, *a, **k):
+            st = real(p, *a, **k)
+            return St(st, self.REPARSE if Path(p).name == flagged else 0)
+
+        return lstat
+
+    def test_reparse_point_component_refused(self):
+        from unittest import mock
+
+        with Repo() as r:
+            (r.root / "docs").mkdir()
+            (r.root / "docs" / "PARKED.md").write_text("x")
+            with mock.patch.object(check.os, "lstat", self._fake_lstat("docs")):
+                with self.assertRaises(check.StateError) as e:
+                    check.safe_snapshot(r.root, "docs/PARKED.md")
+            self.assertEqual(e.exception.code, "snapshot_path_symlink")
+
+    def test_reparse_point_file_refused(self):
+        from unittest import mock
+
+        with Repo() as r:
+            with mock.patch.object(check.os, "lstat", self._fake_lstat("PARKED.md")):
+                with self.assertRaises(check.StateError) as e:
+                    check.safe_snapshot(r.root, "PARKED.md")
+            self.assertEqual(e.exception.code, "snapshot_path_symlink")
+
+    def test_junction_reported_by_isjunction_refused(self):
+        from unittest import mock
+
+        with Repo() as r:
+            (r.root / "docs").mkdir()
+            (r.root / "docs" / "PARKED.md").write_text("x")
+            with mock.patch.object(check.os.path, "isjunction", lambda p: Path(p).name == "docs", create=True):
+                with self.assertRaises(check.StateError) as e:
+                    check.safe_snapshot(r.root, "docs/PARKED.md")
+            self.assertEqual(e.exception.code, "snapshot_path_symlink")
+
+    def test_state_dir_reparse_point_fails_closed(self):
+        from unittest import mock
+
+        with Repo(ACTIVE) as r:
+            with mock.patch.object(check.os, "lstat", self._fake_lstat(".workflow")):
+                self.assertEqual(check.gate(r.root)["code"], "invalid_project_state")
+
+    @unittest.skipUnless(os.name == "nt", "real directory junctions exist only on Windows")
+    def test_real_windows_junction_refused(self):
+        import subprocess
+
+        with Repo() as r:
+            outside = Path(r.tmp.name) / "outside"
+            outside.mkdir()
+            (outside / "PARKED.md").write_text("x")
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(r.root / "docs"), str(outside)],
+                           check=True, capture_output=True)
+            with self.assertRaises(check.StateError) as e:
+                check.safe_snapshot(r.root, "docs/PARKED.md")
+            self.assertEqual(e.exception.code, "snapshot_path_symlink")
+
+
 class Gate(unittest.TestCase):
     def test_examples_valid_and_use_at_by(self):
         for d in (PARKED, ACTIVE):
