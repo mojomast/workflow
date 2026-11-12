@@ -78,7 +78,7 @@ The state file itself must be a regular file, not a symlink, and `.workflow/` mu
 `snapshot_path` is untrusted input from a repository. A reader must:
 
 1. **Check the text.** Same rule as the schema pattern: it's relative, there's no empty, `.` or `..` segment anywhere (`a/../x.md` is refused as well as `../x.md`), there's no backslash, and it's at most 244 characters.
-2. **Check every component on disk.** Walk each path component with `lstat` and refuse if any of them is a symlink (`snapshot_path_symlink`).
+2. **Check every component on disk.** Walk each path component with `lstat` and refuse if any of them is link-like (`snapshot_path_symlink`). Link-like means a symlink, a Windows directory junction, or any other reparse point: check `FILE_ATTRIBUTE_REPARSE_POINT` in `st_file_attributes` and `os.path.isjunction`, because `is_symlink` doesn't catch junctions. The same rule applies to `.workflow/` and the state file.
 3. **Check the target.** It must be a regular file (`snapshot_missing` or `snapshot_path_invalid` otherwise), and its resolved real path must be inside the resolved repository root (`snapshot_path_escape`).
 
 A failure in any of these makes the state invalid, which fails closed. [`tools/project-state/check.py`](../tools/project-state/check.py) is the reference implementation, with tests.

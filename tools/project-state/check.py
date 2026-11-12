@@ -31,6 +31,24 @@ PROJECT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 # Same text rule as the schema's snapshot_path pattern.
 SAFE_PATH = re.compile(r"^(?!/)(?!.*(?:^|/)[.]{1,2}(?:/|$))(?!.*//)(?!.*/$)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 MAX_STATE_BYTES = 256 * 1024
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
+
+def is_link_like(path: Path, st: os.stat_result) -> bool:
+    """Symlink, Windows junction, or any other reparse point (mount point, app link...).
+
+    os.path.islink / S_ISLNK miss directory junctions on Windows, so a junction
+    could otherwise carry snapshot_path outside the repository.
+    """
+    if stat.S_ISLNK(st.st_mode):
+        return True
+    if getattr(st, "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT:
+        return True
+    isjunction = getattr(os.path, "isjunction", None)  # Python 3.12+
+    try:
+        return bool(isjunction and isjunction(path))
+    except OSError:
+        return True
 
 
 class StateError(Exception):
@@ -53,8 +71,8 @@ def safe_snapshot(repo_root: Path, rel: str) -> Path:
             st = os.lstat(cur)
         except FileNotFoundError:
             raise StateError("snapshot_missing", "snapshot_path does not exist") from None
-        if stat.S_ISLNK(st.st_mode):
-            raise StateError("snapshot_path_symlink", "snapshot_path has a symlink component")
+        if is_link_like(cur, st):
+            raise StateError("snapshot_path_symlink", "snapshot_path has a symlink, junction or reparse-point component")
     if not stat.S_ISREG(os.lstat(cur).st_mode):
         raise StateError("snapshot_path_invalid", "snapshot_path is not a regular file")
     real = Path(os.path.realpath(cur))
@@ -127,8 +145,8 @@ def gate(repo_root: Path, expect_generation: int | None = None) -> dict:
     path = sdir / "project-state.json"
     try:
         for p in (sdir, path):
-            if os.path.lexists(p) and stat.S_ISLNK(os.lstat(p).st_mode):
-                raise StateError("invalid_project_state", "state file path is a symlink")
+            if os.path.lexists(p) and is_link_like(p, os.lstat(p)):
+                raise StateError("invalid_project_state", "state file path is a symlink, junction or reparse point")
         if not os.path.lexists(path):
             if expect_generation is not None:
                 raise StateError("project_state_changed", "state file disappeared since the gate was read")
