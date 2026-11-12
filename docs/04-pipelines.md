@@ -26,7 +26,7 @@ Each pipeline we used or built, with its inputs, tools, outputs and where it liv
 
 ## 1. Bees
 
-See [03 §4](03-development-and-orchestration.md#4-deepseek-bees-cua-sandboxes-on-kyles-pc). Inputs: a brief per `brief.schema.json` (objective, project, branch/source rev, `assigned_files`, commands, acceptance, budget, deps). Tools: Orbit local-workers adapter, PC launcher, Cua sandbox, OpenCode with `deepseek-v4.1-flash`. Output: result manifest → `verify.sh` → commit on the feature branch → board card moved to done.
+See [03 §4](03-development-and-orchestration.md#4-deepseek-bees-cua-sandboxes-on-kyles-pc). The plugin-side verifier hardening that now lives on bundlebees `main` (untagged) is in [13](13-bundlebees-hardening.md). Planned remote-worker join (pairing, tailcat, a public URL) is in [14](14-networking-and-worker-deploy.md). Inputs: a brief per `brief.schema.json` (objective, project, branch/source rev, `assigned_files`, commands, acceptance, budget, deps). Tools: Orbit local-workers adapter, PC launcher, Cua sandbox, OpenCode with `deepseek-v4.1-flash`. Output: result manifest → `verify.sh` → commit on the feature branch → board card moved to done.
 
 ## 2. Hermes plugin zero → listed
 

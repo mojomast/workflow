@@ -32,7 +32,7 @@ flowchart TB
 
 The same protocol can be carried out by Hermes, OpenCode, Codex, a Cursor cloud agent, a human, or another agent. Changing the worker or the board should not change what counts as an accepted result, who may merge or deploy, or how a handoff has to travel.
 
-This chapter is a framing for the existing guides. It does not replace [09](09-reproducible-collaboration.md), [03](03-development-and-orchestration.md) or [11](11-working-together.md), and it does not claim that production collection or verifier hardening is finished.
+This chapter is a framing for the existing guides. It does not replace [09](09-reproducible-collaboration.md), [03](03-development-and-orchestration.md) or [11](11-working-together.md). Verifier hardening now lives on bundlebees `main` (untagged); see [13](13-bundlebees-hardening.md). The first-run path for a newcomer is in [15](15-agent-agnostic-and-orbit-start.md) and is still in progress.
 
 ## 1. Workflow — the protocol
 
@@ -59,7 +59,7 @@ The protocol is the set of rules that make work understandable, reviewable and r
 
 The history of how bees were actually run — Cua sandboxes on Kyle's PC, `verify.sh` on the box, Orbit as the transport — is in [03](03-development-and-orchestration.md). That history is one implementation. The contracts are meant to stay usable if the sandbox, the model or the transport changes.
 
-Hardening that verifier further (a disposable unprivileged environment with no coordinator credentials or network, exact `source_rev` comparison, a mandatory suite on the combined branch, and a production metrics log) is in progress in a separate bundlebees pull request. It is not done in the public plugin yet, and this chapter does not treat it as shipped.
+That verifier is now hardened on bundlebees `main` at [`509649b`](https://github.com/mojomast/bundlebees/commit/509649b77d89f42dbcf7713f3a5178ad8f8de333) ([PR #3](https://github.com/mojomast/bundlebees/pull/3), merged Nov 12, 11:54 AM ET, **verified**): a disposable unprivileged environment (bubblewrap, then firejail, then unshare; fail closed), exact `source_rev` comparison, a mandatory suite on the combined branch, a metrics JSONL log with a summary CLI, a strict brief schema, an immutable coordinator lease, and a WorkerBackend adapter contract (DeepSeek bees are the default; OpenCode and Codex are stubs). It is **not tagged** as a release; v0.1.1 remains the latest tag. Details are in [13](13-bundlebees-hardening.md).
 
 ## 3. Orbit — the coordination interface
 
@@ -69,7 +69,7 @@ Orbit is a convenience, not a prerequisite for the protocol. A handoff can be a 
 
 ## 4. Measurement
 
-These measures are the ones that would show whether more parallelism actually improves outcomes. They are listed here so they are not forgotten; they are **not collected in production yet**.
+These measures are the ones that show whether more parallelism actually improves outcomes. bundlebees on `main` now records them to an append-only, hash-chained JSONL log and summarizes them with `hermes bundlebees metrics` (see [13](13-bundlebees-hardening.md)). They are **not yet a measured baseline from live orchestrations**.
 
 | Metric | Question it answers |
 |---|---|
@@ -80,6 +80,6 @@ These measures are the ones that would show whether more parallelism actually im
 | Regression escapes | How often did a change that passed its slice checks fail later, in integration, on a real host, or after release? |
 | Failed-worker recovery | When a worker failed or was rejected, was the work recovered, redispatched, or dropped, and how long did that take? |
 
-The [reference demo](../reference/README.md) writes a JSONL summary with these fields so the schema can be inspected. Its "cost" is a synthetic unit of one per scripted worker, not currency or model spend, and the run is too small to be a baseline. Production instrumentation is part of the in-progress bundlebees hardening work, not something this repository already provides.
+The [reference demo](../reference/README.md) writes a JSONL summary with these fields so the schema can be inspected offline. Its "cost" is a synthetic unit of one per scripted worker, not currency or model spend, and the run is too small to be a baseline. Production instrumentation now ships in the plugin on `main`; this repository still does not collect live figures.
 
 Chapter 10 already proposed related teaching measures (time to first useful artifact, missing-context questions, review findings, revision count, whether the receiver reproduced the check). Those also have no measured baseline yet.
