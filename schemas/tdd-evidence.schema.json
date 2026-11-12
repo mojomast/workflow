@@ -61,7 +61,7 @@
     "at": {"type": "string", "minLength": 1},
     "log_path": {"type": "string"},
     "notes": {"type": "string"},
-    "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Optional coordinator HMAC-SHA256 over the canonical record without this field. The reference demo leaves it out (teaching only)."}
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Optional coordinator HMAC-SHA256 over the canonical record without this field. bundlebees signs with a key derived from its private lease key; the reference demo signs with a demo key kept in its run directory (teaching only)."}
   },
   "additionalProperties": true
 }

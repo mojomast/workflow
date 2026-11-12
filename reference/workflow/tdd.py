@@ -4,15 +4,19 @@ Implements docs/16-acdd-tdd.md §3-§5 with the standard library: a unittest
 runner that reports per-case outcomes, the first-match-wins classification
 table, ``tdd-evidence/1`` records, and the RED / GREEN / REFACTOR rules.
 
-Teaching only: records are plain JSON files and are not signed. bundlebees
-signs its records with the coordinator key (``bundlebees_plugin/tdd.py``).
-Tests here run in a throwaway clone with a minimal environment, but not in a
-sandbox; bundlebees runs worker-produced tests under bubblewrap or firejail.
+Teaching code, but honest: records are HMAC-SHA256 signed with a demo key
+kept in the run directory (``keys/verifier.key``), and the report treats a
+record whose signature does not verify as ``evidence_tampered``. A key next to
+the evidence only shows the mechanism; bundlebees keeps its key in the
+coordinator's private state directory. Tests run in a throwaway clone with a
+minimal environment, inside bubblewrap when it is available
+(``workflow/sandbox.py``); records say ``sandbox: none`` when it is not.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -22,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from . import sandbox as _sandbox
 from . import schema as _schema
 from .acdd import added_interfaces, red_set
 
@@ -93,28 +98,90 @@ def _discover(root: Path) -> list[str]:
     return sorted(str(p.relative_to(root)) for p in (root / "tests").glob("test_*.py"))
 
 
-def run_unittest(root: Path, test_files: list[str] | None = None, *, timeout: int = 120) -> dict:
-    """Run *test_files* (default: tests/test_*.py) and return a result with cases."""
-    root = Path(root)
+def run_unittest(root: Path, test_files: list[str] | None = None, *, timeout: int = 120, sandbox: bool = False) -> dict:
+    """Run *test_files* (default: tests/test_*.py) and return a result with cases.
+
+    With ``sandbox=True`` the run uses bubblewrap when it is available; the
+    result's ``sandbox`` field says which (``"bwrap"`` or ``"none"``).
+    """
+    root = Path(root).resolve()
     files = list(test_files) if test_files else _discover(root)
+    backend = _sandbox.detect_backend() if sandbox else None
     with tempfile.TemporaryDirectory(prefix="tdd-run-") as tmp:
         script, out = Path(tmp) / "runner.py", Path(tmp) / "cases.json"
         script.write_text(_RUNNER, encoding="utf-8")
         env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": tmp, "TMPDIR": tmp, "LANG": "C.UTF-8",
                "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1", "PYTHONHASHSEED": "0"}
+        argv = [sys.executable, "-B", str(script), str(root), str(out), *files]
+        if backend == "bwrap":
+            argv = _sandbox.wrap(argv, root, Path(tmp))
         try:
-            proc = subprocess.run([sys.executable, "-B", str(script), str(root), str(out), *files], cwd=str(root),
-                                  env=env, capture_output=True, text=True, timeout=timeout)
+            proc = subprocess.run(argv, cwd=str(root), env=env, capture_output=True, text=True, timeout=timeout)
         except subprocess.TimeoutExpired:
-            return {"exit_code": None, "tests": 0, "failures": 0, "errors": 0, "skipped": 0, "timed_out": True, "cases": []}
+            return {"exit_code": None, "tests": 0, "failures": 0, "errors": 0, "skipped": 0, "timed_out": True, "cases": [],
+                    "sandbox": backend or "none"}
         cases = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
     return {
         "exit_code": proc.returncode, "tests": len(cases),
         "failures": sum(c["outcome"] == "failed" for c in cases),
         "errors": sum(c["outcome"] == "error" for c in cases),
         "skipped": sum(c["outcome"] == "skipped" for c in cases),
-        "timed_out": False, "cases": cases,
+        "timed_out": False, "cases": cases, "sandbox": backend or "none",
     }
+
+
+def isolation_environment() -> dict:
+    """The ``environment`` block for records: which isolation the runs really had."""
+    backend = _sandbox.detect_backend()
+    if backend == "bwrap":
+        return {"python": sys.version.split()[0], "sandbox": "bwrap",
+                "isolation": "throwaway clone, minimal env, bwrap: no network, private /tmp, home hidden"}
+    return {"python": sys.version.split()[0], "sandbox": "none",
+            "isolation": "throwaway clone, minimal env, no sandbox (bwrap not available)"}
+
+
+# ----------------------------------------------------------------- signing
+
+
+def ensure_key(path: Path) -> bytes:
+    """Return the 32-byte demo verifier key at *path*, creating it (0600) atomically."""
+    path = Path(path)
+    if path.exists():
+        data = path.read_bytes()
+        if len(data) != 32:
+            raise TddError("evidence_invalid", "the verifier key is not 32 bytes", "Delete the run directory and run the demo again.")
+        return data
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        key = os.urandom(32)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(key)
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            return ensure_key(path)
+        return key
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _canonical(record: Mapping[str, Any]) -> bytes:
+    body = {k: v for k, v in record.items() if k not in ("signature", "_path")}
+    return json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+
+
+def sign_record(record: Mapping[str, Any], key: bytes) -> dict:
+    """Return a copy of *record* with an HMAC-SHA256 ``signature`` (``_path`` is not signed)."""
+    return {**record, "signature": hmac.new(key, _canonical(record), hashlib.sha256).hexdigest()}
+
+
+def verify_signature(record: Mapping[str, Any], key: bytes) -> bool:
+    sig = record.get("signature")
+    if not isinstance(sig, str):
+        return False
+    return hmac.compare_digest(sig, hmac.new(key, _canonical(record), hashlib.sha256).hexdigest())
 
 
 def fingerprint_files(root: Path, files: list[str]) -> dict[str, str]:
@@ -164,12 +231,13 @@ def classify(result: Mapping[str, Any] | None, red: list[str], added: list[str])
     return "behavioral_failure"
 
 
-def _criteria(contract: Mapping[str, Any], phase: str, cases: list[dict], classification: str) -> dict[str, str]:
+def _criteria(contract: Mapping[str, Any], phase: str, cases: list[dict], classification: str,
+              review_outcome: str | None = None) -> dict[str, str]:
     out = {}
     for a in contract["acceptance_criteria"]:
         kind = a["verification"]
         if kind in ("review", "manual"):
-            out[a["id"]] = "review_required"
+            out[a["id"]] = review_outcome or "review_required"
         elif kind == "integration":
             out[a["id"]] = ("passed" if classification == "passed" else "failed") if phase == "integration" else "not_run"
         else:
@@ -181,16 +249,18 @@ def _criteria(contract: Mapping[str, Any], phase: str, cases: list[dict], classi
 def make_record(contract: Mapping[str, Any], contract_sha256: str, *, phase: str, revision: str,
                 test_fingerprints: Mapping[str, str], command: list[str], result: Mapping[str, Any] | None,
                 produced_by: Mapping[str, str], test_first: bool, environment: Mapping[str, Any] | None = None,
-                notes: str | None = None, now: str | None = None) -> dict:
-    classification = classify(result, red_set(contract), added_interfaces(contract))
+                notes: str | None = None, now: str | None = None, review_outcome: str | None = None) -> dict:
+    if review_outcome is not None and (phase != "review" or review_outcome not in ("passed", "failed")):
+        raise TddError("evidence_invalid", "review_outcome is only for review records and must be passed or failed", "Record reviews with phase='review'.")
+    classification = review_outcome or classify(result, red_set(contract), added_interfaces(contract))
     res = dict(result) if result is not None else {"exit_code": None, "tests": 0, "failures": 0, "errors": 0, "skipped": 0, "timed_out": False, "cases": []}
     rec = {
         "evidence_version": EVIDENCE_VERSION, "contract_id": contract["id"], "contract_sha256": contract_sha256,
         "phase": phase, "revision": revision, "base_rev": contract["source_rev"],
         "test_fingerprints": dict(test_fingerprints), "command": list(command),
-        "environment": dict(environment or {"python": sys.version.split()[0], "isolation": "throwaway clone, minimal env, no sandbox (teaching)"}),
+        "environment": dict(environment or isolation_environment()),
         "result": res, "classification": classification,
-        "criteria": _criteria(contract, phase, res.get("cases") or [], classification),
+        "criteria": _criteria(contract, phase, res.get("cases") or [], classification, review_outcome),
         "produced_by": dict(produced_by), "test_first": bool(test_first),
         "at": now or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -249,7 +319,12 @@ def check_refactor(contract, sha, red, green, refactor) -> None:
         raise TddError("refactor_failed", f"REFACTOR run was {refactor['classification']}", "Keep the tests green while refactoring.")
 
 
-def acceptance_report(contract: Mapping[str, Any], sha: str, records: list[Mapping[str, Any]]) -> dict:
+def acceptance_report(contract: Mapping[str, Any], sha: str, records: list[Mapping[str, Any]], *, key: bytes | None = None) -> dict:
+    """With *key*, records whose signature does not verify are ignored and their phase is ``evidence_tampered``."""
+    tampered = set()
+    if key is not None:
+        tampered = {r["phase"] for r in records if not verify_signature(r, key)}
+        records = [r for r in records if verify_signature(r, key)]
     last = {}
     for r in records:
         last[r["phase"]] = r
@@ -278,6 +353,9 @@ def acceptance_report(contract: Mapping[str, Any], sha: str, records: list[Mappi
             phases[phase] = "valid" if rec["classification"] == "passed" and rec.get("contract_sha256") == sha else "integration_failed"
         else:
             phases[phase] = "valid" if rec.get("produced_by", {}).get("role") in ("reviewer", "human") and rec["classification"] == "passed" else "review_failed"
+    for phase in tampered:
+        if phase in phases:
+            phases[phase] = "evidence_tampered"
     source = last.get("integration") or refactor or green
     criteria = {}
     for a in contract["acceptance_criteria"]:

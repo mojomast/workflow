@@ -6,9 +6,11 @@ WORKERS (leases exclude the approved tests) -> GREEN -> REFACTOR ->
 INDEPENDENT VERIFICATION -> INTEGRATION -> acceptance report. Human gates
 (merge, tag, release, deploy, publish) are never exercised here.
 
-Teaching code: scripted workers, unsigned evidence files, unkeyed leases, and
-tests that run in throwaway clones without a sandbox. bundlebees is the
-production implementation of the same rules.
+Teaching code: scripted workers and a scripted reviewer, unkeyed leases, and
+a demo verifier key kept in the run directory. Evidence records are
+HMAC-signed and checked, and tests run in throwaway clones inside bubblewrap
+when it is available (records say ``sandbox: none`` when it is not).
+bundlebees is the production implementation of the same rules.
 """
 
 from __future__ import annotations
@@ -129,6 +131,8 @@ def _pricing_contract(cid: str, source_rev: str, title: str) -> dict:
              "tests": ["tests/test_pricing.py::PricingTests::test_ten_percent_off", "tests/test_pricing.py::PricingTests::test_rejects_negative_price",
                        "tests/test_pricing.py::PricingTests::test_rejects_bad_percent"]},
             {"id": "AC-004", "statement": "the combined branch passes the full suite", "verification": "integration"},
+            *([{"id": "AC-005", "statement": "a reviewer reads the change: apply_tax mirrors apply_discount and its error text is clear",
+                "verification": "review"}] if cid == "W1-pricing" else []),
         ],
         "dependencies": [], "assumptions": ["prices are integer cents"],
         "scope": {"assigned_files": ["shop/pricing.py"], "test_files": ["tests/test_pricing.py"],
@@ -136,7 +140,7 @@ def _pricing_contract(cid: str, source_rev: str, title: str) -> dict:
         "source_rev": source_rev,
         "tdd": {"applicable": True, "test_first": True},
         "verification": {"independent": True, "integration": True},
-        "evidence_required": ["red", "green", "refactor", "integration"] if cid == "W1-pricing" else ["red", "green", "integration"],
+        "evidence_required": ["red", "green", "refactor", "integration", "review"] if cid == "W1-pricing" else ["red", "green", "integration"],
         "authorization": {"human_gates": GATES, "not_authorized": ["editing approved tests", "merge", "release", "deploy", "publish"]},
     }
 
@@ -194,20 +198,28 @@ def _run_phase(toy: Path, rev: str, contract: dict, sha: str, phase: str, test_f
         clone = tmp / "repo"
         throwaway_checkout(toy, rev, clone)
         fp = tdd.fingerprint_files(clone, contract["scope"]["test_files"])
-        result = tdd.run_unittest(clone, test_files)
+        result = tdd.run_unittest(clone, test_files, sandbox=True)
         cmd = ["python3", "-m", "unittest"] + (test_files or ["discover", "-s", "tests"])
         return tdd.make_record(contract, sha, phase=phase, revision=rev, test_fingerprints=fp, command=cmd,
-                               result=result, produced_by=VERIFIER, test_first=True, **kw)
+                               result=result, produced_by=VERIFIER, test_first=True,
+                               environment=tdd.isolation_environment(), **kw)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _save(ev_dir: Path, name: str, rec: dict, run_dir: Path) -> str:
+    """Sign *rec* in place with the run's demo key, validate it and write it."""
+    rec.pop("_path", None)
+    rec.update(tdd.sign_record(rec, _key(run_dir)))
     tdd.validate_evidence(rec)
     path = ev_dir / f"{name}.json"
     path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     rec["_path"] = str(path.relative_to(run_dir))
     return rec["_path"]
+
+
+def _key(run_dir: Path) -> bytes:
+    return tdd.ensure_key(run_dir / "keys" / "verifier.key")
 
 
 def _worker(toy: Path, red_rev: str, root: Path, tid: str, files: dict[str, str], claims: dict) -> dict:
@@ -357,8 +369,25 @@ def run_acdd(run_dir: Path, *, force: bool = False) -> dict:
                               command=["python3", "-m", "unittest", "discover", "-s", "tests"], result=integration["result"], produced_by=VERIFIER, test_first=True)
         _save(run_dir / "evidence" / cid, "integration", rec, run_dir)
         records[cid].append(rec)
+
+    # 7. REVIEW where the contract asks for it (scripted reviewer: teaching only;
+    #    in production a named person records it with `hermes bundlebees tdd review`).
+    for cid in final:
+        c = frozen[cid]
+        if "review" not in c["evidence_required"]:
+            continue
+        last = records[cid][-1]
+        rec = tdd.make_record(c, c["review"]["contract_sha256"], phase="review", revision=final[cid],
+                              test_fingerprints=last["test_fingerprints"], command=["review"], result=None,
+                              produced_by={"role": "reviewer", "name": "scripted reviewer (teaching)"}, test_first=True,
+                              notes="scripted approval: read the diff; apply_tax mirrors apply_discount", review_outcome="passed")
+        _save(run_dir / "evidence" / cid, "review", rec, run_dir)
+        records[cid].append(rec)
+        metrics.emit("reviewed", task_id=cid, decision="approved", reviewer="scripted")
+
+    key = _key(run_dir)
     for cid, c in frozen.items():
-        rep = tdd.acceptance_report(c, c["review"]["contract_sha256"], records[cid])
+        rep = tdd.acceptance_report(c, c["review"]["contract_sha256"], records[cid], key=key)
         (run_dir / "evidence" / cid / "report.json").write_text(json.dumps(rep, indent=2) + "\n", encoding="utf-8")
         reports[cid] = rep
         if rep["accepted"]:
@@ -373,7 +402,8 @@ def run_acdd(run_dir: Path, *, force: bool = False) -> dict:
               "rejected_contracts": rejected_contracts,
               "integration": {k: integration[k] for k in ("passed", "applied", "integration_rev", "reason")},
               "reports": {k: {"accepted": v["accepted"], "phases": v["phases"], "test_first": v["test_first"]} for k, v in reports.items()},
-              "acceptance_path": str(run_dir / "ACCEPTANCE.md"), "metrics_path": str(run_dir / "metrics.jsonl")}
+              "acceptance_path": str(run_dir / "ACCEPTANCE.md"), "metrics_path": str(run_dir / "metrics.jsonl"),
+              "evidence_signed": True, "sandbox": tdd.isolation_environment()["sandbox"]}
     (run_dir / "summary.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result
 
@@ -428,7 +458,7 @@ def _integrate(toy: Path, base: str, frozen: dict, reds: dict, final: dict) -> d
             run_git(repo, "add", "-A")
             run_git(repo, "commit", "-q", "-m", f"integrate {cid}")
             applied.append(cid)
-        result = tdd.run_unittest(repo)
+        result = tdd.run_unittest(repo, sandbox=True)
         fps = {cid: tdd.fingerprint_files(repo, frozen[cid]["scope"]["test_files"]) for cid in final}
         passed = result["exit_code"] == 0 and not result["timed_out"]
         return {"passed": passed, "reason": "combined test suite passed" if passed else "combined test suite failed", "applied": applied,
@@ -449,9 +479,9 @@ def _handoff(c: dict) -> dict:
         "not_authorized": "editing approved tests, merge, tag, release, deploy, publish, network use",
         "assigned": ", ".join(c["scope"]["assigned_files"]) + " (approved tests read-only: " + ", ".join(c["scope"]["test_files"]) + ")",
         "budget": "offline, stdlib + git, scripted workers", "assumptions": "; ".join(c.get("assumptions", [])) or "none",
-        "deliverable": "unified diff against the RED revision", "checks": "RED on baseline + tests only, GREEN, REFACTOR where required, integration",
+        "deliverable": "unified diff against the RED revision", "checks": "RED on baseline + tests only, GREEN, REFACTOR and REVIEW where required, integration",
         "invariants": "approved tests unchanged; files outside the lease untouched", "visual": "not applicable",
-        "unavailable": "no model, no Orbit, no sandbox, unsigned evidence (teaching)",
+        "unavailable": "no model, no Orbit; scripted workers and reviewer; demo key in the run directory; sandbox only when bwrap is available (teaching)",
     }
 
 

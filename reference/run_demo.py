@@ -111,6 +111,9 @@ def format_acdd_summary(result: dict) -> str:
     integ = result["integration"]
     lines += [
         f"  integration:    {'passed' if integ.get('passed') else 'FAILED'} ({integ.get('reason')})",
+        f"  evidence:       {'HMAC-signed with a demo key in keys/ (teaching)' if result.get('evidence_signed') else 'unsigned'}",
+        f"  sandbox:        {'bwrap (no network, private /tmp, home hidden)' if result.get('sandbox') == 'bwrap' else 'none (bwrap not available; runs are not sandboxed)'}",
+        "  workers:        scripted (no model); reviewer: scripted (teaching)",
         f"  acceptance:     {result['acceptance_path']}",
         f"  artifacts:      {result['run_dir']}",
         f"  result:         {'OK' if result['ok'] else 'FAILED'}",
