@@ -903,11 +903,16 @@ def test_live_http_end_to_end_uses_the_brief(tmp_path):
 
     posts = [entry for entry in opener.requests if entry["url"].endswith("/v1/attempts")]
     assert len(posts) == len(ELIGIBLE)
+    manifest = json.loads((ROOT / "jobs" / "workflow.yaml").read_text(encoding="utf-8"))
+    timeouts = {job["name"]: (job.get("timeout_s") or 900) for job in manifest["jobs"]}
     for entry in posts:
         body = json.loads(entry["data"].decode("utf-8"))
         assert body["brief"]["project"] == "workflow"
         assert body["brief"]["source_rev"] == HEAD
-        assert body["brief"]["budget"] == {"timeout_s": 900}
+        # Each job carries its own budget from the manifest; the 900s default only
+        # applies to a job that declares no timeout_s.
+        job_name = next(name for name in timeouts if name in body["brief"]["objective"])
+        assert body["brief"]["budget"] == {"timeout_s": timeouts[job_name]}
         assert body["brief"]["assigned_files"] == ["."]
         assert body["model"] == dispatch.DEFAULT_MODEL
         assert TOKEN not in entry["data"].decode("utf-8")
