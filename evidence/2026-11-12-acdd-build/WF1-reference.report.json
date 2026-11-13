@@ -1,0 +1,29 @@
+{
+  "contract_id": "WF1-reference",
+  "contract_sha256": "b9e6894769d3de3c7817c99744b76e3e1e74e64f9e8b20c35f9c517bcc481c29",
+  "mode": "contract",
+  "test_first": true,
+  "phases": {
+    "red": "valid",
+    "green": "valid"
+  },
+  "criteria": {
+    "AC-001": {
+      "status": "passed",
+      "evidence": null
+    },
+    "AC-002": {
+      "status": "passed",
+      "evidence": null
+    },
+    "AC-003": {
+      "status": "passed",
+      "evidence": null
+    },
+    "AC-004": {
+      "status": "passed",
+      "evidence": null
+    }
+  },
+  "accepted": true
+}

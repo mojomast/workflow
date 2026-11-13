@@ -1,0 +1,254 @@
+{
+  "evidence_version": "tdd-evidence/1",
+  "contract_id": "WF1-reference",
+  "contract_sha256": "b9e6894769d3de3c7817c99744b76e3e1e74e64f9e8b20c35f9c517bcc481c29",
+  "phase": "red",
+  "revision": "8045df0008cfcba949600755f4184ac5eb31163f",
+  "base_rev": "8045df0008cfcba949600755f4184ac5eb31163f",
+  "test_fingerprints": {
+    "tests/test_acdd.py": "ce375f89d889e964d7d02730d30f536795388a3696423ea0bfaa393a7deb46bb",
+    "tests/test_tdd.py": "9f442d7e4aa2a4e5f10ceebb858fdb9590236e5cdc397d112fe9ab21a165f1d9",
+    "tests/test_lifecycle.py": "70f5c6695fb3cf21c06f6b4ea1a1a2015d706a45366d3b13f9944dfb47643f35",
+    "tests/test_reference.py": "a583b4d6345dc44927dd3fc9930667820dc364d8a99daf3951ce903d0e63d67c"
+  },
+  "command": [
+    "python3",
+    "runner",
+    "tests/test_acdd.py",
+    "tests/test_tdd.py",
+    "tests/test_lifecycle.py",
+    "tests/test_reference.py"
+  ],
+  "environment": {
+    "python": "3.13.5",
+    "sandbox": "bwrap",
+    "isolation": "throwaway clone, minimal env, bwrap: no network, private /tmp, home hidden"
+  },
+  "result": {
+    "exit_code": 1,
+    "tests": 29,
+    "failures": 0,
+    "errors": 14,
+    "skipped": 0,
+    "timed_out": false,
+    "cases": [
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_code_checks",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_example_contract_in_templates_is_valid",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_hash_freeze_and_tamper_detection",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_helpers",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_schema_violations_name_the_field",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_valid_contract_round_trips_without_mutation",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_acdd.py::AcddContractTests::test_validator_covers_every_schema_keyword",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'acdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_tdd.py::TddTests::test_classification_table",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_tdd.py::TddTests::test_criteria_status_and_report_never_show_unrun_as_passed",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_tdd.py::TddTests::test_fingerprints",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_tdd.py::TddTests::test_records_validate_against_the_shared_schema",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_tdd.py::TddTests::test_red_green_refactor_rules",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_tdd.py::TddTests::test_unittest_runner_reports_cases_with_error_types",
+        "outcome": "error",
+        "stage": "call",
+        "error_type": "ImportError",
+        "message": "cannot import name 'tdd' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_lifecycle.py::LifecycleTests",
+        "outcome": "error",
+        "stage": "setup",
+        "error_type": "ImportError",
+        "message": "cannot import name 'lifecycle' from 'workflow' (/tmp/tmpwvimmmxz/wt/reference/workflow/__init__.py)"
+      },
+      {
+        "id": "tests/test_reference.py::ContractTests::test_brief_requires_source_rev_assigned_files_and_acceptance",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::ContractTests::test_lease_is_immutable",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::ContractTests::test_teaching_fingerprint_is_not_tamper_proof",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::DemoTests::test_full_demo_accepts_two_and_rejects_out_of_scope",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_cli_refuses_non_empty_out_with_exit_2",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_demo_rerun_with_force_succeeds",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_force_replaces_only_a_marked_demo_run",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_new_and_empty_folders_are_claimed_with_a_marker",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_non_empty_folder_is_refused_and_untouched",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_protected_paths_are_always_refused",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_symlink_tricks_are_refused",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::OutputDirTests::test_symlinked_marker_does_not_count",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::VerificationTests::test_in_scope_pricing_patch_is_accepted",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::VerificationTests::test_out_of_scope_patch_is_rejected",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      },
+      {
+        "id": "tests/test_reference.py::VerificationTests::test_wrong_source_rev_is_rejected",
+        "outcome": "passed",
+        "stage": "call",
+        "error_type": "",
+        "message": ""
+      }
+    ],
+    "sandbox": "none"
+  },
+  "classification": "behavioral_failure",
+  "criteria": {
+    "AC-001": "failed",
+    "AC-002": "failed",
+    "AC-003": "failed",
+    "AC-004": "passed"
+  },
+  "produced_by": {
+    "role": "verifier",
+    "name": "coordinator re-run on the box"
+  },
+  "test_first": true,
+  "at": "2026-11-12T21:59:48Z"
+}

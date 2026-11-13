@@ -12,6 +12,9 @@
 # Other env:
 #   WORKFLOW_REPO / BUNDLEBEES_REPO   clone URLs (default: public GitHub repos)
 #   WORKFLOW_REF  / BUNDLEBEES_REF    branch or tag to test (default: main)
+#   BUNDLEBEES_SHA                    optional full commit to pin on BUNDLEBEES_REF;
+#                                     the run fails unless that exact commit is
+#                                     checked out (CI pins the merged #5 commit)
 #   WORKFLOW_SRC                      local path or URL to clone the workflow
 #                                     repo from instead (CI uses the PR checkout;
 #                                     still a fresh clone, local mode only)
@@ -51,7 +54,7 @@ if [ "$MODE" = docker ]; then
   # bubblewrap needs user namespaces inside the container; --privileged is the
   # simplest portable way on a throwaway container and is logged as such.
   exec docker run --rm --privileged \
-    -e WORKFLOW_REPO -e BUNDLEBEES_REPO -e WORKFLOW_REF -e BUNDLEBEES_REF \
+    -e WORKFLOW_REPO -e BUNDLEBEES_REPO -e WORKFLOW_REF -e BUNDLEBEES_REF -e BUNDLEBEES_SHA \
     -e ACCEPTANCE_ADAPTER -e ACCEPTANCE_ALLOW_UNSAFE_LOCAL \
     -e ACCEPTANCE_PRIOR_INTERVENTIONS="${PRIOR:+$PRIOR||}docker run --privileged::bubblewrap needs user namespaces inside the container" \
     -e ACCEPTANCE_MODE=local -e ACCEPTANCE_IN_CONTAINER=1 \
@@ -85,7 +88,19 @@ if [ -n "${WORKFLOW_SRC:-}" ]; then
 else
   git clone -q --depth 1 --branch "$WORKFLOW_REF" "$WORKFLOW_REPO" "$SCRATCH/src/workflow"
 fi
-git clone -q --depth 1 --branch "$BUNDLEBEES_REF" "$BUNDLEBEES_REPO" "$SCRATCH/src/bundlebees"
+if [ -n "${BUNDLEBEES_SHA:-}" ]; then
+  case "$BUNDLEBEES_SHA" in
+    *[!0-9a-f]*|"") echo "error: BUNDLEBEES_SHA must be a full lower-case hex commit" >&2; exit 2 ;;
+  esac
+  [ "${#BUNDLEBEES_SHA}" -eq 40 ] || { echo "error: BUNDLEBEES_SHA must be 40 hex characters" >&2; exit 2; }
+  git clone -q --branch "$BUNDLEBEES_REF" "$BUNDLEBEES_REPO" "$SCRATCH/src/bundlebees"
+  git -C "$SCRATCH/src/bundlebees" checkout -q --detach "$BUNDLEBEES_SHA"
+  GOT="$(git -C "$SCRATCH/src/bundlebees" rev-parse HEAD)"
+  [ "$GOT" = "$BUNDLEBEES_SHA" ] || { echo "error: bundlebees pin mismatch ($GOT)" >&2; exit 2; }
+  BUNDLEBEES_REF="$BUNDLEBEES_SHA (pinned, from $BUNDLEBEES_REF)"
+else
+  git clone -q --depth 1 --branch "$BUNDLEBEES_REF" "$BUNDLEBEES_REPO" "$SCRATCH/src/bundlebees"
+fi
 
 echo "== installing (venv + pytest)"
 python3 -m venv "$SCRATCH/venv"

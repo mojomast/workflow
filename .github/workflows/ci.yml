@@ -22,8 +22,14 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Run the reference demo
-        run: python3 reference/run_demo.py
+      - name: Run the reference demo (ACDD + TDD, default)
+        run: python3 reference/run_demo.py --out "$RUNNER_TEMP/acdd-demo"
+      - name: Run the legacy reference demo
+        run: python3 reference/run_demo.py --legacy
+      - name: Check the schemas, the example contract and the demo evidence with jsonschema
+        run: |
+          python3 -m pip install --quiet "jsonschema==4.23.0"
+          python3 reference/check_schemas.py "$RUNNER_TEMP/acdd-demo"
       - name: Run the reference tests
         run: python3 -m unittest discover -s reference/tests -v
 
@@ -46,9 +52,14 @@ jobs:
           sudo apt-get install -y -qq bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: Cold start (fresh clones, clean HOME + venv)
+        # bundlebees#5 merged as 2f83ae4. Pin that exact commit (not a floating
+        # branch) and require ACDD against it. Bump the pin deliberately.
         env:
           ACCEPTANCE_MODE: local
           WORKFLOW_SRC: ${{ github.workspace }}
+          BUNDLEBEES_REF: main
+          BUNDLEBEES_SHA: 39602ff232cf6dad404a551d8e13f6f29b5d363d
+          ACCEPTANCE_ACDD: require
           ACCEPTANCE_PRIOR_INTERVENTIONS: "CI lifted the AppArmor userns restriction::GitHub ubuntu-24.04 runners block unprivileged user namespaces, which bwrap needs"
         run: |
           git checkout -B ci-under-test

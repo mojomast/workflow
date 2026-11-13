@@ -1,0 +1,21 @@
+{
+  "contract_id": "WF2-setupclass",
+  "contract_sha256": "e16079b76b5b0a79170e80b3515160750845b91f1710ddb195f9c2615d688333",
+  "mode": "contract",
+  "test_first": true,
+  "phases": {
+    "red": "valid",
+    "green": "valid"
+  },
+  "criteria": {
+    "AC-001": {
+      "status": "passed",
+      "evidence": null
+    },
+    "AC-002": {
+      "status": "passed",
+      "evidence": null
+    }
+  },
+  "accepted": true
+}

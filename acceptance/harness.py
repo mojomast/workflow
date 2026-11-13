@@ -31,8 +31,16 @@ What it proves, in order (every step is logged to ``steps.jsonl``):
  8. outputs          The harness independently re-checks the combined branch
                      (fresh clone of the bare remote, its own pytest run, the
                      out-of-lease change absent) and the metrics log.
- 9. artifact         ``acceptance-artifact.json`` records shas, verify records,
-                     the wave record and the metrics summary.
+ 9. acdd             One ACDD contract end to end on a second toy repo: freeze,
+                     RED on the tests-only commit, contract-carrying dispatch,
+                     verify records GREEN, a worker that edits the approved
+                     tests is refused (``tests_tampered``), REFACTOR skip,
+                     integrate, REVIEW, and the acceptance report says accepted
+                     and test-first. Needs an ACDD-capable bundlebees; with
+                     ``ACCEPTANCE_ACDD=require`` a missing CLI fails the run,
+                     otherwise it is reported as UNRUN (never as passed).
+10. artifact         ``acceptance-artifact.json`` records shas, verify records,
+                     the wave record, the ACDD result and the metrics summary.
 
 Manual interventions are appended to ``interventions.jsonl``; the harness
 itself adds one for every non-default escape hatch it was told to use.
@@ -146,6 +154,7 @@ class Log:
         self.interventions = out / "interventions.jsonl"
         self.started = time.monotonic()
         self.results: list[dict[str, Any]] = []
+        self.unrun_checks: list[dict[str, Any]] = []
 
     def step(self, name: str, ok: bool, **detail: Any) -> None:
         record = {"step": name, "ok": bool(ok), "t_s": round(time.monotonic() - self.started, 3), **detail}
@@ -153,6 +162,11 @@ class Log:
         with self.steps.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, sort_keys=True) + "\n")
         print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f" - {detail.get('summary')}" if detail.get("summary") else ""), flush=True)
+
+    def unrun(self, name: str, why: str) -> None:
+        """A check that did not run. Never counted as passed; listed in the summary."""
+        self.unrun_checks.append({"step": name, "why": why})
+        print(f"[UNRUN] {name} - {why}", flush=True)
 
     def intervention(self, what: str, why: str, kind: str = "manual") -> None:
         record = {"kind": kind, "what": what, "why": why, "t_s": round(time.monotonic() - self.started, 3)}
@@ -226,6 +240,21 @@ class AcceptanceHost:
         with redirect_stdout(buf), redirect_stderr(buf):
             rc = record["handler_fn"](args)
         return int(rc or 0), buf.getvalue()
+
+    def cli_help(self, argv: list[str]) -> str:
+        """Return ``--help`` text for a subcommand without exiting."""
+        import argparse as _argparse
+
+        record = self.cli_commands["bundlebees"]
+        parser = _argparse.ArgumentParser(prog="hermes bundlebees")
+        record["setup_fn"](parser)
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            try:
+                parser.parse_args([*argv, "--help"])
+            except SystemExit:
+                pass
+        return buf.getvalue()
 
 
 class ScriptedWorkerBackend:
@@ -383,6 +412,171 @@ BRIEFS = {
 # ---------------------------------------------------------------------------
 # Steps
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# ACDD end to end (one contract): freeze -> RED -> dispatch -> verify (GREEN)
+# -> refactor skip -> review -> integrate -> report. Needs an ACDD-capable
+# bundlebees (the `contract` and `tdd` commands). ACCEPTANCE_ACDD=require
+# fails the run without them; the default (auto) records the check as UNRUN,
+# never as passed.
+# ---------------------------------------------------------------------------
+
+ACDD_TEST = '''from shop.pricing import apply_tax
+
+
+def test_apply_tax_adds_the_rate():
+    assert apply_tax(1000, 10) == 1100
+
+
+def test_apply_tax_rejects_a_negative_rate():
+    import pytest
+    with pytest.raises(ValueError):
+        apply_tax(100, -1)
+'''
+
+ACDD_IMPL = PRICING + '''
+
+def apply_tax(cents: int, rate_percent: int) -> int:
+    if rate_percent < 0:
+        raise ValueError("rate_percent must not be negative")
+    return cents * (100 + rate_percent) // 100
+'''
+
+ACDD_TAMPER_TEST = "def test_apply_tax_adds_the_rate():\n    assert True\n\n\ndef test_apply_tax_rejects_a_negative_rate():\n    assert True\n"
+
+
+def _acdd_contract(red_rev: str) -> dict:
+    t = "tests/test_tax.py::"
+    return {
+        "contract_version": "acdd/1", "id": "CS-apply-tax", "title": "apply_tax for the cold-start shop",
+        "outcome": {"summary": "Callers can add a tax rate to a price in cents.", "observable_behavior": ["apply_tax(1000, 10) == 1100"]},
+        "interfaces": [{"name": "apply_tax", "kind": "function", "change": "add"}],
+        "acceptance_criteria": [
+            {"id": "AC-001", "given": "1000 cents", "when": "apply_tax(1000, 10)", "then": "1100", "verification": "test",
+             "tests": [t + "test_apply_tax_adds_the_rate"]},
+            {"id": "AC-002", "given": "a negative rate", "when": "apply_tax(100, -1)", "then": "ValueError", "verification": "test",
+             "tests": [t + "test_apply_tax_rejects_a_negative_rate"]},
+            {"id": "AC-003", "statement": "the combined branch passes the full suite", "verification": "integration"},
+            {"id": "AC-004", "statement": "a reviewer read the change", "verification": "review"},
+        ],
+        "scope": {"assigned_files": ["shop/pricing.py"], "test_files": ["tests/test_tax.py"], "prohibited": ["shop/labels.py"]},
+        "source_rev": red_rev,
+        "tdd": {"applicable": True, "test_first": True},
+        "verification": {"independent": True, "integration": True},
+        "evidence_required": ["red", "green", "refactor", "integration", "review"],
+        "authorization": {"human_gates": ["merge", "tag", "release", "deploy", "publish"]},
+    }
+
+
+def acdd_end_to_end(log: "Log", host: "AcceptanceHost", work: Path, settings: dict, plugin: Any, out: Path) -> dict:
+    mode = os.environ.get("ACCEPTANCE_ACDD", "auto").strip().lower()
+    if not ({"contract", "tdd"} <= set(_subcommands(host))):
+        why = "this bundlebees ref has no ACDD commands (contract/tdd)"
+        if mode == "require":
+            log.step("acdd", False, summary=why + " but ACCEPTANCE_ACDD=require")
+        else:
+            log.unrun("acdd", why + "; set BUNDLEBEES_REF to an ACDD-capable ref and ACCEPTANCE_ACDD=require")
+        return {"status": "unrun", "why": why}
+
+    root = work / "acdd"
+    root.mkdir()
+    state = root / "state"
+    state.mkdir(mode=0o700)
+    repo = root / "shop"
+    repo.mkdir()
+    git(repo, "init", "-q", "-b", "main")
+    git(repo, "config", "user.name", "Acceptance Coordinator")
+    git(repo, "config", "user.email", "acceptance@example.invalid")
+    for rel, text in (("shop/__init__.py", ""), ("shop/pricing.py", PRICING), ("tests/__init__.py", ""),
+                      ("tests/test_pricing.py", PRICING_TEST), ("conftest.py", "")):
+        _write(repo, rel, text)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "baseline")
+    _write(repo, "tests/test_tax.py", ACDD_TEST)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "approved tests (RED, tests only)")
+    red_rev = git(repo, "rev-parse", "HEAD")
+    remote = root / "shop.git"
+    git(root, "init", "-q", "--bare", str(remote))
+    git(repo, "remote", "add", "origin", str(remote))
+    git(repo, "push", "-q", "origin", "main")
+    branch = "acdd/cs"
+    git(repo, "branch", branch)
+    git(repo, "push", "-q", "-u", "origin", branch)
+
+    checks: dict[str, Any] = {}
+    draft = root / "contract.json"
+    draft.write_text(json.dumps(_acdd_contract(red_rev), indent=2), encoding="utf-8")
+    frozen = root / "contract.frozen.json"
+    freeze = ["contract", "freeze", str(draft), "--approved-by", "acceptance reviewer", "--out", str(frozen)]
+    # bundlebees after the Nov 12 review collects the approved test ids at
+    # source_rev before freezing (needs --workdir); older pins lack the flag.
+    if host.cli_help(["contract", "freeze"]).find("--workdir") >= 0:
+        freeze += ["--workdir", str(repo), "--state-dir", str(state)]
+    rc, text = host.cli(freeze)
+    checks["freeze"] = rc == 0 and frozen.exists()
+    (out / "acdd-freeze.log").write_text(text, encoding="utf-8")
+    contract = json.loads(frozen.read_text()) if frozen.exists() else {}
+    rc, text = host.cli(["tdd", "red", str(frozen), "--workdir", str(repo), "--state-dir", str(state)])
+    checks["red"] = rc == 0
+    (out / "acdd-red.log").write_text(text, encoding="utf-8")
+
+    scripts = {"A1": lambda w: _write(w, "shop/pricing.py", ACDD_IMPL),
+               "A2": lambda w: (_write(w, "shop/pricing.py", PRICING), _write(w, "tests/test_tax.py", ACDD_TAMPER_TEST))}
+    worker = ScriptedWorkerBackend(repo, root / "workers", scripts)
+    (root / "workers").mkdir()
+    acdd_host = AcceptanceHost(settings, state, worker)
+    plugin.register(acdd_host)
+    dispatch = acdd_host.tools["bundlebees_dispatch"]["handler"]
+    replies = {}
+    for task, files in (("A1", ["shop/pricing.py"]), ("A2", ["shop/pricing.py"])):
+        brief = {"objective": f"{task}: add apply_tax to shop/pricing.py", "assigned_files": files,
+                 "acceptance": {"criteria": ["AC-001", "AC-002"], "tests": ["tests/test_tax.py"]}, "tests": ["tests/test_tax.py"],
+                 "source_rev": red_rev, "branch": branch, "project": "toy-shop", "run_id": "acdd", "wave": "a1", "contract": contract}
+        replies[task] = json.loads(dispatch({"brief": brief, "model": "scripted-worker"}))
+    checks["dispatch"] = all(r.get("lease_recorded") for r in replies.values())
+    rc1, t1 = acdd_host.cli(["verify", "att-A1", "--workdir", str(repo), "--branch", branch, "--state-dir", str(state)])
+    rc2, t2 = acdd_host.cli(["verify", "att-A2", "--workdir", str(repo), "--branch", branch, "--state-dir", str(state)])
+    (out / "acdd-verify.log").write_text(t1 + "\n----\n" + t2, encoding="utf-8")
+    checks["green"] = rc1 == 0
+    checks["tamper_refused"] = rc2 != 0 and "tests_tampered" in t2
+    git(repo, "fetch", "-q", "origin")
+    git(repo, "checkout", "-q", branch)
+    git(repo, "reset", "-q", "--hard", f"origin/{branch}")
+    rc, text = acdd_host.cli(["tdd", "refactor", str(frozen), "--workdir", str(repo), "--state-dir", str(state),
+                              "--none", "--note", "already minimal"])
+    checks["refactor"] = rc == 0
+    rc, text = acdd_host.cli(["integrate", "--wave", "a1", "--attempts", "att-A1", "--workdir", str(repo), "--branch", branch,
+                              "--state-dir", str(state)])
+    checks["integrate"] = rc == 0
+    (out / "acdd-integrate.log").write_text(text, encoding="utf-8")
+    rc, text = acdd_host.cli(["tdd", "review", str(frozen), "--state-dir", str(state), "--reviewer", "acceptance reviewer",
+                              "--approve", "--note", "scripted approval (acceptance harness)"])
+    checks["review"] = rc == 0
+    rc, text = acdd_host.cli(["tdd", "report", str(frozen), "--state-dir", str(state), "--json"])
+    try:
+        report = json.loads(text[text.index("{"):])
+    except ValueError:
+        report = {}
+    (out / "acdd-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    checks["accepted"] = report.get("accepted") is True and report.get("test_first") is True
+    records = sorted(p.name for p in (state / "evidence" / "CS-apply-tax").glob("*.json"))
+    ok = all(checks.values())
+    log.step("acdd", ok, summary=f"contract CS-apply-tax: {', '.join(k for k, v in checks.items() if v)}"
+             + (f"; FAILED: {', '.join(k for k, v in checks.items() if not v)}" if not ok else "")
+             + f"; {len(records)} signed records", checks=checks, phases=report.get("phases"), records=records)
+    return {"status": "passed" if ok else "failed", "checks": checks, "phases": report.get("phases"), "records": records}
+
+
+def _subcommands(host: "AcceptanceHost") -> list[str]:
+    import argparse as _argparse
+    parser = _argparse.ArgumentParser()
+    host.cli_commands["bundlebees"]["setup_fn"](parser)
+    for action in parser._actions:  # noqa: SLF001 - argparse has no public API for this
+        if isinstance(action, _argparse._SubParsersAction):  # noqa: SLF001
+            return list(action.choices)
+    return []
 
 
 def make_toy_repo(root: Path) -> tuple[Path, Path, str]:
@@ -558,9 +752,13 @@ def run(args: argparse.Namespace) -> int:
     log.step("outputs", outputs_ok, summary=f"independent pytest: {(tests.stdout.strip().splitlines() or ['?'])[-1]}; W3 change absent",
              metrics=summary)
 
-    # 9. artifact -------------------------------------------------------------
+    # 9. ACDD: one contract end to end ---------------------------------------
+    acdd = acdd_end_to_end(log, host, work, settings, plugin, out)
+
+    # 10. artifact ------------------------------------------------------------
     artifact = {
-        "accepted": bool(accepted and outputs_ok and rejected and honest_ok),
+        "acdd": acdd,
+        "accepted": bool(accepted and outputs_ok and rejected and honest_ok and acdd["status"] != "failed"),
         "source_rev": source_rev,
         "branch": BRANCH,
         "integration_head": git(check, "rev-parse", "HEAD"),
@@ -589,10 +787,12 @@ def finish(log: Log, out: Path, artifact: dict) -> int:
         "steps": [{"step": r["step"], "ok": r["ok"], "summary": r.get("summary")} for r in log.results],
         "interventions": interventions,
         "manual_interventions": len(manual),
+        "unrun": log.unrun_checks,
         "elapsed_s": round(time.monotonic() - log.started, 2),
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    print(f"RESULT: {'PASS' if ok else 'FAIL'} ({len(log.results)} steps, {len(interventions)} logged interventions, {summary['elapsed_s']}s)")
+    unrun = f", {len(log.unrun_checks)} UNRUN ({', '.join(u['step'] for u in log.unrun_checks)})" if log.unrun_checks else ""
+    print(f"RESULT: {'PASS' if ok else 'FAIL'} ({len(log.results)} steps{unrun}, {len(interventions)} logged interventions, {summary['elapsed_s']}s)")
     return 0 if ok else 1
 
 

@@ -8,6 +8,8 @@ Use for one reviewable outcome. Replace placeholders; omit irrelevant fields wit
 - User-visible result:
 - Why this matters:
 - Acceptance criteria, each with an observable check:
+- ACDD contract id and `contract_sha256` (see [CONTRACT.md](CONTRACT.md)), or "none (legacy: no ACDD contract; TDD evidence not required)":
+- Approved test files and the tests-only RED commit, when the contract is test-first:
 
 ## Baseline and inputs
 
