@@ -434,7 +434,136 @@ def test_dispatch_carries_the_bee_brief(tmp_path):
     assert unit["job"]["brief"] == unit["brief"]
 
 
-def test_missing_required_tool_is_not_run(tmp_path):
+def load_dispatch():
+    return importlib.import_module("dispatch")
+
+
+class RecordingPostTransport:
+    """A fake launcher transport that records the parsed JSON body."""
+
+    def __init__(self, response=None):
+        self.response = (
+            {"ok": True, "id": "attempt-1"} if response is None else response
+        )
+        self.calls = []
+
+    def post(self, url, payload, *, headers, timeout):
+        self.calls.append(
+            {
+                "url": url,
+                "payload": json.loads(json.dumps(payload)),
+                "headers": dict(headers),
+                "timeout": timeout,
+            }
+        )
+        return dict(self.response)
+
+
+def test_dispatch_posts_a_launcher_brief():
+    dispatch = load_dispatch()
+    transport = RecordingPostTransport()
+    job = {
+        "name": "unit",
+        "command": ["uv sync --frozen --no-dev", "uv run python -m unittest"],
+        "workdir": ".",
+        "timeout_s": 42,
+        "leased_paths": ["src/app.py", "tests/test_app.py"],
+    }
+
+    result = dispatch.dispatch(
+        dispatch.WorkItem(repo="mojomast/hyvv", head_sha=HEAD, job=job),
+        transport=transport,
+        env={"BEE_CI_LAUNCHER_TOKEN": TOKEN},
+    )
+
+    assert result["state"] == "success", result
+    assert transport.calls, "the launcher must be called"
+    call = transport.calls[0]
+    assert call["url"].endswith("/v1/attempts"), call["url"]
+
+    body = call["payload"]
+    assert body["model"] == dispatch.DEFAULT_MODEL
+    brief = body["brief"]
+    assert brief["project"] == "hyvv"
+    assert brief["source_rev"] == HEAD
+    assert brief["commands"] == job["command"]
+    assert brief["assigned_files"] == ["src/app.py", "tests/test_app.py"]
+    assert brief["budget"] == {"timeout_s": 42}
+    assert "unit" in brief["objective"]
+    assert "exit code" in brief["objective"].lower()
+    assert brief["acceptance"]
+    assert TOKEN not in json.dumps(body, sort_keys=True)
+
+    # Defaults: a bare manifest repo stays bare, no leased paths still yields
+    # an assigned file, and a job without timeout_s uses the 900s budget.
+    default = dispatch.build_payload(
+        dispatch.WorkItem(repo="workflow", head_sha=HEAD, job={"name": "reference"}),
+        "task-fixture",
+    )["brief"]
+    assert default["project"] == "workflow"
+    assert default["assigned_files"]
+    assert default["budget"] == {"timeout_s": 900}
+    assert default["commands"] == []
+
+
+def test_launcher_error_text_is_surfaced(tmp_path):
+    dispatch = load_dispatch()
+    item = dispatch.WorkItem(repo="workflow", head_sha=HEAD, job={"name": "unit"})
+
+    class StatusTransport:
+        def __init__(self, status_code, error):
+            self.status_code = status_code
+            self.error = error
+
+        def post(self, url, payload, *, headers, timeout):
+            return {"status_code": self.status_code, "error": self.error}
+
+    for status_code, message in (
+        (400, "brief.objective is required"),
+        (403, "project 'workflow' is not in the allow-list"),
+    ):
+        result = dispatch.dispatch(
+            item,
+            transport=StatusTransport(status_code, message),
+            env={"BEE_CI_LAUNCHER_TOKEN": TOKEN},
+        )
+        assert result["state"] == "error"
+        assert message in (result["error"] or ""), result
+
+    class RejectingLauncher(FakeLauncher):
+        def __init__(self, error):
+            super().__init__(capacity={"active": 0, "max_concurrent": 3})
+            self.error = error
+
+        def dispatch(self, item):
+            self.calls.append(("dispatch", job_name(item)))
+            return {
+                "ok": False,
+                "state": "error",
+                "code": "launcher_error",
+                "error": self.error,
+            }
+
+    module = load_run_shadow()
+    report = module.run(
+        {
+            "repo": REPO,
+            "pr": 7,
+            "live": True,
+            "github": FakeGitHub(),
+            "launcher": RejectingLauncher("brief.objective is required"),
+            "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "evidence_index": str(tmp_path / "index.json"),
+            "report_path": str(tmp_path / "report.html"),
+        }
+    )
+    rows = [row for row in report["jobs"] if row["eligible"]]
+    assert rows and all(row["state"] == "error" for row in rows)
+    assert all("brief.objective is required" in row["detail"] for row in rows)
+    assert all("did not accept" not in row["detail"] for row in rows)
+
+
+def test_missing_required_tool_is_not_run(tmp_path, monkeypatch):
     module = load_run_shadow()
     launcher = FakeLauncher(capacity={"active": 0, "max_concurrent": 3})
     seen = []
@@ -476,6 +605,33 @@ def test_missing_required_tool_is_not_run(tmp_path):
     assert "scan" not in dispatched
     assert "unit" in dispatched
     assert report["status"] != "ok"
+
+    # The default checker must ask the real PATH, not assume every tool exists.
+    # ``which`` is patched only to keep this test hermetic while still running
+    # the uninjected default code path.
+    monkeypatch.setattr(
+        module.shutil,
+        "which",
+        lambda name: None if name == "gitleaks" else "/usr/bin/" + name,
+    )
+    seen.clear()
+    code, stdout, stderr = run_cli(
+        module,
+        ["--repo", "mojomast/hyvv", "--pr", "7"],
+        FakeGitHub(),
+        FakeLauncher(),
+        env={},
+    )
+
+    assert code == 0, (stdout, stderr)
+    report = report_from(stdout)
+    rows = {row["job"]: row for row in report["jobs"]}
+    scan = rows["scan"]
+    assert scan["state"] == "not_run"
+    assert scan["code"] == "missing_required_tool"
+    assert scan["missing_tools"] == ["gitleaks"]
+    assert "gitleaks" in scan["detail"]
+    assert module._tool_checker({})("gitleaks") is False
 class FakeResponse:
     def __init__(self, body):
         self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
@@ -500,9 +656,11 @@ class RecordingOpener:
     def __init__(self, responder):
         self.responder = responder
         self.urls = []
+        self.requests = []
 
     def __call__(self, request, timeout=None):
         self.urls.append(request.full_url)
+        self.requests.append({"url": request.full_url, "data": request.data})
         outcome = self.responder(request.full_url)
         if isinstance(outcome, BaseException):
             raise outcome
@@ -671,6 +829,79 @@ def test_result_uses_attempts_route():
         pass
     else:
         raise AssertionError("404 must not be treated as no-result-yet")
+
+
+def test_live_http_end_to_end_uses_the_brief(tmp_path):
+    module = load_run_shadow()
+    dispatch = load_dispatch()
+    polled = {"result": 0}
+
+    def respond(url):
+        if url.endswith("/v1/health"):
+            return {"ok": True, "max_concurrent": 2, "active": 0}
+        if url.endswith("/v1/attempts"):
+            return {"id": "attempt-live-1", "state": "queued"}
+        if url.endswith("/result"):
+            polled["result"] += 1
+            if polled["result"] == 1:
+                return http_error(url, 409)
+            payload = {
+                "job_id": "attempt-live-1",
+                "head_sha": HEAD,
+                "steps": [{"name": "tests", "exit_code": 0}],
+            }
+            payload["signature"] = verify_result.sign_payload(payload, KEY)
+            return payload
+        return {"id": "attempt-live-1", "state": "running"}
+
+    opener = RecordingOpener(respond)
+    code, stdout, stderr = run_cli(
+        module,
+        [
+            "--repo",
+            REPO,
+            "--pr",
+            "7",
+            "--live",
+            "--launcher-url",
+            "https://launcher.invalid:9",
+            "--timeout",
+            "5",
+            "--poll-interval",
+            "0",
+            "--index",
+            str(tmp_path / "index.json"),
+            "--report",
+            str(tmp_path / "report.html"),
+        ],
+        FakeGitHub(),
+        None,
+        env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        opener=opener,
+        tool_checker=lambda tool: True,
+    )
+
+    assert code == 0, (stdout, stderr)
+    report = report_from(stdout)
+    assert report["status"] == "ok"
+    states = {row["job"]: row["state"] for row in report["jobs"] if row["eligible"]}
+    assert states == {name: "success" for name in ELIGIBLE}
+
+    posts = [entry for entry in opener.requests if entry["url"].endswith("/v1/attempts")]
+    assert len(posts) == len(ELIGIBLE)
+    for entry in posts:
+        body = json.loads(entry["data"].decode("utf-8"))
+        assert body["brief"]["project"] == "workflow"
+        assert body["brief"]["source_rev"] == HEAD
+        assert body["brief"]["budget"] == {"timeout_s": 900}
+        assert body["brief"]["assigned_files"] == ["."]
+        assert body["model"] == dispatch.DEFAULT_MODEL
+        assert TOKEN not in entry["data"].decode("utf-8")
+
+    # Polling uses the launcher's attempt id, never the locally minted task id.
+    result_urls = [url for url in opener.urls if url.endswith("/result")]
+    assert result_urls
+    assert all("/v1/attempts/attempt-live-1/result" in url for url in result_urls)
 
 
 def test_repo_manifest_and_url_fallback():
