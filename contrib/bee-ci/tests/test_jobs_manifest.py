@@ -9,6 +9,7 @@ command or rename a leg.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from jsonschema import Draft202012Validator
 HERE = Path(__file__).resolve().parents[1]
 JOBS_DIR = HERE / "jobs"
 SCHEMA_PATH = HERE / "schemas" / "job-manifest.schema.json"
+REPO_ROOT = HERE.parent.parent
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
 sys.path.insert(0, str(HERE))
 
@@ -84,6 +87,73 @@ def test_every_manifest_matches_the_schema():
         )
         assert not errors, f"{path.name}: {errors[0].message}"
         validate_document(document, source=path.name)
+
+
+def _ci_job_names() -> list[str]:
+    """Read the job keys under the top-level ``jobs:`` block of ci.yml.
+
+    The workflow is plain enough that a YAML dependency would be heavier than
+    the parse: job keys are the only two-space-indented ``key:`` lines directly
+    under ``jobs:``.
+    """
+
+    names: list[str] = []
+    in_jobs = False
+    for line in CI_WORKFLOW.read_text(encoding="utf-8").splitlines():
+        if not in_jobs:
+            if line == "jobs:":
+                in_jobs = True
+            continue
+        if line and not line[0].isspace():
+            break
+        match = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if match:
+            names.append(match.group(1))
+    return names
+
+
+def test_workflow_manifest_matches_ci():
+    document = _load(JOBS_DIR / "workflow.yaml")
+    jobs = {job["name"]: job for job in document["jobs"]}
+
+    ci_jobs = _ci_job_names()
+    assert ci_jobs, f"could not read any job names from {CI_WORKFLOW}"
+
+    missing = [name for name in ci_jobs if name not in jobs]
+    assert not missing, (
+        f"workflow.yaml is missing ci.yml jobs {missing!r}; "
+        f"declared jobs are {sorted(jobs)!r}"
+    )
+
+    for name in ci_jobs:
+        job = jobs[name]
+        assert job["runner"] == "bee", (
+            f"workflow/{name} is defined by ci.yml and must run on a bee"
+        )
+        commands = job.get("command")
+        assert isinstance(commands, list) and commands, (
+            f"workflow/{name} is bee-hosted and needs at least one command"
+        )
+        assert all(
+            isinstance(command, str) and command.strip() for command in commands
+        ), f"workflow/{name} has an empty command step"
+
+    assert jobs["acceptance-light"].get("requires") == ["docker"], (
+        "acceptance-light builds containers and must declare docker"
+    )
+    assert jobs["secret-scan"].get("requires") == ["gitleaks"], (
+        "secret-scan must declare the gitleaks tool it needs"
+    )
+
+    for name in ("macos-docs", "arm64-smoke"):
+        job = jobs[name]
+        assert job["runner"] == "github-only", (
+            f"workflow/{name} must stay github-only"
+        )
+        assert "command" not in job, (
+            f"workflow/{name} stays a GitHub-only leg and must not carry "
+            f"bee commands"
+        )
 
 
 def test_hyvv_jobs_carry_real_commands():

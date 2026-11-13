@@ -9,7 +9,50 @@
       "python": "3.12",
       "node": null,
       "browser": "none",
-      "runner": "bee"
+      "runner": "bee",
+      "command": [
+        "python3 reference/run_demo.py --out \"$RUNNER_TEMP/acdd-demo\"",
+        "python3 reference/run_demo.py --legacy",
+        "python3 reference/check_schemas.py \"$RUNNER_TEMP/acdd-demo\"",
+        "python3 -m unittest discover -s reference/tests -v",
+        "cd tools/acdd-lint && python3 -m unittest discover -s tests -t . -v",
+        "cd tools/acdd-lint && python3 -m acdd_lint ../../evidence/2026-11-12-acdd-build"
+      ],
+      "workdir": ".",
+      "requires": [],
+      "timeout_s": 600
+    },
+    {
+      "name": "project-state",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": null,
+      "browser": "none",
+      "runner": "bee",
+      "command": [
+        "python3 -m unittest discover -s tools/project-state/tests -t tools/project-state -v"
+      ],
+      "workdir": ".",
+      "requires": [],
+      "timeout_s": 300
+    },
+    {
+      "name": "observability",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": null,
+      "browser": "none",
+      "runner": "bee",
+      "command": [
+        "python3 -m unittest discover -s observability/tests -t . -v"
+      ],
+      "workdir": ".",
+      "requires": [],
+      "timeout_s": 300
     },
     {
       "name": "acceptance-light",
@@ -19,7 +62,16 @@
       "python": "3.12",
       "node": null,
       "browser": "none",
-      "runner": "bee"
+      "runner": "bee",
+      "command": [
+        "ACCEPTANCE_MODE=local WORKFLOW_SRC=\"$PWD\" BUNDLEBEES_REF=main ACCEPTANCE_ACDD=require acceptance/cold_start.sh \"$RUNNER_TEMP/acceptance-out\"",
+        "cat \"$RUNNER_TEMP/acceptance-out/REPORT.md\" || true"
+      ],
+      "workdir": ".",
+      "requires": [
+        "docker"
+      ],
+      "timeout_s": 900
     },
     {
       "name": "secret-scan",
@@ -29,7 +81,15 @@
       "python": null,
       "node": null,
       "browser": "none",
-      "runner": "bee"
+      "runner": "bee",
+      "command": [
+        "gitleaks detect --source . --redact --no-banner"
+      ],
+      "workdir": ".",
+      "requires": [
+        "gitleaks"
+      ],
+      "timeout_s": 600
     },
     {
       "name": "macos-docs",
