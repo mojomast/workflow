@@ -29,7 +29,8 @@ Required content:
 | `workflow_ref` | full commit SHA of the protocol used to validate this packet |
 | `source_policy` | `exact` revision, or `descendant` with root, one dependency and a `policy_id` |
 | `authorization` | reference, approver and time — never a packet-supplied grant |
-| `contract`, `contract_sha256` | the frozen `acdd/1` contract and its reviewed hash |
+| `contract`, `contract_sha256` | the frozen `acdd/1` contract and its reviewed hash — **exact packets only** |
+| `contract_template` | the unfrozen `acdd/1` template at the authorized root — **descendant packets only** |
 | `acceptance_ids`, `tests` | exactly the contract's criteria and approved tests |
 | `scope.lease`, `scope.read_only` | write leases and read-only paths |
 | `budget` | bees and wall clock |
@@ -41,7 +42,10 @@ Required content:
 
 `feature_packet.validate(packet, workflow_repo=...)` fails closed on:
 
-* unsupported packet version, or a shape the schema rejects;
+* unsupported packet version, or a shape the schema rejects — including an
+  `exact` packet that carries `contract_template`, and a `descendant` packet
+  that carries `contract`, `contract_sha256` or any resolution pointer (the
+  shape rules live in the schema, so a refused shape is always `packet_schema`);
 * a `workflow_ref` that is not a commit in the pinned checkout, predates the
   schema, or whose committed schema differs from the enforcing one
   (`validator_mismatch`);
@@ -52,7 +56,19 @@ Required content:
 * an exact policy whose revision differs from `contract.source_rev`;
 * a descendant packet without a policy id, or with more than one dependency
   (multi-dependency support is not claimed);
+* a budget that exceeds a ceiling the authorization states, in any dimension it
+  states (an omitted ceiling constrains nothing);
 * missing authorization provenance or dropped human gates.
+
+`feature_packet.validate_source_resolution(record, packet=..., accepted_commit=...)`
+fails closed on: a malformed record; a record that binds another packet digest
+(`resolution_packet_digest`), policy id or dependency; an `accepted_commit` that
+differs from `derived_source_rev`; a source-bound contract that is not frozen,
+whose hash disagrees, or whose `source_rev` is not the accepted commit; and any
+contract difference from the intent template other than `source_rev` and the
+review block (`resolution_scope_changed`, then `resolution_contract_changed`).
+A resolution is refused outright against an exact packet: there is nothing to
+derive.
 
 ## Source-revision policy
 
@@ -68,6 +84,41 @@ authorization referencing the enrolled policy and its digest.
 A packet must never be rewritten in place to point at the resolved revision. The
 resolved revision belongs to the derived authorization and the frozen contract,
 which are sealed and durable.
+
+### Two stages, two immutable records
+
+Stage 1 is the **intent packet**: `source_policy.kind = descendant`, an unfrozen
+`contract_template` whose `source_rev` is the authorized `root_revision`, and no
+`contract` or `contract_sha256`. Stage 2 is a **source-resolution record**
+(`schemas/source-resolution.schema.json`, `rizzstack.source-resolution/1`),
+created only after the dependency is accepted:
+
+| Field | Meaning |
+|---|---|
+| `packet_digest` | canonical digest of the intent packet this record resolves |
+| `policy_id`, `policy_digest` | the enrolled policy and the digest it was enrolled at |
+| `dependency_feature`, `dependency_job` | the accepted dependency and its job |
+| `accepted_commit`, `derived_source_rev` | the dependency's accepted integration commit; the two must be equal |
+| `contract`, `contract_sha256` | the template frozen against the derived revision, and its hash |
+| `at` | when the resolution was recorded |
+
+The link is one way — resolution → `packet_digest` — because the packet is never
+rewritten. The canonical digest is sha256 over
+`json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`
+(`tools/feature_packet.py:packet_digest`). Only `contract.source_rev` and the
+review block may differ from the template: the validator compares the whole
+contract, not just the scope, so a rewritten title or a widened criteria list is
+refused as `resolution_contract_changed`.
+
+### Pinned examples
+
+Both examples carry a `workflow_ref` naming a real ancestor commit that bears
+these schemas, so `check_protocol_commit=True` compares real bytes rather than
+falling back to an unchecked path. When a schema changes, the pin is bumped in a
+follow-up commit to the commit that bears the new schema; until then the examples
+fail with `validator_mismatch`, which is the intended alarm. The tests assert
+that the pin is a commit, an ancestor of `HEAD`, and byte-identical to the
+enforced schema for **both** schemas.
 
 ## Coordinator conformance
 

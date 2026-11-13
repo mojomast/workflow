@@ -10,6 +10,7 @@ authority.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -47,6 +48,12 @@ def _is_sha(value: Any, length: int = 40) -> bool:
     return len(text) == length and all(ch in "0123456789abcdef" for ch in text)
 
 
+def packet_digest(packet: Mapping[str, Any]) -> str:
+    """Canonical digest of a packet; the value a source-resolution record binds."""
+    body = json.dumps(dict(packet), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
 def _acdd():
     sys.path.insert(0, str(BASE / "reference"))
     from workflow import acdd  # type: ignore
@@ -59,9 +66,13 @@ def _contract_checks(contract: Mapping[str, Any], packet: Mapping[str, Any], *, 
         try:
             digest = _acdd().check_frozen(contract)
         except Exception as exc:  # noqa: BLE001
-            if getattr(exc, "code", "") in ("contract_changed", "contract_hash_mismatch"):
+            code = getattr(exc, "code", "")
+            if code in ("contract_changed", "contract_hash_mismatch"):
                 raise PacketError("contract_hash_mismatch", f"the frozen contract changed: {exc}",
                                   "Refuse: the contract changed after approval.") from exc
+            if code == "contract_invalid":
+                raise PacketError("contract_invalid", f"the frozen contract is not valid acdd/1: {exc}",
+                                  "Refuse a contract that does not match the approved schema.") from exc
             raise PacketError("contract_not_frozen", f"the contract is not frozen: {exc}",
                               "Freeze the contract with a review block first.") from exc
         if digest != packet.get("contract_sha256"):
@@ -94,11 +105,12 @@ def _contract_checks(contract: Mapping[str, Any], packet: Mapping[str, Any], *, 
         raise PacketError("gates_mismatch", "packet human gates differ from the contract", "Keep the approved gates.")
     limits = (packet.get("authorization") or {}).get("limits") or {}
     budget = packet.get("budget") or {}
-    if limits:
-        if int(budget.get("bees") or 0) > int(limits.get("bees") or 0):
-            raise PacketError("budget_exceeded", "packet bees exceed the authorization", "Stay inside the approved budget.")
-        if int(budget.get("wall_clock_s") or 0) > int(limits.get("wall_clock_s") or 0):
-            raise PacketError("budget_exceeded", "packet wall clock exceeds the authorization", "Stay inside the approved budget.")
+    labels = {"bees": "bees", "wall_clock_s": "wall clock"}
+    for key, label in labels.items():
+        # Only the ceilings the authorization actually states are enforced; a
+        # partial limits object never implies a zero budget for the rest.
+        if key in limits and int(budget.get(key) or 0) > int(limits[key]):
+            raise PacketError("budget_exceeded", f"packet {label} exceeds the authorization", "Stay inside the approved budget.")
 
 
 def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
@@ -107,7 +119,12 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
         jsonschema.validate(packet, _schema(SCHEMA_PATH))
     except jsonschema.ValidationError as exc:
         path = ".".join(str(part) for part in exc.absolute_path)
-        raise PacketError("packet_schema", f"{path or '<root>'}: {exc.message}", "Fix the packet shape.") from exc
+        message = exc.message
+        if message.startswith("False schema does not allow"):
+            policy = packet.get("source_policy")
+            kind = policy.get("kind") if isinstance(policy, Mapping) else None
+            message = f"not allowed for a {kind or 'declared'} source_policy (see docs/25-feature-packet.md)"
+        raise PacketError("packet_schema", f"{path or '<root>'}: {message}", "Fix the packet shape.") from exc
     if packet.get("packet_version") not in SUPPORTED:
         raise PacketError("packet_version_unsupported", f"{packet.get('packet_version')!r} is not implemented", "Upgrade the validator.")
 
@@ -146,10 +163,10 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
         _contract_checks(template, packet, frozen=False)
         if template.get("source_rev") != policy.get("root_revision"):
             raise PacketError("source_policy_mismatch", "template source_rev must equal the authorized root", "Fix the intent.")
-        if packet.get("contract") is not None or packet.get("contract_sha256") is not None:
-            raise PacketError("packet_schema", "an intent packet must not claim a frozen contract", "Resolve the source first.")
-        if packet.get("source_resolution_ref"):
-            raise PacketError("source_resolution_premature", "an intent packet must not pre-claim a source resolution", "Resolve after integration.")
+        # The schema already forbids contract/contract_sha256 on a descendant
+        # packet and any resolution pointer on either kind: the packet is
+        # immutable intent, and the resolution record binds it from the other
+        # side. Nothing here needs to re-check the shape.
     else:
         raise PacketError("source_policy_invalid", "unknown source policy", "Use exact or descendant.")
 
@@ -161,21 +178,39 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
     return dict(packet)
 
 
+def _changed_fields(contract: Mapping[str, Any], template: Mapping[str, Any]) -> list[str]:
+    """Contract fields that differ from the intent template, ignoring the revision and the review block."""
+    body = {k: v for k, v in contract.items() if k != "review"}
+    base = dict(template)
+    body.pop("source_rev", None)
+    base.pop("source_rev", None)
+    return sorted(k for k in set(body) | set(base) if body.get(k) != base.get(k))
+
+
 def validate_source_resolution(record: Mapping[str, Any], *, packet: Mapping[str, Any],
                                accepted_commit: str) -> dict[str, Any]:
     try:
         jsonschema.validate(record, _schema(SR_SCHEMA_PATH))
     except jsonschema.ValidationError as exc:
-        raise PacketError("resolution_schema", str(exc.message), "Fix the resolution record.") from exc
+        path = ".".join(str(part) for part in exc.absolute_path)
+        raise PacketError("resolution_schema", f"{path or '<root>'}: {exc.message}", "Fix the resolution record.") from exc
     if record.get("resolution_version") not in RESOLUTION_SUPPORTED:
         raise PacketError("resolution_version_unsupported", "unsupported resolution version", "Upgrade the validator.")
     policy = packet.get("source_policy") or {}
+    if policy.get("kind") != "descendant":
+        raise PacketError("resolution_not_applicable", "only a descendant intent packet needs a source resolution",
+                          "An exact feature already names its revision.")
+    template = packet.get("contract_template")
+    if not isinstance(template, Mapping):
+        raise PacketError("resolution_packet_invalid", "the intent packet carries no contract template",
+                          "Resolve the approved intent, not a re-written packet.")
+    if record.get("packet_digest") != packet_digest(packet):
+        raise PacketError("resolution_packet_digest", "the resolution does not bind this packet's digest",
+                          "Recreate the record from the stored intent packet.")
     if record.get("policy_id") != policy.get("policy_id"):
         raise PacketError("resolution_policy_mismatch", "the resolution names another policy", "Refuse.")
     if record.get("dependency_feature") not in (policy.get("dependencies") or []):
         raise PacketError("resolution_dependency_mismatch", "the resolution names another dependency", "Refuse.")
-    if not _is_sha(record.get("packet_digest"), 64):
-        raise PacketError("resolution_packet_invalid", "the resolution does not bind the packet digest", "Refuse.")
     accepted = str(accepted_commit)
     if record.get("accepted_commit") != accepted or record.get("derived_source_rev") != accepted:
         raise PacketError("resolution_revision_mismatch", "the derived revision is not the accepted commit", "Refuse.")
@@ -183,13 +218,22 @@ def validate_source_resolution(record: Mapping[str, Any], *, packet: Mapping[str
     try:
         digest = _acdd().check_frozen(contract)
     except Exception as exc:  # noqa: BLE001
+        code = getattr(exc, "code", "")
+        if code in ("contract_changed", "contract_hash_mismatch"):
+            raise PacketError("resolution_contract_hash", f"the source-bound contract changed: {exc}", "Refuse.") from exc
+        if code == "contract_invalid":
+            raise PacketError("resolution_contract_invalid", f"the source-bound contract is not valid acdd/1: {exc}",
+                              "Refuse.") from exc
         raise PacketError("resolution_contract_not_frozen", f"the source-bound contract is not frozen: {exc}", "Freeze it.") from exc
     if digest != record.get("contract_sha256"):
         raise PacketError("resolution_contract_hash", "the source-bound contract hash does not match", "Refuse.")
     if contract.get("source_rev") != accepted:
         raise PacketError("resolution_contract_revision", "the contract is not frozen against the derived revision", "Refuse.")
-    template = packet.get("contract_template") or {}
-    for field in ("scope", "acceptance_criteria"):
-        if contract.get(field) != template.get(field):
-            raise PacketError("resolution_scope_changed", f"{field} changed during source resolution", "Only the revision may be substituted.")
+    if contract.get("scope") != template.get("scope"):
+        raise PacketError("resolution_scope_changed", "scope changed during source resolution", "Only the revision may be substituted.")
+    changed = _changed_fields(contract, template)
+    if changed:
+        raise PacketError("resolution_contract_changed",
+                          f"the source-bound contract differs from the intent outside the revision: {', '.join(changed)}",
+                          "Only source_rev and the review block may change.")
     return dict(record)

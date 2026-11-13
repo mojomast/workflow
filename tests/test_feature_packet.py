@@ -7,6 +7,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,6 +19,8 @@ import feature_packet  # noqa: E402
 from workflow import acdd  # noqa: E402
 
 EXAMPLES = ROOT / "schemas" / "examples"
+SCHEMAS = ROOT / "schemas"
+ACCEPTED = "c" * 40
 
 
 def load(name: str) -> dict:
@@ -25,7 +28,12 @@ def load(name: str) -> dict:
 
 
 def packet_digest(packet: dict) -> str:
+    """Independent oracle for the canonical digest the resolution record binds."""
     return hashlib.sha256(json.dumps(packet, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
 
 
 def resolution_for(packet: dict, accepted: str, *, mutate=None) -> dict:
@@ -49,30 +57,118 @@ def resolution_for(packet: dict, accepted: str, *, mutate=None) -> dict:
     }
 
 
-class PositiveTests(unittest.TestCase):
+class PinnedProtocolTests(unittest.TestCase):
+    """The examples must exercise the pinned protocol, not fall back to an unchecked path."""
+
+    def test_the_examples_pin_one_real_schema_bearing_ancestor(self):
+        exact = load("feature-exact.json")
+        descendant = load("feature-descendant.json")
+        self.assertEqual(exact["workflow_ref"], descendant["workflow_ref"])
+        pin = exact["workflow_ref"]
+        self.assertEqual(len(pin), 40)
+        self.assertEqual(git("cat-file", "-e", f"{pin}^{{commit}}").returncode, 0, f"{pin} is not a commit here")
+        self.assertEqual(git("merge-base", "--is-ancestor", pin, "HEAD").returncode, 0,
+                         f"{pin} is not an ancestor of the examples")
+        for name in ("feature-packet.schema.json", "source-resolution.schema.json"):
+            pinned = git("show", f"{pin}:schemas/{name}")
+            self.assertEqual(pinned.returncode, 0, f"{pin} does not bear {name}")
+            self.assertEqual(pinned.stdout, (SCHEMAS / name).read_text(encoding="utf-8"),
+                             f"{name} at {pin} differs from the enforced schema; repin the examples")
+
     def test_the_exact_example_validates_against_the_pinned_protocol(self):
-        packet = feature_packet.validate(load("feature-exact.json"), workflow_repo=ROOT)
+        packet = feature_packet.validate(load("feature-exact.json"), workflow_repo=ROOT, check_protocol_commit=True)
         self.assertEqual(packet["source_policy"]["kind"], "exact")
 
     def test_the_dependent_intent_example_validates_against_the_pinned_protocol(self):
-        packet = feature_packet.validate(load("feature-descendant.json"), workflow_repo=ROOT)
+        packet = feature_packet.validate(load("feature-descendant.json"), workflow_repo=ROOT, check_protocol_commit=True)
         self.assertEqual(packet["source_policy"]["kind"], "descendant")
         self.assertNotIn("contract", packet)  # intent carries a template, not a fabricated frozen contract
+        self.assertNotIn("contract_sha256", packet)
 
+
+class PositiveTests(unittest.TestCase):
     def test_a_source_resolution_binds_the_intent_to_the_accepted_commit(self):
         packet = load("feature-descendant.json")
-        accepted = "c" * 40
-        record = resolution_for(packet, accepted)
-        out = feature_packet.validate_source_resolution(record, packet=packet, accepted_commit=accepted)
-        self.assertEqual(out["derived_source_rev"], accepted)
-        self.assertEqual(record["contract"]["source_rev"], accepted)
+        record = resolution_for(packet, ACCEPTED)
+        out = feature_packet.validate_source_resolution(record, packet=packet, accepted_commit=ACCEPTED)
+        self.assertEqual(out["derived_source_rev"], ACCEPTED)
+        self.assertEqual(record["contract"]["source_rev"], ACCEPTED)
+        self.assertEqual(record["contract"]["scope"], packet["contract_template"]["scope"])
+        self.assertEqual(record["contract"]["acceptance_criteria"], packet["contract_template"]["acceptance_criteria"])
+
+    def test_the_validator_digest_equals_the_independent_oracle(self):
+        for name in ("feature-exact.json", "feature-descendant.json"):
+            packet = load(name)
+            self.assertEqual(feature_packet.packet_digest(packet), packet_digest(packet), name)
+
+    def test_partial_authorization_limits_constrain_only_the_stated_dimension(self):
+        packet = load("feature-exact.json")
+        packet["authorization"]["limits"] = {"bees": 1}
+        packet["budget"] = {"bees": 1, "wall_clock_s": 999999}
+        feature_packet.validate(packet, check_protocol_commit=False)
+
+    def test_an_exact_packet_may_pin_the_contracts_content_revision(self):
+        packet = load("feature-exact.json")
+        content_rev = "b" * 64
+        contract = copy.deepcopy(packet["contract"])
+        contract["source_rev"] = content_rev
+        frozen = acdd.freeze_contract(contract, approved_by="reviewer", approved_at="2026-11-13T00:00:00Z")
+        packet["contract"] = frozen
+        packet["contract_sha256"] = acdd.check_frozen(frozen)
+        packet["source_policy"]["revision"] = content_rev
+        feature_packet.validate(packet, check_protocol_commit=False)
+
+
+class ProtocolRefTests(unittest.TestCase):
+    def validate(self, packet, **kwargs):
+        with self.assertRaises(feature_packet.PacketError) as caught:
+            feature_packet.validate(packet, workflow_repo=ROOT, **kwargs)
+        return caught.exception
+
+    def test_an_unknown_commit_is_refused(self):
+        packet = load("feature-exact.json")
+        unknown = "f" * 40
+        self.assertNotEqual(git("cat-file", "-e", f"{unknown}^{{commit}}").returncode, 0)
+        packet["workflow_ref"] = unknown
+        self.assertEqual(self.validate(packet).code, "workflow_ref_unknown")
+
+    def test_a_commit_that_predates_the_schema_is_refused(self):
+        adding = git("log", "--format=%H", "--diff-filter=A", "--", "schemas/feature-packet.schema.json").stdout.split()
+        self.assertTrue(adding, "the schema has no adding commit")
+        before = git("rev-parse", f"{adding[-1]}^").stdout.strip()
+        self.assertTrue(before, "the schema-adding commit has no parent to test")
+        self.assertNotEqual(git("cat-file", "-e", f"{before}:schemas/feature-packet.schema.json").returncode, 0,
+                            f"{before} already bears the schema; pick an older fixture")
+        packet = load("feature-exact.json")
+        packet["workflow_ref"] = before
+        self.assertEqual(self.validate(packet).code, "workflow_ref_unsupported")
+
+    def test_schema_drift_at_the_pinned_commit_is_refused(self):
+        packet = load("feature-exact.json")
+        text = feature_packet.SCHEMA_PATH.read_text(encoding="utf-8")
+        drifted = text.replace('"title": "Rizzstack feature packet', '"title": "Drifted feature packet', 1)
+        self.assertNotEqual(text, drifted)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "feature-packet.schema.json"
+            path.write_text(drifted, encoding="utf-8")
+            original = feature_packet.SCHEMA_PATH
+            feature_packet.SCHEMA_PATH = path
+            try:
+                self.assertEqual(self.validate(packet).code, "validator_mismatch")
+            finally:
+                feature_packet.SCHEMA_PATH = original
 
 
 class NegativeTests(unittest.TestCase):
     def assertRefused(self, packet, code, **kwargs):
         with self.assertRaises(feature_packet.PacketError) as caught:
             feature_packet.validate(packet, check_protocol_commit=False, **kwargs)
-        self.assertEqual(caught.exception.code, code)
+        self.assertEqual(caught.exception.code, code, caught.exception.message)
+
+    def assertResolutionRefused(self, record, packet, code):
+        with self.assertRaises(feature_packet.PacketError) as caught:
+            feature_packet.validate_source_resolution(record, packet=packet, accepted_commit=ACCEPTED)
+        self.assertEqual(caught.exception.code, code, caught.exception.message)
 
     def test_an_unsupported_version_is_refused(self):
         packet = load("feature-exact.json")
@@ -109,25 +205,40 @@ class NegativeTests(unittest.TestCase):
         packet["authorization"]["limits"] = {"bees": 1, "wall_clock_s": 60}
         self.assertRefused(packet, "budget_exceeded")
 
+    def test_a_budget_wider_in_one_stated_dimension_is_refused(self):
+        packet = load("feature-exact.json")
+        packet["authorization"]["limits"] = {"wall_clock_s": 60}
+        self.assertRefused(packet, "budget_exceeded")
+
     def test_an_exact_packet_with_a_different_revision_is_refused(self):
         packet = load("feature-exact.json")
         packet["source_policy"]["revision"] = "f" * 40
         self.assertRefused(packet, "source_policy_mismatch")
 
-    def test_an_intent_packet_cannot_pre_claim_a_resolution(self):
-        packet = load("feature-descendant.json")
-        packet["source_resolution_ref"] = "resolution.json"
-        self.assertRefused(packet, "source_resolution_premature")
-
-    def test_two_dependencies_are_refused(self):
-        packet = load("feature-descendant.json")
-        packet["source_policy"]["dependencies"] = ["feature-a", "feature-c"]
+    def test_an_exact_packet_cannot_carry_a_template(self):
+        packet = load("feature-exact.json")
+        packet["contract_template"] = copy.deepcopy(load("feature-descendant.json")["contract_template"])
         self.assertRefused(packet, "packet_schema")
 
     def test_an_intent_packet_cannot_carry_a_frozen_contract_claim(self):
         packet = load("feature-descendant.json")
         packet["contract"] = packet["contract_template"]
         packet["contract_sha256"] = "0" * 64
+        self.assertRefused(packet, "packet_schema")
+
+    def test_an_intent_packet_cannot_carry_a_lone_contract_hash(self):
+        packet = load("feature-descendant.json")
+        packet["contract_sha256"] = "0" * 64
+        self.assertRefused(packet, "packet_schema")
+
+    def test_an_intent_packet_cannot_pre_claim_a_resolution(self):
+        packet = load("feature-descendant.json")
+        packet["source_resolution_ref"] = "resolution.json"
+        self.assertRefused(packet, "packet_schema")
+
+    def test_two_dependencies_are_refused(self):
+        packet = load("feature-descendant.json")
+        packet["source_policy"]["dependencies"] = ["feature-a", "feature-c"]
         self.assertRefused(packet, "packet_schema")
 
     def test_a_dropped_approved_test_is_refused(self):
@@ -147,32 +258,42 @@ class NegativeTests(unittest.TestCase):
 
     def test_a_resolution_with_another_revision_is_refused(self):
         packet = load("feature-descendant.json")
-        record = resolution_for(packet, "c" * 40)
+        record = resolution_for(packet, ACCEPTED)
         record["derived_source_rev"] = "e" * 40
-        with self.assertRaises(feature_packet.PacketError) as caught:
-            feature_packet.validate_source_resolution(record, packet=packet, accepted_commit="c" * 40)
-        self.assertEqual(caught.exception.code, "resolution_revision_mismatch")
+        self.assertResolutionRefused(record, packet, "resolution_revision_mismatch")
 
     def test_a_resolution_that_changes_scope_is_refused(self):
         packet = load("feature-descendant.json")
-        record = resolution_for(packet, "c" * 40,
+        record = resolution_for(packet, ACCEPTED,
                                 mutate=lambda c: c["scope"].__setitem__("assigned_files", ["src/other.py"]))
-        with self.assertRaises(feature_packet.PacketError) as caught:
-            feature_packet.validate_source_resolution(record, packet=packet, accepted_commit="c" * 40)
-        self.assertEqual(caught.exception.code, "resolution_scope_changed")
+        self.assertResolutionRefused(record, packet, "resolution_scope_changed")
 
-    def test_validator_drift_at_the_pinned_commit_is_refused(self):
-        packet = load("feature-exact.json")
-        head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-        packet["workflow_ref"] = head
-        committed = subprocess.run(["git", "-C", str(ROOT), "show", f"{head}:schemas/feature-packet.schema.json"],
-                                   capture_output=True, text=True)
-        if committed.returncode != 0:
-            with self.assertRaises(feature_packet.PacketError) as caught:
-                feature_packet.validate(packet, workflow_repo=ROOT)
-            self.assertEqual(caught.exception.code, "workflow_ref_unsupported")
-            return
-        feature_packet.validate(packet, workflow_repo=ROOT)
+    def test_a_resolution_that_changes_another_contract_field_is_refused(self):
+        packet = load("feature-descendant.json")
+        record = resolution_for(packet, ACCEPTED, mutate=lambda c: c.__setitem__("title", "widened"))
+        self.assertResolutionRefused(record, packet, "resolution_contract_changed")
+
+    def test_a_resolution_that_binds_another_packet_is_refused(self):
+        packet = load("feature-descendant.json")
+        record = resolution_for(packet, ACCEPTED)
+        record["packet_digest"] = "d" * 64
+        self.assertResolutionRefused(record, packet, "resolution_packet_digest")
+
+    def test_a_resolution_against_an_exact_packet_is_refused(self):
+        record = resolution_for(load("feature-descendant.json"), ACCEPTED)
+        self.assertResolutionRefused(record, load("feature-exact.json"), "resolution_not_applicable")
+
+    def test_an_unfrozen_source_bound_contract_is_refused(self):
+        packet = load("feature-descendant.json")
+        record = resolution_for(packet, ACCEPTED)
+        del record["contract"]["review"]
+        self.assertResolutionRefused(record, packet, "resolution_contract_not_frozen")
+
+    def test_a_malformed_resolution_record_is_refused(self):
+        packet = load("feature-descendant.json")
+        record = resolution_for(packet, ACCEPTED)
+        del record["at"]
+        self.assertResolutionRefused(record, packet, "resolution_schema")
 
 
 if __name__ == "__main__":

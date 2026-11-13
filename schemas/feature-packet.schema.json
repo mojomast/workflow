@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mojomast/workflow/schemas/feature-packet.schema.json",
   "title": "Rizzstack feature packet (rizzstack.feature-packet/1)",
-  "description": "One queued development feature, bound to an approved ACDD contract, a pinned workflow protocol revision, an authorization reference and a source-revision policy. The packet is not authorization: it records what was approved and lets any coordinator resume the work without the original chat.",
+  "description": "One queued development feature, bound to an approved ACDD contract, a pinned workflow protocol revision, an authorization reference and a source-revision policy. The packet is not authorization: it records what was approved and lets any coordinator resume the work without the original chat. An exact packet carries the frozen contract; a descendant packet is immutable intent and carries only an unfrozen contract_template. The resolved revision and the source-bound frozen contract live in a separate rizzstack.source-resolution/1 record, never in a rewritten packet.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -75,6 +75,7 @@
       "description": "Full commit SHA of the workflow protocol used to validate this packet."
     },
     "source_policy": {
+      "description": "exact: the feature runs at an authorized revision and carries its frozen contract. descendant: the feature cannot name its revision at intake; it carries an unfrozen template, the authorized root, exactly one dependency and the enrolled policy id.",
       "oneOf": [
         {
           "type": "object",
@@ -88,7 +89,8 @@
             },
             "revision": {
               "type": "string",
-              "pattern": "^[0-9a-f]{40}$"
+              "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$",
+              "description": "The authorized revision; must equal contract.source_rev (a 40-hex commit, or the 64-hex content revision acdd/1 allows)."
             }
           },
           "additionalProperties": false
@@ -107,20 +109,24 @@
             },
             "root_revision": {
               "type": "string",
-              "pattern": "^[0-9a-f]{40}$"
+              "pattern": "^[0-9a-f]{40}$",
+              "description": "The authorized base the dependent feature descends from; must equal contract_template.source_rev."
             },
             "dependencies": {
               "type": "array",
+              "description": "Exactly one accepted dependency. Multi-dependency support is not claimed.",
               "minItems": 1,
               "maxItems": 1,
+              "uniqueItems": true,
               "items": {
                 "type": "string",
-                "minLength": 1
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
               }
             },
             "policy_id": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+              "description": "The enrolled descendant policy that authorizes the derivation."
             }
           },
           "additionalProperties": false
@@ -150,6 +156,7 @@
         },
         "limits": {
           "type": "object",
+          "description": "Ceilings from the authorization. Omitted dimensions are not constrained by this packet.",
           "properties": {
             "bees": {
               "type": "integer",
@@ -160,18 +167,24 @@
               "minimum": 1
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "minProperties": 1
         }
       },
       "additionalProperties": false
     },
     "contract": {
       "type": "object",
-      "description": "The frozen acdd/1 contract."
+      "description": "The frozen acdd/1 contract. Exact packets only; tools/feature_packet.py validates its acdd/1 shape and hash."
     },
     "contract_sha256": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Reviewed hash of the frozen contract. Exact packets only."
+    },
+    "contract_template": {
+      "type": "object",
+      "description": "Unfrozen acdd/1 contract template for a dependent feature: no review block, source_rev at the authorized root. The source-bound frozen contract is created by the source-resolution record. Descendant packets only."
     },
     "acceptance_ids": {
       "type": "array",
@@ -276,18 +289,14 @@
     },
     "return_ref": {
       "type": "string"
-    },
-    "contract_template": {
-      "type": "object",
-      "description": "Unfrozen acdd/1 contract template for a dependent feature; the source-bound contract is created by the source-resolution record."
-    },
-    "source_resolution_ref": {
-      "type": "string"
     }
   },
   "allOf": [
     {
       "if": {
+        "required": [
+          "source_policy"
+        ],
         "properties": {
           "source_policy": {
             "properties": {
@@ -302,11 +311,17 @@
         "required": [
           "contract",
           "contract_sha256"
-        ]
+        ],
+        "properties": {
+          "contract_template": false
+        }
       }
     },
     {
       "if": {
+        "required": [
+          "source_policy"
+        ],
         "properties": {
           "source_policy": {
             "properties": {
@@ -320,7 +335,11 @@
       "then": {
         "required": [
           "contract_template"
-        ]
+        ],
+        "properties": {
+          "contract": false,
+          "contract_sha256": false
+        }
       }
     }
   ]
