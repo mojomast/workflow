@@ -109,5 +109,5 @@
   "tests": [
     "tests/test_double.py"
   ],
-  "workflow_ref": "bfaf8f9f27e50d37d7a48f934d25a5f3920e78da"
+  "workflow_ref": "dbc07bbd1d2bd78c85e8e34f7d1dbba23ad14d64"
 }

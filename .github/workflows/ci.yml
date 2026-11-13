@@ -135,3 +135,8 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks
       - name: Scan history
         run: ./gitleaks detect --source . --redact --no-banner
+
+      - name: Feature packet protocol tests (required)
+        run: |
+          python3 -m pip install --quiet "jsonschema>=4.18,<5"
+          python3 -m unittest tests.test_feature_packet -v
