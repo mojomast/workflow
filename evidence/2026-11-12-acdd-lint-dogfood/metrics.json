@@ -1,0 +1,147 @@
+{
+ "run_id": "dogfood-acdd-lint",
+ "project": "acdd-lint (tools/acdd-lint)",
+ "built_in": "mojomast/bundlebees branch dogfood/acdd-lint (workflow is not on the launcher allow-list), ported here unchanged with git am",
+ "bees": [
+  {
+   "slice": "L1",
+   "attempt": "att_b6eb71c8ab4754b7",
+   "via": "orch.py (Orbit local-workers API)",
+   "model": "deepseek-v4.1-flash",
+   "state": "succeeded",
+   "dispatched_at": "2026-11-12T20:06:30.192Z",
+   "ended_at": "2026-11-12T20:07:37.813Z",
+   "tool_calls": 18,
+   "tokens_total": 85117,
+   "tokens_output": 549,
+   "tokens_cached_read": 83200,
+   "files": [
+    [
+     "tools/acdd-lint/acdd_lint/__init__.py",
+     true
+    ],
+    [
+     "tools/acdd-lint/acdd_lint/schema.py",
+     true
+    ]
+   ],
+   "attempts_for_slice": 1
+  },
+  {
+   "slice": "L2",
+   "attempt": "att_0ca334a51c5eef3b",
+   "via": "orch.py (Orbit local-workers API)",
+   "model": "deepseek-v4.1-flash",
+   "state": "succeeded",
+   "dispatched_at": "2026-11-12T20:06:31.863Z",
+   "ended_at": "2026-11-12T20:07:40.295Z",
+   "tool_calls": 20,
+   "tokens_total": 71011,
+   "tokens_output": 462,
+   "tokens_cached_read": 70144,
+   "files": [
+    [
+     "tools/acdd-lint/acdd_lint/__init__.py",
+     false
+    ],
+    [
+     "tools/acdd-lint/acdd_lint/contracts.py",
+     true
+    ],
+    [
+     "tools/acdd-lint/acdd_lint/evidence.py",
+     true
+    ]
+   ],
+   "attempts_for_slice": 1
+  },
+  {
+   "slice": "L3",
+   "attempt": "att_8b2b9d705b4e8bb6",
+   "via": "bundlebees_dispatch (orbit-loopback)",
+   "model": "deepseek-v4.1-flash",
+   "state": "succeeded",
+   "dispatched_at": "2026-11-12T20:10:21.153Z",
+   "ended_at": "2026-11-12T20:12:18.915Z",
+   "tool_calls": 31,
+   "tokens_total": 83235,
+   "tokens_output": 815,
+   "tokens_cached_read": 82048,
+   "files": [
+    [
+     "tools/acdd-lint/acdd_lint/__main__.py",
+     true
+    ],
+    [
+     "tools/acdd-lint/acdd_lint/cli.py",
+     true
+    ]
+   ],
+   "attempts_for_slice": 1
+  },
+  {
+   "slice": "L4",
+   "attempt": "att_60ea6c73daae0bb1",
+   "via": "bundlebees_dispatch (orbit-loopback)",
+   "model": "deepseek-v4.1-flash",
+   "state": "succeeded",
+   "dispatched_at": "2026-11-12T20:19:51.563Z",
+   "ended_at": "2026-11-12T20:20:16.240Z",
+   "tool_calls": 12,
+   "tokens_total": 55952,
+   "tokens_output": 200,
+   "tokens_cached_read": 55552,
+   "files": [
+    [
+     "tools/acdd-lint/acdd_lint/evidence.py",
+     true
+    ]
+   ],
+   "attempts_for_slice": 1
+  }
+ ],
+ "bee_attempts_total": 4,
+ "bee_attempts_per_slice": {
+  "L1": 1,
+  "L2": 1,
+  "L3": 1,
+  "L4": 1
+ },
+ "redispatches": 0,
+ "approved_tests": {
+  "L1": 7,
+  "L2": 14,
+  "L3": 10,
+  "L4": 4,
+  "total": 35
+ },
+ "tests_after_run": "35/35 pass (python3 -m unittest, CPython 3.12/3.13)",
+ "bundlebees_suite_on_final_branch": "469 passed, 0 failed (coordinator run outside the sandbox)",
+ "bundlebees_metrics": {
+  "accepted_changes": 0,
+  "attempts_dispatched": 2,
+  "attempts_verified": 2,
+  "cost_per_accepted": null,
+  "cost_usd_total": 0.0,
+  "failed_worker_recoveries": 0,
+  "first_pass_rate": 0.5,
+  "human_interventions": 4,
+  "plan_to_accepted_s": {
+   "max": null,
+   "median": null
+  },
+  "regressions_found": 258,
+  "run_id": "dogfood-acdd-lint",
+  "tokens_per_accepted": null,
+  "tokens_total": 0,
+  "waves_accepted": 0,
+  "waves_rejected": 2
+ },
+ "notes": {
+  "tokens": "launcher-reported usage looks like the last model step only, not the whole attempt; bundlebees metrics recorded tokens_total 0 because the Orbit result does not carry usage in the shape bundlebees reads",
+  "regressions_found": "258 = 2 x 129 sandbox failures of bundlebees' own suite inside `integrate` (tests need the checkout to be named bundlebees; the sandbox mounts it at /work). Not regressions in acdd-lint.",
+  "first_pass_rate": "bundlebees counts L3/L4 only (the two attempts dispatched through bundlebees_dispatch); every one of the 4 bee attempts passed verification on its first try",
+  "human_interventions": "4 coordinator interventions recorded with `metrics --note` (see LESSONS.md)"
+ },
+ "times_utc": "dispatches 20:06-20:20Z (3:06-3:20 PM ET); bee wall time 25-118 s each"
+}

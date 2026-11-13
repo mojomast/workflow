@@ -1,0 +1,55 @@
+{
+  "repo": "hyvv",
+  "jobs": [
+    {
+      "name": "lint",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "none",
+      "runner": "bee"
+    },
+    {
+      "name": "unit",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "none",
+      "runner": "bee"
+    },
+    {
+      "name": "browser-e2e",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": null,
+      "node": "22",
+      "browser": "chromium",
+      "runner": "bee"
+    },
+    {
+      "name": "macos-unit",
+      "os": "macos-15",
+      "image": "github-macos-15-arm64",
+      "arch": "arm64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "webkit",
+      "runner": "github-only"
+    },
+    {
+      "name": "arm64-unit",
+      "os": "ubuntu-24.04-arm",
+      "image": "github-ubuntu-24.04-arm64",
+      "arch": "arm64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "none",
+      "runner": "github-only"
+    }
+  ]
+}

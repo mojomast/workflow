@@ -30,7 +30,7 @@ Drawn from the plans and briefs that ran well (see [03](03-development-and-orche
 
 - The objective in one sentence and the repo, branch and merge target.
 - Exactly which files may change.
-- "Write the test first and confirm it fails" for code tasks.
+- "Write the test first and confirm it fails" for code tasks. The formal version is an ACDD contract: numbered acceptance criteria (AC-001 …) in Given/When/Then form, each naming the tests that prove it, approved and frozen by hash, with the approved tests committed on their own before any implementation (RED). See [16](16-acdd-tdd.md) and the [contract template](../templates/CONTRACT.md).
 - Hard rules repeated inline (no secrets, no network in tests, no merge/tag/deploy).
 - A `<decisions>` block: what Kyle already approved and what he did not, plus design decisions (D1, D2 …) so workers can't re-litigate them.
 - Measurable acceptance: tests that must pass, a schema token budget (e.g. "combined schema ≤ 900 o200k tokens"), media specs (e.g. "H.264 yuv420p 1080p30, AAC, about −16 LUFS, under 90 s").

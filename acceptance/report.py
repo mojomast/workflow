@@ -23,6 +23,9 @@ def main() -> int:
         f"| {i} | `{s['step']}` | {'PASS' if s['ok'] else 'FAIL'} | {s.get('summary') or ''} |"
         for i, s in enumerate(summary["steps"], 1)
     ) or "| | | | harness did not record steps (see harness-error.txt) |"
+    unrun = summary.get("unrun") or []
+    if unrun:
+        step_rows += "\n" + "\n".join(f"| - | `{u['step']}` | UNRUN | {u['why']} (not counted as passed) |" for u in unrun)
     interventions = summary.get("interventions") or []
     int_rows = "\n".join(f"| {i['kind']} | {i['what']} | {i['why']} |" for i in interventions) or "| none | | |"
     metrics = artifact.get("metrics") or {}

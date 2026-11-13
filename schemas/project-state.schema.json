@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/project-state.schema.json",
+  "title": "Project state (workflow.project-state/v1)",
+  "description": "Source of truth for whether a project is active, parked, or archived. Lives at .workflow/project-state.json in the project's primary repository. Orbit, the board, hyvv, and bundlebees all read this file. Do not put secrets, keys, tokens, private URLs, IP addresses, or hostnames in this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "project",
+    "state",
+    "at",
+    "by",
+    "reason",
+    "generation",
+    "history"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workflow.project-state/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Stable project id. Must match the `project` join key used by agent.lifecycle/v1 (workflow pull request #8) when that key is present."
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Human-facing project name. Already-scrubbed; not a hostname or URL."
+    },
+    "state": {
+      "enum": [
+        "active",
+        "parked",
+        "archived"
+      ]
+    },
+    "at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "description": "When the current state was set: RFC 3339 timestamp, second precision, UTC preferred. Same name as hyvv's project_parked proposal (state/at/by)."
+    },
+    "by": {
+      "type": "string",
+      "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Who set the current state, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret. A parked to active or archived to active transition must be by human:*."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Already-scrubbed free text. Must not contain secrets, keys, tokens, environment-file contents, patches, prompts, private URLs, IP addresses, or hostnames."
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic state generation. Equals the number of history entries and increases by exactly one on every transition. Dispatchers record the generation they gated on and refuse to start work if it has changed (project_state_changed)."
+    },
+    "snapshot_path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)[.]{1,2}(?:/|$))(?!.*//)(?!.*/$)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+      "description": "Repo-relative path of the resume snapshot (usually PARKED.md). Not absolute; no empty, '.' or '..' segment anywhere (leading or interior); no backslash. Schema checks the text only: a reader must also resolve it inside the repository root, refuse any symlink component, and require a regular file (docs/18 section 5, tools/project-state/check.py).",
+      "maxLength": 244
+    },
+    "primary_repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,38}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+      "description": "Canonical owner/name of the repository that holds this file."
+    },
+    "history": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Append-only list of state transitions, oldest first. The last entry must match the top-level state, at, by, and reason; its length must equal generation. Entries are never rewritten or removed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "at",
+          "by",
+          "reason"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "active",
+              "parked",
+              "archived"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+            "description": "When the current state was set: RFC 3339 timestamp, second precision, UTC preferred."
+          },
+          "by": {
+            "type": "string",
+            "pattern": "^(human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "Who made the change, as a kind-prefixed id (for example human:owner or agent:hermes-forge). Not an email, hostname, or secret."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Already-scrubbed free text. Must not contain secrets, keys, tokens, environment-file contents, patches, prompts, private URLs, IP addresses, or hostnames."
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "parked",
+              "archived"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "snapshot_path"
+        ]
+      }
+    }
+  ]
+}
