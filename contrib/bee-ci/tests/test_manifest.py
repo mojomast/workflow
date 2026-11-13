@@ -50,9 +50,11 @@ EXPECTED_JOBS = {
         "arm64-desktop",
     ),
     "hyvv": (
-        "lint",
         "unit",
-        "browser-e2e",
+        "contract",
+        "release-assets",
+        "installer-dry-run",
+        "scan",
         "macos-unit",
         "arm64-unit",
     ),

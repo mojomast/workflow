@@ -39,6 +39,7 @@ PATH_KEYS = frozenset(
         "working_directory",
     }
 )
+COMMAND_KEYS = frozenset({"command", "commands", "requires", "workdir", "timeout_s"})
 SCRIPT_SUFFIXES = (
     ".sh",
     ".py",
@@ -90,6 +91,8 @@ def _iter_string_values(
 def _looks_like_repo_path(key: str | None, text: str) -> bool:
     text = text.strip()
     if not text:
+        return False
+    if key in COMMAND_KEYS:
         return False
     if key in PATH_KEYS:
         return True
