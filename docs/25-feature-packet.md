@@ -47,8 +47,10 @@ Required content:
   that carries `contract`, `contract_sha256` or any resolution pointer (the
   shape rules live in the schema, so a refused shape is always `packet_schema`);
 * a `workflow_ref` that is not a commit in the pinned checkout, predates the
-  schema, or whose committed schema differs from the enforcing one
-  (`validator_mismatch`);
+  schema (or, for a dependent packet, predates the source-resolution schema), or
+  whose committed schema differs from the enforcing one (`validator_mismatch`) —
+  a dependent feature is read under both stages, so its pin is compared against
+  both schemas;
 * a contract that is not validly frozen or whose hash disagrees with
   `contract_sha256`;
 * acceptance IDs or approved tests that drift from the contract;

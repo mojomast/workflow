@@ -131,6 +131,8 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
     workflow_ref = str(packet.get("workflow_ref") or "")
     if not _is_sha(workflow_ref):
         raise PacketError("workflow_ref_invalid", "workflow_ref must be a full commit SHA", "Pin the protocol commit.")
+    policy = packet.get("source_policy") or {}
+    kind = policy.get("kind")
     if check_protocol_commit:
         if workflow_repo is None:
             raise PacketError("workflow_unavailable", "protocol-commit checking requires the pinned checkout", "Set WORKFLOW_SRC.")
@@ -142,9 +144,19 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
             raise PacketError("workflow_ref_unsupported", f"{workflow_ref} predates the schema", "Pin a protocol revision.")
         if pinned.stdout.strip() != SCHEMA_PATH.read_text(encoding="utf-8").strip():
             raise PacketError("validator_mismatch", "the schema at workflow_ref differs from the enforced schema", "Refuse drift.")
+        if kind == "descendant":
+            # A dependent feature is interpreted under both stages, so the pin
+            # must carry the source-resolution schema too, byte for byte.
+            pinned_sr = _git(["show", f"{workflow_ref}:schemas/source-resolution.schema.json"], repo)
+            if pinned_sr.returncode != 0:
+                raise PacketError("workflow_ref_unsupported",
+                                  f"{workflow_ref} predates the source-resolution schema",
+                                  "Pin a protocol revision that defines both stages.")
+            if pinned_sr.stdout.strip() != SR_SCHEMA_PATH.read_text(encoding="utf-8").strip():
+                raise PacketError("validator_mismatch",
+                                  "the source-resolution schema at workflow_ref differs from the enforced schema",
+                                  "Refuse drift.")
 
-    policy = packet.get("source_policy") or {}
-    kind = policy.get("kind")
     if kind == "exact":
         contract = packet.get("contract")
         if not isinstance(contract, Mapping):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -157,6 +158,54 @@ class ProtocolRefTests(unittest.TestCase):
                 self.assertEqual(self.validate(packet).code, "validator_mismatch")
             finally:
                 feature_packet.SCHEMA_PATH = original
+
+
+class TwoStagePinTests(unittest.TestCase):
+    """A dependent feature is interpreted under both stages, so its pin must bear both schemas."""
+
+    def make_repo(self, tmp: str, *, with_resolution: bool) -> tuple[Path, str]:
+        repo = Path(tmp) / "protocol"
+        (repo / "schemas").mkdir(parents=True)
+        for name in ("feature-packet.schema.json", "source-resolution.schema.json"):
+            if name == "source-resolution.schema.json" and not with_resolution:
+                continue
+            shutil.copyfile(SCHEMAS / name, repo / "schemas" / name)
+        for args in (("init", "-q"), ("config", "user.email", "test@example.com"), ("config", "user.name", "test"), ("add", "-A"), ("commit", "-qm", "one")):
+            subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+        sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        return repo, sha
+
+    def commit_drift(self, repo: Path, name: str) -> str:
+        path = repo / "schemas" / name
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace('"title": "Rizzstack', '"title": "Drifted', 1), encoding="utf-8")
+        for args in (("add", "-A"), ("commit", "-qm", "drift")):
+            subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+        return subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+
+    def test_a_dependent_pin_must_bear_the_resolution_schema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, sha = self.make_repo(tmp, with_resolution=False)
+            packet = load("feature-descendant.json")
+            packet["workflow_ref"] = sha
+            with self.assertRaises(feature_packet.PacketError) as caught:
+                feature_packet.validate(packet, workflow_repo=repo)
+            self.assertEqual(caught.exception.code, "workflow_ref_unsupported")
+
+    def test_resolution_schema_drift_at_the_pin_is_refused_for_a_dependent_packet_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, first = self.make_repo(tmp, with_resolution=True)
+            packet = load("feature-descendant.json")
+            packet["workflow_ref"] = first
+            feature_packet.validate(packet, workflow_repo=repo)  # both schemas identical at the pin
+            second = self.commit_drift(repo, "source-resolution.schema.json")
+            packet["workflow_ref"] = second
+            with self.assertRaises(feature_packet.PacketError) as caught:
+                feature_packet.validate(packet, workflow_repo=repo)
+            self.assertEqual(caught.exception.code, "validator_mismatch")
+            exact = load("feature-exact.json")
+            exact["workflow_ref"] = second  # an exact feature does not read the second stage
+            feature_packet.validate(exact, workflow_repo=repo)
 
 
 class NegativeTests(unittest.TestCase):
