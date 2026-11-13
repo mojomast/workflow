@@ -135,6 +135,12 @@ class TddTests(unittest.TestCase):
             self.assertTrue(self.tdd.matches(case["id"], "tests/test_s.py::S::test_a"))
             self.assertEqual(self.tdd.classify(out, ["tests/test_s.py::S::test_a"], ["no_such_name"]), "behavioral_failure")
 
+    def test_record_digest_covers_the_signed_record(self):
+        rec = {"phase": "red", "signature": "a" * 64, "_path": "x"}
+        same = {"signature": "a" * 64, "phase": "red"}
+        self.assertEqual(self.tdd.record_digest(rec), self.tdd.record_digest(same))
+        self.assertNotEqual(self.tdd.record_digest(rec), self.tdd.record_digest({"phase": "red", "signature": "b" * 64}))
+
     def test_fingerprints(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

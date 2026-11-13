@@ -210,6 +210,20 @@ def _run_phase(toy: Path, rev: str, contract: dict, sha: str, phase: str, test_f
 def _save(ev_dir: Path, name: str, rec: dict, run_dir: Path) -> str:
     """Sign *rec* in place with the run's demo key, validate it and write it."""
     rec.pop("_path", None)
+    # Signed order (review C2): sequence and predecessor digest go inside the
+    # signed body, so same-second records are ordered by the signer, not by
+    # their phase label or file name.
+    previous = []
+    for other in sorted(ev_dir.glob("*.json")) if ev_dir.is_dir() else []:
+        try:
+            data = json.loads(other.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        if isinstance(data, dict) and isinstance(data.get("sequence"), int):
+            previous.append(data)
+    last = max(previous, key=lambda item: item["sequence"]) if previous else None
+    rec["sequence"] = (last["sequence"] + 1) if last else 1
+    rec["prev_sha256"] = tdd.record_digest(last) if last else None
     rec.update(tdd.sign_record(rec, _key(run_dir)))
     tdd.validate_evidence(rec)
     path = ev_dir / f"{name}.json"
