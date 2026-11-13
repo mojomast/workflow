@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -62,6 +63,11 @@ _ERROR = "error"
 _SKIPPED = "skipped"
 _PENDING = "pending"
 _PLANNED = "planned"
+_NOT_RUN = "not_run"
+_MISSING_REQUIRED_TOOL = "missing_required_tool"
+
+DEFAULT_WORKDIR = "."
+DEFAULT_JOB_TIMEOUT_S = 900
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
@@ -192,6 +198,113 @@ def _head_sha(value: Any) -> str:
 def _job_spec_name(job: Any) -> str:
     name = job.get("name") if isinstance(job, Mapping) else None
     return name if isinstance(name, str) and name else "job"
+
+
+def build_bee_brief(job: Any, *, repo: str | None = None) -> dict[str, Any]:
+    """Build the bee brief for one manifest job from its command steps."""
+    if not isinstance(job, Mapping):
+        raise ShadowError("job must be a mapping", code="invalid_job")
+
+    name = _job_spec_name(job)
+
+    raw_commands = job.get("command")
+    commands: list[str] = []
+    if isinstance(raw_commands, list):
+        commands = [
+            step.strip()
+            for step in raw_commands
+            if isinstance(step, str) and step.strip()
+        ]
+
+    raw_workdir = job.get("workdir")
+    workdir = (
+        raw_workdir.strip()
+        if isinstance(raw_workdir, str) and raw_workdir.strip()
+        else DEFAULT_WORKDIR
+    )
+
+    raw_requires = job.get("requires")
+    requires: list[str] = []
+    if isinstance(raw_requires, list):
+        requires = [
+            tool.strip()
+            for tool in raw_requires
+            if isinstance(tool, str) and tool.strip()
+        ]
+
+    timeout_s = job.get("timeout_s", DEFAULT_JOB_TIMEOUT_S)
+    if isinstance(timeout_s, bool) or not isinstance(timeout_s, int) or timeout_s < 1:
+        timeout_s = DEFAULT_JOB_TIMEOUT_S
+
+    where = f" for {repo}" if repo else ""
+    acceptance_criteria = [
+        f"The {name} job runs every command step from {workdir}.",
+        f"Every {name} command step exits with status 0.",
+        f"The {name} job result records an exit code for each step.",
+    ]
+    if requires:
+        acceptance_criteria.append(
+            f"The {name} job runs only after these tools exist: "
+            f"{', '.join(requires)}."
+        )
+
+    return {
+        "objective": (
+            f"Run the {name} job{where} by executing the manifest command "
+            f"steps in order from {workdir} and report the result."
+        ),
+        "repo": repo,
+        "job": name,
+        "commands": commands,
+        "workdir": workdir,
+        "requires": requires,
+        "timeout_s": timeout_s,
+        "acceptance_criteria": acceptance_criteria,
+    }
+
+
+def _tool_checker(config: Mapping[str, Any]) -> Callable[[str], bool]:
+    for key in ("tool_checker", "which", "tool_exists"):
+        checker = config.get(key)
+        if callable(checker):
+            return checker
+
+    tools = config.get("tools")
+    if isinstance(tools, Mapping):
+        return lambda name: bool(tools.get(name))
+    if isinstance(tools, (list, tuple, set, frozenset)):
+        available = {str(tool) for tool in tools}
+        return lambda name: name in available
+
+    return lambda name: shutil.which(name) is not None
+
+
+def _missing_required_tools(
+    job: Any, checker: Callable[[str], bool]
+) -> list[str]:
+    requires = job.get("requires") if isinstance(job, Mapping) else None
+    if not isinstance(requires, list):
+        return []
+
+    missing: list[str] = []
+    for tool in requires:
+        if not isinstance(tool, str) or not tool.strip():
+            continue
+        name = tool.strip()
+        try:
+            available = bool(checker(name))
+        except Exception:
+            available = False
+        if not available:
+            missing.append(name)
+    return missing
+
+
+def _mark_not_run(row: dict[str, Any], missing: list[str]) -> None:
+    row["state"] = _NOT_RUN
+    row["code"] = _MISSING_REQUIRED_TOOL
+    row["missing_tools"] = list(missing)
+    row["detail"] = "NOT RUN: missing required tool(s): " + ", ".join(missing)
 
 
 class GitHubCLI:
@@ -452,7 +565,15 @@ def _render(index_path: Path, report_path: Path) -> str:
 
 
 def _summary(rows: list[dict[str, Any]]) -> dict[str, int]:
-    counts = {_PASS: 0, _FAILURE: 0, _ERROR: 0, _SKIPPED: 0, _PENDING: 0, _PLANNED: 0}
+    counts = {
+        _PASS: 0,
+        _FAILURE: 0,
+        _ERROR: 0,
+        _SKIPPED: 0,
+        _PENDING: 0,
+        _PLANNED: 0,
+        _NOT_RUN: 0,
+    }
     for row in rows:
         state = row.get("state")
         if state in counts:
@@ -496,20 +617,24 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
 
     rows: list[dict[str, Any]] = []
     specs: dict[str, Any] = {}
+    checker = _tool_checker(config)
     for job in document.get("jobs", []):
         name = _job_spec_name(job)
         eligible = _manifest.is_bee_eligible(job)
         specs[name] = job
-        rows.append(
-            {
-                "job": name,
-                "eligible": eligible,
-                "eligibility": _text(job.get("runner")) or "github-only",
-                "state": _PLANNED if eligible else _SKIPPED,
-                "code": "planned" if eligible else "not_bee_eligible",
-                "detail": "",
-            }
-        )
+        row = {
+            "job": name,
+            "eligible": eligible,
+            "eligibility": _text(job.get("runner")) or "github-only",
+            "state": _PLANNED if eligible else _SKIPPED,
+            "code": "planned" if eligible else "not_bee_eligible",
+            "detail": "",
+        }
+        if eligible:
+            missing = _missing_required_tools(job, checker)
+            if missing:
+                _mark_not_run(row, missing)
+        rows.append(row)
 
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -539,7 +664,7 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
     token = _env_value(env, TOKEN_ENV)
     if not token:
         for row in rows:
-            if row["eligible"]:
+            if row["eligible"] and row["state"] != _NOT_RUN:
                 row["state"] = _SKIPPED
                 row["code"] = "missing_token"
                 row["detail"] = "launcher token is not set"
@@ -554,7 +679,7 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
             base_url = _hermes_launcher_url(config.get("hermes"), env)
         if not base_url:
             for row in rows:
-                if row["eligible"]:
+                if row["eligible"] and row["state"] != _NOT_RUN:
                     row["state"] = _SKIPPED
                     row["code"] = "no_launcher_endpoint"
                     row["detail"] = "launcher endpoint is not configured"
@@ -578,7 +703,7 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
 
     if not capacity_ok:
         for row in rows:
-            if row["eligible"]:
+            if row["eligible"] and row["state"] != _NOT_RUN:
                 row["state"] = _SKIPPED
                 row["code"] = capacity_code or "capacity_unknown"
                 row["detail"] = "launcher capacity check did not pass"
@@ -605,10 +730,22 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
     sleep = config.get("sleep") or time.sleep
 
     for row in rows:
-        if not row["eligible"]:
+        if not row["eligible"] or row["state"] == _NOT_RUN:
             continue
         name = row["job"]
-        item = {"repo": repo, "head_sha": head_sha, "job": specs[name]}
+        missing = _missing_required_tools(specs[name], checker)
+        if missing:
+            _mark_not_run(row, missing)
+            continue
+        brief = build_bee_brief(specs[name], repo=repo)
+        job_payload = dict(specs[name])
+        job_payload["brief"] = brief
+        item = {
+            "repo": repo,
+            "head_sha": head_sha,
+            "job": job_payload,
+            "brief": brief,
+        }
         try:
             dispatched = launcher.dispatch(item)
         except Exception:
@@ -740,6 +877,8 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
         report["status"] = _ERROR
     elif _FAILURE in states:
         report["status"] = _FAILURE
+    elif _NOT_RUN in states:
+        report["status"] = _SKIPPED
     elif _SKIPPED in states:
         report["status"] = _SKIPPED
     else:
@@ -801,6 +940,9 @@ def main(
     err: Any = None,
     env: Mapping[str, str] | None = None,
     opener: Callable[..., Any] | None = None,
+    tool_checker: Callable[[str], bool] | None = None,
+    which: Callable[[str], bool] | None = None,
+    tools: Any = None,
     hermes: Callable[[list[str]], Any] | None = None,
 ) -> int:
     """CLI entry point. Every adapter is injectable for offline tests."""
@@ -829,6 +971,9 @@ def main(
         "launcher": launcher,
         "env": env,
         "opener": opener,
+        "tool_checker": tool_checker,
+        "which": which,
+        "tools": tools,
         "hermes": hermes,
     }
     try:

@@ -125,7 +125,7 @@ class FakeLauncher:
         return self.results.get(task_id)
 
 
-def run_cli(module, argv, github, launcher, env):
+def run_cli(module, argv, github, launcher, env, **kwargs):
     out, err = io.StringIO(), io.StringIO()
     code = module.main(
         argv,
@@ -134,6 +134,7 @@ def run_cli(module, argv, github, launcher, env):
         out=out,
         err=err,
         env=env,
+        **kwargs,
     )
     return code, out.getvalue(), err.getvalue()
 
@@ -368,6 +369,113 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
     assert all(run["state"] == "error" for run in document["runs"])
 
 
+class RecordingDispatchLauncher(FakeLauncher):
+    """A fake launcher that keeps the whole dispatched work item."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.items = []
+
+    def dispatch(self, item):
+        self.items.append(dict(item))
+        return super().dispatch(item)
+
+
+def test_bee_brief_is_built_from_manifest_commands():
+    module = load_run_shadow()
+    job = {
+        "name": "unit",
+        "command": ["uv sync --frozen --no-dev", "uv run python -m unittest"],
+        "workdir": ".",
+        "requires": ["uv"],
+        "timeout_s": 42,
+    }
+
+    brief = module.build_bee_brief(job, repo="hyvv")
+
+    assert brief["commands"] == job["command"]
+    assert brief["workdir"] == "."
+    assert brief["requires"] == ["uv"]
+    assert brief["timeout_s"] == 42
+    assert brief["objective"]
+    assert any("unit" in criterion for criterion in brief["acceptance_criteria"])
+
+
+def test_dispatch_carries_the_bee_brief(tmp_path):
+    module = load_run_shadow()
+    launcher = RecordingDispatchLauncher(capacity={"active": 0, "max_concurrent": 3})
+
+    code, stdout, stderr = run_cli(
+        module,
+        [
+            "--repo",
+            "mojomast/hyvv",
+            "--pr",
+            "7",
+            "--live",
+            "--index",
+            str(tmp_path / "index.json"),
+            "--report",
+            str(tmp_path / "report.html"),
+        ],
+        FakeGitHub(),
+        launcher,
+        env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=lambda tool: True,
+    )
+
+    assert code == 0, (stdout, stderr)
+    by_job = {item["job"]["name"]: item for item in launcher.items}
+    unit = by_job["unit"]
+    assert unit["brief"]["commands"] == [
+        "uv sync --frozen --no-dev || uv sync --no-dev",
+        "uv run python -m unittest discover -s tests -v",
+    ]
+    assert unit["job"]["brief"] == unit["brief"]
+
+
+def test_missing_required_tool_is_not_run(tmp_path):
+    module = load_run_shadow()
+    launcher = FakeLauncher(capacity={"active": 0, "max_concurrent": 3})
+    seen = []
+
+    def tool_checker(tool):
+        seen.append(tool)
+        return tool != "gitleaks"
+
+    code, stdout, stderr = run_cli(
+        module,
+        [
+            "--repo",
+            "mojomast/hyvv",
+            "--pr",
+            "7",
+            "--live",
+            "--index",
+            str(tmp_path / "index.json"),
+            "--report",
+            str(tmp_path / "report.html"),
+        ],
+        FakeGitHub(),
+        launcher,
+        env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=tool_checker,
+    )
+
+    assert code != 0, (stdout, stderr)
+    report = report_from(stdout)
+    rows = {row["job"]: row for row in report["jobs"]}
+
+    scan = rows["scan"]
+    assert scan["state"] == "not_run"
+    assert scan["code"] == "missing_required_tool"
+    assert "gitleaks" in scan["detail"]
+    assert scan["missing_tools"] == ["gitleaks"]
+
+    dispatched = [call[1] for call in launcher.calls if call[0] == "dispatch"]
+    assert "scan" not in dispatched
+    assert "unit" in dispatched
+    assert report["status"] != "ok"
 class FakeResponse:
     def __init__(self, body):
         self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")

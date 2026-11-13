@@ -2,16 +2,6 @@
   "repo": "hyvv",
   "jobs": [
     {
-      "name": "lint",
-      "os": "ubuntu-24.04",
-      "image": "cua-bee-linux-x64",
-      "arch": "x64",
-      "python": "3.12",
-      "node": "22",
-      "browser": "none",
-      "runner": "bee"
-    },
-    {
       "name": "unit",
       "os": "ubuntu-24.04",
       "image": "cua-bee-linux-x64",
@@ -19,17 +9,79 @@
       "python": "3.12",
       "node": "22",
       "browser": "none",
-      "runner": "bee"
+      "runner": "bee",
+      "command": [
+        "uv sync --frozen --no-dev || uv sync --no-dev",
+        "uv run python -m unittest discover -s tests -v"
+      ],
+      "workdir": ".",
+      "requires": []
     },
     {
-      "name": "browser-e2e",
+      "name": "contract",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "none",
+      "runner": "bee",
+      "command": [
+        "uv run python -m contract -v"
+      ],
+      "workdir": ".",
+      "requires": []
+    },
+    {
+      "name": "release-assets",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "none",
+      "runner": "bee",
+      "command": [
+        "rm -rf dist release-assets",
+        "uv build",
+        "uv run python scripts/build_release_assets.py --dist dist --out release-assets",
+        "test \"$(ls dist | wc -l | tr -d \" \")\" = 2"
+      ],
+      "workdir": ".",
+      "requires": []
+    },
+    {
+      "name": "installer-dry-run",
+      "os": "ubuntu-24.04",
+      "image": "cua-bee-linux-x64",
+      "arch": "x64",
+      "python": "3.12",
+      "node": "22",
+      "browser": "none",
+      "runner": "bee",
+      "command": [
+        "sh scripts/install.sh --dry-run"
+      ],
+      "workdir": ".",
+      "requires": []
+    },
+    {
+      "name": "scan",
       "os": "ubuntu-24.04",
       "image": "cua-bee-linux-x64",
       "arch": "x64",
       "python": null,
-      "node": "22",
-      "browser": "chromium",
-      "runner": "bee"
+      "node": null,
+      "browser": "none",
+      "runner": "bee",
+      "command": [
+        "gitleaks detect --source . --redact --verbose --exit-code 1",
+        "scripts/scan-secrets.sh"
+      ],
+      "workdir": ".",
+      "requires": [
+        "gitleaks"
+      ]
     },
     {
       "name": "macos-unit",

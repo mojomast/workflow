@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mojomast/workflow/contrib/bee-ci/schema/ci-job.schema.json",
   "title": "bee-run CI job manifest",
-  "description": "One manifest per repository. Each entry declares a CI leg so a later dispatcher can choose bee-eligible Linux x64 work and leave GitHub-only legs alone.",
+  "description": "One manifest per repository. Each entry declares a runnable CI leg: the commands to run, the working directory, any required tools and an optional timeout. macOS and arm64 legs stay github-only.",
   "type": "object",
   "additionalProperties": false,
   "required": ["repo", "jobs"],
@@ -65,6 +65,36 @@
         "runner": {
           "type": "string",
           "enum": ["bee", "github-only"]
+        },
+        "command": {
+          "type": "array",
+          "description": "Shell steps run in order. Empty or omitted for a github-only leg.",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "workdir": {
+          "type": "string",
+          "description": "Working directory relative to the repository root.",
+          "minLength": 1,
+          "default": ".",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "requires": {
+          "type": "array",
+          "description": "Tool names that must exist before the job may run.",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+          }
+        },
+        "timeout_s": {
+          "type": "integer",
+          "description": "Optional job timeout in seconds.",
+          "minimum": 1,
+          "default": 900
         }
       },
       "allOf": [
