@@ -11,7 +11,7 @@
     "bees": 1,
     "wall_clock_s": 1800
   },
-  "contract": {
+  "contract_template": {
     "acceptance_criteria": [
       {
         "id": "AC-001",
@@ -41,12 +41,6 @@
       ],
       "summary": "double_answer() returns 84"
     },
-    "review": {
-      "approved_at": "2026-11-13T00:00:00Z",
-      "approved_by": "reviewer",
-      "contract_sha256": "4fdd74cc9fa7fc4fd7a49be19b8ebc81f180e57e70059943092262f3ba7a2bd9",
-      "status": "approved"
-    },
     "scope": {
       "assigned_files": [
         "smoke/double.py"
@@ -55,7 +49,7 @@
         "tests/test_double.py"
       ]
     },
-    "source_rev": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "source_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "tdd": {
       "applicable": true,
       "reason": "approved test exists and fails at the baseline",
@@ -66,7 +60,6 @@
       "independent": true
     }
   },
-  "contract_sha256": "4fdd74cc9fa7fc4fd7a49be19b8ebc81f180e57e70059943092262f3ba7a2bd9",
   "feature_id": "feature-b",
   "human_gates": [
     "merge",
@@ -116,5 +109,5 @@
   "tests": [
     "tests/test_double.py"
   ],
-  "workflow_ref": "817eac479f441396562962e880c1af596638f399"
+  "workflow_ref": "bfaf8f9f27e50d37d7a48f934d25a5f3920e78da"
 }

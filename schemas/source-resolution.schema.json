@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/source-resolution.schema.json",
+  "title": "Rizzstack source-resolution record (rizzstack.source-resolution/1)",
+  "description": "Stage 2 for a dependent feature: the immutable record that resolves an approved intent packet's descendant baseline to an exact commit after the dependency is accepted. It grants no new authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "resolution_version",
+    "packet_digest",
+    "policy_id",
+    "policy_digest",
+    "dependency_job",
+    "dependency_feature",
+    "accepted_commit",
+    "derived_source_rev",
+    "contract",
+    "contract_sha256",
+    "at"
+  ],
+  "properties": {
+    "resolution_version": {
+      "const": "rizzstack.source-resolution/1"
+    },
+    "packet_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "dependency_job": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dependency_feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "accepted_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "derived_source_rev": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "contract": {
+      "type": "object"
+    },
+    "contract_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "at": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

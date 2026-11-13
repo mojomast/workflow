@@ -112,5 +112,5 @@
   "tests": [
     "tests/test_smoke.py"
   ],
-  "workflow_ref": "817eac479f441396562962e880c1af596638f399"
+  "workflow_ref": "bfaf8f9f27e50d37d7a48f934d25a5f3920e78da"
 }
