@@ -22,7 +22,7 @@ this audit; README claims are not treated as evidence.
 | 4 | Resource allocation, leases, dispatch | **PROVEN** | `tools.py::_dispatch`, `_dispatch_acdd`, `_record_dispatch`; `leases.py::record_lease` (HMAC over every field, `<state_dir>/leases/<attempt_id>.json`); `hyvv` `POST /v1/attempts` | Human/agent calls the `bundlebees_dispatch` tool. Proven in Experiments A and B (4 + 3 bees). |
 | 5 | Worker completion notification | **MISSING (push)** / **PARTIAL (poll)** | `hyvv` exposes `GET /v1/attempts`, `GET /v1/attempts/{id}`, `GET /v1/attempts/{id}/events?cursor`; **no callback, webhook, SSE or push** (grepped: none) | Nothing. A human or the agent asks. |
 | 6 | Coordinator wake-up and event processing | **PARTIAL (out of product)** | `~/.hermes/scripts/rizz-ci-watch.sh` + cron, written by the coordinator, not by any repo | A 30-minute cron that only watches PRs. Not a job processor, not in `bundlebees`. |
-| 7 | Artifact retrieval and provenance | **IMPLEMENTED/UNPROVEN** | Orbit `server/local-worker-artifact.mjs` + `op=artifact` (merged #28); bundlebees consumes only via private `_op` — the typed client is **draft PR #15, not merged** | Human runs the call. Proven once by the coordinator's rig, not by product code on main. |
+| 7 | Artifact retrieval and provenance | **IMPLEMENTED/UNPROVEN** | Orbit `server/local-worker-artifact.mjs` + `op=artifact` (merged #28); bundlebees `client.py::artifact()` (typed consumer, bundlebees #15 merged at `f4ce9ef`) | Human runs the call. The typed path is proven once by the coordinator's rig; nothing yet calls it automatically. |
 | 8 | Independent RED/GREEN verification | **IMPLEMENTED/UNPROVEN** | `cli.py` `verify` (apply patch, run named tests, commit+push unless `--dry-run`); `sandbox.py` (bwrap/firejail); `acdd_cli.py::verify_preflight`; `tdd.py` records | Human types `bundlebees verify <attempt>`. The coordinator's own verifications in A/B were manual procedures, not this CLI. **Seam defect:** `--dry-run` records `sha: null`, which `integrate_wave` cannot consume; the default form pushes instead. Neither mode is usable by a loop, which is why ch. 22 §7 defines local commits. |
 | 9 | Integration of accepted patches | **IMPLEMENTED/UNPROVEN** | `cli.py` `integrate --wave --attempts`; `revision.py::integrate_wave` (requires each attempt's `ok` verify result with an ancestor sha; runs the full suite; accepts only on exit 0) | Human types the command. Never exercised end to end on real patches. |
 | 10 | Conflict and regression detection | **PARTIAL** | `integrate_wave` collects per-attempt problems and runs the suite; `git apply` refuses conflicts | Exists as a command, but no classification of *why* integration failed beyond problems + suite exit. |
@@ -62,8 +62,9 @@ Calling it autonomous would be false.
 
 ## Secondary defects worth recording, not blocking
 
-- **bundlebees #15 (typed artifact client) is unmerged** — the consumer path exists only as the
-  coordinator's rig code. Any autonomous loop needs it on main.
+- **bundlebees #15 is merged** (`f4ce9ef`), but its CI gate had been fail-open: the Plugin Doctor job
+  passed green while registering zero tools, and two jobs never installed the declared dependencies. Fixed
+  in the same PR; the doctor now asserts 4 registrations instead of trusting an exit code of 0.
 - **Cold-start acceptance is red on main** (`CS-apply-tax … 0 signed records`). Per instruction this is
   not prioritised; it does not block the loop, but it means the repo's own acceptance demo cannot be
   used as the loop's proof.

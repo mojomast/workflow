@@ -26,21 +26,20 @@ being tested.
 
 ## Milestones
 
-### M0 — merge the typed artifact consumer (prerequisite; blocked on CI, not on code)
-- **Repo/location:** `bundlebees_plugin/client.py` — draft PR #15, head `01b3cfb`.
-- **Why:** the loop must read artifacts through product code, not the coordinator's rig.
-- **Current CI state, checked directly:** `gitleaks` and `hermes plugins doctor` pass;
-  `tests (sandbox included)` and `orbit round trip` fail at collection with `ImportError: jsonschema`.
-  The same two jobs fail on **main** (run `43356463416`), so this is pre-existing.
-- **Root cause, measured in a clean environment:** `pyproject.toml` declares the dependencies, but
-  `ci.yml` installs a hand-listed set — `pytest`, `pyyaml`, `ruamel.yaml` — and never installs the
-  project. Reproduced at `01b3cfb` in a fresh venv built the way CI builds it: **18 collection errors**;
-  adding `jsonschema` left one (`fastapi`); adding that left one (`httpx`); with all three the suite is
-  **563 passed, 16 skipped in 78.84 s**. So three declared dependencies are missing, not one.
-- **Fix:** install the project (or those three) in the test job. That is a CI change and needs separate
-  permission; until then this PR cannot satisfy a green gate and must not be merged on a red one.
-- **Acceptance:** the two jobs pass at the PR head *and* on main, with real logs; then the normal merge
-  gate.
+### M0 — typed artifact consumer (done)
+- **Repo/location:** `bundlebees_plugin/client.py` — merged. PR #15, head `d7b06f3`, merge commit
+  `f4ce9ef2ede695a0cd0bdbb00e803c726a9de399` on `main`.
+- **Why it mattered:** the loop must read artifacts through product code, not the coordinator's rig.
+- **What the merge required beyond the feature:** the PR's own gate was fail-open. `ci.yml` installed
+  hand-maintained dependency lists that had drifted from `pyproject.toml` (the test job was missing
+  `jsonschema`; the Orbit job was missing nearly everything), and the Hermes Plugin Doctor job passed
+  green while printing `Plugin registration failed: No module named 'jsonschema'` and registering zero
+  tools. Both are fixed: the jobs derive their requirements from `pyproject.toml`, the doctor's declared
+  runtime dependencies are installed into the Hermes environment it actually uses, and the doctor step now
+  asserts its output (no `ERROR`, exactly 4 tools) instead of trusting an exit code that is always 0.
+- **Evidence:** 576 passed / 3 skipped; Orbit round trip 36 passed; gitleaks clean; doctor 4 tools + 1
+  hook. Negative case proven with the real binary: an unsatisfiable declared dependency produces the
+  `ERROR` line and 0 tools, and the gate exits 1.
 
 ### M1 — job state and authorization
 - **Repo/location:** `bundlebees_plugin/job.py` (new), `bundlebees_plugin/schemas/job.schema.json` (new).
