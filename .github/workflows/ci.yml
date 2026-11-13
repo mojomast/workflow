@@ -76,7 +76,7 @@ jobs:
           ACCEPTANCE_MODE: local
           WORKFLOW_SRC: ${{ github.workspace }}
           BUNDLEBEES_REF: main
-          BUNDLEBEES_SHA: 2f83ae44261ae065f7b7413471ad1ebe039107dc
+          BUNDLEBEES_SHA: 39602ff232cf6dad404a551d8e13f6f29b5d363d
           ACCEPTANCE_ACDD: require
           ACCEPTANCE_PRIOR_INTERVENTIONS: "CI lifted the AppArmor userns restriction::GitHub ubuntu-24.04 runners block unprivileged user namespaces, which bwrap needs"
         run: |
