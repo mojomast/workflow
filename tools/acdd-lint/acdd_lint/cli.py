@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 
-from acdd_lint import __version__, contracts, evidence, schema
+from acdd_lint import __version__, checks_ids, checks_report, checks_revision, contracts, evidence, schema
 
 Problem = dict[str, str]
 Contract = tuple[str, Mapping[str, Any]]
@@ -133,11 +133,16 @@ def _read_object(path: Path) -> tuple[Mapping[str, Any] | None, str | None]:
 
 
 def _kind(obj: Mapping[str, Any]) -> str:
-    """Classify a parsed object as "contract", "evidence" or "other"."""
+    """Classify a parsed object as "contract", "evidence", "report" or "other"."""
     if "contract_version" in obj:
         return "contract"
     if "evidence_version" in obj:
         return "evidence"
+    # An acceptance report names a contract, carries criteria and an accepted
+    # verdict, and has no phase of its own. Records carry evidence_version, so
+    # they never fall through to here.
+    if "contract_id" in obj and "criteria" in obj and "accepted" in obj:
+        return "report"
     return "other"
 
 
@@ -149,6 +154,7 @@ def _scan(
     """Discover contracts, evidence records and file-level problems."""
     found_contracts: list[Contract] = []
     found_records: list[Record] = []
+    found_reports: list[Record] = []
     problems: list[Problem] = []
 
     for root in roots:
@@ -171,12 +177,19 @@ def _scan(
             kind = _kind(obj)
             if kind == "other":
                 continue
-            (found_contracts if kind == "contract" else found_records).append((relative, obj))
+            bucket = {"contract": found_contracts, "report": found_reports}.get(kind, found_records)
+            bucket.append((relative, obj))
+            if kind == "report":
+                # This tool has no acceptance-report schema: a report is checked
+                # against its contract by checks_report, not against the evidence
+                # schema. Validating it as evidence flagged every report on the
+                # repo's own build (13 false problems each) during integration.
+                continue
             kind_schema = contract_schema if kind == "contract" else evidence_schema
             for where, message in schema.validate(obj, kind_schema):
                 problems.append(_problem(f"{kind}_invalid", relative, where, message))
 
-    return found_contracts, found_records, problems
+    return found_contracts, found_records, found_reports, problems
 
 
 def _contract_map(found: Sequence[Contract]) -> tuple[dict[str, Mapping[str, Any]], list[Problem]]:
@@ -219,6 +232,7 @@ def _split_where(where: str, items: Sequence[Record]) -> tuple[str, str]:
 def _check_protocol(
     found_contracts: Sequence[Contract],
     found_records: Sequence[Record],
+    found_reports: Sequence[Record],
     key: bytes | None,
 ) -> list[Problem]:
     """Run the contract and evidence protocol checks."""
@@ -228,6 +242,8 @@ def _check_protocol(
 
     for relative, contract in found_contracts:
         for item in contracts.check_contract(contract):
+            problems.append(_problem(item["code"], relative, item["where"], item["message"]))
+        for item in checks_ids.check_duplicate_ac_ids(contract):
             problems.append(_problem(item["code"], relative, item["where"], item["message"]))
 
     groups: dict[Any, list[Record]] = {}
@@ -246,6 +262,15 @@ def _check_protocol(
         for item in evidence.check_history(contract, items, key):
             relative, where = _split_where(item["where"], items)
             problems.append(_problem(item["code"], relative, where, item["message"]))
+        for item in checks_revision.check_revision_drift(contract, list(items)):
+            problems.append(_problem(item["code"], item["where"], "record", item["message"]))
+
+    for relative, report in found_reports:
+        contract = mapping.get(report.get("contract_id")) if isinstance(report.get("contract_id"), str) else None
+        if contract is None:
+            continue
+        for item in checks_report.check_report_totals(contract, report):
+            problems.append(_problem(item["code"], relative, item["where"], item["message"]))
 
     return problems
 
@@ -308,8 +333,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"acdd-lint: error: {exc}", file=sys.stderr)
         return 2
 
-    found_contracts, found_records, problems = _scan(paths, contract_schema, evidence_schema)
-    problems.extend(_check_protocol(found_contracts, found_records, key))
+    found_contracts, found_records, found_reports, problems = _scan(
+        paths, contract_schema, evidence_schema)
+    problems.extend(_check_protocol(found_contracts, found_records, found_reports, key))
 
     if args.json_output:
         _print_json(len(found_contracts), len(found_records), problems, key is not None)
