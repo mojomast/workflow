@@ -33,7 +33,13 @@ TOKEN = "fixture-token-not-a-secret"
 KEY = "fixture-key-not-a-secret"
 HEAD = "a" * 40
 REPO = "mojomast/workflow"
-ELIGIBLE = ["reference", "acceptance-light", "secret-scan"]
+ELIGIBLE = [
+    "reference",
+    "project-state",
+    "observability",
+    "acceptance-light",
+    "secret-scan",
+]
 EXCLUDED = ["macos-docs", "arm64-smoke"]
 
 
@@ -201,6 +207,7 @@ def test_live_verifies_and_records_without_posting(tmp_path):
         github,
         launcher,
         env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=lambda tool: True,
     )
 
     assert code == 0, (stdout, stderr)
@@ -238,6 +245,7 @@ def test_live_verifies_and_records_without_posting(tmp_path):
         FakeGitHub(),
         FakeLauncher(),
         env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=lambda tool: True,
     )
     assert refused_code == 2
     assert "status" in refused_err.lower()
@@ -269,6 +277,7 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
         github,
         launcher,
         env={},
+        tool_checker=lambda tool: True,
     )
     assert code != 0, (stdout, stderr)
     report = report_from(stdout)
@@ -297,6 +306,7 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
         FakeGitHub(),
         launcher,
         env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=lambda tool: True,
     )
     assert code != 0, (stdout, stderr)
     report = report_from(stdout)
@@ -326,6 +336,7 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
         FakeGitHub(),
         launcher,
         env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=lambda tool: True,
     )
     assert code != 0, (stdout, stderr)
     report = report_from(stdout)
@@ -359,6 +370,7 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
         FakeGitHub(),
         launcher,
         env={"BUNDLEBEES_LAUNCHER_TOKEN": TOKEN, "BEE_CI_RESULT_KEY": KEY},
+        tool_checker=lambda tool: True,
     )
     assert code != 0, (stdout, stderr)
     report = report_from(stdout)
@@ -552,6 +564,7 @@ def test_capacity_uses_health(tmp_path):
             "github": FakeGitHub(),
             "launcher": FakeLauncher(capacity={"active": 2, "max_concurrent": 3}),
             "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "tool_checker": lambda tool: True,
             "evidence_index": str(index),
             "report_path": str(report_path),
         }
@@ -585,6 +598,7 @@ def test_capacity_uses_health(tmp_path):
                 "github": FakeGitHub(),
                 "launcher": client,
                 "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+                "tool_checker": lambda tool: True,
             }
         )
         assert report["status"] == "skipped"
@@ -720,6 +734,7 @@ def test_repo_manifest_and_url_fallback():
             "live": True,
             "github": FakeGitHub(),
             "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "tool_checker": lambda tool: True,
             "hermes": hermes,
             "opener": opener,
         }
@@ -747,6 +762,7 @@ def test_repo_manifest_and_url_fallback():
                 module.KEY_ENV: KEY,
                 module.URL_ENV: "https://env.invalid:8",
             },
+            "tool_checker": lambda tool: True,
             "hermes": lambda *a, **k: (_ for _ in ()).throw(
                 AssertionError("hermes must not run when the env URL is set")
             ),
@@ -764,6 +780,7 @@ def test_repo_manifest_and_url_fallback():
             "live": True,
             "github": FakeGitHub(),
             "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "tool_checker": lambda tool: True,
             "hermes": lambda *a, **k: (_ for _ in ()).throw(OSError("missing")),
         }
     )

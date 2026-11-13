@@ -30,6 +30,8 @@ REPOS = ("workflow", "bundlebees", "orbitdesktop", "hyvv")
 EXPECTED_JOBS = {
     "workflow": (
         "reference",
+        "project-state",
+        "observability",
         "acceptance-light",
         "secret-scan",
         "macos-docs",
