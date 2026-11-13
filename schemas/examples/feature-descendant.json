@@ -1,0 +1,120 @@
+{
+  "acceptance_ids": [
+    "AC-001"
+  ],
+  "authorization": {
+    "approved_at": "2026-11-13T00:00:00Z",
+    "approved_by": "reviewer",
+    "reference": "auth:job_b"
+  },
+  "budget": {
+    "bees": 1,
+    "wall_clock_s": 1800
+  },
+  "contract": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "double_answer() returns 84",
+        "tests": [
+          "tests/test_double.py"
+        ],
+        "verification": "test"
+      }
+    ],
+    "authorization": {
+      "human_gates": [
+        "merge",
+        "release",
+        "deploy",
+        "publish"
+      ]
+    },
+    "contract_version": "acdd/1",
+    "evidence_required": [
+      "green"
+    ],
+    "id": "SMOKE-B",
+    "outcome": {
+      "observable_behavior": [
+        "double_answer() returns 84"
+      ],
+      "summary": "double_answer() returns 84"
+    },
+    "review": {
+      "approved_at": "2026-11-13T00:00:00Z",
+      "approved_by": "reviewer",
+      "contract_sha256": "4fdd74cc9fa7fc4fd7a49be19b8ebc81f180e57e70059943092262f3ba7a2bd9",
+      "status": "approved"
+    },
+    "scope": {
+      "assigned_files": [
+        "smoke/double.py"
+      ],
+      "test_files": [
+        "tests/test_double.py"
+      ]
+    },
+    "source_rev": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "tdd": {
+      "applicable": true,
+      "reason": "approved test exists and fails at the baseline",
+      "test_first": false
+    },
+    "title": "double_answer() returns 84",
+    "verification": {
+      "independent": true
+    }
+  },
+  "contract_sha256": "4fdd74cc9fa7fc4fd7a49be19b8ebc81f180e57e70059943092262f3ba7a2bd9",
+  "feature_id": "feature-b",
+  "human_gates": [
+    "merge",
+    "release",
+    "deploy",
+    "publish"
+  ],
+  "job_id": "job_b",
+  "packet_version": "rizzstack.feature-packet/1",
+  "prohibited": [
+    "push to origin",
+    "merge",
+    "deploy",
+    "edit approved tests"
+  ],
+  "repository": {
+    "branch": "main",
+    "identity": "mojomast/smoke-real"
+  },
+  "request": {
+    "provenance": "kanban:feature-b",
+    "summary": "double_answer() returns 84"
+  },
+  "required_evidence": [
+    "red",
+    "green",
+    "regression",
+    "gitleaks",
+    "integration"
+  ],
+  "scope": {
+    "lease": [
+      "smoke/double.py"
+    ],
+    "read_only": [
+      "tests/test_double.py"
+    ]
+  },
+  "source_policy": {
+    "dependencies": [
+      "feature-a"
+    ],
+    "kind": "descendant",
+    "policy_id": "policy-b",
+    "root_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "tests": [
+    "tests/test_double.py"
+  ],
+  "workflow_ref": "817eac479f441396562962e880c1af596638f399"
+}
