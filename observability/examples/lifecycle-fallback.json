@@ -1,0 +1,19 @@
+{
+  "schema": "agent.lifecycle/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:05:00Z",
+  "source": "bee",
+  "attempt_id": "att_aa11bb22cc33dd44",
+  "card_id": "t_45ff632b",
+  "run_id": "run-observability-1",
+  "project": "bundlebees",
+  "role": "work",
+  "parent_id": "coordinator-1",
+  "agent_id": "bee-work-1",
+  "state": "running",
+  "phase": "retrying after a Go rate limit",
+  "platform": "hyvv",
+  "route": "deepseek",
+  "fallen_back": true,
+  "host_alias": null
+}

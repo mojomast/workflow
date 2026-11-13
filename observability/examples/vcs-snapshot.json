@@ -1,0 +1,41 @@
+{
+  "schema": "vcs.snapshot/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:15:00Z",
+  "source": "orbit",
+  "attempt_id": null,
+  "card_id": null,
+  "run_id": null,
+  "project": null,
+  "role": null,
+  "window_start": "2026-11-12T00:00:00Z",
+  "window_end": "2026-11-12T21:15:00Z",
+  "repos": [
+    {
+      "repo": "mojomast/workflow",
+      "branch": "main",
+      "commits_in_window": 4,
+      "open_prs": 2,
+      "ci_state": "passing",
+      "failing_check_names": []
+    },
+    {
+      "repo": "mojomast/bundlebees",
+      "branch": "main",
+      "commits_in_window": 3,
+      "open_prs": 1,
+      "ci_state": "passing",
+      "failing_check_names": []
+    },
+    {
+      "repo": "mojomast/orbitdesktop",
+      "branch": "main",
+      "commits_in_window": 1,
+      "open_prs": 8,
+      "ci_state": "mixed",
+      "failing_check_names": [
+        "browser checks"
+      ]
+    }
+  ]
+}

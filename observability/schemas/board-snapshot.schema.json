@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/board-snapshot.schema.json",
+  "title": "Board and blocker snapshot (board.snapshot/v1)",
+  "description": "Counts and blocker age for one collab-board group. Raw entry text is not included.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "source",
+    "group",
+    "counts",
+    "open_blocker_count",
+    "oldest_blocker_age_s"
+  ],
+  "properties": {
+    "schema": {
+      "const": "board.snapshot/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "attempt_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "card_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "project": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/nullable_role"
+    },
+    "ts": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "source": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "group": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "counts": {
+      "type": "object",
+      "description": "Count of entries by board status. Keys are status names such as todo, doing, blocked, completed, canceled, failed.",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "minProperties": 1
+    },
+    "in_flight_owners": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/id_token"
+      }
+    },
+    "open_blocker_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "oldest_blocker_age_s": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Age in seconds of the oldest open blocker, or null when open_blocker_count is 0."
+    }
+  }
+}

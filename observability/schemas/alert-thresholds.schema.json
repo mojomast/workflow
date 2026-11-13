@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/alert-thresholds.schema.json",
+  "title": "Alert thresholds (alert.thresholds/v1)",
+  "description": "Versioned default or fully resolved alert thresholds. Collectors warn when a condition is met. Destinations in v1 are the Orbit dashboard and a board note only. Operators override individual keys with an alert.thresholds.override/v1 document; omitted keys keep these defaults. at_bee_cap is warn-only in v1. Daily model spend above 10 USD supersedes a 5 USD/day draft.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "destinations",
+    "thresholds",
+    "actions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "alert.thresholds/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "destinations": {
+      "$ref": "#/$defs/destinations"
+    },
+    "thresholds": {
+      "$ref": "#/$defs/thresholds"
+    },
+    "actions": {
+      "$ref": "#/$defs/actions"
+    }
+  },
+  "$defs": {
+    "destinations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "orbit_dashboard",
+          "board_note"
+        ]
+      },
+      "description": "v1 destinations are the Orbit dashboard and a board note. No chat and no Discord."
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deepseek_balance_below_usd",
+        "go_allowance_pct_used",
+        "go_429_streak",
+        "stuck_bee_no_progress_s",
+        "blocker_age_s",
+        "disk_free_pct",
+        "bees_in_flight_warn_at",
+        "daily_model_spend_above_usd"
+      ],
+      "properties": {
+        "deepseek_balance_below_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Warn when a DeepSeek balance is below this amount in US dollars."
+        },
+        "go_allowance_pct_used": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Warn when an OpenCode Go key has used this percent of its monthly allowance."
+        },
+        "go_429_streak": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Warn after this many OpenCode Go HTTP 429 errors in a row."
+        },
+        "stuck_bee_no_progress_s": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Warn when a bee has been stuck with no progress for this many seconds (default 1800, 30 minutes)."
+        },
+        "blocker_age_s": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Warn when a board blocker has been open longer than this many seconds (default 14400, 4 hours)."
+        },
+        "disk_free_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Warn when free disk space is below this percent."
+        },
+        "bees_in_flight_warn_at": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Warn when the number of bees in flight reaches this value. The default is the shared cap of 12."
+        },
+        "daily_model_spend_above_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Warn when daily model spend is above this amount in US dollars. The default is 10, which supersedes a 5 USD/day draft."
+        }
+      }
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at_bee_cap"
+      ],
+      "properties": {
+        "at_bee_cap": {
+          "const": "warn",
+          "description": "At the shared bee cap, warn only. Pausing non-priority bees is not a v1 action and needs a later approval."
+        }
+      }
+    }
+  }
+}
