@@ -73,18 +73,49 @@ def check_report_totals(contract: Mapping[str, Any], report: Mapping[str, Any]) 
                 )
             )
 
+    shape_ok = _report_shape_ok(report, criteria)
     frozen = _frozen_sha(contract)
     reported_sha = report.get("contract_sha256")
-    if frozen is not None and isinstance(reported_sha, str) and reported_sha != frozen:
-        problems.append(
-            _problem(
-                "contract_sha256",
-                "report.contract_sha256 does not match the frozen contract hash",
+    # Attribution is only meaningful for a document shaped like a report; a broken
+    # object that makes no claim is noise, and the acceptance rule below reports it
+    # when it does claim something.
+    if frozen is not None and shape_ok:
+        if reported_sha is None:
+            problems.append(
+                _problem(
+                    "contract_sha256",
+                    "report omits contract_sha256 while the contract is frozen; "
+                    "the report cannot be attributed to this contract",
+                )
             )
-        )
+        elif not isinstance(reported_sha, str):
+            problems.append(
+                _problem(
+                    "contract_sha256",
+                    "report.contract_sha256 is not a string; the report cannot be attributed",
+                )
+            )
+        elif reported_sha != frozen:
+            problems.append(
+                _problem(
+                    "contract_sha256",
+                    "report.contract_sha256 does not match the frozen contract hash",
+                )
+            )
 
-    if report.get("accepted") is True and _report_shape_ok(report, criteria):
-        problems.extend(_acceptance_problems(contract, report, criteria))
+    if report.get("accepted") is True:
+        if shape_ok:
+            problems.extend(_acceptance_problems(contract, report, criteria))
+        else:
+            # An acceptance claim the linter cannot read is not a pass. Say so
+            # rather than staying silent: this tool applies no schema to reports.
+            problems.append(
+                _problem(
+                    "accepted",
+                    "report claims accepted while its phases or criteria are malformed; "
+                    "the linter cannot verify the claim and refuses to treat it as accepted",
+                )
+            )
 
     return problems
 

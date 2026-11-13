@@ -66,18 +66,17 @@ class ReportTotals(unittest.TestCase):
         r = report(self.c, contract_sha256="0" * 64)
         self.assertEqual(self.m.check_report_totals(unfrozen, r), [])
 
+        # Structurally broken input that makes no acceptance claim stays silent:
+        # there is nothing to verify. A broken report that DOES claim accepted is
+        # reported by FailClosedReporting instead of being waved through here.
         for bad in (
             "not a mapping",
             [],
             {},
             {"criteria": []},
             {"criteria": None},
-            {"criteria": {"AC-001": "passed", "AC-002": None}, "accepted": True},
-            {
-                "criteria": {"AC-001": {"status": {"odd": 1}}, "AC-002": {"status": None}},
-                "phases": {"red": {"odd": 1}},
-                "accepted": True,
-            },
+            {"criteria": {"AC-001": "passed", "AC-002": None}},
+            {"criteria": {"AC-001": {"status": {"odd": 1}}, "AC-002": {"status": None}}, "phases": {"red": {"odd": 1}}},
         ):
             with self.subTest(bad=bad):
                 self.assertEqual(self.m.check_report_totals(self.c, bad), [])
@@ -153,3 +152,41 @@ class ReviewAwareAcceptance(unittest.TestCase):
         problems = self.m.check_report_totals(c, r)
         self.assertTrue(problems)
         self.assertTrue(any("verification" in p["message"] or "review" in p["message"] for p in problems))
+
+
+class FailClosedReporting(unittest.TestCase):
+    """Post-experiment review hardening: the linter must not look away."""
+
+    def setUp(self):
+        from acdd_lint import checks_report
+        self.m = checks_report
+        self.c = frozen()
+
+    def test_missing_contract_sha256_is_reported(self):
+        # A report that cannot name the contract it was produced against is not
+        # attributable; the absence must be a problem, not a silent pass.
+        r = {
+            "contract_id": self.c["id"],
+            "phases": {"red": "valid", "green": "valid"},
+            "criteria": {"AC-001": {"status": "passed"}, "AC-002": {"status": "passed"}},
+            "accepted": True,
+        }
+        problems = self.m.check_report_totals(self.c, r)
+        self.assertTrue(problems, "a frozen contract with a report that omits contract_sha256 must be flagged")
+        self.assertTrue(any(p["code"] == "report_mismatch" and "contract_sha256" in p["where"] for p in problems))
+
+    def test_malformed_report_claiming_acceptance_is_reported(self):
+        # accepted: true on a structurally unreadable report is an acceptance
+        # claim the linter cannot verify; it must say so instead of staying quiet.
+        cases = (
+            {"criteria": {"AC-001": {"status": "passed"}, "AC-002": None}, "accepted": True},
+            {"criteria": {"AC-001": {"status": {"odd": 1}}, "AC-002": {"status": None}},
+             "phases": {"red": {"odd": 1}}, "accepted": True},
+            {"phases": "invalid", "criteria": {"AC-001": {"status": "passed"}, "AC-002": {"status": "passed"}},
+             "accepted": True},
+        )
+        for bad in cases:
+            with self.subTest(bad=bad):
+                problems = self.m.check_report_totals(self.c, bad)
+                self.assertTrue(problems, f"accepted:true with malformed structure must be reported: {bad}")
+                self.assertTrue(any("malformed" in p["message"] or "accepted" in p["where"] for p in problems))
