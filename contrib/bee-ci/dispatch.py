@@ -37,8 +37,12 @@ except ImportError:  # loaded as a top-level module from contrib/bee-ci
     except ImportError:  # manifest helpers stay optional without jsonschema
         _manifest = None
 
-API_PATH = "/v1/dispatch"
+API_PATH = "/v1/attempts"
 DEFAULT_TIMEOUT = 20.0
+DEFAULT_MODEL = "deepseek-v4.1-flash"
+DEFAULT_JOB_TIMEOUT_S = 900
+DEFAULT_ASSIGNED_FILE = "."
+MODEL_ENV = "BEE_CI_MODEL"
 TOKEN_ENV = "BEE_CI_LAUNCHER_TOKEN"
 TOKEN_ENV_NAMES = (TOKEN_ENV, "BEE_LAUNCHER_TOKEN", "LAUNCHER_TOKEN")
 TOKEN_ENV_VARS = TOKEN_ENV_NAMES
@@ -71,6 +75,15 @@ def read_token(env: Mapping[str, str] | None = None) -> str | None:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def read_model(env: Mapping[str, str] | None = None) -> str:
+    """Return the configured default model, falling back to the built-in."""
+    source = os.environ if env is None else env
+    value = source.get(MODEL_ENV)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return DEFAULT_MODEL
 
 
 def scrub(text: Any, token: str | None) -> str:
@@ -221,12 +234,80 @@ def _coerce_item(item: Any) -> WorkItem:
     return WorkItem(repo=repo, head_sha=head_sha, job=job)
 
 
-def build_payload(item: WorkItem, task_id: str) -> dict[str, Any]:
+def _project_name(repo: str) -> str:
+    """Return the launcher project name from ``owner/name`` or a bare name."""
+    return repo.rsplit("/", 1)[-1] or repo
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def _job_commands(job: Mapping[str, Any]) -> list[str]:
+    commands = _string_list(job.get("command"))
+    if not commands:
+        commands = _string_list(job.get("commands"))
+    return commands
+
+
+def _job_assigned_files(job: Mapping[str, Any]) -> list[str]:
+    for key in ("leased_paths", "assigned_files", "lease", "paths"):
+        paths = _string_list(job.get(key))
+        if paths:
+            return paths
+    workdir = job.get("workdir")
+    if isinstance(workdir, str) and workdir.strip():
+        return [workdir.strip()]
+    return [DEFAULT_ASSIGNED_FILE]
+
+
+def _job_timeout(job: Mapping[str, Any]) -> int:
+    timeout = job.get("timeout_s")
+    if isinstance(timeout, bool) or not isinstance(timeout, int) or timeout < 1:
+        return DEFAULT_JOB_TIMEOUT_S
+    return timeout
+
+
+def build_brief(item: WorkItem) -> dict[str, Any]:
+    """Build a launcher brief from the manifest job carried by *item*."""
+    job = item.job if isinstance(item.job, Mapping) else {"name": item.job_name}
+    name = item.job_name
+    workdir = job.get("workdir")
+    workdir = workdir.strip() if isinstance(workdir, str) and workdir.strip() else "."
+
+    acceptance = [
+        f"The {name} job runs each command exactly as declared from {workdir}.",
+        f"The {name} job reports the exit code of every command step.",
+        f"Every {name} command step exits with status 0.",
+    ]
+
+    return {
+        "objective": (
+            f"Run the {name} job for {_project_name(item.repo)}: execute its "
+            f"commands exactly as listed from {workdir} and report the exit "
+            f"codes."
+        ),
+        "project": _project_name(item.repo),
+        "source_rev": item.head_sha,
+        "commands": _job_commands(job),
+        "assigned_files": _job_assigned_files(job),
+        "acceptance": acceptance,
+        "budget": {"timeout_s": _job_timeout(job)},
+    }
+
+
+def build_payload(
+    item: WorkItem, task_id: str, *, model: str | None = None
+) -> dict[str, Any]:
     """Build the launcher request body. The token is never part of it."""
     original_job: Any = item.job
     if isinstance(original_job, Mapping):
         original_job = dict(original_job)
     return {
+        "brief": build_brief(item),
+        "model": model or DEFAULT_MODEL,
         "task_id": task_id,
         "repo": item.repo,
         "head_sha": item.head_sha,
@@ -420,6 +501,39 @@ def _attempt_id(data: Any, token: str | None) -> str | None:
     return scrub(value, token)
 
 
+def _decode_json(raw: Any) -> Any:
+    if not raw:
+        return None
+    try:
+        return json.loads(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw)
+    except (UnicodeDecodeError, ValueError, TypeError):
+        return None
+
+
+def _launcher_error_text(data: Any) -> str | None:
+    """Extract the launcher's own error text from a response, if present."""
+    if isinstance(data, Mapping):
+        for key in ("error", "detail", "message", "reason"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            nested = _launcher_error_text(value)
+            if nested:
+                return nested
+        return None
+    if isinstance(data, (list, tuple)):
+        for entry in data:
+            nested = _launcher_error_text(entry)
+            if nested:
+                return nested
+        return None
+    for attribute in ("error", "detail", "message"):
+        value = getattr(data, attribute, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def dispatch(
     item: Any,
     *,
@@ -428,6 +542,7 @@ def dispatch(
     timeout: float = DEFAULT_TIMEOUT,
     env: Mapping[str, str] | None = None,
     path: str = API_PATH,
+    model: str | None = None,
 ) -> DispatchResult | list[DispatchResult]:
     """Submit one work item, or every item in a list/tuple."""
     if isinstance(item, (list, tuple, set, frozenset)) or (
@@ -440,6 +555,7 @@ def dispatch(
             timeout=timeout,
             env=env,
             path=path,
+            model=model,
         )
 
     work = _coerce_item(item)
@@ -458,7 +574,9 @@ def dispatch(
     if base_url is None:
         base_url = source.get("BEE_CI_LAUNCHER_URL") or ""
     url = _endpoint(base_url, path)
-    payload = build_payload(work, task_id)
+    payload = build_payload(
+        work, task_id, model=model or read_model(env)
+    )
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
@@ -493,7 +611,7 @@ def dispatch(
             task_id,
             STATE_ERROR,
             code=getattr(exc, "code", "dispatch_error") or "dispatch_error",
-            error=scrub(type(exc).__name__, token),
+            error=scrub(str(exc) or type(exc).__name__, token),
         )
     except Exception as exc:
         return _result(
@@ -505,16 +623,6 @@ def dispatch(
         )
 
     status_code = _status_code(response)
-    if status_code is not None and status_code >= 400:
-        return _result(
-            work,
-            task_id,
-            STATE_ERROR,
-            code="launcher_error",
-            error=f"launcher returned HTTP {status_code}",
-            status_code=status_code,
-        )
-
     try:
         data = _read_response(response)
     except DispatchError as exc:
@@ -523,17 +631,29 @@ def dispatch(
             task_id,
             STATE_ERROR,
             code=getattr(exc, "code", "launcher_error"),
-            error=scrub(type(exc).__name__, token),
+            error=scrub(str(exc) or type(exc).__name__, token),
             status_code=status_code,
         )
 
-    if _response_error(data):
+    if status_code is not None and status_code >= 400:
+        message = _launcher_error_text(data)
         return _result(
             work,
             task_id,
             STATE_ERROR,
             code="launcher_error",
-            error="launcher reported an error",
+            error=scrub(message or f"launcher returned HTTP {status_code}", token),
+            status_code=status_code,
+        )
+
+    if _response_error(data):
+        message = _launcher_error_text(data)
+        return _result(
+            work,
+            task_id,
+            STATE_ERROR,
+            code="launcher_error",
+            error=scrub(message or "launcher reported an error", token),
             status_code=status_code,
         )
 
@@ -562,6 +682,7 @@ def dispatch_all(
     timeout: float = DEFAULT_TIMEOUT,
     env: Mapping[str, str] | None = None,
     path: str = API_PATH,
+    model: str | None = None,
 ) -> list[DispatchResult]:
     results: list[DispatchResult] = []
     for item in items:
@@ -572,6 +693,7 @@ def dispatch_all(
             timeout=timeout,
             env=env,
             path=path,
+            model=model,
         )
         if isinstance(result, list):
             results.extend(result)
@@ -614,6 +736,7 @@ def dispatch_repo(
     timeout: float = DEFAULT_TIMEOUT,
     env: Mapping[str, str] | None = None,
     path: str = API_PATH,
+    model: str | None = None,
 ) -> list[DispatchResult]:
     return dispatch_all(
         work_items_for_repo(repo, head_sha, jobs_dir),
@@ -622,6 +745,7 @@ def dispatch_repo(
         timeout=timeout,
         env=env,
         path=path,
+        model=model,
     )
 
 
@@ -676,8 +800,15 @@ class HttpTransport:
                     status = response.getcode()
                 raw = response.read()
         except urllib.error.HTTPError as exc:
+            raw = b""
+            try:
+                raw = exc.read()
+            except Exception:
+                raw = b""
+            message = _launcher_error_text(_decode_json(raw))
             raise DispatchError(
-                f"launcher returned HTTP {exc.code}", code="launcher_error"
+                message or f"launcher returned HTTP {exc.code}",
+                code="launcher_error",
             ) from None
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise DispatchError(
@@ -685,18 +816,20 @@ class HttpTransport:
                 code="timeout" if isinstance(exc, (TimeoutError, socket.timeout)) else "transport_error",
             ) from None
 
+        data = _decode_json(raw)
         if isinstance(status, int) and status >= 400:
+            message = _launcher_error_text(data)
             raise DispatchError(
-                f"launcher returned HTTP {status}", code="launcher_error"
+                message or f"launcher returned HTTP {status}",
+                code="launcher_error",
             )
         if not raw:
             return {}
-        try:
-            return json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError):
+        if data is None:
             raise DispatchError(
                 "launcher returned an unreadable response", code="launcher_error"
             ) from None
+        return data
 
 
 UrllibTransport = HttpTransport
@@ -715,12 +848,14 @@ class Dispatcher:
         timeout: float = DEFAULT_TIMEOUT,
         env: Mapping[str, str] | None = None,
         path: str = API_PATH,
+        model: str | None = None,
     ):
         self.transport = transport
         self.base_url = base_url
         self.timeout = timeout
         self.path = path
         self._env = env
+        self._model = model
 
     def __repr__(self) -> str:
         return (
@@ -737,6 +872,7 @@ class Dispatcher:
             timeout=self.timeout,
             env=self._env,
             path=self.path,
+            model=self._model,
         )
 
     def dispatch_all(self, items: Iterable[Any]) -> list[DispatchResult]:
@@ -747,6 +883,7 @@ class Dispatcher:
             timeout=self.timeout,
             env=self._env,
             path=self.path,
+            model=self._model,
         )
 
 
@@ -757,6 +894,9 @@ BeeCiDispatcher = Dispatcher
 __all__ = [
     "API_PATH",
     "BeeCiDispatcher",
+    "DEFAULT_ASSIGNED_FILE",
+    "DEFAULT_JOB_TIMEOUT_S",
+    "DEFAULT_MODEL",
     "DEFAULT_TIMEOUT",
     "DispatchError",
     "DispatchResult",
@@ -773,8 +913,10 @@ __all__ = [
     "TOKEN_ENV",
     "TOKEN_ENV_NAMES",
     "TOKEN_ENV_VARS",
+    "MODEL_ENV",
     "UrllibTransport",
     "WorkItem",
+    "build_brief",
     "build_payload",
     "build_task_id",
     "dispatch",
@@ -792,6 +934,7 @@ __all__ = [
     "load_work_items",
     "make_task_id",
     "new_task_id",
+    "read_model",
     "read_token",
     "scrub",
     "submit",

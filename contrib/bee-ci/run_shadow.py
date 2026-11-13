@@ -263,6 +263,11 @@ def build_bee_brief(job: Any, *, repo: str | None = None) -> dict[str, Any]:
     }
 
 
+def _path_tool_checker(name: str) -> bool:
+    """Default checker: ask the real PATH for the executable."""
+    return shutil.which(name) is not None
+
+
 def _tool_checker(config: Mapping[str, Any]) -> Callable[[str], bool]:
     for key in ("tool_checker", "which", "tool_exists"):
         checker = config.get(key)
@@ -276,7 +281,7 @@ def _tool_checker(config: Mapping[str, Any]) -> Callable[[str], bool]:
         available = {str(tool) for tool in tools}
         return lambda name: name in available
 
-    return lambda name: shutil.which(name) is not None
+    return _path_tool_checker
 
 
 def _missing_required_tools(
@@ -442,8 +447,12 @@ class LauncherClient:
 
     def dispatch(self, item: Mapping[str, Any]) -> dict[str, Any]:
         work = _dispatch.WorkItem.from_dict(item)
+        transport = _dispatch.HttpTransport(
+            self._base_url, timeout=self._timeout, opener=self._opener
+        )
         result = _dispatch.dispatch(
             work,
+            transport=transport,
             base_url=self._base_url,
             timeout=self._timeout,
             env={_dispatch.TOKEN_ENV: self._token},
@@ -763,7 +772,12 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
                 if isinstance(dispatched, Mapping)
                 else "dispatch_failed"
             )
-            row["detail"] = "launcher did not accept the work item"
+            launcher_message = (
+                _text(dispatched.get("error"))
+                if isinstance(dispatched, Mapping)
+                else None
+            )
+            row["detail"] = launcher_message or "launcher did not accept the work item"
             _record_run(
                 index_path=index_path,
                 report=report,
@@ -775,7 +789,7 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
             )
             continue
 
-        task_id = _text(dispatched.get("task_id")) or _text(dispatched.get("attempt_id"))
+        task_id = _text(dispatched.get("attempt_id")) or _text(dispatched.get("task_id"))
         if not task_id:
             row["state"] = _ERROR
             row["code"] = "missing_task_id"
