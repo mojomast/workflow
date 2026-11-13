@@ -19,6 +19,7 @@ import importlib
 import io
 import json
 import sys
+import urllib.error
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -86,7 +87,9 @@ class FakeLauncher:
     """A recording launcher with optional capacity and signed results."""
 
     def __init__(self, capacity=None, mode="signed", result=None, dispatch_error=None):
-        self.capacity_info = {"active": 0, "max": 3} if capacity is None else capacity
+        self.capacity_info = (
+            {"active": 0, "max_concurrent": 3} if capacity is None else capacity
+        )
         self.mode = mode
         self.result_override = result
         self.dispatch_error = dispatch_error
@@ -178,7 +181,7 @@ def test_dry_run_prints_plan(tmp_path):
 def test_live_verifies_and_records_without_posting(tmp_path):
     module = load_run_shadow()
     github = FakeGitHub()
-    launcher = FakeLauncher(capacity={"active": 0, "max": 3})
+    launcher = FakeLauncher(capacity={"active": 0, "max_concurrent": 3})
     index = tmp_path / "evidence" / "index.json"
     report_path = tmp_path / "evidence" / "report.html"
 
@@ -277,7 +280,7 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
     assert report["status"] == "skipped"
 
     # 2. Launcher over capacity: skip, never dispatch.
-    launcher = FakeLauncher(capacity={"active": 2, "max": 2})
+    launcher = FakeLauncher(capacity={"active": 2, "max_concurrent": 2})
     code, stdout, stderr = run_cli(
         module,
         [
@@ -304,7 +307,9 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
 
     # 3. Unverifiable result: error, never success, and the index records error.
     index = tmp_path / "c.json"
-    launcher = FakeLauncher(capacity={"active": 0, "max": 3}, mode="unsigned")
+    launcher = FakeLauncher(
+        capacity={"active": 0, "max_concurrent": 3}, mode="unsigned"
+    )
     code, stdout, stderr = run_cli(
         module,
         [
@@ -333,7 +338,9 @@ def test_fail_closed_on_missing_token_and_capacity(tmp_path):
 
     # 4. Poll timeout: error, never success or pending-as-success.
     index = tmp_path / "d.json"
-    launcher = FakeLauncher(capacity={"active": 0, "max": 3}, mode="none")
+    launcher = FakeLauncher(
+        capacity={"active": 0, "max_concurrent": 3}, mode="none"
+    )
     code, stdout, stderr = run_cli(
         module,
         [
@@ -396,7 +403,7 @@ def test_bee_brief_is_built_from_manifest_commands():
 
 def test_dispatch_carries_the_bee_brief(tmp_path):
     module = load_run_shadow()
-    launcher = RecordingDispatchLauncher(capacity={"active": 0, "max": 3})
+    launcher = RecordingDispatchLauncher(capacity={"active": 0, "max_concurrent": 3})
 
     code, stdout, stderr = run_cli(
         module,
@@ -429,7 +436,7 @@ def test_dispatch_carries_the_bee_brief(tmp_path):
 
 def test_missing_required_tool_is_not_run(tmp_path):
     module = load_run_shadow()
-    launcher = FakeLauncher(capacity={"active": 0, "max": 3})
+    launcher = FakeLauncher(capacity={"active": 0, "max_concurrent": 3})
     seen = []
 
     def tool_checker(tool):
@@ -469,3 +476,297 @@ def test_missing_required_tool_is_not_run(tmp_path):
     assert "scan" not in dispatched
     assert "unit" in dispatched
     assert report["status"] != "ok"
+class FakeResponse:
+    def __init__(self, body):
+        self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def http_error(url, code):
+    return urllib.error.HTTPError(url, code, "fixture error", {}, io.BytesIO(b""))
+
+
+class RecordingOpener:
+    """Records every request URL and delegates to a responder."""
+
+    def __init__(self, responder):
+        self.responder = responder
+        self.urls = []
+
+    def __call__(self, request, timeout=None):
+        self.urls.append(request.full_url)
+        outcome = self.responder(request.full_url)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return FakeResponse(outcome)
+
+
+def test_capacity_uses_health(tmp_path):
+    module = load_run_shadow()
+    opener = RecordingOpener(
+        lambda url: {
+            "ok": True,
+            "version": "1",
+            "max_concurrent": 3,
+            "active": 2,
+            "queued": 0,
+            "model": "fixture",
+            "models": ["fixture"],
+            "uptime_s": 1,
+            "loop_lag_ms": 0,
+        }
+    )
+    client = module.LauncherClient(
+        "https://launcher.invalid:9", TOKEN, opener=opener
+    )
+
+    info = client.capacity()
+
+    assert opener.urls == ["https://launcher.invalid:9/v1/health"]
+    assert info["active"] == 2
+    assert info["max_concurrent"] == 3
+    assert module._capacity_state(info) == (True, None)
+    assert module._capacity_state({"active": 3, "max_concurrent": 3}) == (
+        False,
+        "capacity_full",
+    )
+    assert module._capacity_state({"active": 0}) == (False, "capacity_unknown")
+    assert module._capacity_state([]) == (False, "capacity_unknown")
+
+    # The gate passes only while active < max_concurrent.
+    index = tmp_path / "e.json"
+    report_path = tmp_path / "e.html"
+    report = module.run(
+        {
+            "repo": REPO,
+            "pr": 7,
+            "live": True,
+            "github": FakeGitHub(),
+            "launcher": FakeLauncher(capacity={"active": 2, "max_concurrent": 3}),
+            "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "evidence_index": str(index),
+            "report_path": str(report_path),
+        }
+    )
+    assert report["status"] == "ok"
+    assert all(
+        row["state"] == "success"
+        for row in report["jobs"]
+        if row["eligible"]
+    )
+
+    # A 404 and an unparseable body are named failures, never exceptions.
+    for opener, expected in (
+        (
+            RecordingOpener(
+                lambda url: http_error(url, 404)
+            ),
+            "capacity_check_failed",
+        ),
+        (RecordingOpener(lambda url: b"{not json"), "capacity_check_failed"),
+        (RecordingOpener(lambda url: []), "capacity_unknown"),
+    ):
+        client = module.LauncherClient(
+            "https://launcher.invalid:9", TOKEN, opener=opener
+        )
+        report = module.run(
+            {
+                "repo": REPO,
+                "pr": 7,
+                "live": True,
+                "github": FakeGitHub(),
+                "launcher": client,
+                "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            }
+        )
+        assert report["status"] == "skipped"
+        rows = [row for row in report["jobs"] if row["eligible"]]
+        assert rows and all(row["code"] == expected for row in rows)
+
+
+def test_result_uses_attempts_route():
+    module = load_run_shadow()
+    calls = {"result": 0}
+    result_body = {"job_id": "attempt-1", "steps": [{"name": "tests", "exit_code": 0}]}
+
+    def respond(url):
+        if url.endswith("/result"):
+            calls["result"] += 1
+            if calls["result"] == 1:
+                return http_error(url, 409)
+            return result_body
+        return {"id": "attempt-1", "state": "running"}
+
+    opener = RecordingOpener(respond)
+    client = module.LauncherClient(
+        "https://launcher.invalid:9", TOKEN, opener=opener
+    )
+
+    payload = module._poll_result(
+        client,
+        "attempt-1",
+        timeout=5.0,
+        interval=0.0,
+        clock=lambda: 0.0,
+        sleep=lambda _seconds: None,
+    )
+    assert payload == result_body
+    assert opener.urls == [
+        "https://launcher.invalid:9/v1/attempts/attempt-1/result",
+        "https://launcher.invalid:9/v1/attempts/attempt-1",
+        "https://launcher.invalid:9/v1/attempts/attempt-1/result",
+    ]
+    assert not any("/v1/results/" in url for url in opener.urls)
+
+    # A persistent 409 keeps polling until the timeout, then reports no result.
+    always_409 = RecordingOpener(
+        lambda url: http_error(url, 409)
+        if url.endswith("/result")
+        else {"id": "attempt-2", "state": "running"}
+    )
+    client = module.LauncherClient(
+        "https://launcher.invalid:9", TOKEN, opener=always_409
+    )
+    now = [0.0]
+
+    def clock():
+        return now[0]
+
+    def sleep(seconds):
+        now[0] += seconds
+
+    payload = module._poll_result(
+        client,
+        "attempt-2",
+        timeout=3.0,
+        interval=1.0,
+        clock=clock,
+        sleep=sleep,
+    )
+    assert payload is None
+    result_calls = [url for url in always_409.urls if url.endswith("/result")]
+    assert len(result_calls) >= 2
+    assert all(
+        url.startswith("https://launcher.invalid:9/v1/attempts/attempt-2")
+        for url in always_409.urls
+    )
+
+    # Any other status is a launcher failure, not a silent "no result".
+    failing = module.LauncherClient(
+        "https://launcher.invalid:9",
+        TOKEN,
+        opener=RecordingOpener(lambda url: http_error(url, 404)),
+    )
+    try:
+        failing.result("attempt-3")
+    except module.ShadowError:
+        pass
+    else:
+        raise AssertionError("404 must not be treated as no-result-yet")
+
+
+def test_repo_manifest_and_url_fallback():
+    module = load_run_shadow()
+
+    # A bare manifest name from contrib/bee-ci/jobs/*.yaml is accepted.
+    github = FakeGitHub()
+    code, stdout, stderr = run_cli(
+        module, ["--repo", "workflow", "--pr", "7"], github, FakeLauncher(), env={}
+    )
+    assert code == 0, (stdout, stderr)
+    report = report_from(stdout)
+    assert report["manifest"] == "workflow"
+    assert report["repo"] == "workflow"
+    assert report["eligible"] == ELIGIBLE
+
+    # owner/name is still accepted and resolves to the same manifest.
+    code, stdout, stderr = run_cli(
+        module, ["--repo", REPO, "--pr", "7"], FakeGitHub(), FakeLauncher(), env={}
+    )
+    assert code == 0, (stdout, stderr)
+    assert report_from(stdout)["manifest"] == "workflow"
+
+    # Unknown or malformed names fail closed before any external call.
+    for bad in ("nope", "a/b/c"):
+        github = FakeGitHub()
+        code, stdout, stderr = run_cli(
+            module, ["--repo", bad, "--pr", "7"], github, FakeLauncher(), env={}
+        )
+        assert code == 2, (stdout, stderr)
+        assert github.calls == []
+
+    # With no --launcher-url and no env URL, hermes supplies the launcher URL.
+    hermes_calls = []
+    opener = RecordingOpener(
+        lambda url: {"ok": True, "max_concurrent": 1, "active": 1}
+    )
+
+    def hermes(args, **kwargs):
+        hermes_calls.append(list(args))
+        return '  "https://launcher.invalid:9/"  \n'
+
+    report = module.run(
+        {
+            "repo": REPO,
+            "pr": 7,
+            "live": True,
+            "github": FakeGitHub(),
+            "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "hermes": hermes,
+            "opener": opener,
+        }
+    )
+    assert hermes_calls == [
+        ["config", "get", "plugins.entries.bundlebees.settings.launcher_url"]
+    ]
+    assert opener.urls == ["https://launcher.invalid:9/v1/health"]
+    assert report["status"] == "skipped"
+    rows = [row for row in report["jobs"] if row["eligible"]]
+    assert all(row["code"] == "capacity_full" for row in rows)
+
+    # An env URL wins over hermes.
+    env_opener = RecordingOpener(
+        lambda url: {"ok": True, "max_concurrent": 1, "active": 1}
+    )
+    report = module.run(
+        {
+            "repo": REPO,
+            "pr": 7,
+            "live": True,
+            "github": FakeGitHub(),
+            "env": {
+                module.TOKEN_ENV: TOKEN,
+                module.KEY_ENV: KEY,
+                module.URL_ENV: "https://env.invalid:8",
+            },
+            "hermes": lambda *a, **k: (_ for _ in ()).throw(
+                AssertionError("hermes must not run when the env URL is set")
+            ),
+            "opener": env_opener,
+        }
+    )
+    assert env_opener.urls == ["https://env.invalid:8/v1/health"]
+    assert report["status"] == "skipped"
+
+    # A failed hermes call is a named skip, never a crash.
+    report = module.run(
+        {
+            "repo": REPO,
+            "pr": 7,
+            "live": True,
+            "github": FakeGitHub(),
+            "env": {module.TOKEN_ENV: TOKEN, module.KEY_ENV: KEY},
+            "hermes": lambda *a, **k: (_ for _ in ()).throw(OSError("missing")),
+        }
+    )
+    assert report["status"] == "skipped"
+    rows = [row for row in report["jobs"] if row["eligible"]]
+    assert all(row["code"] == "no_launcher_endpoint" for row in rows)

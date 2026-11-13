@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/vcs-snapshot.schema.json",
+  "title": "VCS, pull request and CI snapshot (vcs.snapshot/v1)",
+  "description": "Periodic snapshot of allowlisted repositories. The set of repositories is operator-managed (part of Orbit onboarding). This schema does not hard-code a list. Repository fields are owner/name slugs only, never clone URLs or hostnames.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "source",
+    "window_start",
+    "window_end",
+    "repos"
+  ],
+  "properties": {
+    "schema": {
+      "const": "vcs.snapshot/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "attempt_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "card_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "project": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/nullable_role"
+    },
+    "ts": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "source": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "window_start": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "window_end": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "repos": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repo_row"
+      }
+    }
+  },
+  "$defs": {
+    "repo_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "branch",
+        "commits_in_window",
+        "open_prs",
+        "ci_state"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+          "description": "GitHub owner/name slug only."
+        },
+        "branch": {
+          "$ref": "common.schema.json#/$defs/id_token"
+        },
+        "commits_in_window": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_prs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ci_state": {
+          "enum": [
+            "passing",
+            "failing",
+            "pending",
+            "mixed",
+            "unavailable"
+          ]
+        },
+        "failing_check_names": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9 .,_()/-]{0,119}$"
+          },
+          "description": "Check names only, never logs or URLs."
+        }
+      }
+    }
+  }
+}

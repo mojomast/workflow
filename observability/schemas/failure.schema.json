@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/failure.schema.json",
+  "title": "Classified failure event (failure/v1)",
+  "description": "One failure or rate-limit event. A Go 429 that falls back to DeepSeek is class rate-limit with fallback_to set, not a regression. Environmental or checkout-name failures are class environmental, not regression. Do not double-count the same wave.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "source",
+    "class",
+    "retryable"
+  ],
+  "properties": {
+    "schema": {
+      "const": "failure/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "attempt_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "card_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "project": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/nullable_role"
+    },
+    "ts": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "source": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "class": {
+      "enum": [
+        "environmental",
+        "regression",
+        "rate-limit",
+        "auth",
+        "unavailable",
+        "cancelled",
+        "unknown"
+      ]
+    },
+    "code": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "component": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "fallback_to": {
+      "description": "Set when a rate-limit (or similar) event caused a route fallback. Do not treat fallback itself as a regression.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "anyOf": [
+            {
+              "enum": [
+                "deepseek"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/provider_label"
+            }
+          ]
+        }
+      ]
+    },
+    "http_429": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "description": "True when this event is specifically an HTTP 429. Counts and totals belong on the Hermes Forge usage record once frozen."
+    },
+    "note": {
+      "$ref": "common.schema.json#/$defs/scrubbed_text"
+    }
+  }
+}

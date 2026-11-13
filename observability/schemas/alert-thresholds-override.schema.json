@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/alert-thresholds-override.schema.json",
+  "title": "Alert thresholds override (alert.thresholds.override/v1)",
+  "description": "Operator overlay for alert.thresholds/v1. Any omitted key keeps the value from alerts.defaults.json. Destinations, if present, replace the default list. Actions, if present, merge by key. v1 still allows only orbit_dashboard and board_note destinations, and only a warn action at the bee cap.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "destinations"
+      ]
+    },
+    {
+      "required": [
+        "thresholds"
+      ]
+    },
+    {
+      "required": [
+        "actions"
+      ]
+    }
+  ],
+  "properties": {
+    "schema": {
+      "const": "alert.thresholds.override/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "destinations": {
+      "$ref": "alert-thresholds.schema.json#/$defs/destinations"
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "deepseek_balance_below_usd": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/deepseek_balance_below_usd"
+        },
+        "go_allowance_pct_used": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/go_allowance_pct_used"
+        },
+        "go_429_streak": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/go_429_streak"
+        },
+        "stuck_bee_no_progress_s": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/stuck_bee_no_progress_s"
+        },
+        "blocker_age_s": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/blocker_age_s"
+        },
+        "disk_free_pct": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/disk_free_pct"
+        },
+        "bees_in_flight_warn_at": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/bees_in_flight_warn_at"
+        },
+        "daily_model_spend_above_usd": {
+          "$ref": "alert-thresholds.schema.json#/$defs/thresholds/properties/daily_model_spend_above_usd"
+        }
+      }
+    },
+    "actions": {
+      "$ref": "alert-thresholds.schema.json#/$defs/actions"
+    }
+  }
+}
