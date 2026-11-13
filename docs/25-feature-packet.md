@@ -110,6 +110,11 @@ review block may differ from the template: the validator compares the whole
 contract, not just the scope, so a rewritten title or a widened criteria list is
 refused as `resolution_contract_changed`.
 
+`policy_digest` can only be checked for shape here: the enrolled policy is not
+readable from the packet, so the coordinator must compare it with the enrollment
+record before accepting the resolution. Everything else in the record is checked
+against the packet, the accepted commit, or the frozen contract.
+
 ### Pinned examples
 
 Both examples carry a `workflow_ref` naming a real ancestor commit that bears
