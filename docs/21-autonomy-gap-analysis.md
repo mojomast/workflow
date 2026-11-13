@@ -23,7 +23,7 @@ this audit; README claims are not treated as evidence.
 | 5 | Worker completion notification | **MISSING (push)** / **PARTIAL (poll)** | `hyvv` exposes `GET /v1/attempts`, `GET /v1/attempts/{id}`, `GET /v1/attempts/{id}/events?cursor`; **no callback, webhook, SSE or push** (grepped: none) | Nothing. A human or the agent asks. |
 | 6 | Coordinator wake-up and event processing | **PARTIAL (out of product)** | `~/.hermes/scripts/rizz-ci-watch.sh` + cron, written by the coordinator, not by any repo | A 30-minute cron that only watches PRs. Not a job processor, not in `bundlebees`. |
 | 7 | Artifact retrieval and provenance | **IMPLEMENTED/UNPROVEN** | Orbit `server/local-worker-artifact.mjs` + `op=artifact` (merged #28); bundlebees consumes only via private `_op` — the typed client is **draft PR #15, not merged** | Human runs the call. Proven once by the coordinator's rig, not by product code on main. |
-| 8 | Independent RED/GREEN verification | **IMPLEMENTED/UNPROVEN** | `cli.py` `verify` (apply patch, run named tests, commit+push unless `--dry-run`); `sandbox.py` (bwrap/firejail); `acdd_cli.py::verify_preflight`; `tdd.py` records | Human types `bundlebees verify <attempt>`. The coordinator's own verifications in A/B were manual procedures, not this CLI. |
+| 8 | Independent RED/GREEN verification | **IMPLEMENTED/UNPROVEN** | `cli.py` `verify` (apply patch, run named tests, commit+push unless `--dry-run`); `sandbox.py` (bwrap/firejail); `acdd_cli.py::verify_preflight`; `tdd.py` records | Human types `bundlebees verify <attempt>`. The coordinator's own verifications in A/B were manual procedures, not this CLI. **Seam defect:** `--dry-run` records `sha: null`, which `integrate_wave` cannot consume; the default form pushes instead. Neither mode is usable by a loop, which is why ch. 22 §7 defines local commits. |
 | 9 | Integration of accepted patches | **IMPLEMENTED/UNPROVEN** | `cli.py` `integrate --wave --attempts`; `revision.py::integrate_wave` (requires each attempt's `ok` verify result with an ancestor sha; runs the full suite; accepts only on exit 0) | Human types the command. Never exercised end to end on real patches. |
 | 10 | Conflict and regression detection | **PARTIAL** | `integrate_wave` collects per-attempt problems and runs the suite; `git apply` refuses conflicts | Exists as a command, but no classification of *why* integration failed beyond problems + suite exit. |
 | 11 | Diagnosis, correction, bounded retry | **MISSING** | — | Nothing. No failure classification, no retry budget, no corrective brief generation, no superseding-contract flow (that was done by hand in Experiment B). |
@@ -67,5 +67,13 @@ Calling it autonomous would be false.
 - **Cold-start acceptance is red on main** (`CS-apply-tax … 0 signed records`). Per instruction this is
   not prioritised; it does not block the loop, but it means the repo's own acceptance demo cannot be
   used as the loop's proof.
-- **The `verify` CLI pushes a branch** by default. For an autonomous loop that is a policy surface: the
-  autonomous path must pass `--dry-run`; a push is an explicit, lease-authorised act.
+- **The verify → integrate seam does not line up.** `verify --dry-run` applies and tests without
+  committing and records `sha: null`; `integrate_wave` requires a committed commit that is an ancestor of
+  HEAD; the default `verify` pushes a branch instead. Neither mode is what a loop needs, so ch. 22 §7 adds
+  `--commit-local`: an isolated worktree, a local `bb-verify/<attempt_id>` commit, no push.
+- **An HMAC is not human consent.** Leases and job documents are signed with a key the coordinator holds,
+  so their HMACs prove integrity, not who authorised the work. Authority has to be a separate object
+  written through an interactive path — ch. 22 §2 — and even then it deters accidental self-authorisation
+  rather than proving identity.
+- **`verify` commits and pushes** by default (`--dry-run` opts out). Under the loop, nothing pushes; a push
+  is a separately authorised act.

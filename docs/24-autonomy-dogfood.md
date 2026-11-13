@@ -72,14 +72,23 @@ intervention with its reason.
 
 ## Success conditions (all must hold)
 
-1. Authorization recorded once, in the job file, with scope and budget.
+1. Authorization recorded once through `job authorize` (interactive, human-typed), with scope and budget;
+   the job only narrows it.
 2. The loop dispatches T1 and T2 without a prompt.
-3. A terminal attempt state advances the job without a human turn (the cron tick did it).
-4. Each patch is verified independently: apply to the pinned base, lease check, RED/GREEN, suite, gitleaks.
-5. Verified patches integrate automatically; the combined suite runs.
-6. The T2 injected failure is handled autonomously: classified, superseded, re-dispatched once, accepted.
-7. The report and the acceptance artifact exist on disk with per-task evidence.
+3. A terminal attempt state advances the job without a human turn — the mechanical cron tick did it, and
+   any reasoning step was a second, separate agent turn driven by `needs-agent.json`, not by a person.
+4. Each patch is verified independently in an isolated worktree at the pinned base: lease check,
+   RED/GREEN, suite, gitleaks — and on success a **local** commit on `bb-verify/<attempt_id>`, never a push.
+5. Verified patches integrate automatically through `integrate_wave`, which receives a real ancestor
+   commit (not `sha: null`); the combined suite runs.
+6. The T2 injected failure is handled autonomously: classified `specification`, superseded, re-dispatched
+   once, accepted — with the failing attempt and its evidence preserved.
+7. The report and the acceptance artifact exist on disk with per-task evidence, and no gate is resolved.
 8. The loop stops at the approval gate and performs no merge, push or deploy.
+
+**What the slice must contain for this to be honest:** bounded recovery (M4) and the report/gate (M5) are
+inside the slice, not after it. A run that needs a human to handle the injected failure, or to write the
+summary, is not an autonomy demonstration — it is the current state with extra steps.
 
 ## Measurements
 
@@ -107,6 +116,13 @@ intervention with its reason.
 | The injected failure is "recovered" by editing the contract to match the bee's output | the exact defect Experiment B caught; treat as a failed run |
 | The loop reports success but the combined suite was not run | acceptance was manufactured; failed run |
 | A human is asked anything between authorization and the report | the loop is not autonomous yet; record the reason |
+
+## Crash honesty
+
+If the coordinator is killed mid-run (deliberately or not), the run is not restarted from scratch and not
+quietly re-dispatched. The next tick must adopt the in-flight attempt from the launcher journal, and the
+report must say `attempt_adopted` with the crash window. A duplicate dispatch is a failed run, even if the
+final result looks correct.
 
 ## What this proves if it passes
 

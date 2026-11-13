@@ -1,162 +1,256 @@
 # 22 — Autonomy architecture
 
-**Status (November 13, 2026):** The smallest coordinator that can carry an authorized goal to a verified result. Written after auditing `workflow@817eac4`, `bundlebees@d82630a`, `hyvv@4ebd820` and `orbitdesktop@eddc502`.
+**Status (November 13, 2026):** The smallest coordinator that can carry an authorized goal to a verified
+result. Revised after review: the verification/integration seam, crash-safe side effects, authorization
+provenance, the real wake-up path, the minimum recovery inside the slice, and tick granularity are now
+specified rather than assumed.
 
 **Audience:** the coordinator and anyone implementing the loop.
 
-Part of the autonomy set: [21](21-autonomy-gap-analysis.md) · [22](22-autonomy-architecture.md) · [23](23-autonomy-devplan.md) · [24](24-autonomy-dogfood.md). Read them in that order.
+Part of the autonomy set: [21](21-autonomy-gap-analysis.md) · [22](22-autonomy-architecture.md) ·
+[23](23-autonomy-devplan.md) · [24](24-autonomy-dogfood.md).
 
 ---
 
-Goal: one authorized objective in, one verified result out, with the human touched only at the approval
-gate. Design constraint: extend what exists (launcher journal, leases, `bundlebees verify|integrate`,
-`acdd` contract/TDD, cron) rather than adding a service.
+## 1. Reconcile against durable state; wake an agent deliberately
 
-## The core decision: reconcile, don't subscribe
+Two separate mechanisms. Conflating them is the main design error to avoid:
 
-The launcher already is a durable journal: every attempt has `state`, `events` with monotonic cursors,
-`result` on disk, and `active`/`queued` derived from it. Orbit already mirrors it by polling
-(`ORBIT_LOCAL_WORKERS_POLL_MS`, default 3000). No component offers a callback, and inventing one puts the
-truth in a transient HTTP request.
+- **Reconciliation is mechanical.** It compares durable intent (files on disk) with durable reality (the
+  launcher journal, git) and performs the transitions that need no judgement.
+- **Waking an agent is a distinct, explicit step**, taken only when a transition requires reasoning:
+  decomposition, failure diagnosis, authoring a superseding contract.
 
-**Therefore the coordinator is a reconciler, not a listener.** Each tick it compares durable intent
-(the job file) with durable reality (launcher journal, git, repository) and performs the transitions
-that are ready. Push notifications, if ever added, become an optimisation that wakes the reconciler
-early — never the source of truth.
+The launcher offers no callback, webhook or push — `hyvv` exposes `GET /v1/attempts`,
+`/v1/attempts/{id}` and `/v1/attempts/{id}/events?cursor`, nothing else. So the reconciler polls, and a
+poll result is never a truth claim: it only says *go look at attempt X*. Polling the launcher is not the
+same thing as resuming an agent, and §9 specifies the second separately.
 
-This also gives interruption recovery for free: a crashed coordinator loses nothing, because the next
-tick recomputes from the journal.
+## 2. Authority: two files, and the job may only narrow
 
-## The job object
+An HMAC proves a file was written by whoever holds the key. The coordinator holds the key, so an HMAC over
+a job document proves integrity, not human consent. Authority is therefore a separate object:
 
-One JSON document per authorized objective, at `<state_dir>/jobs/<job_id>.json`, written atomically
-(tmp + rename), mode 0600, and signed with the existing lease key so a hand-edited job is detectable.
+**`authorizations/<job_id>.json`** — the only source of authority. Written by `bundlebees job authorize`,
+which:
+
+- refuses to run without a TTY (a non-interactive process cannot create one);
+- requires the human to type the statement of intent, stored verbatim;
+- records repo, base rev, scope globs, bee budget, wall-clock budget and the gate list;
+- is signed, so later edits are detectable.
+
+**`jobs/<job_id>.json`** — the coordinator's working document. It **references** the authorization and may
+only narrow it:
+
+- every task lease must be a subset of `authorization.scope`;
+- the task count may not exceed `budget.bees`; the deadline may not exceed `budget.wall_clock_s`;
+- repo and base must match exactly.
+
+Widening is a hard refusal (`authorization_widened`), not a warning.
+
+**Gate outcomes** (`approvals/<job_id>.<gate>.json`) are created the same way — interactive, human-typed,
+signed — and are the only thing that moves a job out of `awaiting_approval`.
+
+**Stated plainly:** a coordinator with shell access could forge these files. What this buys is that
+self-authorization is no longer accidental, and that forgery is a visible signed artifact in the audit
+trail. It is not cryptographic proof of human identity, and this document does not claim one. Merges,
+pushes, releases and deployments remain separately authorised acts, given directly and in the approver's
+own words to whoever performs them.
+
+## 3. Job document
+
+`<state_dir>/jobs/<job_id>.json`, atomic write (tmp + fsync + rename), mode 0600, signed.
 
 ```json
 {
   "job_id": "job_20261113_a",
+  "authorization": {"ref": "authorizations/job_20261113_a.json", "sha256": "..."},
   "goal": {"summary": "...", "repo": "mojomast/workflow", "base_rev": "817eac4..."},
-  "authorization": {"by": "kyle", "at": "...", "scope": ["tools/acdd-lint/**"],
-                    "budget": {"bees": 6, "wall_clock_s": 7200, "max_attempts_per_task": 3}},
   "tasks": [
-    {"task_id": "T1", "objective": "...", "lease": ["tools/acdd-lint/acdd_lint/checks_x.py"],
-     "contract_path": "...", "contract_sha256": "...", "depends_on": [],
-     "state": "pending|dispatched|running|verifying|verified|rejected|integrating|accepted|failed",
-     "attempts": ["att_..."], "verify": {"ok": true, "evidence": "..."}}
+    {"task_id": "T1", "objective": "...", "lease": ["..."], "depends_on": [],
+     "contract_path": "...", "contract_sha256": "...",
+     "state": "pending", "attempts": [], "verify": null, "intent": null}
   ],
-  "integration": {"wave": "w1", "state": "pending|running|accepted|failed", "evidence": "..."},
-  "approval_gate": {"required": true, "for": "merge", "state": "waiting|granted|refused"},
-  "events": [{"at": "...", "transition": "T1 dispatched", "source": "tick|human"}]
+  "integration": {"wave": "w1", "state": "pending", "evidence": null},
+  "approval_gate": {"required": true, "for": "merge", "state": "waiting"},
+  "injected_failures": [],
+  "events": []
 }
 ```
 
-Rules the object enforces:
-- Tasks may only move forward along the state machine; every transition appends an event with a
-  timestamp, the actor (`reconciler`, `worker`, `human`) and the evidence path.
-- A task may not leave `pending` until every `depends_on` is `accepted`.
-- `authorization.scope` is the only place file scope comes from; a task lease outside it is a hard
-  refusal, not a warning.
-- `budget.bees` and `max_attempts_per_task` are enforced by the reconciler before any dispatch.
+Task states: `pending → dispatching → dispatched → running → verifying → verified → integrating →
+accepted`, with `rejected`, `failed` and `superseded` reachable and always carrying a reason.
 
-## State machine (job level)
+## 4. Tick granularity (the rule the tests assert)
 
+One tick performs:
+
+- **unlimited pure state updates** — refresh attempt state, append events, recompute readiness;
+- **a bounded batch of dispatches** — every ready task whose dependencies are accepted, capped by the
+  remaining bee budget;
+- **at most one heavy operation** — one verification run *or* one integration run, never both, never two.
+
+This is not aesthetics. Dispatch is cheap and independently idempotent per task (each carries its own
+intent and lease); verification and integration are expensive, mutate a worktree and are order-sensitive.
+Serialising those two removes a class of interleaving bugs without slowing the common case, because
+dispatching three tasks still happens in a single tick.
+
+It resolves the earlier contradiction: a fresh tick on a planned job dispatches **all ready tasks** and
+performs **no verify and no integrate**. Both halves are acceptance criteria, not commentary.
+
+## 5. Crash-safe side effects
+
+State-machine guards run *before* an action; a crash happens *during* one. Every external action is
+therefore written down twice — an intent before, a confirmation after.
+
+**Intent record** — `<state_dir>/jobs/<job_id>/intents/<task_id>-<n>.json`, fsynced before the call:
+
+```json
+{"task_id": "T1", "attempt_no": 1, "client_request_id": "uuid5(job_id, task_id, attempt_no)",
+ "state": "dispatching", "base_rev": "...", "lease_sha256": "...", "written_at": "..."}
 ```
-authorized ──plan──▶ planned ──dispatch(T1..Tn)──▶ running
-   ▲                    │                            │
-   │                    ▼                            ▼
-   │              needs_approval ◀── integrate ◀── verifying ◀── all tasks verified
-   │                    │                                          │
-   └──── refused ───────┘                                          ▼
-                                                           report_written
+
+**Dispatch protocol**
+
+1. Take the single-writer lock (§6).
+2. Write the intent with `state: dispatching`.
+3. Create the lease (HMAC over attempt id, files, base rev).
+4. `POST /v1/attempts`.
+5. Write the confirmation (`state: dispatched`, `attempt_id`) and update the task.
+
+**Adoption after a crash.** On the next tick, an intent still in `dispatching` is reconciled against the
+launcher journal instead of re-POSTed:
+
+- the launcher journals each attempt's brief (`a["brief"]`, including `objective`, `source_rev` and
+  `assigned_files`), so candidates are attempts whose objective, source rev and assigned files match the
+  intent and whose `created_at >= intent.written_at`;
+- exactly one candidate → adopt it, write the confirmation, emit `attempt_adopted`;
+- zero candidates → re-dispatch; the previous call never landed;
+- two or more → **stop and escalate** (`dispatch_ambiguous`). Never guess which attempt is yours.
+
+**Verify and integrate** use the same shape: intent first, result recorded after. A crash before the
+verify commit leaves no branch; a crash after leaves a branch whose name embeds the attempt id, so the next
+tick finds and adopts it rather than re-running the suite.
+
+**Idempotency key.** `client_request_id = uuid5(job_id, task_id, attempt_no)` is carried in the intent and
+the lease metadata. It is not sent to the launcher today — the brief schema is strict and there is no
+reason to change hyvv for this — so the adoption rule above is what makes a lost response recoverable.
+
+## 6. Single writer
+
+`<state_dir>/jobs/<job_id>.lock`, taken with `O_CREAT|O_EXCL`, holding `{pid, host, started_at,
+heartbeat_at}`. A tick that cannot take the lock exits 0 without acting. A lock is stale only when its pid
+is gone **and** its heartbeat is older than two tick intervals; the taking tick writes a `lock_stolen`
+event before proceeding, so a steal is always visible. Cron overlap, a manual `job tick` and a retried
+agent turn can therefore never double-dispatch.
+
+## 7. Verification: commit locally, never push
+
+The seam that was broken: `verify --dry-run` applies and tests without committing and records `sha: null`,
+while `integrate_wave` requires a real commit that is an ancestor of HEAD. The autonomous path uses
+**isolated local commits**:
+
+`bundlebees verify <attempt> --commit-local`:
+
+1. `git worktree add --detach <tmp> <base_rev>` — a fresh checkout of the pinned base, never the user's
+   working tree;
+2. re-check the lease inside that worktree, then `git apply --check` followed by `git apply`;
+3. run the declared tests, the regression suite and gitleaks;
+4. on success **only**: `git commit` on a local throwaway branch `bb-verify/<attempt_id>`, recording
+   `{commit_sha, base_rev, tree_sha, patch_sha256, tests, gitleaks}`;
+5. prove the recording is honest: `git diff --stat <base_rev>..<commit_sha>` must equal the patch's file
+   list, and `git merge-base --is-ancestor <base_rev> <commit_sha>` must hold;
+6. remove the worktree. The branch stays local and is never pushed.
+
+On failure there is no commit and the record says so. `integrate_wave` is unchanged: it now receives the
+ancestor commit it always required, and keeps its guarantee that every attempt is verified and the full
+suite is green before a wave is accepted.
+
+Pushing remains an explicit, separately authorised act. No code path in the loop pushes.
+
+## 8. Integration and bounded recovery
+
+`integrate_wave` is reused as-is. Recovery is classified and bounded:
+
+| Class | Detected by | Bounded action |
+|---|---|---|
+| `implementation` | the task's own tests fail on its patch | re-dispatch the same contract, attempts +1 |
+| `interaction` | tests pass individually, fail combined | re-dispatch once with an added regression test in the lease, re-integrate once |
+| `specification` | the contract names a test or field that does not exist at the base | freeze a superseding contract (`supersedes`, `supersedes_sha256`), re-dispatch once |
+| `environment` | missing tool, disk, permissions | stop and report, no dispatch |
+| `infrastructure` | launcher or Orbit unreachable | no dispatch, retry the tick with backoff |
+
+Hard stops: `max_attempts_per_task` (3), two integration attempts per wave, `budget.bees`,
+`budget.wall_clock_s`. Exhausting any of them produces `awaiting_approval` with a concrete question —
+never a success.
+
+## 9. Wake-up: exactly what runs
+
+Two Hermes cron entries. Both are adapters, removable, and absent from the protocol:
+
+**Entry 1 — mechanical, every 60 s.** Runs `bundlebees job tick --json`: pure reconciliation per §4. When a
+transition needs judgement it writes `jobs/<job_id>/needs-agent.json` and exits 0:
+
+```json
+{"job_id": "...", "task_id": "T2", "kind": "diagnose_verify_failure", "created_at": "...",
+ "prompt": "Job job_… task T2 failed verification (class: specification). Record your decision with: bundlebees job note --job … --task T2 --note '<finding>'."}
 ```
 
-Job states: `authorized → planned → running → verifying → integrating → awaiting_approval → done`
-with `failed` reachable from any state and carrying `failure_class`.
+**Entry 2 — reasoning, every 60 s.** Runs `bundlebees job agent-pending --print-prompt`. Empty output →
+exit immediately; this is the common case and costs nothing. Non-empty → **an agent turn** with that
+prompt: the agent reasons, records its decision through the CLI, and exits. The prompt file is removed when
+consumed, so a missed wake-up is retried on the next tick rather than lost.
 
-## The reconciler (the missing component)
+That is the whole wake-up mechanism: a file, a command, and an agent turn. Adapters are Hermes cron (above),
+a bare terminal (a human reads `job agent-pending`), and anything else that can run a command. Nothing in
+the job format, the state machine or the event contract mentions Hermes.
 
-One function, `reconcile(job) -> transition | None`, called by a cron tick (60 s while a job is active,
-nothing when idle). Each call performs **exactly one** transition, in this order:
+**A missed event is not a lost job.** The tick is stateless and recomputes from disk, which is precisely
+why polling is acceptable here and why a webhook would be an optimisation rather than a requirement.
 
-1. **Refresh** — read `GET /v1/attempts/{id}` for every dispatched attempt; append state changes.
-2. **Reap** — for each attempt in a terminal state and task in `dispatched`/`running`:
-   - `succeeded` → task `verifying`; queue a verify action.
-   - `failed`/`cancelled` → task `rejected`; record `failure_class` from `observed.error`.
-3. **Verify** — for a task in `verifying`, run `bundlebees verify <attempt> --dry-run` (apply and test without committing or
-   pushing), capture the verify record, set `verified` or `rejected`.
-4. **Dispatch** — for each `pending` task whose dependencies are all `accepted` and whose budget allows,
-   call the same dispatch path the tool uses (`tools.py::_dispatch` + `leases.record_lease`).
-5. **Integrate** — when every task is `verified`, run `bundlebees integrate --wave --attempts …`;
-   `accepted` only if the command exits 0.
-6. **Escalate** — when a task exceeds `max_attempts_per_task`, or integration fails twice, write a
-   report and set `awaiting_approval` with a concrete question. Never loop forever.
-7. **Report** — write `jobs/<id>.report.md` + `.json` (the acceptance artifact) and stop at the gate.
+## 10. Event record
 
-Idempotency: every action is guarded by the task state that must precede it, so re-running a tick after
-a crash repeats nothing. Dispatch is additionally guarded by the lease file existing for that attempt id.
-
-## Event contract (agent-agnostic)
-
-An event is a plain JSON object, appended to the job's `events` array and mirrored to
-`<state_dir>/jobs/<id>.events.jsonl` for tailing:
+Events are plain JSON, appended to the job document and mirrored to `jobs/<job_id>/events.jsonl` for
+tailing:
 
 ```json
 {"job_id": "...", "task_id": "T1", "attempt_id": "att_...", "kind": "attempt.terminal",
- "state": "succeeded", "at": "...", "cursor": 412, "artifact": {"result_path": "...", "sha256": "..."},
+ "state": "succeeded", "at": "...", "cursor": 412,
+ "artifact": {"result_path": "...", "sha256": "..."},
  "provenance": {"source": "hyvv.journal", "launcher_version": "0.1.16", "observed_at": "..."}}
 ```
 
-Producers: a reconciler tick (primary), hyvv journal read (authoritative), and in future a launcher
-webhook. A Hermes tool adapter turns events into agent turns; a bare CLI adapter prints them. Neither is
-required by the contract — the reconciler is.
+An event never implies correctness. It says *look at attempt X*; the artifact is fetched and verified
+separately, always.
 
-**A notification never implies correctness.** The event only says "look at attempt X"; the artifact is
-fetched and verified separately, always.
+## 11. Persistence
 
-## Verification design
+| What | Where | Survives crash | Signed |
+|---|---|---|---|
+| Authorization | `authorizations/<job_id>.json` | yes | yes |
+| Job (tasks, gates, events) | `jobs/<job_id>.json` | yes | yes |
+| Dispatch/verify intents | `jobs/<job_id>/intents/*.json` | yes | no (reconciled) |
+| Leases | `leases/<attempt_id>.json` | yes | HMAC |
+| Attempt truth | launcher journal on disk | yes | external |
+| Verify records | `jobs/<job_id>/verify/<attempt_id>.json` | yes | no |
+| Wave records | `jobs/<job_id>/waves/<wave>.json` | yes | no |
+| Approvals | `approvals/<job_id>.<gate>.json` | yes | yes |
 
-Reuse `bundlebees verify` rather than inventing a verifier, but change two defaults:
-- `--dry-run` is the default in the autonomous path; a push requires an explicit lease field
-  `may_push: true` and still ends at the approval gate.
-- The verify record must include: patch sha256, base rev, per-AC test results, suite result, gitleaks
-  result. Missing fields fail the task rather than passing it.
+On restart the reconciler re-reads all of it, adopts in-flight attempts per §5 and continues. It never
+re-dispatches an attempt whose lease exists and whose launcher state is non-terminal, and never accepts a
+patch without a lease.
 
-## Integration and bounded recovery
+## 12. Human authority
 
-- Integration is the existing `integrate_wave`: all attempts verified, ancestor shas, full suite.
-- On failure, classify into: `implementation` (a task's tests fail on its own patch), `interaction`
-  (tests pass individually, fail combined), `specification` (the contract was wrong — Experiment B's W3
-  case), `environment` (missing tool, disk, network), `infrastructure` (launcher/Orbit down).
-- Recovery per class, bounded: `implementation` → re-dispatch the same contract (attempts +1);
-  `interaction` → re-dispatch with an added regression test in the lease, then re-integrate once;
-  `specification` → freeze a superseding contract (the B3b pattern) and re-dispatch, recording
-  `supersedes`; `environment` → stop and report; `infrastructure` → back off and retry the tick, no
-  dispatch.
-- Hard stops: `max_attempts_per_task` (3), two integration attempts per wave, `budget.bees`,
-  `budget.wall_clock_s`. On stop: report + `awaiting_approval`, never a silent success.
+Authorized once at `job authorize`: the goal, repo and base, file scope, bee budget, wall-clock budget and
+which gates exist. Inside that envelope the loop acts without asking.
 
-## Human authority
+Still requiring a direct human act every time: merge, push, release, deploy, restart, spending beyond the
+budget, widening the scope, and resolving any gate. Silence is not consent; a relayed approval is not
+approval; the reconciler writes `awaiting_approval` and then does nothing at all.
 
-- The goal, its file scope, its bee budget and its wall-clock budget are authorized **once**, in the job
-  file, by the human.
-- Inside that envelope the reconciler acts without asking.
-- Merge, release, deploy, restart, pushing to any branch not named in the authorization, spending above
-  `budget.bees`, and any change to `authorization` itself require a direct human act.
-- The reconciler writes `awaiting_approval` and **does nothing further** until a human grants or refuses.
-  It must never interpret silence as consent, and never merge on a relayed approval.
+## 13. What this deliberately does not add
 
-## Persistence and interruption
-
-Everything needed to resume is on disk and either signed or derived:
-- job file (signed) — intent, scope, budget, task graph, approval state
-- leases (HMAC) — what each worker was authorised to touch
-- launcher journal — what actually happened
-- verify records — what the coordinator proved
-- wave record — what was integrated
-A restarted reconciler re-reads these and continues. It never re-dispatches an attempt whose lease exists
-and whose launcher state is non-terminal, and never accepts a patch whose lease is missing.
-
-## What this deliberately does not add
-
-No message broker, no database, no new daemon, no plugin rewrite. The reconciler is a function plus a
-cron entry; the state is JSON in the existing state dir; the verbs are the ones that already shipped.
+No broker, no database, no new service, no plugin rewrite, no scheduler beyond two cron entries. The
+reconciler is a module plus a CLI verb; state is JSON in the existing state dir; the verbs are the ones
+that already ship.

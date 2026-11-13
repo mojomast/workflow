@@ -1,111 +1,172 @@
 # 23 — Autonomy development plan
 
-**Status (November 13, 2026):** Milestones that close the loop, each with a frozen acceptance contract. Written after auditing `workflow@817eac4`, `bundlebees@d82630a`, `hyvv@4ebd820` and `orbitdesktop@eddc502`.
+**Status (November 13, 2026):** The critical-path plan, revised after review. Bounded recovery and the
+final report are now **inside** the slice rather than behind it, the verification seam is defined as local
+commits, and the crash/wake-up tests are named acceptance criteria rather than intentions.
 
 **Audience:** the coordinator and whoever assigns the bee work.
 
-Part of the autonomy set: [21](21-autonomy-gap-analysis.md) · [22](22-autonomy-architecture.md) · [23](23-autonomy-devplan.md) · [24](24-autonomy-dogfood.md). Read them in that order.
+Part of the autonomy set: [21](21-autonomy-gap-analysis.md) · [22](22-autonomy-architecture.md) ·
+[23](23-autonomy-devplan.md) · [24](24-autonomy-dogfood.md).
 
 ---
 
-Principle: the smallest slice that closes the loop. Every milestone is independently verifiable and
-ships behind tests; nothing here replaces a working component.
+Principle: the smallest slice that can run an authorized objective end to end **including one recoverable
+failure and a final report**. If the slice stops at "patches verified", the dogfood cannot demonstrate
+autonomy — it would need a human to handle the injected failure and write the summary, which is the thing
+being tested.
 
 ## The critical path
 
-Three missing things, in order of what unblocks the next: **(1) a durable job object**, **(2) a
-reconciler that performs one transition per tick**, **(3) wiring the existing `verify`/`integrate` verbs
-to state transitions**. Push notifications, planners and dashboards can all wait.
+1. A durable job object, narrowing a human authorization.
+2. A reconciler that dispatches, reaps and verifies — crash-safe at every external call.
+3. The wake-up: a mechanical tick, plus a real agent turn when reasoning is required.
+4. Bounded recovery: classify, retry once, supersede the contract when the spec was wrong.
+5. The report and the approval gate.
 
 ## Milestones
 
-### M0 — merge the typed artifact consumer (prerequisite, already built)
-- **Repo/location:** `bundlebees_plugin/client.py` — draft PR #15, branch `feat/oa3-client-artifact`.
+### M0 — merge the typed artifact consumer (prerequisite; blocked on CI, not on code)
+- **Repo/location:** `bundlebees_plugin/client.py` — draft PR #15, head `01b3cfb`.
 - **Why:** the loop must read artifacts through product code, not the coordinator's rig.
-- **Acceptance:** 15 artifact tests + 68 client/security tests green; real-route check against
-  orbitdesktop `eddc502`.
-- **Cost:** zero new work; it needs a merge decision, not engineering.
+- **Current CI state, checked directly:** `gitleaks` and `hermes plugins doctor` pass;
+  `tests (sandbox included)` and `orbit round trip` fail at collection with `ImportError: jsonschema`.
+  The same two jobs fail on **main** (run `43356463416`), so this is pre-existing.
+- **Root cause, measured in a clean environment:** `pyproject.toml` declares the dependencies, but
+  `ci.yml` installs a hand-listed set — `pytest`, `pyyaml`, `ruamel.yaml` — and never installs the
+  project. Reproduced at `01b3cfb` in a fresh venv built the way CI builds it: **18 collection errors**;
+  adding `jsonschema` left one (`fastapi`); adding that left one (`httpx`); with all three the suite is
+  **563 passed, 16 skipped in 78.84 s**. So three declared dependencies are missing, not one.
+- **Fix:** install the project (or those three) in the test job. That is a CI change and needs separate
+  permission; until then this PR cannot satisfy a green gate and must not be merged on a red one.
+- **Acceptance:** the two jobs pass at the PR head *and* on main, with real logs; then the normal merge
+  gate.
 
-### M1 — job state module
+### M1 — job state and authorization
 - **Repo/location:** `bundlebees_plugin/job.py` (new), `bundlebees_plugin/schemas/job.schema.json` (new).
-- **Reuse:** `leases.py::_ensure_key`, `_sign`, atomic-write pattern; `contract.py` for contract hashes.
-- **New behaviour:** create/load/save a signed job document; append events; enforce the state machine and
-  dependency rules; refuse a lease outside `authorization.scope`.
-- **Security:** signed with the existing lease key; 0600; atomic rename; no secrets in the document.
-- **Acceptance contract:** AC-001 round-trip preserves every field and the HMAC verifies; AC-002 a
-  hand-edited field is refused (`job_tampered`); AC-003 an illegal transition raises (`job_bad_transition`);
-  AC-004 a task whose dependency is not `accepted` cannot be dispatched; AC-005 a lease outside the
-  authorized scope is refused (`lease_out_of_scope`).
-- **Tests:** `tests/test_job.py` (six cases incl. tamper and dependency).
-- **Complexity:** S. **Order:** 1.
+- **Lease:** `bundlebees_plugin/job.py`, `bundlebees_plugin/schemas/job.schema.json`,
+  `tests/test_job.py`.
+- **Reuse:** `leases.py::_ensure_key`, `_sign`, `_lease_matches`; the atomic-write pattern; `contract.py`
+  hashes.
+- **New behaviour:** signed job documents; authorization objects that can only be narrowed; the task state
+  machine; event append; refusal codes `job_tampered`, `job_bad_transition`, `authorization_widened`,
+  `lease_out_of_scope`.
+- **Acceptance contract:**
+  - AC-001 a job round-trips with every field intact and its HMAC verifying;
+  - AC-002 a hand-edited field is refused (`job_tampered`);
+  - AC-003 an illegal transition is refused (`job_bad_transition`);
+  - AC-004 a task whose dependency is not `accepted` cannot be dispatched;
+  - AC-005 a lease outside `authorization.scope` is refused (`lease_out_of_scope`);
+  - AC-006 a job whose scope, budget or base exceeds its authorization is refused
+    (`authorization_widened`), including when the authorization file is missing;
+  - AC-007 `job authorize` refuses to run without a TTY.
+- **Tests:** `tests/test_job.py`.
+- **Complexity:** M. **Order:** 1.
 
-### M2 — the reconciler
+### M2 — the reconciler, crash-safe
 - **Repo/location:** `bundlebees_plugin/reconcile.py` (new).
-- **Reuse:** `tools.py::_dispatch` and `_record_dispatch`; `harness`-style injectable clients so tests
-  never touch a launcher or git; `adapters.py` result contract.
-- **New behaviour:** `reconcile(job, deps) -> transition` performing exactly one of refresh / reap /
-  verify / dispatch / integrate / escalate, per the architecture doc.
-- **Security:** never trusts worker claims; verification goes through `bundlebees verify --dry-run`.
-- **Acceptance contract:** AC-001 a terminal `succeeded` attempt moves its task to `verifying`;
-  AC-002 a `failed` attempt sets `rejected` with a failure class and does not advance the wave;
-  AC-003 a tick with an unchanged world performs no transition (idempotency); AC-004 dispatch happens
-  only for `pending` tasks with satisfied dependencies and remaining budget; AC-005 a second tick after a
-  simulated crash repeats no dispatch (lease present).
-- **Tests:** `tests/test_reconcile.py` with a fake launcher journal and fake verify runner.
-- **Complexity:** M. **Order:** 2 (depends on M1).
+- **Lease:** `bundlebees_plugin/reconcile.py`, `tests/test_reconcile.py`,
+  `tests/test_reconcile_crash.py`.
+- **Reuse:** `tools.py::_dispatch` / `_record_dispatch`; injectable launcher client so tests never touch a
+  live host; `leases.py` for signing.
+- **New behaviour:** `tick(job) -> transitions[]` implementing §4 granularity (unbounded pure updates, batch
+  dispatch, one heavy op); intent → call → confirm at every external step; adoption of in-flight attempts;
+  the single-writer lock.
+- **Acceptance contract:**
+  - AC-001 **granularity:** a fresh tick on a planned three-task job creates three attempts, three leases
+    and three confirmations, and performs no verify and no integrate;
+  - AC-002 **duplicate dispatch:** two ticks started concurrently produce exactly one attempt per task (the
+    second exits on the lock);
+  - AC-003 **crash between dispatch and persistence:** an intent left in `dispatching` with a matching
+    journal attempt is adopted, and no second POST is issued;
+  - AC-004 **crash before the call:** an intent with no matching journal attempt is re-dispatched exactly
+    once;
+  - AC-005 **ambiguity:** two matching candidates → `dispatch_ambiguous`, no dispatch, job escalates;
+  - AC-006 **failed verification:** a patch whose named test fails is `rejected` with a class, no commit
+    exists, and the wave does not advance;
+  - AC-007 **idempotency:** a tick over an unchanged world emits zero transitions.
+- **Tests:** `tests/test_reconcile.py` (granularity, failure classification, idempotency),
+  `tests/test_reconcile_crash.py` (kill points before/after the POST, lock contention, ambiguity).
+- **Complexity:** L. **Order:** 2 (depends on M1).
 
-### M3 — CLI and the wake-up
-- **Repo/location:** `bundlebees_plugin/cli.py` (`job start|tick|status|report`) + a Hermes cron entry
-  every minute while a job is active.
-- **Reuse:** the existing subcommand style; `cronjob_manage` for scheduling.
-- **New behaviour:** `job tick` runs one reconcile; `job status` prints state + next action;
-  `job report` writes the acceptance artifact.
-- **Acceptance contract:** AC-001 `job tick` on a fresh job dispatches every ready task exactly once;
-  AC-002 a tick on a completed job is a no-op; AC-003 `job status` lists each task's state and the next
-  transition; AC-004 the cron entry stops firing when no job is active.
-- **Complexity:** S. **Order:** 3.
+### M3 — verification by local commit, and the wake-up
+- **Repo/location:** `bundlebees_plugin/cli.py` (`verify --commit-local`, `job tick|status|note|report`,
+  `job agent-pending`), `bundlebees_plugin/verify_local.py` (new) for the worktree/commit logic.
+- **Lease:** `bundlebees_plugin/verify_local.py`, `tests/test_verify_local.py`; `cli.py` coordinator-owned.
+- **Reuse:** the existing `verify` flow for patch application and test running; `git worktree`; gitleaks.
+- **New behaviour:** isolated worktree at the pinned base, local commit on `bb-verify/<attempt_id>`, no
+  push, tree/diff equality proof, worktree cleanup, and the `needs-agent.json` handoff.
+- **Acceptance contract:**
+  - AC-001 a good patch yields a real commit whose parent is `base_rev`, `merge-base --is-ancestor` holds,
+    and `git diff --stat base..HEAD` equals the patch's file list;
+  - AC-002 nothing is pushed: `git ls-remote` on the worktree's remote shows no `bb-verify/*` ref, and the
+    command performs no network call in tests;
+  - AC-003 a failing patch produces no commit and a `rejected` record;
+  - AC-004 the user's working tree is untouched (verified by comparing status before/after);
+  - AC-005 `job tick` writes `needs-agent.json` only when a reasoning transition is pending, and
+    `job agent-pending --print-prompt` returns that exact prompt once and empty afterwards;
+  - AC-006 a cron-shaped invocation (`job tick --json`) run twice produces one transition per new fact, and
+    exits 0 with no output when nothing is pending.
+- **Tests:** `tests/test_verify_local.py`, `tests/test_wakeup.py` (the second invokes the CLI as a
+  subprocess, exactly as cron would).
+- **Complexity:** M. **Order:** 3 (depends on M2).
 
 ### M4 — bounded recovery
-- **Repo/location:** `bundlebees_plugin/reconcile.py` (+ `acdd_cli.py` superseding-contract path).
-- **New behaviour:** classify failures (implementation / interaction / specification / environment /
-  infrastructure); enforce `max_attempts_per_task` and two integration attempts; for `specification`,
-  freeze a superseding contract and re-dispatch once, recording `supersedes`.
-- **Acceptance contract:** AC-001 a patch that fails its own acceptance tests is rejected and
-  re-dispatched at most `max_attempts_per_task` times; AC-002 an interaction failure re-integrates once
-  with an added regression test; AC-003 a superseding contract records `supersedes` and `supersedes_sha256`;
-  AC-004 exhausting the budget yields `awaiting_approval`, never a success.
-- **Complexity:** M. **Order:** 4.
+- **Repo/location:** `bundlebees_plugin/reconcile.py` (`classify_failure`, `plan_recovery`),
+  `bundlebees_plugin/acdd_cli.py` (supersede).
+- **Lease:** `bundlebees_plugin/reconcile.py` (second pass), `tests/test_recovery.py`.
+- **New behaviour:** the five failure classes; `max_attempts_per_task`; one interaction re-integrate; one
+  specification supersede (`supersedes`, `supersedes_sha256`); escalation on exhaustion.
+- **Acceptance contract:**
+  - AC-001 a patch failing its own tests is re-dispatched at most `max_attempts_per_task` times, then
+    escalates;
+  - AC-002 an interaction failure re-integrates once with an added regression test in the lease, and a
+    second failure escalates;
+  - AC-003 a contract naming a non-existent test is classified `specification`, superseded once, and the
+    corrected patch is accepted;
+  - AC-004 `environment` and `infrastructure` never dispatch;
+  - AC-005 exhausting any budget yields `awaiting_approval`, never `done`.
+- **Tests:** `tests/test_recovery.py`.
+- **Complexity:** M. **Order:** 4 (depends on M3).
 
-### M5 — approval gate and acceptance artifact
-- **Repo/location:** `bundlebees_plugin/job.py`, `cli.py job report`.
-- **New behaviour:** write `jobs/<id>.report.{md,json}` with per-task evidence, integration record,
-  measurements and the exact human decision required; refuse to merge or push anything.
-- **Acceptance contract:** AC-001 the report contains one row per task with verify evidence and sha;
-  AC-002 the job stops at `awaiting_approval` and further ticks perform no action; AC-003 a refusal path
-  records the reason and closes the job.
-- **Complexity:** S. **Order:** 5.
+### M5 — report and approval gate
+- **Repo/location:** `bundlebees_plugin/job.py` (report writer), `cli.py job report|approve`.
+- **Lease:** `bundlebees_plugin/report.py` (new), `tests/test_report.py`.
+- **New behaviour:** `jobs/<id>.report.{md,json}` with per-task evidence, integration record, measurements
+  (UNKNOWN where unmeasured), and the exact decision required; `approve`/`refuse` written only from a TTY.
+- **Acceptance contract:**
+  - AC-001 one row per task with verify evidence, commit sha and lease;
+  - AC-002 the job stops at `awaiting_approval` and further ticks perform no action;
+  - AC-003 `job approve` without a TTY is refused; with a TTY it writes a signed approval;
+  - AC-004 the report never claims a merge, push or deploy happened;
+  - AC-005 unmeasured values print `UNKNOWN`, never zero or a guess.
+- **Tests:** `tests/test_report.py`.
+- **Complexity:** S. **Order:** 5 (depends on M4).
+
+## Integration test matrix (required before the dogfood)
+
+| Test | What it proves |
+|---|---|
+| duplicate dispatch | two concurrent ticks → one attempt per task |
+| crash between dispatch and persistence | intent + journal adoption, no second POST |
+| failed verification | no commit, classified rejection, wave blocked |
+| local-only committed integration | `integrate_wave` receives a real ancestor commit; no ref is pushed |
+| real wake-up without a human | `job tick` via subprocess writes `needs-agent.json`; a second subprocess consumes the prompt and records a decision through the CLI |
+| end-to-end two-task run against a fake launcher | dispatch → reap → verify → integrate → report, zero manual steps |
+
+The first five are the reviewer's list; the sixth is what makes the dogfood a confirmation rather than a
+first attempt.
+
+## Ordering and dependencies
+
+`M1 → M2 → M3 → M4 → M5`, strictly. M2's crash handling depends on M1's intents; M3's local commits are
+what M4's integration reuses; M5 reports on evidence M4 produces. Bee-assignable work is M1, M3's
+`verify_local.py`, M4 and M5's `report.py`; the reconciler (M2) and `cli.py` wiring stay coordinator-owned
+because they encode the ordering rules this whole plan exists to get right.
 
 ## Explicitly deferred
 
-- Push/webhook events from hyvv (the reconciler makes them an optimisation, not a requirement).
-- A planner that decomposes goals automatically — v1 decomposes a goal into tasks **once**, at
-  `job start`, with a human reviewing the task list as part of the single authorization. Automatic
-  re-planning is a later, separate decision.
-- Dashboards, alerting, cost accounting (no pricing feed exists; cost stays UNKNOWN).
-- Multi-repo jobs. v1 is one repository per job.
-
-## Bee assignment strategy for building this
-
-The coordinator writes M1–M3 itself only where wiring is inseparable; the modules are well suited to
-bees with disjoint leases:
-- Bee A: `job.py` + `schemas/job.schema.json` + `tests/test_job.py`.
-- Bee B: `reconcile.py` + `tests/test_reconcile.py` (depends on A's schema; dispatch after A is accepted).
-- Bee C: `tests/test_reconcile.py` fixtures + `cli.py` wiring? No — wiring stays coordinator-owned, as in
-  Experiment B. Bee C can own the report writer + its tests.
-
-## Estimated shape
-
-M1–M3 is the smallest slice that can run the dogfood end to end: roughly three bee-sized modules plus one
-cron entry, no new service, no schema churn outside `bundlebees`. M4–M5 are needed before the loop can be
-called *autonomous under failure*, and M5 is what makes the result reviewable without a human assembling
-a summary by hand.
+- Launcher push/webhook events (the reconciler makes them an optimisation).
+- Automatic re-planning: v1 decomposes once at `job start`, reviewed as part of the single authorization.
+- Multi-repo jobs; dashboards; alerting; cost accounting (no pricing feed — cost stays UNKNOWN).
+- Parallel verification: one heavy operation per tick is deliberate, not a limitation to remove yet.
