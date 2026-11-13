@@ -146,6 +146,8 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
         _contract_checks(template, packet, frozen=False)
         if template.get("source_rev") != policy.get("root_revision"):
             raise PacketError("source_policy_mismatch", "template source_rev must equal the authorized root", "Fix the intent.")
+        if packet.get("contract") is not None or packet.get("contract_sha256") is not None:
+            raise PacketError("packet_schema", "an intent packet must not claim a frozen contract", "Resolve the source first.")
         if packet.get("source_resolution_ref"):
             raise PacketError("source_resolution_premature", "an intent packet must not pre-claim a source resolution", "Resolve after integration.")
     else:

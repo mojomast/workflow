@@ -147,6 +147,20 @@
         "approved_at": {
           "type": "string",
           "minLength": 1
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "bees": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wall_clock_s": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
