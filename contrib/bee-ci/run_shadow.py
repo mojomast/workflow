@@ -49,6 +49,8 @@ SCHEMA_VERSION = 1
 TOKEN_ENV = "BUNDLEBEES_LAUNCHER_TOKEN"
 URL_ENV = "BUNDLEBEES_LAUNCHER_URL"
 KEY_ENV = "BEE_CI_RESULT_KEY"
+HERMES_LAUNCHER_KEY = "plugins.entries.bundlebees.settings.launcher_url"
+HERMES_ARGS = ("config", "get", HERMES_LAUNCHER_KEY)
 DEFAULT_TIMEOUT = 60.0
 DEFAULT_POLL_INTERVAL = 1.0
 DEFAULT_INDEX = Path("evidence") / "index.json"
@@ -67,9 +69,16 @@ _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 class ShadowError(RuntimeError):
     """A safe shadow-runner failure that never carries secrets or hosts."""
 
-    def __init__(self, message: str, *, code: str = "shadow_error"):
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "shadow_error",
+        status: int | None = None,
+    ):
         super().__init__(message)
         self.code = code
+        self.status = status
 
 
 def _text(value: Any) -> str | None:
@@ -95,21 +104,82 @@ def _env_value(env: Mapping[str, str] | None, name: str) -> str | None:
     return _text(source.get(name))
 
 
-def _repo_slug(repo: Any) -> str:
+def _manifest_names(jobs_dir: Any = None) -> tuple[str, ...]:
+    directory = Path(jobs_dir) if jobs_dir is not None else _manifest.JOBS_DIR
+    try:
+        names = sorted(
+            path.stem for path in directory.glob("*.yaml") if path.is_file()
+        )
+    except OSError:
+        names = []
+    return tuple(names) or tuple(_manifest.REPOS)
+
+
+def _resolve_repo(repo: Any, jobs_dir: Any = None) -> tuple[str, str]:
+    """Return ``(slug, manifest_name)`` for owner/name or a manifest name."""
+
     slug = _text(repo)
-    if slug is None or "/" in slug.strip("/") and len(slug.strip("/").split("/")) > 2:
-        raise ShadowError("repo must be owner/name or a bare manifest name", code="invalid_repo")
-    return slug.strip("/")
-
-
-def _manifest_name(repo: str) -> str:
-    name = repo.rsplit("/", 1)[-1]
-    if name not in _manifest.REPOS:
+    if slug is None:
         raise ShadowError(
-            f"unknown repository {name!r}; expected one of {', '.join(_manifest.REPOS)}",
+            "repo must be owner/name or a bare manifest name", code="invalid_repo"
+        )
+    slug = slug.strip("/")
+    parts = slug.split("/") if slug else []
+    if len(parts) == 1 and parts[0]:
+        name = parts[0]
+    elif len(parts) == 2 and all(parts):
+        name = parts[1]
+    else:
+        raise ShadowError(
+            "repo must be owner/name or a bare manifest name", code="invalid_repo"
+        )
+    known = _manifest_names(jobs_dir)
+    if name not in known:
+        raise ShadowError(
+            f"unknown repository {name!r}; expected one of {', '.join(known)}",
             code="unknown_repo",
         )
-    return name
+    return slug, name
+
+
+def _strip_quotes(value: str) -> str | None:
+    text = value.strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in ("'", '"'):
+        text = text[1:-1].strip()
+    return text or None
+
+
+def _hermes_launcher_url(
+    runner: Callable[[list[str]], Any] | None,
+    env: Mapping[str, str] | None = None,
+    timeout: float = 30.0,
+) -> str | None:
+    """Resolve the launcher URL from hermes config, fail-closed to ``None``."""
+
+    args = list(HERMES_ARGS)
+    try:
+        if runner is not None:
+            outcome: Any = runner(args)
+        else:
+            completed = subprocess.run(
+                ["hermes", *args],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=None if env is None else {**os.environ, **env},
+            )
+            if completed.returncode != 0:
+                return None
+            outcome = completed.stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if isinstance(outcome, str):
+        return _strip_quotes(outcome)
+    stdout = getattr(outcome, "stdout", None)
+    if isinstance(stdout, str):
+        return _strip_quotes(stdout)
+    return None
 
 
 def _head_sha(value: Any) -> str:
@@ -241,7 +311,9 @@ class LauncherClient:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             raise ShadowError(
-                f"launcher returned HTTP {exc.code}", code="launcher_error"
+                f"launcher returned HTTP {exc.code}",
+                code="launcher_error",
+                status=exc.code,
             ) from None
         except (urllib.error.URLError, TimeoutError, OSError):
             raise ShadowError("launcher request failed", code="launcher_error") from None
@@ -253,7 +325,7 @@ class LauncherClient:
             raise ShadowError("launcher returned invalid JSON", code="launcher_error") from None
 
     def capacity(self) -> Any:
-        return self._request("GET", "/v1/capacity")
+        return self._request("GET", "/v1/health")
 
     def dispatch(self, item: Mapping[str, Any]) -> dict[str, Any]:
         work = _dispatch.WorkItem.from_dict(item)
@@ -267,39 +339,42 @@ class LauncherClient:
             result = result[0] if result else {}
         return dict(result) if isinstance(result, Mapping) else {}
 
+    def attempt(self, task_id: str) -> Any:
+        path = "/v1/attempts/" + urllib.parse.quote(str(task_id), safe="")
+        return self._request("GET", path)
+
     def result(self, task_id: str) -> Any:
-        path = "/v1/results/" + urllib.parse.quote(str(task_id), safe="")
+        path = (
+            "/v1/attempts/"
+            + urllib.parse.quote(str(task_id), safe="")
+            + "/result"
+        )
         try:
             return self._request("GET", path)
         except ShadowError as exc:
-            if str(exc) == "launcher returned HTTP 404":
+            if exc.status == 409:
+                try:
+                    self.attempt(task_id)
+                except ShadowError:
+                    pass
                 return None
             raise
 
 
 def _capacity_state(info: Any) -> tuple[bool, str | None]:
-    if isinstance(info, Mapping):
-        maximum = _first_int(info, ("max", "capacity", "limit", "max_active"))
-        active = _first_int(info, ("active", "in_use", "busy", "used", "count"))
-        if maximum is None:
-            available = _first_int(
-                info, ("available", "free", "remaining", "slots")
-            )
-            if available is None:
-                return False, "capacity_unknown"
-            if available <= 0:
-                return False, "capacity_full"
-            return True, None
-        if maximum <= 0:
-            return False, "capacity_full"
-        if active is not None and active >= maximum:
-            return False, "capacity_full"
+    """Read the launcher health body; pass only while active < max_concurrent."""
+
+    if not isinstance(info, Mapping):
+        return False, "capacity_unknown"
+    maximum = _first_int(info, ("max_concurrent",))
+    active = _first_int(info, ("active",))
+    if maximum is None or active is None:
+        return False, "capacity_unknown"
+    if maximum <= 0:
+        return False, "capacity_full"
+    if active < maximum:
         return True, None
-    if isinstance(info, int) and not isinstance(info, bool):
-        if info <= 0:
-            return False, "capacity_full"
-        return True, None
-    return False, "capacity_unknown"
+    return False, "capacity_full"
 
 
 def _poll_result(
@@ -390,8 +465,7 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(config, Mapping):
         raise ShadowError("config must be a mapping", code="invalid_config")
 
-    repo = _repo_slug(config.get("repo"))
-    repo_name = _manifest_name(repo)
+    repo, repo_name = _resolve_repo(config.get("repo"), config.get("jobs_dir"))
     try:
         pr = int(config.get("pr"))
     except (TypeError, ValueError):
@@ -476,6 +550,8 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
     launcher = config.get("launcher")
     if launcher is None:
         base_url = _text(config.get("base_url")) or _env_value(env, URL_ENV)
+        if not base_url:
+            base_url = _hermes_launcher_url(config.get("hermes"), env)
         if not base_url:
             for row in rows:
                 if row["eligible"]:
@@ -579,6 +655,7 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
             continue
         row["task_id"] = task_id
 
+        poll_error = None
         try:
             payload = _poll_result(
                 launcher,
@@ -588,13 +665,21 @@ def run(config: Mapping[str, Any]) -> dict[str, Any]:
                 clock=clock,
                 sleep=sleep,
             )
+        except ShadowError as exc:
+            payload = None
+            poll_error = exc.code or "launcher_error"
         except Exception:
             payload = None
+            poll_error = "launcher_error"
 
         if payload is None:
             row["state"] = _ERROR
-            row["code"] = "timeout"
-            row["detail"] = "no result before the poll deadline"
+            row["code"] = poll_error or "timeout"
+            row["detail"] = (
+                "result polling failed"
+                if poll_error
+                else "no result before the poll deadline"
+            )
             _record_run(
                 index_path=index_path,
                 report=report,
@@ -716,6 +801,7 @@ def main(
     err: Any = None,
     env: Mapping[str, str] | None = None,
     opener: Callable[..., Any] | None = None,
+    hermes: Callable[[list[str]], Any] | None = None,
 ) -> int:
     """CLI entry point. Every adapter is injectable for offline tests."""
     out = sys.stdout if out is None else out
@@ -743,6 +829,7 @@ def main(
         "launcher": launcher,
         "env": env,
         "opener": opener,
+        "hermes": hermes,
     }
     try:
         report = run(config)
