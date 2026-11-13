@@ -268,12 +268,18 @@ class NegativeTests(unittest.TestCase):
         packet = load("feature-exact.json")
         packet["contract_template"] = copy.deepcopy(load("feature-descendant.json")["contract_template"])
         self.assertRefused(packet, "packet_schema")
+        with self.assertRaises(feature_packet.PacketError) as caught:
+            feature_packet.validate(packet, check_protocol_commit=False)
+        self.assertIn("contract_template", caught.exception.message)
 
     def test_an_intent_packet_cannot_carry_a_frozen_contract_claim(self):
         packet = load("feature-descendant.json")
         packet["contract"] = packet["contract_template"]
         packet["contract_sha256"] = "0" * 64
         self.assertRefused(packet, "packet_schema")
+        with self.assertRaises(feature_packet.PacketError) as caught:
+            feature_packet.validate(packet, check_protocol_commit=False)
+        self.assertIn("contract", caught.exception.message)
 
     def test_an_intent_packet_cannot_carry_a_lone_contract_hash(self):
         packet = load("feature-descendant.json")

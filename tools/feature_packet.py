@@ -121,9 +121,13 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
         path = ".".join(str(part) for part in exc.absolute_path)
         message = exc.message
         if message.startswith("False schema does not allow"):
+            # jsonschema loses the instance path for a boolean-false property, so
+            # name the field the packet put where this kind does not allow it.
             policy = packet.get("source_policy")
             kind = policy.get("kind") if isinstance(policy, Mapping) else None
-            message = f"not allowed for a {kind or 'declared'} source_policy (see docs/25-feature-packet.md)"
+            forbidden = {"exact": ("contract_template",), "descendant": ("contract", "contract_sha256")}.get(str(kind), ())
+            named = [field for field in forbidden if field in packet]
+            message = f"{', '.join(named) or 'this field'} is not allowed for a {kind or 'declared'} source_policy (see docs/25-feature-packet.md)"
         raise PacketError("packet_schema", f"{path or '<root>'}: {message}", "Fix the packet shape.") from exc
     if packet.get("packet_version") not in SUPPORTED:
         raise PacketError("packet_version_unsupported", f"{packet.get('packet_version')!r} is not implemented", "Upgrade the validator.")
