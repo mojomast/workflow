@@ -44,7 +44,7 @@
     "policy_id": "policy-b",
     "source_resolution_digest": "3377667205db8d3394e2e703e2591ce2ff4531ff4dcd44d895c9aa8761b29d40"
   },
-  "evidence_digest": "65f67cb8812aac9ad155e939cc1c11e75346eed170a5403e670afee75753b381",
+  "evidence_digest": "c809d60073823897fea35c2ed54bcc1a6e95a17d2ff83f61de4c434af59d2430",
   "feature_id": "feature-b",
   "integration": {
     "accepted_wave_digest": "9999999999999999999999999999999999999999999999999999999999999999",
@@ -112,5 +112,5 @@
       "tests": 1
     }
   },
-  "workflow_ref": "69d6f0e563d5c059e953d88008e06c94acb2bed7"
+  "workflow_ref": "80727e97e13069a96c9dc6a0e80427d8064ab346"
 }

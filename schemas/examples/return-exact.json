@@ -31,7 +31,7 @@
     "sha256": "f0189ac3bd19c0bbad3d5bb2caec189e772b44dfa4bd1d31c1f285ae38b2599a"
   },
   "descendant": null,
-  "evidence_digest": "8b990ae6cbc853d03b3d57ed11d35e962cba4bb882b317c9c09f45a8c1fc453e",
+  "evidence_digest": "d2b2fe167790071f3da35963f08ede86641dc46ca8bea6cd61f2e3a9bcac2c27",
   "feature_id": "feature-a",
   "integration": {
     "accepted_wave_digest": null,
@@ -95,5 +95,5 @@
       "tests": 1
     }
   },
-  "workflow_ref": "69d6f0e563d5c059e953d88008e06c94acb2bed7"
+  "workflow_ref": "80727e97e13069a96c9dc6a0e80427d8064ab346"
 }
