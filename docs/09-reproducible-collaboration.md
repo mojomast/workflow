@@ -77,13 +77,15 @@ For code, the strongest form of this is the contract-first, test-first loop in [
 
 Label checks as **passed, failed, not run, or blocked**, with who ran them, the revision, environment and evidence location. Separate self-reported results from independently reproduced results. No test count compensates for an unmet product requirement.
 
+Those labels apply to the practices as well as to the checks. [28](28-agent-lessons.md) grades each recurring lesson — **PROVEN** when a test, schema or CI job enforces it at a named place, **OBSERVED** when only a reported incident supports it, **RECOMMENDED** when it is reasoned but untested — so a handoff can carry the strength of its evidence, not just the evidence.
+
 For benchmarks, keep input identity, settings, thread counts, cache state and measured scope with the numbers. Runtime, memory and quality are separate results. Keep tuning and held-out data separate according to the project's policy.
 
 For media, deliver the exact reviewed encode, editable sources, provenance and technical checks. Use [ASSET-PACK.md](../templates/ASSET-PACK.md). A decoder can validate the file while a viewer still finds a broken arm or an unreadable scene.
 
 ## Handle corrections and interruptions
 
-When Kyle changes a requirement, record the new decision and its source, mark the old one superseded, and update dependent briefs and checks before resuming affected work. Emurizz's streaming-to-netplay change affected architecture; its later player-count change affected acceptance and implementation. Neither belongs only in a chat summary.
+When Kyle changes a requirement, record the new decision and its source, mark the old one superseded, and update dependent briefs and checks before resuming affected work. Emurizz's streaming-to-netplay change affected architecture; its later player-count change affected acceptance and implementation. Neither belongs only in a chat summary. For code, the durable form of the rule is the frozen-contract supersession in [27](27-recovery-protocol.md), graded in [28](28-agent-lessons.md) L-19: a correction keeps the contract's identity and the failed attempt's evidence.
 
 Before resuming interrupted work, inspect the artifact, last accepted revision and any active jobs. Continue the earliest incomplete step without duplicating a render or dispatch. Stop/hold instructions and budget limits carry through handoffs.
 

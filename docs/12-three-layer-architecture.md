@@ -47,7 +47,7 @@ The protocol is the set of rules that make work understandable, reviewable and r
 | Acceptance | The unit of progress is an accepted artifact with evidence, not an agent's claim that a task is finished |
 | Contracts and test-first evidence | An ACDD contract (`acdd/1`) names each acceptance criterion with an id and the tests that prove it, is frozen by hash before work starts, and is checked with RED → GREEN → REFACTOR evidence (`tdd-evidence/1`). See [16](16-acdd-tdd.md) |
 
-[09](09-reproducible-collaboration.md) is the portable loop for this layer. [10](10-teaching-the-workflow.md) is the practice version. The [reference demo](../reference/README.md) is a runnable miniature that does not need this project's private infrastructure.
+[09](09-reproducible-collaboration.md) is the portable loop for this layer. [10](10-teaching-the-workflow.md) is the practice version. The [reference demo](../reference/README.md) is a runnable miniature that does not need this project's private infrastructure. The individual practices behind these elements, with the incident that produced each one and the strength of its support, are graded in [28](28-agent-lessons.md); the table states the contract, not the evidence for it.
 
 ## 2. Bundlebees — the execution system
 

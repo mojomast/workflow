@@ -94,6 +94,8 @@
 - Put off-host agents' briefs and assets on a public branch.
 - After a test on a shared host, restore only what the test changed.
 
+These are rules, stated flatly because they earned it. The incident behind each one, the check that now enforces it where one exists, and whether the support is a test, an observation or only a recommendation are catalogued in [28](28-agent-lessons.md); this chapter stays the rulebook.
+
 ## 4. Lessons from the review and creative loop
 
 - Tie every review and measurement to its revision. Doppler's first timings and final equivalence results came from different runs; [the final PR report](https://github.com/mojomast/hermes-aircraft-doppler-geolocation/pull/5) supersedes the initial performance report.

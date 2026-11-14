@@ -132,6 +132,8 @@ Every brief is self-contained because workers can't ask questions. Paraphrased r
 
 Common patterns: hard rules first; "feature branch only"; approved/not-approved scope inline; measurable acceptance; carry-over findings from failed attempts written into the next brief; ask for evidence (SHA, test counts, paths) rather than claims; tell workers to mark unexecuted gates unproven instead of mocking success.
 
+These patterns are recorded here because they were used, not because each one has a check behind it. [28](28-agent-lessons.md) grades the specific claims: the brief elements that worked and failed (L-22, L-23), the no-commit rule and why it is a workaround (L-24), and the lease that makes parallel ownership enforceable (L-03).
+
 ## 8. Review → merge → tag → release → catalog
 
 ```mermaid
