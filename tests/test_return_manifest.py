@@ -127,7 +127,7 @@ class ExampleTests(unittest.TestCase):
             manifest = load(name)
             self.assertEqual(manifest["evidence_digest"], oracle_digest(manifest), name)
 
-    def test_the_examples_pin_one_real_ancestor(self):
+    def test_the_examples_pin_one_schema_bearing_ancestor(self):
         exact = load("return-exact.json")
         dependent = load("return-dependent.json")
         pin = exact["workflow_ref"]
@@ -136,6 +136,10 @@ class ExampleTests(unittest.TestCase):
         self.assertEqual(git("cat-file", "-e", f"{pin}^{{commit}}").returncode, 0, f"{pin} is not a commit here")
         self.assertEqual(git("merge-base", "--is-ancestor", pin, "HEAD").returncode, 0,
                          f"{pin} is not an ancestor of HEAD")
+        pinned = git("show", f"{pin}:schemas/return-manifest.schema.json")
+        self.assertEqual(pinned.returncode, 0, f"{pin} does not bear the return schema")
+        self.assertEqual(pinned.stdout, SCHEMA.read_text(encoding="utf-8"),
+                         f"the return schema at {pin} differs from the enforced schema; repin the examples")
 
     def test_the_validator_cli_accepts_both_examples(self):
         result = subprocess.run(
