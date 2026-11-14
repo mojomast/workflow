@@ -558,6 +558,91 @@
               }
             ],
             "description": "null unless decision is supersede. The B3b naming: contract_* is the replaced contract, supersedes/supersedes_sha256 is the replacement."
+          },
+          "proposal": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "raw_sha256"
+                ],
+                "properties": {
+                  "path": {
+                    "$ref": "#/$defs/text"
+                  },
+                  "raw_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "elapsed_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "exit_code": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "parse_error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "The raw model proposal this decision was compiled from, with the digest a reviewer can recompute."
+              }
+            ]
+          },
+          "work": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "work_id",
+                  "state"
+                ],
+                "properties": {
+                  "work_id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "state": {
+                    "enum": [
+                      "pending",
+                      "claimed",
+                      "completed",
+                      "refused"
+                    ]
+                  },
+                  "claims": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "decision_digest": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "The durable agent-work item that carried this request to a separate consumer."
+              }
+            ]
           }
         }
       },
