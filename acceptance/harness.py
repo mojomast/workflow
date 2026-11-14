@@ -422,15 +422,17 @@ BRIEFS = {
 # never as passed.
 # ---------------------------------------------------------------------------
 
-ACDD_TEST = '''from shop.pricing import apply_tax
+ACDD_TEST = '''def test_apply_tax_adds_the_rate():
+    from shop.pricing import apply_tax
 
-
-def test_apply_tax_adds_the_rate():
     assert apply_tax(1000, 10) == 1100
 
 
 def test_apply_tax_rejects_a_negative_rate():
     import pytest
+
+    from shop.pricing import apply_tax
+
     with pytest.raises(ValueError):
         apply_tax(100, -1)
 '''
@@ -552,7 +554,7 @@ def acdd_end_to_end(log: "Log", host: "AcceptanceHost", work: Path, settings: di
     checks["integrate"] = rc == 0
     (out / "acdd-integrate.log").write_text(text, encoding="utf-8")
     rc, text = acdd_host.cli(["tdd", "review", str(frozen), "--state-dir", str(state), "--reviewer", "acceptance reviewer",
-                              "--approve", "--note", "scripted approval (acceptance harness)"])
+                              "--role", "human", "--approve", "--note", "scripted approval (acceptance harness)"])
     checks["review"] = rc == 0
     rc, text = acdd_host.cli(["tdd", "report", str(frozen), "--state-dir", str(state), "--json"])
     try:
