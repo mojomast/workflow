@@ -1,0 +1,35 @@
+{
+  "attempt_id": "att_m4_2",
+  "contract": {
+    "id": "T2-REACHABILITY",
+    "sha256": "b30fdd670282a097701bae2841177f99ccefcc9243055ac2696766dd6a1e249b"
+  },
+  "envelope": {
+    "contract_corrections_allowed": 1,
+    "corrected_tests_allowed": [
+      "tools/acdd-lint/tests/test_check_reachability.py",
+      "tools/acdd-lint/tests/test_check_reachability.py::Reachability::test_reachable_commit_is_silent"
+    ],
+    "max_attempts_per_task": 2
+  },
+  "failure": {
+    "class": "specification",
+    "code": "test_not_found",
+    "evidence": [
+      {
+        "kind": "test",
+        "reference": "tests/fixtures/runtime/captured-request.json",
+        "sha256": "da6f6300812052314fa959a101de2b6e02b2a3c06e41d4ee31f7346dfbf2cd72"
+      }
+    ],
+    "rationale": "evidence code 'test_not_found' is recorded as a specification failure: no test was collected for tools/acdd-lint/tests/test_check_reachability.py::Reachability::test_ancestor_ok; the verify run reported 'no tests ran in 0.01s'."
+  },
+  "feature_id": "acdd-source-rev",
+  "job_id": "job_m4_dogfood",
+  "outstanding_question": "Task T2 was rejected as a specification failure (test_not_found). Decide whether to supersede the frozen contract once with an authorised corrected test selection; retry once within the remaining budget (1 attempt(s) left); escalate to a human. Record the decision with `bundlebees job recover --job-id ... --decision-file ...`; no corrective attempt is dispatched until a validated decision exists.",
+  "request_digest": "6d57b9800562a9d6d84987287ef66bdad94edca7998f61c7f16e8bed7f61387b",
+  "request_id": "job_m4_dogfood.T2.1",
+  "schema": "rizzstack.recovery/1",
+  "supersession_permitted": true,
+  "task_id": "T2"
+}

@@ -135,3 +135,87 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks
       - name: Scan history
         run: ./gitleaks detect --source . --redact --no-banner
+
+  feature-packet:
+    name: feature packet protocol (required)
+    # Validates rizzstack.feature-packet/1 and rizzstack.source-resolution/1.
+    # The examples pin a real schema-bearing commit, so the job needs the
+    # history (fetch-depth: 0): a shallow clone cannot resolve the pin, and the
+    # drift check would have nothing to compare against.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Feature packet protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_feature_packet -v
+      - name: Every module under tests/
+        run: python3 -m unittest discover -s tests -t . -q
+
+  return-manifest:
+    name: return manifest protocol (required)
+    # Validates rizzstack.return/1: digest recomputation, the always-pending
+    # receiver decision, PASS evidence, descendant consistency and every enum.
+    # The examples pin a schema-bearing ancestor, so the job needs the history
+    # (fetch-depth: 0) to resolve the pin and compare its bytes.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Return manifest protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_return_manifest -v
+      - name: Validate the two examples with the CLI
+        run: python3 tools/return_manifest.py schemas/examples/return-exact.json schemas/examples/return-dependent.json
+      - name: Every module under tests/
+        run: python3 -m unittest discover -s tests -t . -q
+
+  recovery-protocol:
+    name: recovery protocol (required)
+    # Validates rizzstack.recovery/1: the five failure classes and their
+    # evidence, the envelope bounds, retry/supersede/escalation legality,
+    # supersession binding, digest binding, the anti-widening rules, and the
+    # optional recovery array in the RETURN manifest.
+    # The final discover step also runs the return examples' schema pin, so the
+    # job needs the history (fetch-depth: 0).
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Recovery protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_recovery_protocol -v
+      - name: Runtime conformance tests (required, jsonschema required, no skips)
+        # The migration evidence for bundlebees 191dc85: the archived
+        # pre-conformance captures must be refused and the canonical pair must
+        # validate. Named explicitly as well as through the discovery step at
+        # the end, so a failure here reads as a conformance failure.
+        run: python3 -m unittest tests.test_runtime_conformance -v
+      - name: Validate the request and decision examples with the CLI
+        run: |
+          python3 tools/recovery.py request schemas/examples/recovery-request.json
+          python3 tools/recovery.py decision schemas/examples/recovery-decision.json \
+            --request schemas/examples/recovery-request.json --attempts-used 1
+      - name: Every module under tests/
+        run: python3 -m unittest discover -s tests -t . -q

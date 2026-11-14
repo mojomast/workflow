@@ -1,0 +1,116 @@
+{
+  "acceptance": [
+    {
+      "evidence": [
+        "evidence/2026-11-13-feature-b/verify.log"
+      ],
+      "id": "AC-001",
+      "statement": "double_answer() returns 84",
+      "status": "PASS",
+      "tests": [
+        "tests/test_double.py"
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "att-0008",
+      "project": "smoke-real",
+      "source_rev": "cccccccccccccccccccccccccccccccccccccccc",
+      "state": "failed"
+    },
+    {
+      "attempt_id": "att-0009",
+      "project": "smoke-real",
+      "source_rev": "cccccccccccccccccccccccccccccccccccccccc",
+      "state": "succeeded"
+    }
+  ],
+  "authorization": {
+    "approved_at": "2026-11-13T00:00:00Z",
+    "approved_by": "reviewer",
+    "authority": "descendant-policy",
+    "reference": "auth:job_b"
+  },
+  "contract": {
+    "id": "SMOKE-B",
+    "sha256": "abe9d75aba077f073e6cc343900a3302c9a6a00b021c426450ea8b2b6610a6dd"
+  },
+  "descendant": {
+    "accepted_commit": "cccccccccccccccccccccccccccccccccccccccc",
+    "dependency_feature": "feature-a",
+    "dependency_job": "job_a",
+    "policy_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "policy_id": "policy-b",
+    "source_resolution_digest": "3377667205db8d3394e2e703e2591ce2ff4531ff4dcd44d895c9aa8761b29d40"
+  },
+  "evidence_digest": "c809d60073823897fea35c2ed54bcc1a6e95a17d2ff83f61de4c434af59d2430",
+  "feature_id": "feature-b",
+  "integration": {
+    "accepted_wave_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "evidence": "evidence/2026-11-13-feature-b/integration.json",
+    "wave": "wave-2"
+  },
+  "job_id": "job_b",
+  "limitations": [
+    "integration evidence is local; the mirror receipt is not independently checked by this protocol"
+  ],
+  "packet_digest": "59bd45160b9bc832b5a808e84e4c21880c7218c493b3fd4587dafdb777581436",
+  "pending_approvals": [
+    "release",
+    "deploy"
+  ],
+  "receiver_decision": {
+    "decided_at": null,
+    "decided_by": null,
+    "note": null,
+    "status": "pending"
+  },
+  "red_green": {
+    "green": {
+      "phase": "green",
+      "record_path": "evidence/2026-11-13-feature-b/0002-green.json",
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "red": null,
+    "test_first": false
+  },
+  "repository": {
+    "identity": "mojomast/smoke-real",
+    "source_rev": "cccccccccccccccccccccccccccccccccccccccc"
+  },
+  "schema": "rizzstack.return/1",
+  "transport": {
+    "mirror_ref": "refs/heads/accepted/feature-b",
+    "receipt_path": "evidence/2026-11-13-feature-b/mirror-receipt.json",
+    "source_sha": "dddddddddddddddddddddddddddddddddddddddd"
+  },
+  "unrun": [],
+  "verification": {
+    "base_rev": "cccccccccccccccccccccccccccccccccccccccc",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "files": [
+      "smoke/double.py"
+    ],
+    "gitleaks": {
+      "findings": 0,
+      "result": "PASS"
+    },
+    "record_path": "evidence/2026-11-13-feature-b/verify.json",
+    "suite": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_double",
+        "-v"
+      ],
+      "failures": 0,
+      "result": "PASS",
+      "tests": 1
+    }
+  },
+  "workflow_ref": "80727e97e13069a96c9dc6a0e80427d8064ab346"
+}

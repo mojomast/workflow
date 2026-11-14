@@ -167,3 +167,5 @@ acdd-lint was the first project taken through this protocol end to end: 4 contra
 - Keep superseded contracts out of the lint path, and keep their stale evidence: the linter should flag it.
 - Dispatch through `bundlebees_dispatch` when you want signed GREEN. A launcher call without a bundlebees lease can only be verified by the coordinator, unsigned.
 - Read metrics with their notes: an integration that fails in the sandbox shows up as "regressions".
+
+The cross-project catalogue in [28](28-agent-lessons.md) uses this run as its reference case for separating "the implementation worked" from "the change was accepted" (L-07, L-09); the supersession rule that a corrected contract must satisfy is L-19.

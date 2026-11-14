@@ -1,0 +1,116 @@
+{
+  "acceptance_ids": [
+    "AC-001"
+  ],
+  "authorization": {
+    "approved_at": "2026-11-13T00:00:00Z",
+    "approved_by": "reviewer",
+    "reference": "auth:job_a"
+  },
+  "budget": {
+    "bees": 1,
+    "wall_clock_s": 1800
+  },
+  "contract": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "answer() returns 42",
+        "tests": [
+          "tests/test_smoke.py"
+        ],
+        "verification": "test"
+      }
+    ],
+    "authorization": {
+      "human_gates": [
+        "merge",
+        "release",
+        "deploy",
+        "publish"
+      ]
+    },
+    "contract_version": "acdd/1",
+    "evidence_required": [
+      "green"
+    ],
+    "id": "SMOKE-A",
+    "outcome": {
+      "observable_behavior": [
+        "answer() returns 42"
+      ],
+      "summary": "answer() returns 42"
+    },
+    "review": {
+      "approved_at": "2026-11-13T00:00:00Z",
+      "approved_by": "reviewer",
+      "contract_sha256": "f0189ac3bd19c0bbad3d5bb2caec189e772b44dfa4bd1d31c1f285ae38b2599a",
+      "status": "approved"
+    },
+    "scope": {
+      "assigned_files": [
+        "smoke/answer.py"
+      ],
+      "test_files": [
+        "tests/test_smoke.py"
+      ]
+    },
+    "source_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "tdd": {
+      "applicable": true,
+      "reason": "approved test exists and fails at the baseline",
+      "test_first": false
+    },
+    "title": "answer() returns 42",
+    "verification": {
+      "independent": true
+    }
+  },
+  "contract_sha256": "f0189ac3bd19c0bbad3d5bb2caec189e772b44dfa4bd1d31c1f285ae38b2599a",
+  "feature_id": "feature-a",
+  "human_gates": [
+    "merge",
+    "release",
+    "deploy",
+    "publish"
+  ],
+  "job_id": "job_a",
+  "packet_version": "rizzstack.feature-packet/1",
+  "prohibited": [
+    "push to origin",
+    "merge",
+    "deploy",
+    "edit approved tests"
+  ],
+  "repository": {
+    "branch": "main",
+    "identity": "mojomast/smoke-real"
+  },
+  "request": {
+    "provenance": "kanban:feature-a",
+    "summary": "answer() returns 42"
+  },
+  "required_evidence": [
+    "red",
+    "green",
+    "regression",
+    "gitleaks",
+    "integration"
+  ],
+  "scope": {
+    "lease": [
+      "smoke/answer.py"
+    ],
+    "read_only": [
+      "tests/test_smoke.py"
+    ]
+  },
+  "source_policy": {
+    "kind": "exact",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "tests": [
+    "tests/test_smoke.py"
+  ],
+  "workflow_ref": "3b9fe7eeef45e5fd3d615c5fac2277d46917b502"
+}

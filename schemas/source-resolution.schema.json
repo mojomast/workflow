@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/source-resolution.schema.json",
+  "title": "Rizzstack source-resolution record (rizzstack.source-resolution/1)",
+  "description": "Stage 2 for a dependent feature: the immutable record that resolves an approved intent packet's descendant baseline to an exact commit after the dependency is accepted. It binds the packet digest, the enrolled policy id and digest, the accepted dependency feature and job, an accepted_commit that must equal derived_source_rev, and the source-bound frozen contract with its hash. It grants no new authority, and it never rewrites the packet: the link is one way, resolution -> packet_digest.",
+  "$comment": "Create-only. The canonical packet digest is sha256 over json.dumps(packet, sort_keys=True, separators=(',', ':'), ensure_ascii=True); tools/feature_packet.py:packet_digest. Only the contract's source_rev may differ from the intent's contract_template (plus the review block that freezes it); scope and acceptance_criteria must be identical.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "resolution_version",
+    "packet_digest",
+    "policy_id",
+    "policy_digest",
+    "dependency_job",
+    "dependency_feature",
+    "accepted_commit",
+    "derived_source_rev",
+    "contract",
+    "contract_sha256",
+    "at"
+  ],
+  "properties": {
+    "resolution_version": {
+      "const": "rizzstack.source-resolution/1"
+    },
+    "packet_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Canonical digest of the immutable intent packet this record resolves."
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Must equal the intent packet's source_policy.policy_id."
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Digest of the enrolled policy that authorized the derivation."
+    },
+    "dependency_job": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "The job whose acceptance supplied the derived revision."
+    },
+    "dependency_feature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Must be the intent packet's single dependency."
+    },
+    "accepted_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "The accepted integration commit of the dependency."
+    },
+    "derived_source_rev": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Must equal accepted_commit; it is the revision the dependent feature runs at."
+    },
+    "contract": {
+      "type": "object",
+      "description": "The source-bound frozen acdd/1 contract: the intent template with source_rev set to accepted_commit and a review block. tools/feature_packet.py validates its acdd/1 shape, hash and template equality."
+    },
+    "contract_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Reviewed hash of the source-bound frozen contract."
+    },
+    "at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "When the resolution was recorded (ISO-8601 UTC)."
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "acceptance": [
+    {
+      "evidence": [
+        "evidence/2026-11-13-feature-a/verify.log"
+      ],
+      "id": "AC-001",
+      "statement": "answer() returns 42",
+      "status": "PASS",
+      "tests": [
+        "tests/test_smoke.py"
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "att-0007",
+      "project": "smoke-real",
+      "source_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "state": "succeeded"
+    }
+  ],
+  "authorization": {
+    "approved_at": "2026-11-13T00:00:00Z",
+    "approved_by": "reviewer",
+    "authority": "m1-authorization",
+    "reference": "auth:job_a"
+  },
+  "contract": {
+    "id": "SMOKE-A",
+    "sha256": "f0189ac3bd19c0bbad3d5bb2caec189e772b44dfa4bd1d31c1f285ae38b2599a"
+  },
+  "descendant": null,
+  "evidence_digest": "d2b2fe167790071f3da35963f08ede86641dc46ca8bea6cd61f2e3a9bcac2c27",
+  "feature_id": "feature-a",
+  "integration": {
+    "accepted_wave_digest": null,
+    "commit": null,
+    "evidence": null,
+    "wave": null
+  },
+  "job_id": "job_a",
+  "limitations": [
+    "no independent review yet"
+  ],
+  "packet_digest": "da789042293b91cb9d2a58e7294d083efe9060b8e7bdb54c9db299d1fdaad6c4",
+  "pending_approvals": [
+    "merge",
+    "deploy"
+  ],
+  "receiver_decision": {
+    "decided_at": null,
+    "decided_by": null,
+    "note": null,
+    "status": "pending"
+  },
+  "red_green": {
+    "green": {
+      "phase": "green",
+      "record_path": "evidence/2026-11-13-feature-a/0002-green.json",
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "red": null,
+    "test_first": false
+  },
+  "repository": {
+    "identity": "mojomast/smoke-real",
+    "source_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "schema": "rizzstack.return/1",
+  "transport": null,
+  "unrun": [],
+  "verification": {
+    "base_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "files": [
+      "smoke/answer.py"
+    ],
+    "gitleaks": {
+      "findings": 0,
+      "result": "PASS"
+    },
+    "record_path": "evidence/2026-11-13-feature-a/verify.json",
+    "suite": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_smoke",
+        "-v"
+      ],
+      "failures": 0,
+      "result": "PASS",
+      "tests": 1
+    }
+  },
+  "workflow_ref": "80727e97e13069a96c9dc6a0e80427d8064ab346"
+}

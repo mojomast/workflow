@@ -167,6 +167,8 @@ Honesty rules:
 - **Mark the level of every claim:** *observed* (you checked it), *reported* (someone told you), *unverified*.
 - **A bounded independent review beats a self-review.** On Nov 12, an independent review of the open PRs found blocking issues that the lanes' self-reports had missed. That review is why merges were paused.
 
+Which of these rules has a mechanical check behind it and which rests on a recorded incident is graded in [28](28-agent-lessons.md) — L-05 for the claim/evidence split, L-09 for unrun status, L-16 and L-17 for adoption and exactly-once. The five steps above stay the procedure, and a grade never lowers the bar.
+
 ---
 
 ## 5. The ACDD and TDD gates
