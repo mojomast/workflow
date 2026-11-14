@@ -1,0 +1,527 @@
+<#
+bees.ps1 - the one small link between the box coordinator and the PC beekeeper.
+  bees.ps1 status [<card>]            compact JSON: gateway/cron/launcher view, or one card + its attempts (under 1 KB)
+  bees.ps1 handoff <brief.json> [-DryRun]   validate a brief and create a beekeeper kanban card (idempotent on task_id)
+  bees.ps1 result <card> [-Full] [-OutFile <path>]   compact verdict summary (no 1 KB cap); -Full prints full JSON after it, -OutFile writes full JSON
+  bees.ps1 settle <card>              idempotent lifecycle: pass -> unblock if needed, then request-review; fail -> keep/move blocked
+No tokens, hosts, IPs, URLs or C:\Users paths. Never dispatches a bee directly, never pushes, cancels or restarts anything.
+#>
+param([Parameter(Position=0)][string]$Verb = "status", [Parameter(Position=1)][string]$Arg = "", [switch]$DryRun, [switch]$Full, [string]$OutFile = "")
+$ErrorActionPreference = "Stop"
+$env:HERMES_NONINTERACTIVE = "1"
+$H = Join-Path $env:LOCALAPPDATA "hermes\bin\hermes.exe"
+$ATT = if ($env:BEES_ATT_DIR) { $env:BEES_ATT_DIR } else { Join-Path $env:USERPROFILE ".orbit-launcher\attempts" }
+$PROTECTED = @("main","master","hermes/v0","hermes/art","hermes/art-nous","feat/improvements")
+
+function Scrub([string]$s) {
+  if (-not $s) { return $s }
+  $s = $s -replace '(?i)[A-Z]:\\Users\\[^\s"''`]*', '<path>' -replace '(?i)/(home|workspace|tmp)/[^\s"''`]*', '<path>'
+  $s = $s -replace '(?i)https?://[^\s"''`]+', '<url>' -replace '\b\d{1,3}(\.\d{1,3}){3}\b', '<ip>'
+  $s = $s -replace '[A-Za-z0-9_\-]{32,}', '<redacted>' -replace '(?i)t\W*u\W*r\W*b\W*o\W*f\W*i\W*t', '<word>'
+  return $s
+}
+function Out-Json($o) {
+  $s = Scrub ($o | ConvertTo-Json -Compress -Depth 6)
+  if ($s.Length -gt 1000) { $s = (@{ ok = $o.ok; truncated = $true; note = "reply over 1 KB; use 'result' or 'status <card>'" } | ConvertTo-Json -Compress) }
+  Write-Output $s
+}
+function FindKanbanVerb([string[]]$a) {
+  for ($i = 0; $i -lt $a.Count; $i++) {
+    if ($a[$i] -eq "kanban" -and ($i + 1) -lt $a.Count) { return $a[$i + 1] }
+  }
+  if ($a.Count) { return $a[0] }
+  return ""
+}
+function ParseHermesOut([string]$text, [int]$code) {
+  # Robust CLI contract: honor the process exit code; parse JSON only when stdout
+  # actually contains it. Hermes 0.23.1 `kanban unblock` / `block` / `request-review`
+  # have no --json (docs: https://hermes-agent.nousresearch.com/docs/reference/cli-commands
+  # and https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban).
+  $trim = if ($null -eq $text) { "" } else { [string]$text }
+  $trim = $trim.Trim()
+  $json = $null
+  $i = $trim.IndexOf("{"); $j = $trim.IndexOf("[")
+  $start = -1
+  if ($i -ge 0 -and ($j -lt 0 -or $i -le $j)) { $start = $i }
+  elseif ($j -ge 0) { $start = $j }
+  if ($start -ge 0) {
+    try { $json = $trim.Substring($start) | ConvertFrom-Json } catch { $json = $null }
+  }
+  return @{
+    ok = ($code -eq 0)
+    exit_code = $code
+    raw = $trim
+    json = $json
+    unrecognized_json = [bool]($trim -match "unrecognized arguments: --json")
+  }
+}
+function Kanban([string[]]$a) {
+  $verb = FindKanbanVerb $a
+  $jsonVerbs = @("show","list","ls","create","dispatch","runs","context","specify","decompose")
+  $argv = @($a)
+  if (($jsonVerbs -contains $verb) -and ($argv -notcontains "--json")) { $argv += "--json" }
+  $out = "" | & $H @argv 2>&1 | Out-String
+  $code = $LASTEXITCODE
+  $p = ParseHermesOut $out $code
+  if ((-not $p.ok) -and ($argv -contains "--json") -and $p.unrecognized_json) {
+    $argv2 = @($argv | Where-Object { $_ -ne "--json" })
+    $out = "" | & $H @argv2 2>&1 | Out-String
+    $code = $LASTEXITCODE
+    $p = ParseHermesOut $out $code
+    $p.retry_without_json = $true
+  }
+  $p.verb = $verb
+  return $p
+}
+function Hj([string[]]$a) {
+  $r = Kanban $a
+  if (-not $r.ok) { throw "hermes $(FindKanbanVerb $a) failed (exit $($r.exit_code))" }
+  if ($null -eq $r.json) { throw "hermes $(FindKanbanVerb $a) produced no JSON (exit $($r.exit_code))" }
+  return $r.json
+}
+function RegisterOwned([string]$taskId) {
+  if (-not $taskId) { return }
+  $p = if ($env:BEES_OWNED_FILE) { $env:BEES_OWNED_FILE } else { Join-Path $env:USERPROFILE ".orbit-launcher\hermes-bees\owned-cards.json" }
+  $dir = Split-Path $p
+  if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  $ids = @()
+  if (Test-Path $p) {
+    try { $o = Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json; $ids = @($o.task_ids) } catch { $ids = @() }
+  }
+  $ids = @($ids + $taskId | Where-Object { $_ } | Select-Object -Unique)
+  $json = (@{ task_ids = @($ids) } | ConvertTo-Json)
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  [IO.File]::WriteAllText($p, $json, $utf8)
+}
+function AttemptInfo([string]$aid) {
+  $p = Join-Path $ATT "$aid.json"
+  if (-not (Test-Path $p)) { return @{ id = $aid; state = "unknown" } }
+  $a = Get-Content $p -Raw | ConvertFrom-Json
+  $ev = Join-Path $ATT "$aid.events.jsonl"
+  $t = if (Test-Path $ev) { (Get-Item $ev).LastWriteTime } else { (Get-Item $p).LastWriteTime }
+  return @{ id = $aid; state = $a.state; quiet_min = [int]((Get-Date) - $t).TotalMinutes }
+}
+function NormPath([string]$p) { if (-not $p) { return "" }; return ([string]$p).Replace([char]0x5C, [char]0x2F).TrimStart('./') }
+function IsTelemetryPath([string]$p) {
+  $n = NormPath $p
+  return [bool]($n -match '(^|/)shots/' -or $n -match '(^|/)PROGRESS\.log$')
+}
+function PatchMap($r) {
+  $m = @{}
+  if ($r -and $r.patch -and $r.patch.files) {
+    foreach ($f in @($r.patch.files)) {
+      $p = NormPath $f.path
+      if ($p) { $m[$p] = [string]$f.sha256 }
+    }
+  }
+  return $m
+}
+function FileLease($workAtt) {
+  # The lease comes ONLY from the coordinator-owned work attempt record:
+  # <work_attempt>.json brief.assigned_files, which the launcher writes from the
+  # coordinator's create request. The verify brief, the work result (in_assigned_scope
+  # flags, patch.files paths) and the verify result never add paths. Directory entries
+  # ending in "/" cover files under them. Returns @{ lease = path->$true; missing = bool };
+  # missing or empty assigned_files is a missing lease, and VerifyFor fails closed.
+  $lease = @{}
+  $assigned = @()
+  if ($workAtt -and $workAtt.brief -and $workAtt.brief.assigned_files) {
+    $assigned = @($workAtt.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ })
+  }
+  if ($assigned.Count -eq 0) { return @{ lease = $lease; missing = $true } }
+  foreach ($p in $assigned) { $lease[$p] = $true }
+  return @{ lease = $lease; missing = $false }
+}
+function LeaseDigest($paths) {
+  # sha256 over the sorted, unique, normalized assigned_files joined by LF.
+  $n = @($paths | ForEach-Object { NormPath ([string]$_) } | Where-Object { $_ } | Sort-Object -Unique)
+  $bytes = (New-Object System.Text.UTF8Encoding $false).GetBytes(($n -join "`n"))
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { return (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join "") } finally { $sha.Dispose() }
+}
+function LeasePinPath { if ($env:BEES_LEASE_PINS) { return $env:BEES_LEASE_PINS }; return (Join-Path $env:USERPROFILE ".orbit-launcher\hermes-bees\lease-pins.json") }
+function ReadLeasePins {
+  $p = LeasePinPath
+  if (-not (Test-Path $p)) { return @{} }
+  try { $o = Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return @{} }
+  $h = @{}
+  if ($o -and $o.pins) { foreach ($prop in $o.pins.PSObject.Properties) { $h[$prop.Name] = $prop.Value } }
+  return $h
+}
+function PinLease([string]$card, [string]$taskId, $assigned) {
+  # Written at handoff from the coordinator's leased brief, before the beekeeper
+  # dispatches. Settle compares the work attempt's assigned_files against it, so
+  # a dispatch that widens or changes the lease after handoff fails closed.
+  if (-not $card) { return }
+  $p = LeasePinPath
+  $dir = Split-Path $p
+  if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  $pins = ReadLeasePins
+  $pins[$card] = @{ task_id = $taskId; assigned_sha256 = (LeaseDigest $assigned); n = @($assigned).Count }
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  [IO.File]::WriteAllText($p, (@{ pins = $pins } | ConvertTo-Json -Depth 5), $utf8)
+}
+function LeaseCovers($lease, [string]$p) {
+  if (-not $lease -or -not $p) { return $false }
+  if ($lease.ContainsKey($p)) { return $true }
+  foreach ($k in @($lease.Keys)) {
+    if ([string]$k -match '/$' -and $p.StartsWith([string]$k, [StringComparison]::Ordinal)) { return $true }
+  }
+  return $false
+}
+function VerifyFor([string[]]$work, [string]$card = "") {
+  # Newest verify bee whose brief.verify_of names one of this card's work attempts. Verdict is the verify bee's report,
+  # cross-checked against launcher-observed data: it must have succeeded, leased sha256s must match the work patch
+  # (patch_matches_work), and non-telemetry paths outside the lease are scope_violation (distinct from a content mismatch).
+  # shots/** and **/PROGRESS.log are telemetry_extras (warning only).
+  if (-not $work) { return $null }
+  $v = Get-ChildItem $ATT -Filter "att_*.json" -EA SilentlyContinue | Where-Object { $_.Name -match '^att_[0-9a-f]+\.json$' -and $_.LastWriteTime -gt (Get-Date).AddDays(-7) } |
+    Sort-Object LastWriteTime -Descending | ForEach-Object { $j = Get-Content $_.FullName -Raw | ConvertFrom-Json; if ($j.brief.verify_of -and ($work -contains $j.brief.verify_of)) { $j } } | Select-Object -First 1
+  if (-not $v) { return @{ verdict = "none"; note = "no verify bee yet" } }
+  $o = @{ attempt = $v.attempt_id; verify_of = $v.brief.verify_of; state = $v.state; verdict = "pending" }
+  $rf = Join-Path $ATT "$($v.attempt_id).result.json"; $wf = Join-Path $ATT "$($v.brief.verify_of).result.json"
+  if ($v.state -in @("failed","cancelled")) { $o.verdict = "fail"; $o.note = "verify bee $($v.state)" }
+  elseif ($v.state -eq "succeeded" -and (Test-Path $rf)) {
+    $r = Get-Content $rf -Raw | ConvertFrom-Json; $c = $r.worker_claims
+    if (-not $c) { $c = [pscustomobject]@{} }
+    # Shape A: verdict + commands[{cmd,rc,tail}] + secret_scan.hits
+    # Shape B: checks[{name,command,passed}] (secret_scan may be a check name)
+    $o.claimed = [string]$c.verdict
+    if (-not $o.claimed -and $c.checks) {
+      $fail = @($c.checks | Where-Object { -not ($_.passed -eq $true -or [string]$_.passed -eq "true") })
+      $o.claimed = if ($fail.Count -eq 0) { "pass" } else { "fail" }
+      $o.claimed_from = "checks"
+    } else { $o.claimed_from = "verdict" }
+    $o.patch_matches_work = $false
+    $o.telemetry_extras = @()
+    $o.scope_violation = $false
+    $o.scope_extras = @()
+    $o.mismatch = @()
+    $wAtt = $null
+    $wAttPath = Join-Path $ATT "$($v.brief.verify_of).json"
+    if (Test-Path $wAttPath) { $wAtt = Get-Content $wAttPath -Raw | ConvertFrom-Json }
+    $fl = FileLease $wAtt
+    $lease = $fl.lease
+    $o.lease_missing = [bool]$fl.missing
+    if ($o.lease_missing) {
+      $o.note = "no coordinator lease: work brief assigned_files missing"
+    } else {
+      $vAssigned = @()
+      if ($v.brief -and $v.brief.assigned_files) { $vAssigned = @($v.brief.assigned_files | ForEach-Object { NormPath $_ } | Where-Object { $_ }) }
+      $o.verify_scope_differs = [bool]((@($vAssigned | Sort-Object) -join "`n") -ne (@($lease.Keys | Sort-Object) -join "`n"))
+      # Handoff pin: the lease must equal what the coordinator's brief leased.
+      $o.lease_pinned = $false
+      $o.lease_pin_mismatch = $false
+      if ($card) {
+        $pins = ReadLeasePins
+        if ($pins.ContainsKey($card) -and $pins[$card].assigned_sha256) {
+          $o.lease_pinned = $true
+          if ([string]$pins[$card].assigned_sha256 -ne (LeaseDigest @($lease.Keys))) {
+            $o.lease_pin_mismatch = $true
+            $o.note = "lease differs from the handoff pin: work attempt assigned_files changed after handoff"
+          }
+        }
+      }
+    }
+    if ((Test-Path $wf) -and -not $o.lease_missing) {
+      $wr = Get-Content $wf -Raw | ConvertFrom-Json
+      $wm = PatchMap $wr
+      $vm = PatchMap $r
+      $mismatch = @()
+      $all = @(@($wm.Keys) + @($vm.Keys) | Select-Object -Unique)
+      foreach ($p in $all) {
+        if (-not (LeaseCovers $lease $p)) { continue }
+        $sw = if ($wm.ContainsKey($p)) { [string]$wm[$p] } else { "" }
+        $sv = if ($vm.ContainsKey($p)) { [string]$vm[$p] } else { "" }
+        if ($sw -ne $sv) { $mismatch += $p }
+      }
+      $tel = @(); $scope = @()
+      foreach ($p in $all) {
+        if (LeaseCovers $lease $p) { continue }
+        if (IsTelemetryPath $p) { $tel += $p } else { $scope += $p }
+      }
+      $o.patch_matches_work = ($mismatch.Count -eq 0)
+      $o.mismatch = @($mismatch | Sort-Object)
+      $o.telemetry_extras = @($tel | Sort-Object)
+      $o.scope_extras = @($scope | Sort-Object)
+      $o.scope_violation = ($scope.Count -gt 0)
+    }
+    $cmds = @($c.commands)
+    if ((-not $c.commands) -and $c.checks) {
+      $cmds = @($c.checks | ForEach-Object { $ok = ($_.passed -eq $true -or [string]$_.passed -eq "true"); [pscustomobject]@{ cmd = [string]($_.command -or $_.name); rc = $(if ($ok) { 0 } else { 1 }) } })
+    }
+    $o.failed_cmds = @($cmds | Where-Object { $_.rc -ne 0 }).Count
+    if ($c.secret_scan -and $null -ne $c.secret_scan.hits) { $o.secret_hits = @($c.secret_scan.hits).Count }
+    elseif ($c.checks) {
+      $ss = @($c.checks | Where-Object { [string]$_.name -match "secret[_-]?scan" } | Select-Object -First 1)
+      $o.secret_hits = if ($ss) { if ($ss.passed -eq $true -or [string]$ss.passed -eq "true") { 0 } else { 1 } } else { -1 }
+    } else { $o.secret_hits = -1 }  # -1 = no scan reported (fails)
+    $o.not_run = @($c.not_run | Where-Object { $_ }).Count
+    if ($o.lease_missing -or $o.lease_pin_mismatch) { $o.verdict = "fail" }
+    else { $o.verdict = if ($o.claimed -eq "pass" -and $o.patch_matches_work -and -not $o.scope_violation -and $o.failed_cmds -eq 0 -and $o.secret_hits -eq 0) { "pass" } else { "fail" } }
+  }
+  return $o
+}
+function AttemptTokens([string]$aid) {
+  $rf = Join-Path $ATT "$aid.result.json"
+  if (-not (Test-Path $rf)) { return $null }
+  $r = Get-Content $rf -Raw | ConvertFrom-Json
+  $u = $null; if ($r.observed -and $r.observed.usage) { $u = $r.observed.usage }
+  if ($u -is [string]) { try { $u = $u | ConvertFrom-Json } catch { return $null } }
+  if (-not $u) { return $null }
+  $o = @{}
+  foreach ($k in @("cachedReadTokens","inputTokens","outputTokens","thoughtTokens","totalTokens")) {
+    if ($null -ne $u.$k) { $o[$k] = $u.$k }
+  }
+  if ($o.Count -eq 0) { return $null }
+  return $o
+}
+function ResultSummary($card, $status, $v, $workIds, $verifyId) {
+  $tokens = @{}
+  foreach ($wid in @($workIds)) {
+    $t = AttemptTokens $wid
+    if ($t) { $tokens.work = $t; break }
+  }
+  if ($verifyId) {
+    $t = AttemptTokens $verifyId
+    if ($t) { $tokens.verify = $t }
+  }
+  $tel = @(); if ($v -and $v.telemetry_extras) { $tel = @($v.telemetry_extras) }
+  return @{
+    card = $card
+    status = $status
+    verdict = $(if ($v) { $v.verdict } else { $null })
+    claimed = $(if ($v) { $v.claimed } else { $null })
+    patch_matches_work = $(if ($v) { $v.patch_matches_work } else { $null })
+    scope_violation = $(if ($v) { $v.scope_violation } else { $null })
+    secret_hits = $(if ($v) { $v.secret_hits } else { $null })
+    failed_cmds = $(if ($v) { $v.failed_cmds } else { $null })
+    telemetry_extras = $tel
+    tokens = $tokens
+  }
+}
+function SettlePlan([string]$status, [string]$blockKind, [string]$verdict) {
+  # Pure plan: no hermes calls. Idempotent. pass -> review; fail -> blocked; else no-op.
+  $st = [string]$status; $kind = [string]$blockKind; $v = [string]$verdict
+  if ($v -eq "pass") {
+    if ($st -in @("review","done")) { return @{ action = "noop"; status = $st } }
+    $unblock = ($st -in @("blocked","scheduled") -or $kind -eq "needs_input")
+    return @{ action = "review"; unblock = [bool]$unblock; force = ($st -eq "running") }
+  }
+  if ($v -eq "fail") {
+    if ($st -eq "blocked") { return @{ action = "noop"; status = "blocked" } }
+    return @{ action = "block" }
+  }
+  return @{ action = "noop"; status = $st; note = "no terminal verdict" }
+}
+function SettleCard([string]$card, $verify) {
+  # Execute SettlePlan against the live board. Idempotent. Never touches other cards.
+  # Mutations use Kanban (exit code + optional JSON); state is always re-read via show --json.
+  $s = Hj @("kanban","show",$card,"--json")
+  $status = [string]$s.task.status
+  $kind = [string]$s.task.block_kind
+  $plan = SettlePlan $status $kind $(if ($verify) { [string]$verify.verdict } else { "" })
+  $out = @{ ok = $true; settled = $false; status = $status; action = $plan.action; verdict = $(if ($verify) { $verify.verdict } else { $null }) }
+  if ($plan.action -eq "noop") { $out.note = $plan.note; if ($plan.status) { $out.status = $plan.status }; return $out }
+  $actions = @()
+  if ($plan.action -eq "review") {
+    if ($plan.unblock) {
+      $u = Kanban @("kanban","unblock",$card,"--reason","verify pass; resume to record verdict")
+      $actions += "unblocked"
+      $after = Hj @("kanban","show",$card,"--json")
+      $st = [string]$after.task.status
+      if (-not $u.ok) { $out.ok = $false; $out.error = "unblock exit $($u.exit_code)"; $out.status = $st; $out.actions = $actions; return $out }
+      if ($st -eq "review") { $out.settled = $true; $out.status = "review"; $out.actions = $actions; return $out }
+    }
+    $sum = "verified by bee, ready for the box to secret-scan and push"
+    $rrArgs = @("kanban","request-review",$card,"--summary",$sum)
+    if ($plan.force) { $rrArgs += "--force" }
+    $rr = Kanban $rrArgs
+    if ($rr.ok) { $actions += "request-review" }
+    else {
+      $rr = Kanban @("kanban","request-review",$card,"--summary",$sum,"--force")
+      $actions += "request-review-force"
+    }
+    $after = Hj @("kanban","show",$card,"--json")
+    $out.status = [string]$after.task.status
+    $out.actions = $actions
+    $out.settled = ($out.status -eq "review")
+    $out.ok = [bool]($rr.ok -and $out.settled)
+    if (-not $out.ok) { $out.error = "request-review exit $($rr.exit_code); status $($out.status)" }
+    return $out
+  }
+  if ($plan.action -eq "block") {
+    $reason = "verify fail claimed=$($verify.claimed) patch_matches=$($verify.patch_matches_work) scope_violation=$($verify.scope_violation) secret_hits=$($verify.secret_hits) failed_cmds=$($verify.failed_cmds)"
+    $bk = Kanban @("kanban","block","--kind","needs_input",$card,$reason)
+    $after = Hj @("kanban","show",$card,"--json")
+    $out.status = [string]$after.task.status
+    $out.actions = @("blocked")
+    $out.settled = ($out.status -eq "blocked")
+    $out.ok = [bool]($bk.ok -and $out.settled)
+    if (-not $out.ok) { $out.error = "block exit $($bk.exit_code); status $($out.status)" }
+    return $out
+  }
+  return $out
+}
+function Emit-Result($compactObj, $fullObj) {
+  # Always print the compact summary first, with no 1 KB cap. Optional full JSON after, or to -OutFile.
+  # Parameter names must not collide with the script-level -Full switch (simple functions share script scope).
+  $c = Scrub ($compactObj | ConvertTo-Json -Compress -Depth 8)
+  Write-Output $c
+  $fjson = Scrub ($fullObj | ConvertTo-Json -Compress -Depth 8)
+  if ($OutFile) { [IO.File]::WriteAllText($OutFile, $fjson) }
+  if ($Full.IsPresent) { Write-Output $fjson }
+}
+
+function LineTimestamp([string]$line) {
+  # Parse a log line's own timestamp; $null if none. Never prints the line.
+  # Local "YYYY-MM-DD[ T]HH:MM:SS"; a trailing Z or offset is converted to local time.
+  if ($line -notmatch '(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?') { return $null }
+  $local = [datetime]::ParseExact(($Matches[1] + " " + $Matches[2]), "yyyy-MM-dd HH:mm:ss", [cultureinfo]::InvariantCulture)
+  $suf = $Matches[3]
+  if (-not $suf) { return $local }
+  if ($suf -eq "Z") { return [datetime]::SpecifyKind($local, [datetimekind]::Utc).ToLocalTime() }
+  if ($suf -match '^([+-])(\d{2}):?(\d{2})$') {
+    $sign = if ($Matches[1] -eq "-") { -1 } else { 1 }
+    $off = [timespan]::FromMinutes($sign * (60 * [int]$Matches[2] + [int]$Matches[3]))
+    return [datetime]::SpecifyKind($local, [datetimekind]::Utc).Add(-$off).ToLocalTime()
+  }
+  return $local
+}
+function MonthlyLimitSince([datetime]$since) {
+  # Fail-fast: a monthly usage-limit 429 whose own log-line timestamp is on or after $since.
+  # File mtime is only a cheap skip. Lines with no timestamp are ignored. Never prints the log.
+  $hit = $false
+  foreach ($rel in @("profiles\beekeeper\logs\errors.log", "profiles\beekeeper\logs\agent.log")) {
+    $lp = Join-Path $env:LOCALAPPDATA (Join-Path "hermes" $rel)
+    if (-not (Test-Path $lp)) { continue }
+    if ((Get-Item $lp).LastWriteTime -lt $since) { continue }
+    $lines = Get-Content $lp -Tail 200 -EA SilentlyContinue
+    foreach ($line in @($lines)) {
+      if ($line -notmatch "429|GoUsageLimitError|usage limit reached|UsageLimit") { continue }
+      if ($line -notmatch "monthly|limitName") { continue }
+      $ts = LineTimestamp $line
+      if ($null -eq $ts) { continue }
+      if ($ts -ge $since) { $hit = $true; break }
+    }
+    if ($hit) { break }
+  }
+  return $hit
+}
+function CardAttempts($show) {
+  $txt = (@($show.task.body, $show.task.result, $show.latest_summary) + @($show.comments | ForEach-Object { $_.body })) -join " "
+  return @([regex]::Matches($txt, 'att_[0-9a-f]{16}') | ForEach-Object { $_.Value } | Select-Object -Unique -Last 4)
+}
+
+try {
+  switch ($Verb) {
+    "status" {
+      if ($Arg) {
+        $s = Hj @("kanban","show",$Arg,"--json")
+        Out-Json @{ ok = $true; card = $s.task.id; status = $s.task.status; assignee = $s.task.assignee; attempts = @(CardAttempts $s | ForEach-Object { AttemptInfo $_ }); comments = @($s.comments).Count }
+      } else {
+        $gw = ('' | & $H gateway status 2>$null) -join " "
+        $cards = @(Hj @("kanban","list","--assignee","beekeeper","--json"))
+        $by = @{}; foreach ($c in $cards) { foreach ($x in @($c)) { if ($x -and $x.status) { $by[[string]$x.status] = 1 + [int]$by[[string]$x.status] } } }
+        $running = @(Get-ChildItem $ATT -Filter "att_*.json" -EA SilentlyContinue | Where-Object { $_.Name -match "^att_[0-9a-f]+\.json$" -and $_.LastWriteTime -gt (Get-Date).AddDays(-2) } | ForEach-Object { (Get-Content $_.FullName -Raw | ConvertFrom-Json).state } | Where-Object { $_ -notin @("succeeded","failed","cancelled") }).Count
+        $memo = Join-Path $env:LOCALAPPDATA "hermes\scripts\bee-watch.state.json"
+        $wage = if (Test-Path $memo) { [int]((Get-Date) - (Get-Item $memo).LastWriteTime).TotalSeconds } else { -1 }
+        Out-Json @{ ok = $true; gateway = [bool]($gw -match "running"); beekeeper_cards = $by; launcher_active_attempts = $running; bee_watch_last_s = $wage; c_free_gb = [math]::Round((Get-PSDrive C).Free / 1GB, 1) }
+      }
+    }
+    "handoff" {
+      if (-not $Arg -or -not (Test-Path $Arg)) { throw "brief file not found" }
+      $raw = Get-Content $Arg -Raw
+      $b = $raw | ConvertFrom-Json
+      $errs = @()
+      foreach ($k in "task_id","objective","project","branch","source_rev") { if (-not $b.$k) { $errs += "missing $k" } }
+      if ($b.source_rev -and $b.source_rev -notmatch '^[0-9a-f]{40}$') { $errs += "source_rev must be a 40-char sha" }
+      if (-not $b.assigned_files -or @($b.assigned_files).Count -eq 0) { $errs += "assigned_files empty" }
+      if (-not $b.acceptance) { $errs += "missing acceptance" }
+      if ($b.branch -and ($PROTECTED -contains $b.branch -or $b.branch -match '^(release|integration)/')) { $errs += "protected branch" }
+      if ($b.task_id -and $b.task_id -notmatch '^[A-Za-z0-9_.:-]{3,64}$') { $errs += "bad task_id" }
+      $chk = $raw -replace '\b[0-9a-f]{40}\b', 'SHA'; if ((Scrub $chk) -ne $chk) { $errs += "brief contains a path, url, ip, token-like string or banned word" }
+      if ($errs.Count) { Out-Json @{ ok = $false; errors = $errs }; exit 2 }
+      $obj = [string]$b.objective; $title = "bee: $($b.task_id) " + $obj.Substring(0, [Math]::Min(60, $obj.Length))
+      $body = "Dispatch this leased brief with bundlebees_dispatch (model deepseek-v4.1-flash), comment the attempt id here, then end your turn. Do not kanban_block or park this card as needs_input while a bee is running or waiting for verify; the beekeeper-guard hook will reject that mid-run park. bee-watch wakes you when a gap appears (level-triggered; short bees included). Then dispatch the default verify bee (make-verify-brief.py) only if no verify_of attempt already exists. If the leased brief has verify_priority, run make-verify-brief.py <attempt> --priority <that value> so the verify bee uses that route. When verify finishes, run bees.ps1 result <card> (it settles: pass -> unblock if needed then request-review; fail -> blocked). Never push, merge, tag or deploy.`n``````json`n$raw`n``````"
+      if ($DryRun) { Out-Json @{ ok = $true; dry_run = $true; would_create = @{ title = $title; assignee = "beekeeper"; idempotency_key = $b.task_id; max_runtime = "25m"; max_retries = 1; body_bytes = $body.Length }; would_dispatch = "hermes -p beekeeper kanban dispatch --max 1" }; break }
+      $tmp = [IO.Path]::GetTempFileName(); [IO.File]::WriteAllText($tmp, $body)
+      try { $c = Hj @("kanban","create",$title,"--body-file",$tmp,"--assignee","beekeeper","--idempotency-key",$b.task_id,"--max-runtime","25m","--max-retries","1","--skill","bundlebees:bundlebees-operator","--created-by","box-coordinator","--json") } finally { Remove-Item $tmp -EA SilentlyContinue }
+      RegisterOwned $b.task_id
+      PinLease ([string]$c.id) ([string]$b.task_id) @($b.assigned_files)
+      $t0 = Get-Date
+      $disp = $null
+      try { $disp = Hj @("-p","beekeeper","kanban","dispatch","--max","1","--json") } catch { $disp = @{ error = (Scrub $_.Exception.Message) } }
+      Start-Sleep 8
+      $limit = MonthlyLimitSince $t0
+      $spawned = @()
+      if ($disp -and $disp.spawned) { $spawned = @($disp.spawned | ForEach-Object { $_.task_id }) }
+      $out = @{ ok = $true; card = $c.id; status = $c.status; dispatched = [bool]$spawned; spawned = $spawned; max_runtime = "25m" }
+      if ($disp -and $disp.error) { $out.dispatch_error = $disp.error }
+      if ($limit) { $out.ok = $false; $out.error = "monthly usage-limit 429 right after dispatch; fail-fast, not waiting out max-runtime" }
+      Out-Json $out
+      if ($limit) { exit 2 }
+    }
+    "result" {
+      if (-not $Arg) { throw "card id required" }
+      $s = Hj @("kanban","show",$Arg,"--json")
+      $last = @($s.comments | Select-Object -Last 1 | ForEach-Object { $_.body })[0]
+      $sum = [string]$s.latest_summary
+      $ids = @(CardAttempts $s)
+      $work = @($ids | Where-Object { $p = Join-Path $ATT "$_.json"; (Test-Path $p) -and -not (Get-Content $p -Raw | ConvertFrom-Json).brief.verify_of })
+      $v = VerifyFor $work ([string]$s.task.id)
+      $settled = $null
+      if ($v -and ([string]$v.verdict -in @("pass","fail"))) {
+        try { $settled = SettleCard $s.task.id $v } catch { $settled = @{ ok = $false; error = (Scrub $_.Exception.Message) } }
+        try { $s = Hj @("kanban","show",$Arg,"--json") } catch { }
+      }
+      $compact = ResultSummary $s.task.id $s.task.status $v $work $(if ($v) { $v.attempt } else { $null })
+      if ($settled) { $compact.settled = $settled }
+      $fullObj = @{ ok = $true; card = $s.task.id; status = $s.task.status; attempts = @($ids | ForEach-Object { AttemptInfo $_ }); verify = $v; summary = $sum; last_comment = $last; branch = $s.task.branch_name; settled = $settled }
+      Emit-Result $compact $fullObj
+    }
+    "settle" {
+      if (-not $Arg) { throw "card id required" }
+      $s = Hj @("kanban","show",$Arg,"--json")
+      $ids = @(CardAttempts $s)
+      $work = @($ids | Where-Object { $p = Join-Path $ATT "$_.json"; (Test-Path $p) -and -not (Get-Content $p -Raw | ConvertFrom-Json).brief.verify_of })
+      $v = VerifyFor $work ([string]$s.task.id)
+      $settled = SettleCard $s.task.id $v
+      Out-Json @{ ok = [bool]$settled.ok; card = $s.task.id; status = $settled.status; verdict = $v.verdict; settled = $settled }
+    }
+    "usage" {
+      # bees.ps1 usage [YYYY-MM-DD] [-Full]: refresh the bee.usage/v1 ledger, print the day's rollup and warn-only alerts.
+      # Never blocks, dispatches, cancels or restarts anything. Alert thresholds come from usage\alerts.defaults.json,
+      # a verbatim copy of workflow observability/alerts.defaults.json (alert.thresholds/v1); no numbers live here.
+      # OTLP export runs only when usage\otlp.json has "enabled": true (loopback endpoint only).
+      $ErrorActionPreference = "Continue"
+      $U = Join-Path $env:USERPROFILE ".orbit-launcher\usage"
+      $bin = Join-Path $U "bin\scripts"
+      $ledger = Join-Path $U "usage-ledger.jsonl"
+      $hdb = Join-Path $env:LOCALAPPDATA "hermes\profiles\beekeeper\state.db"
+      $py = "python"
+      $b = @("$bin\usage_ledger.py","build","--attempts",$ATT,"--ledger",$ledger)
+      if (Test-Path $hdb) { $b += @("--hermes-db",$hdb) }
+      $build = (& $py @b 2>$null | Select-Object -Last 1)
+      $rep = @("$bin\usage_report.py","--ledger",$ledger)
+      if ($Arg -match '^\d{4}-\d{2}-\d{2}$') { $rep += @("--day",$Arg) } else { $rep += "--today" }
+      $af = Join-Path $U "alerts.defaults.json"
+      if (Test-Path $af) { $rep += @("--alerts",$af) }
+      if ($Full) { $rep += "--full" }
+      $report = (& $py @rep 2>$null) -join "`n"
+      $otlp = $null
+      $of = Join-Path $U "otlp.json"
+      if (Test-Path $of) {
+        $oc = Get-Content $of -Raw | ConvertFrom-Json
+        if ($oc.enabled -and $oc.endpoint) {
+          $vpy = Join-Path $U "otel-venv\Scripts\python.exe"; if (-not (Test-Path $vpy)) { $vpy = $py }
+          $otlp = (& $vpy "$bin\usage_otlp.py" export --ledger $ledger --endpoint $oc.endpoint 2>$null | Select-Object -Last 1)
+        }
+      }
+      if (-not $report) { $report = '{"ok":false,"error":"usage_report produced no output"}' }
+      Write-Output (Scrub $report)
+      Write-Output (Scrub ('{"ledger":' + $(if ($build) { $build } else { 'null' }) + ',"otlp":' + $(if ($otlp) { $otlp } else { 'null' }) + '}'))
+    }
+    default { Out-Json @{ ok = $false; error = "verbs: status [card] | handoff <brief.json> [-DryRun] | result <card> [-Full] [-OutFile path] | settle <card> | usage [YYYY-MM-DD] [-Full]" }; exit 2 }
+  }
+} catch { Out-Json @{ ok = $false; error = (Scrub $_.Exception.Message) }; exit 1 }
