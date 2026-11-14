@@ -1,0 +1,57 @@
+{
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "statement": "a contract whose source_rev is not reachable from the repository head is refused",
+      "tests": [
+        "tools/acdd-lint/tests/test_check_reachability.py::Reachability::test_reachable_commit_is_silent"
+      ],
+      "verification": "test"
+    }
+  ],
+  "authorization": {
+    "human_gates": [
+      "merge",
+      "release",
+      "deploy",
+      "publish"
+    ]
+  },
+  "contract_version": "acdd/1",
+  "evidence_required": [
+    "green"
+  ],
+  "id": "T2-REACHABILITY",
+  "outcome": {
+    "observable_behavior": [
+      "a contract whose source_rev is not reachable from the repository head is refused"
+    ],
+    "summary": "a contract whose source_rev is not reachable from the repository head is refused"
+  },
+  "review": {
+    "approved_at": "2026-11-13T20:00:00Z",
+    "approved_by": "recovery:deterministic-agent",
+    "contract_sha256": "52d17e65714343bcb86547309454beea9aca95944ce76a3732d3fd0fede3df72",
+    "status": "approved"
+  },
+  "scope": {
+    "assigned_files": [
+      "tools/acdd-lint/acdd_lint/checks_reachability.py"
+    ],
+    "test_files": [
+      "tools/acdd-lint/tests/test_check_reachability.py"
+    ]
+  },
+  "source_rev": "5c803281146bb6f93ea0b0700d44db7808cc0fe7",
+  "supersedes": "T2-REACHABILITY",
+  "supersedes_sha256": "b30fdd670282a097701bae2841177f99ccefcc9243055ac2696766dd6a1e249b",
+  "tdd": {
+    "applicable": true,
+    "reason": "the approved test exists and fails at the baseline",
+    "test_first": false
+  },
+  "title": "a contract whose source_rev is not reachable from the repository head is refused",
+  "verification": {
+    "independent": true
+  }
+}

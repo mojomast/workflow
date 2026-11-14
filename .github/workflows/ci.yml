@@ -206,6 +206,12 @@ jobs:
         run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
       - name: Recovery protocol tests (required, jsonschema required, no skips)
         run: python3 -m unittest tests.test_recovery_protocol -v
+      - name: Runtime conformance tests (required, jsonschema required, no skips)
+        # The migration evidence for bundlebees 191dc85: the archived
+        # pre-conformance captures must be refused and the canonical pair must
+        # validate. Named explicitly as well as through the discovery step at
+        # the end, so a failure here reads as a conformance failure.
+        run: python3 -m unittest tests.test_runtime_conformance -v
       - name: Validate the request and decision examples with the CLI
         run: |
           python3 tools/recovery.py request schemas/examples/recovery-request.json

@@ -24,7 +24,10 @@ Validator: `tools/recovery.py`.
 Examples: `schemas/examples/recovery-request.json`,
 `schemas/examples/recovery-decision.json`.
 Tests: `tests/test_recovery_protocol.py` (required CI job
-`recovery-protocol`).
+`recovery-protocol`). Runtime conformance: `tests/test_runtime_conformance.py`
+with `tests/fixtures/runtime/` — the archived pre-conformance bundlebees
+records and the canonical pair derived from them, see
+[Runtime conformance and migration](#runtime-conformance-and-migration).
 
 ## The five failure classes
 
@@ -413,6 +416,86 @@ the decision. Mechanically it does five things.
 
 No step lets an adapter set a budget, choose a contract other than the one that
 failed, add an unapproved test, or dispatch for a host or launcher failure.
+
+## Runtime conformance and migration
+
+`rizzstack.recovery/1` is unchanged by the M4.1 conformance work. The schema,
+the enums and the validator rules in this chapter are the ones bundlebees must
+meet; where the runtime's output and the protocol disagree, the runtime's output
+is refused. Nothing here narrows or relaxes a rule to fit a producer.
+
+The first real runtime pair — `bundlebees` at `191dc85`, the M4 dogfood of
+2026-11-14 (`job_m4_dogfood`, task `T2`, attempt `att_m4_2`) — did not meet the
+protocol. Its documents are archived byte-for-byte in
+`tests/fixtures/runtime/captured-*.json`, with their sha256s pinned in
+`tests/test_runtime_conformance.py` and recorded in that directory's README.
+They stay there unmodified and **non-authoritative**:
+
+* they are the evidence that a working runtime produced documents the protocol
+  refuses; editing them into conformance would erase the defect and leave the
+  conformance test asserting nothing;
+* no RETURN manifest may cite them as a validated pair, no dispatch may be made
+  from them, and nothing outside the conformance tests reads them;
+* the representation that validates is the canonical pair derived from the same
+  evidence (`canonical-request.json`, `canonical-decision.json`). The captures
+  are history, not input.
+
+### What the runtime wrote and what the protocol requires
+
+Each row is refused on its own by the pinned schema or validator, so a refusal
+names the exact rule. The canonical column is the one representation chosen for
+that mismatch, derived from the same evidence.
+
+| Runtime shape | Refusal | Canonical representation | Why that representation |
+|---|---|---|---|
+| request carries `number` | `recovery_schema`, `<root>: Additional properties are not allowed` | field dropped | per-run attempt numbering is job bookkeeping, not part of the sealed failure statement; v1's request has no numeric counter and must not gain one |
+| request carries `attempts_used` | `recovery_schema`, `<root>` | field dropped; the count is passed to `validate_decision` | an attempt ledger is a validation *argument*, not a document field: a request that states its own count could claim budget it does not have |
+| request carries `created_at` | `recovery_schema`, `<root>` | field dropped | a volatile field inside the sealed body would make resealing non-deterministic; v1 keeps wall-clock out of the request and the decision's `decided_at` is the only timestamp |
+| `envelope.contract_corrections_allowed` is `true` | `recovery_schema`, `envelope.contract_corrections_allowed: True is not of type 'integer'` | `1` | the envelope's bound is a count in `0..1`, and "true" means "uncounted"; an uncountable correction budget is exactly the widening the envelope exists to prevent. The schema gate has to make this refusal: the validator's own `int()` cast would have accepted the bool |
+| `failure.evidence` is a string | `recovery_schema`, `failure.evidence: ... is not of type 'array'` | `[{"kind": "test", "reference": "tests/fixtures/runtime/captured-request.json", "sha256": "<capture hash>"}]` | a prose summary is not a reference and cannot be checked. The canonical entry names the durable record that carries the verifier's observation — the archived capture, because the run directory is not durable — and `test` is a kind the `specification` class requires |
+| `failure.code` is `test_unresolved` | `recovery_schema`, `failure.code: ... is not one of [...]` | `test_not_found` | the observation is "no test was collected for the named node id": the selector does not resolve at the pinned revision, which is one of the three unusable-acceptance codes. A free-text code would make the class/code check bypassable, so the runtime maps its internal code at the boundary |
+| decision carries `decision_digest` | `recovery_schema`, `<root>` | field dropped | a v1 decision has no digest of its own: it proves nothing about authorship and invites replay confusion. The binding is `request_digest`, recomputed from the request body; `decision_digest()` stays a journaling helper, not a field |
+| `supersedes.new_contract_id` is `T2-REACHABILITY-r1` | `decision_scope_widened` (shape is legal; the rule is semantic) | `T2-REACHABILITY`, with `new_contract_sha256` for the re-frozen revision | a correction revises the same contract; a different id is a new feature needing its own packet. `contract_sha256` covers the id, so the same body is re-frozen under the canonical id and its hash necessarily changes: the captured `-r1` hash cannot be cited |
+| envelope allows the file and `::Reachability::test_ancestor_ok`, while the decision substitutes `::Reachability::test_reachable_commit_is_silent` | `corrected_tests_not_allowed` (found by the migration, after the fixes above) | envelope allows the test file and the replacement the corrected contract names | the runtime's own envelope did not authorise the runtime's own decision. The authorization existed — the approved corrected contract names that method — but the request recorded the selector that does not exist instead. Listing an unusable selector as "allowed" would authorise re-creating the failure |
+
+Two consequences of the rules are worth stating, because they shape any
+migration:
+
+* **The request digest cannot be carried over.** The captured
+  `request_digest` (`cb79fa54…`) is a correct seal of a body the schema cannot
+  express. Removing the three bookkeeping fields changes the canonical body, so
+  the canonical request has its own digest (`6d57b980…`) and the decision is
+  rebound to it. A derived pair that kept the old digest would be a decision
+  pointing at bytes that no longer exist.
+* **A supersession forces a re-freeze when the runtime revisioned the id.**
+  Keeping both `new_contract_id: T2-REACHABILITY` and the captured `-r1` hash is
+  impossible, because the frozen hash covers the id. The corrected contract is
+  re-approved under the unchanged id at the same timestamp by the same adapter,
+  and the decision names the resulting hash
+  (`52d17e65…`). This is a document change, not a schema change.
+
+### What this means for bundlebees
+
+1. Emit the canonical shape: the fields listed under [Request](#request) and
+   [Decision](#decision), nothing else at any level. Internal bookkeeping —
+   attempt numbers, ledger counts, timestamps — stays in the job and event
+   records.
+2. Map internal failure codes to the canonical enums at the boundary, in the
+   one place that classifies (`reconcile.classify_failure`), and never emit a
+   code outside them.
+3. Record the correction budget as the integer `0..1`, and populate
+   `corrected_tests_allowed` with the selectors the correction may actually
+   use: the file or node ids that exist or that the review approved, never the
+   selector that failed to resolve.
+4. Keep a decision's own digest, if the journal needs one, outside the document.
+5. When a pre-conformance pair must be cited, archive it and derive a canonical
+   pair, as `tests/fixtures/runtime/` does. Never rewrite the capture, and never
+   cite it as validated.
+
+The tests are `tests/test_runtime_conformance.py`; the required CI job
+`recovery-protocol` runs them by name and again through the `tests/` discovery
+step, so a schema change that starts accepting a runtime shape, or a capture
+edited in place, fails the build.
 
 ## Worked example
 
