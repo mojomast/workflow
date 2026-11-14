@@ -158,3 +158,28 @@ jobs:
         run: python3 -m unittest tests.test_feature_packet -v
       - name: Every module under tests/
         run: python3 -m unittest discover -s tests -t . -q
+
+  return-manifest:
+    name: return manifest protocol (required)
+    # Validates rizzstack.return/1: digest recomputation, the always-pending
+    # receiver decision, PASS evidence, descendant consistency and every enum.
+    # The examples pin a schema-bearing ancestor, so the job needs the history
+    # (fetch-depth: 0) to resolve the pin and compare its bytes.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Return manifest protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_return_manifest -v
+      - name: Validate the two examples with the CLI
+        run: python3 tools/return_manifest.py schemas/examples/return-exact.json schemas/examples/return-dependent.json
+      - name: Every module under tests/
+        run: python3 -m unittest discover -s tests -t . -q
