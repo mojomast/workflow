@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json",
+  "title": "Bee Landed event (rizzstack.bee-landed/1)",
+  "description": "A CloudEvents 1.0 envelope that announces one terminal worker transition: succeeded, failed or cancelled. A Bee Landed event is delivery evidence. It is not a verification result and it is not an acceptance decision; those belong to the receiver.",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "time",
+    "subject",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "const": "1.0",
+      "description": "CloudEvents specification version. Only 1.0 is implemented."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|urn:[A-Za-z0-9][A-Za-z0-9-]{0,31}:\\S+)$",
+      "description": "Event id: a UUID (canonical text form) or a URN. Unique per emitted event."
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^\\S+$",
+      "description": "URI-reference naming the emitting coordinator or adapter. It is an identity, never a filesystem path."
+    },
+    "type": {
+      "const": "rizzstack.bee.landed.v1",
+      "description": "CloudEvents type of the canonical Bee Landed event."
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp of the terminal transition."
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The worker task or attempt this event is about, in the emitter's stable naming."
+    },
+    "datacontenttype": {
+      "const": "application/json",
+      "description": "Optional CloudEvents attribute; when present it must describe the JSON data payload."
+    },
+    "dataschema": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Optional CloudEvents attribute naming the schema URI."
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "feature_id",
+        "job_id",
+        "task_id",
+        "attempt_id",
+        "coordinator",
+        "backend",
+        "state",
+        "source_rev",
+        "lease",
+        "result"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.bee-landed/1",
+          "description": "Payload schema version. tools/bee_landed.py refuses any other value."
+        },
+        "feature_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "terminal_transition_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Optional durable id of the terminal transition. When omitted, the dedupe key uses the CloudEvents id instead."
+        },
+        "coordinator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "identity"
+          ],
+          "properties": {
+            "identity": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "The coordinator identity that observed and emitted the terminal transition."
+            },
+            "session": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Optional coordinator session id. It is an id, never a credential."
+            }
+          }
+        },
+        "backend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "harness"
+          ],
+          "properties": {
+            "harness": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "The agent harness or runner that executed the attempt."
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Optional model identifier reported by the harness."
+            }
+          }
+        },
+        "state": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "description": "Terminal landing state. Missing, non-terminal and receiver-side states (verified, accepted) are refused."
+        },
+        "source_rev": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "Lowercase git revision (40 hex) or sha256 revision (64 hex) the attempt ran against."
+        },
+        "lease": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "assigned_files"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "Digest of the lease the coordinator granted."
+            },
+            "assigned_files": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 1000,
+              "items": {
+                "type": "string",
+                "maxLength": 512,
+                "pattern": "^(?!(?:.*/)?\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                "description": "Repository-relative file path. Absolute paths, traversal and home-directory paths are refused."
+              }
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean",
+              "description": "Whether a result artifact exists for a receiver to reproduce. A true value requires artifact_sha256 or reference."
+            },
+            "artifact_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "Digest of the artifact. The artifact bytes never travel in this event."
+            },
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "description": "Pointer a receiver can resolve to fetch the artifact. It is a reference, never embedded content."
+            }
+          }
+        },
+        "correlation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Optional id shared by all events in one workflow correlation."
+        },
+        "causation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Optional id of the event or command that caused this landing."
+        }
+      }
+    }
+  },
+  "$comment": "CloudEvents extension attributes are permitted at the envelope root. The data object is closed: no producer-defined payload fields are allowed."
+}

@@ -159,6 +159,36 @@ jobs:
       - name: Every module under tests/
         run: python3 -m unittest discover -s tests -t . -q
 
+  bee-landed:
+    name: bee-landed protocol (required)
+    # Validates rizzstack.bee-landed/1: the terminal CloudEvents envelope, the
+    # three terminal states, the dedupe key and every refusal rule.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Bee Landed protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_bee_landed -v
+      - name: Validate the Bee Landed examples when present
+        run: |
+          shopt -s nullglob
+          files=(schemas/examples/bee-landed*.json schemas/examples/bee-landed/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Bee Landed examples under schemas/examples; skipping."
+          else
+            python3 tools/bee_landed.py "${files[@]}"
+          fi
+      - name: Every module under tests/
+        run: python3 -m unittest discover -s tests -t . -q
+
   return-manifest:
     name: return manifest protocol (required)
     # Validates rizzstack.return/1: digest recomputation, the always-pending
@@ -219,3 +249,62 @@ jobs:
             --request schemas/examples/recovery-request.json --attempts-used 1
       - name: Every module under tests/
         run: python3 -m unittest discover -s tests -t . -q
+
+  # Required-context gates. The main-branch ruleset requires these three
+  # contexts by name, so each gate carries the exact required name and depends
+  # on the substantive job (or matrix job) that does the work. `if: always()`
+  # makes the gate run even when its dependency fails, and the step turns a
+  # non-success dependency result into a gate failure. A gate never reports
+  # success on its own.
+  bee-ci-reference:
+    name: bee-ci/reference
+    needs: reference
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless the reference job succeeded
+        env:
+          SUBSTANTIVE_RESULT: ${{ needs.reference.result }}
+        run: |
+          if [ "$SUBSTANTIVE_RESULT" != "success" ]; then
+            echo "::error::reference finished with result '$SUBSTANTIVE_RESULT'; bee-ci/reference cannot pass"
+            exit 1
+          fi
+          echo "reference succeeded; bee-ci/reference passes"
+
+  bee-ci-project-state:
+    name: bee-ci/project-state
+    # The matrix job's aggregate result covers every matrix leg: one failing
+    # leg makes needs.project-state.result non-success, which fails this gate.
+    needs: project-state
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless the project-state matrix succeeded
+        env:
+          SUBSTANTIVE_RESULT: ${{ needs.project-state.result }}
+        run: |
+          if [ "$SUBSTANTIVE_RESULT" != "success" ]; then
+            echo "::error::project-state finished with result '$SUBSTANTIVE_RESULT'; bee-ci/project-state cannot pass"
+            exit 1
+          fi
+          echo "project-state succeeded; bee-ci/project-state passes"
+
+  bee-ci-secret-scan:
+    name: bee-ci/secret-scan
+    needs: secret-scan
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless the secret-scan job succeeded
+        env:
+          SUBSTANTIVE_RESULT: ${{ needs.secret-scan.result }}
+        run: |
+          if [ "$SUBSTANTIVE_RESULT" != "success" ]; then
+            echo "::error::secret-scan finished with result '$SUBSTANTIVE_RESULT'; bee-ci/secret-scan cannot pass"
+            exit 1
+          fi
+          echo "secret-scan succeeded; bee-ci/secret-scan passes"
