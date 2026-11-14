@@ -183,3 +183,21 @@ API. They translate their native terminal state into `succeeded`, `failed` or
 The schema and the validator enforce the same shape. `jsonschema` is used by the
 test suite when available to cross-check positives against the schema, but the
 validator itself only needs the Python standard library.
+
+## Required CI gate
+
+The `bee-landed protocol (required)` job in `.github/workflows/ci.yml` is a
+required status check. Branch protection must require that exact context before a
+pull request can merge, alongside the other required protocol jobs.
+
+The job installs `jsonschema`, runs `python3 -m unittest tests.test_bee_landed
+-v`, validates any `schemas/examples/bee-landed*.json` examples that are present,
+and then runs full discovery across `tests/` so the rest of the protocol suite
+cannot regress behind a green Bee Landed step.
+
+Missing tests fail the build. The dedicated step names
+`tests.test_bee_landed` explicitly, so deleting the module, renaming it or making
+it unimportable makes `unittest` exit non-zero. The full discovery step is an
+additional guard, not a substitute: discovery alone would silently ignore a
+missing module. A skipped `jsonschema` cross-check is not a pass either, because
+CI installs the dependency and the job runs with no skips.
