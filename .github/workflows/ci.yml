@@ -183,3 +183,33 @@ jobs:
         run: python3 tools/return_manifest.py schemas/examples/return-exact.json schemas/examples/return-dependent.json
       - name: Every module under tests/
         run: python3 -m unittest discover -s tests -t . -q
+
+  recovery-protocol:
+    name: recovery protocol (required)
+    # Validates rizzstack.recovery/1: the five failure classes and their
+    # evidence, the envelope bounds, retry/supersede/escalation legality,
+    # supersession binding, digest binding, the anti-widening rules, and the
+    # optional recovery array in the RETURN manifest.
+    # The final discover step also runs the return examples' schema pin, so the
+    # job needs the history (fetch-depth: 0).
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Recovery protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_recovery_protocol -v
+      - name: Validate the request and decision examples with the CLI
+        run: |
+          python3 tools/recovery.py request schemas/examples/recovery-request.json
+          python3 tools/recovery.py decision schemas/examples/recovery-decision.json \
+            --request schemas/examples/recovery-request.json --attempts-used 1
+      - name: Every module under tests/
+        run: python3 -m unittest discover -s tests -t . -q

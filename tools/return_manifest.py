@@ -29,6 +29,13 @@ PENDING_DECISION: dict[str, Any] = {
     "note": None,
 }
 
+RECOVERY_CLASSES = ("implementation", "specification", "environment", "infrastructure", "integration")
+RECOVERY_DECISIONS = ("retry", "supersede", "escalate")
+# A retry re-dispatches a worker; only these classes can be fixed by one.
+RECOVERY_RETRY_CLASSES = ("implementation", "integration")
+# No worker dispatch can fix these, so the only honest decision is escalation.
+RECOVERY_NO_DISPATCH_CLASSES = ("environment", "infrastructure")
+
 
 class ReturnError(Exception):
     def __init__(self, code: str, message: str, fix: str = "") -> None:
@@ -84,6 +91,55 @@ def seal(manifest: Mapping[str, Any]) -> dict[str, Any]:
 def pending_receiver_decision() -> dict[str, Any]:
     """The only receiver_decision a generated manifest may carry."""
     return copy.deepcopy(PENDING_DECISION)
+
+
+def validate_recovery(entries: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Check the optional recovery array: one entry per recovery, class and decision consistent.
+
+    The request and decision documents remain the authority; this is the summary
+    a return carries. It is refused when it disagrees with the protocol it cites:
+    a specification failure never retries, environment and infrastructure only
+    escalate, and a supersession is reported exactly when the decision supersedes.
+    """
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        where = f"recovery[{index}]"
+        request_id = str(entry.get("request_id"))
+        if request_id in seen:
+            raise ReturnError("recovery_entry_invalid", f"{where}.request_id {request_id} appears more than once",
+                              "Record each recovery request exactly once.")
+        seen.add(request_id)
+
+        failure_class = entry.get("failure_class")
+        decision = entry.get("decision")
+        supersession = entry.get("supersession")
+
+        if decision == "supersede" and supersession is None:
+            raise ReturnError("recovery_supersession_mismatch",
+                              f"{where} supersedes a contract but records no supersession",
+                              "Record the old and new contract id and hash, or report a different decision.")
+        if decision != "supersede" and supersession is not None:
+            raise ReturnError("recovery_supersession_mismatch",
+                              f"{where} records a supersession for decision {decision!r}",
+                              "A supersession is reported only by a supersede decision.")
+        if supersession is not None and supersession.get("contract_sha256") == supersession.get("supersedes_sha256"):
+            raise ReturnError("recovery_supersession_mismatch",
+                              f"{where} supersedes a contract with its own hash",
+                              "Name the corrected contract; a correction must change it.")
+
+        if failure_class in RECOVERY_NO_DISPATCH_CLASSES and decision != "escalate":
+            raise ReturnError("recovery_decision_class_mismatch",
+                              f"{where} retries or supersedes a {failure_class} failure",
+                              "No worker dispatch can fix it; escalate.")
+        if decision == "retry" and failure_class not in RECOVERY_RETRY_CLASSES:
+            raise ReturnError("recovery_decision_class_mismatch",
+                              f"{where} retries a {failure_class} failure",
+                              "A specification failure supersedes; environment and infrastructure escalate.")
+        if decision == "supersede" and failure_class != "specification":
+            raise ReturnError("recovery_decision_class_mismatch",
+                              f"{where} supersedes a {failure_class} failure",
+                              "Only an unusable acceptance selection is corrected by supersession.")
+    return list(entries)
 
 
 def validate(manifest: Mapping[str, Any]) -> dict[str, Any]:
@@ -167,6 +223,10 @@ def validate(manifest: Mapping[str, Any]) -> dict[str, Any]:
         raise ReturnError("integration_incomplete",
                           "integration is partially populated",
                           "Record commit, wave, evidence and accepted_wave_digest together, or leave all four null.")
+
+    # Optional: a manifest without recovery stays valid; a present array must
+    # agree with the class/decision rules the recovery protocol enforces.
+    validate_recovery(list(manifest.get("recovery") or []))
 
     return dict(manifest)
 

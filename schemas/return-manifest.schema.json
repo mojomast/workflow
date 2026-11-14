@@ -481,6 +481,88 @@
         }
       }
     },
+    "recovery": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "request_digest",
+          "failure_class",
+          "decision",
+          "adapter",
+          "supersession"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/$defs/id",
+            "description": "The rizzstack.recovery/1 request this entry records."
+          },
+          "request_digest": {
+            "$ref": "#/$defs/sha256",
+            "description": "The request's digest. It binds the entry to the exact request bytes the decision answered."
+          },
+          "failure_class": {
+            "enum": [
+              "implementation",
+              "specification",
+              "environment",
+              "infrastructure",
+              "integration"
+            ]
+          },
+          "decision": {
+            "enum": [
+              "retry",
+              "supersede",
+              "escalate"
+            ]
+          },
+          "adapter": {
+            "$ref": "#/$defs/id",
+            "description": "The agent adapter that decided. The request/decision documents remain the authority; this entry is the summary the return carries."
+          },
+          "supersession": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "contract_id",
+                  "contract_sha256",
+                  "supersedes",
+                  "supersedes_sha256"
+                ],
+                "properties": {
+                  "contract_id": {
+                    "$ref": "#/$defs/id",
+                    "description": "The contract that failed."
+                  },
+                  "contract_sha256": {
+                    "$ref": "#/$defs/sha256",
+                    "description": "The failed contract's reviewed hash."
+                  },
+                  "supersedes": {
+                    "$ref": "#/$defs/id",
+                    "description": "The corrected contract id (the replacement)."
+                  },
+                  "supersedes_sha256": {
+                    "$ref": "#/$defs/sha256",
+                    "description": "The corrected contract's reviewed hash. It must differ from contract_sha256."
+                  }
+                }
+              }
+            ],
+            "description": "null unless decision is supersede. The B3b naming: contract_* is the replaced contract, supersedes/supersedes_sha256 is the replacement."
+          }
+        }
+      },
+      "description": "OPTIONAL. One entry per bounded recovery the return depends on, in decision order. A manifest that omits it stays valid: no recovery happened, or the recovery was recorded elsewhere. When present, tools/return_manifest.py refuses an entry whose failure class and decision disagree (specification never retries; environment and infrastructure only escalate) and a decision that reports no supersession for a supersede, or one for anything else."
+    },
     "limitations": {
       "type": "array",
       "uniqueItems": true,

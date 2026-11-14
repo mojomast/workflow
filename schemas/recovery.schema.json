@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/recovery.schema.json",
+  "title": "Rizzstack bounded recovery protocol (rizzstack.recovery/1)",
+  "description": "Two durable documents for one classified failure. A REQUEST is written by the orchestrator (bundlebees) from recorded evidence: which task and attempt failed, in which of the five failure classes, and what the approved envelope allows. A DECISION is written by an agent adapter: retry, supersede the frozen contract once, or escalate. The request is mechanical and agent-agnostic; the decision is reasoning and is validated mechanically by bundlebees before anything is dispatched. Neither document grants authority: the envelope restates an authorization that already exists, and a decision can only use what the envelope allows.",
+  "$comment": "A request is sealed by request_digest: sha256 over json.dumps(request, sort_keys=True, separators=(',', ':'), ensure_ascii=True) without request_digest. The request has no volatile field. A decision carries no digest of its own: it binds the exact request bytes through request_digest, which must equal both the request's field and a recomputation from the request body. tools/recovery.py implements the digests, the semantic validator and the CLI.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/decision"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "test_id": {
+      "type": "string",
+      "pattern": "^[^:\\s]+(::[^\\n]+)?$",
+      "description": "A test path, optionally with a node id after '::'. The same pattern the RETURN manifest uses for acceptance tests."
+    },
+    "failure_class": {
+      "enum": [
+        "implementation",
+        "specification",
+        "environment",
+        "infrastructure",
+        "integration"
+      ],
+      "description": "implementation: the patch did not satisfy the approved tests. specification: the acceptance selection itself is unusable, so no patch can satisfy it. environment: the worker host lacked a tool, dependency or route. infrastructure: the launcher, scheduler or storage failed. integration: verified patches did not combine."
+    },
+    "failure_code": {
+      "enum": [
+        "test_failed",
+        "suite_failed",
+        "lease_violation",
+        "gitleaks_failed",
+        "acceptance_uncovered",
+        "test_not_found",
+        "missing_test",
+        "toolchain_missing",
+        "dependency_unavailable",
+        "network_blocked",
+        "launcher_unavailable",
+        "scheduler_stalled",
+        "storage_full",
+        "merge_conflict",
+        "combined_suite_failed",
+        "wave_rejected"
+      ],
+      "description": "Shape only. tools/recovery.py refuses a code that does not belong to the request's failure class, and refuses a specification request whose code is not an unusable-acceptance code (acceptance_uncovered, test_not_found, missing_test)."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reference"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "test",
+            "command",
+            "log",
+            "conflict",
+            "environment",
+            "infrastructure"
+          ],
+          "description": "The recorded artefact's kind. The class decides which kinds are required and which are forbidden: an integration failure needs a conflict record and no other class may carry one."
+        },
+        "reference": {
+          "$ref": "#/$defs/text",
+          "description": "Path or durable reference to the recorded evidence. A reference is not a copy: the record it names stays authoritative."
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Optional content hash of the referenced record, when the producer recorded one."
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "description": "For a conflict record: the paths that conflicted. Required on kind conflict and refused on every other kind, enforced by tools/recovery.py so the refusal names the rule."
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "code",
+        "evidence",
+        "rationale"
+      ],
+      "properties": {
+        "class": {
+          "$ref": "#/$defs/failure_class"
+        },
+        "code": {
+          "$ref": "#/$defs/failure_code"
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "description": "At least one recorded artefact. A classified failure with no evidence is not a recovery request; it is a claim."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Why this evidence supports this class and code, in the requester's words. Reasoning lives in the decision; the request states what was observed."
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "The reviewed hash of the frozen acdd/1 contract the failed attempt ran under. A supersession must name this exact pair as the contract it replaces."
+        }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_attempts_per_task",
+        "contract_corrections_allowed",
+        "corrected_tests_allowed"
+      ],
+      "properties": {
+        "max_attempts_per_task": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Total attempts allowed for this task, counting the attempt that failed. A retry or a supersede needs a remaining attempt; v1 caps the envelope at five total attempts regardless of a larger authorization."
+        },
+        "contract_corrections_allowed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Contract revisions this task may consume. v1 allows exactly one specification supersession, so the maximum is 1."
+        },
+        "corrected_tests_allowed": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/test_id"
+          },
+          "description": "The only tests a decision may add to or substitute in the acceptance selection. Empty when no correction is permitted. A decision cannot widen this list."
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "request_id",
+        "job_id",
+        "feature_id",
+        "task_id",
+        "attempt_id",
+        "failure",
+        "contract",
+        "supersession_permitted",
+        "envelope",
+        "outstanding_question",
+        "request_digest"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "pattern": "^rizzstack\\.recovery/[0-9]+$",
+          "description": "Protocol version. Shape only: tools/recovery.py refuses any version outside rizzstack.recovery/1."
+        },
+        "request_id": {
+          "$ref": "#/$defs/id",
+          "description": "Stable identity of this request. A decision names it, and a RETURN manifest's recovery entry names it."
+        },
+        "job_id": {
+          "$ref": "#/$defs/id"
+        },
+        "feature_id": {
+          "$ref": "#/$defs/id"
+        },
+        "task_id": {
+          "$ref": "#/$defs/id"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/id",
+          "description": "The attempt whose failure is being recovered. The attempt record is preserved; a recovery never rewrites it."
+        },
+        "failure": {
+          "$ref": "#/$defs/failure"
+        },
+        "contract": {
+          "$ref": "#/$defs/contract"
+        },
+        "supersession_permitted": {
+          "type": "boolean",
+          "description": "true only for a specification failure whose corrected acceptance selection was pre-authorized in corrected_tests_allowed. false for every other class: a retry may not rewrite the contract."
+        },
+        "envelope": {
+          "$ref": "#/$defs/envelope"
+        },
+        "outstanding_question": {
+          "$ref": "#/$defs/text",
+          "description": "The question the decision answers, stated before any agent reasons about it. It keeps the decision bounded to the failure."
+        },
+        "request_digest": {
+          "$ref": "#/$defs/sha256",
+          "description": "sha256 over the canonical request without request_digest. tools/recovery.py:seal_request recomputes it and validate_request refuses a mismatch."
+        }
+      }
+    },
+    "supersedes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "contract_sha256",
+        "new_contract_id",
+        "new_contract_sha256"
+      ],
+      "properties": {
+        "contract_id": {
+          "$ref": "#/$defs/id",
+          "description": "The contract being replaced. It must equal the request's contract.id."
+        },
+        "contract_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "The replaced contract's reviewed hash. It must equal the request's contract.sha256."
+        },
+        "new_contract_id": {
+          "$ref": "#/$defs/id",
+          "description": "The corrected contract. It must equal contract_id: a correction revises the same contract. A different id is a new feature, not a recovery."
+        },
+        "new_contract_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "The corrected contract's reviewed hash. It must differ from contract_sha256; an unchanged contract is not a supersession."
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "request_id",
+        "request_digest",
+        "adapter",
+        "decision",
+        "corrected_tests",
+        "supersedes",
+        "rationale",
+        "decided_at"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "pattern": "^rizzstack\\.recovery/[0-9]+$",
+          "description": "Protocol version. Shape only: tools/recovery.py refuses any version outside rizzstack.recovery/1."
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "request_digest": {
+          "$ref": "#/$defs/sha256",
+          "description": "The binding: it must equal the request's request_digest and a recomputation from the request body, so a decision cannot be replayed against a different request."
+        },
+        "adapter": {
+          "$ref": "#/$defs/id",
+          "description": "The agent adapter that reasoned. Agent-agnostic: any adapter name is accepted, except the reserved mechanical components (bundlebees, reconciler, validator), which do not decide."
+        },
+        "decision": {
+          "enum": [
+            "retry",
+            "supersede",
+            "escalate"
+          ]
+        },
+        "corrected_tests": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/test_id"
+          },
+          "description": "The corrected acceptance tests. Required and non-empty for supersede, where every entry must be inside corrected_tests_allowed. For an integration repair it may name the added regression test, again inside the allowed list. Empty for an implementation retry and for escalate."
+        },
+        "supersedes": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/supersedes"
+            }
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Why this decision answers the outstanding question and stays inside the envelope."
+        },
+        "decided_at": {
+          "$ref": "#/$defs/text",
+          "description": "When the adapter decided. A historical record inside the decision; it is not a request field, so the request digest stays stable."
+        }
+      }
+    }
+  }
+}

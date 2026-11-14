@@ -38,6 +38,7 @@ fields at every level (`additionalProperties: false`).
 | `integration` | `commit`, `wave`, `evidence`, `accepted_wave_digest` — all four or all `null` |
 | `transport` | `null`, or `mirror_ref`, `source_sha`, `receipt_path` |
 | `attempts` | `attempt_id`, `state`, `project`, `source_rev` per attempt |
+| `recovery` | **optional**; one entry per bounded recovery this return depends on (see below) |
 | `limitations` | known defects, unproven claims and honest scope limits |
 | `unrun` | checks that never executed, and why |
 | `pending_approvals` | human gates still awaiting an explicit yes |
@@ -165,6 +166,34 @@ does not normalize states or invent a state machine; a consumer compares against
 the bundlebees attempt record the id names. `source_rev` is the revision the
 attempt was briefed against.
 
+## Recovery
+
+`recovery` is optional. A manifest that omits it stays valid; a job with no
+recovery never emits it, and a receiver cannot read its absence as "nothing was
+retried" when the attempt list shows otherwise. When present, each entry records
+one bounded recovery, in decision order:
+
+| Field | Meaning |
+|---|---|
+| `request_id` | the `rizzstack.recovery/1` request |
+| `request_digest` | the request's digest; it binds the entry to exact request bytes |
+| `failure_class` | `implementation`, `specification`, `environment`, `infrastructure` or `integration` |
+| `decision` | `retry`, `supersede` or `escalate` |
+| `adapter` | the agent adapter that decided |
+| `supersession` | `null`, or the old and new contract pair |
+
+`supersession` uses the B3b naming: `contract_id`/`contract_sha256` is the
+replaced contract, `supersedes`/`supersedes_sha256` is the replacement. It is
+non-null exactly when `decision` is `supersede`.
+
+The validator refuses a duplicate `request_id` (`recovery_entry_invalid`), an
+inconsistent supersession block (`recovery_supersession_mismatch`), and a
+class/decision pair the recovery matrix forbids
+(`recovery_decision_class_mismatch`): a `specification` failure never retries,
+`environment` and `infrastructure` only escalate. `docs/27-recovery-protocol.md`
+defines the documents; `tools/recovery.py:recovery_entry` produces an entry from
+a validated pair so the field names cannot drift.
+
 ## Validation
 
 `tools/return_manifest.py:validate(manifest)` checks the schema, the supported
@@ -184,6 +213,9 @@ closed with a stable code:
 | `descendant_authority_mismatch` | authority and descendant block disagree |
 | `descendant_revision_mismatch` | `accepted_commit` is not `repository.source_rev` |
 | `integration_incomplete` | only part of the integration block is populated |
+| `recovery_entry_invalid` | the same recovery `request_id` appears twice |
+| `recovery_supersession_mismatch` | a supersede without a supersession block, a block on another decision, or an unchanged hash |
+| `recovery_decision_class_mismatch` | a failure class and decision the recovery matrix forbids |
 
 Command line:
 
