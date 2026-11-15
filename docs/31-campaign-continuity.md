@@ -209,7 +209,7 @@ Measured on **2026-11-15 UTC**:
 - `pytest tests/test_campaign_continuity.py -q` → **11 passed**;
 - `pytest tests/test_campaign_continuity.py tests/test_project_plan.py -q` →
   **21 passed**;
-- bundlebees CI run `43698212152` at code head `e55f81e`: **1317 passed,
+- bundlebees CI run `43699214662` at code head `d2db0d2`: **1318 passed,
   7 skipped**, 4/4 checks green (tests sandbox included, real Orbit round trip,
   plugin doctor, gitleaks);
 - workflow CI run `43698211216` at `3a59e5a`: **14/14 checks green**, including
