@@ -216,7 +216,8 @@ trial.
 
 Measured on **2026-11-15 UTC**:
 
-- `pytest tests/test_campaign_continuity.py -q` → **16 passed**;
+- workflow `python3 -m unittest tests.test_campaign_report -q` → **48 passed**;
+- bundlebees `pytest tests/test_campaign_continuity.py -q` → **16 passed**;
 - `pytest tests/test_campaign_continuity.py tests/test_project_plan.py -q` →
   **26 passed**;
 - bundlebees CI run `43719698698` at code head `817b7ee`: **1324 passed,
