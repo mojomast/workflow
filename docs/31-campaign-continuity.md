@@ -113,6 +113,15 @@ dispatch intent/idempotency key, the signed lease and the queue's exclusive
 claim. A second accepted wave after a restart is a job/queue defect; the
 checkpoint must not paper over it.
 
+**Current implementation boundary.** `reconcile` reads the durable job (with
+`jobs.load_job`'s accepted-wave recovery) and the task/worker state; it does not
+independently query Git or the GitHub PR. The job's accepted refs are the durable
+Git evidence it relies on, and the launch/landing path owns the worker state. A
+campaign that needs a separate `git rev-parse`/`gh pr view` comparison has to add
+a read-only observer; that is not implemented here and must not be reported as
+done. The trial below is therefore a job-state restart trial, not a full Git/PR
+race trial.
+
 ## 31.4 Wake-up mechanism
 
 The supported mechanism is a host-run resident process:
