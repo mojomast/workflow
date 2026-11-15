@@ -206,9 +206,9 @@ not a live-host trial.
 
 Measured on **2026-11-15 UTC**:
 
-- `pytest tests/test_campaign_continuity.py -q` → **10 passed**;
+- `pytest tests/test_campaign_continuity.py -q` → **11 passed**;
 - `pytest tests/test_campaign_continuity.py tests/test_project_plan.py -q` →
-  **20 passed**;
+  **21 passed**;
 - bundlebees CI run `43698212152` at code head `e55f81e`: **1317 passed,
   7 skipped**, 4/4 checks green (tests sandbox included, real Orbit round trip,
   plugin doctor, gitleaks);
