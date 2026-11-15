@@ -209,8 +209,11 @@ Measured on **2026-11-15 UTC**:
 - `pytest tests/test_campaign_continuity.py -q` → **10 passed**;
 - `pytest tests/test_campaign_continuity.py tests/test_project_plan.py -q` →
   **20 passed**;
-- full `pytest -q` after the campaign layer: see the PR checks; the local run is
-  recorded in the campaign report, not asserted here.
+- bundlebees CI run `43698212152` at code head `e55f81e`: **1317 passed,
+  7 skipped**, 4/4 checks green (tests sandbox included, real Orbit round trip,
+  plugin doctor, gitleaks);
+- workflow CI run `43698211216` at `3a59e5a`: **14/14 checks green**, including
+  the campaign report protocol.
 
 No live-host restart, no real-agent multi-hour run and no Git/PR race trial were
 run. Those are separate approvals.
