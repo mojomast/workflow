@@ -26,7 +26,7 @@ def example() -> dict:
 class ValidReportTests(unittest.TestCase):
     def test_the_example_validates(self):
         report = campaign_report.validate(example())
-        self.assertEqual(report["campaign_id"], "jackpot-2026-11")
+        self.assertEqual(report["campaign_id"], "example-campaign")
         self.assertEqual(report["receiver_decision"], "pending")
         self.assertEqual(report["task_graph"]["implemented"], 27)
 

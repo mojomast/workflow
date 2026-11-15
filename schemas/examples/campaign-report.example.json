@@ -1,10 +1,10 @@
 {
   "schema": "rizzstack.campaign-report/1",
-  "campaign_id": "jackpot-2026-11",
-  "repository": "mojomast/jackpotsyndicate",
-  "branch": "feat/b3-integration",
+  "campaign_id": "example-campaign",
+  "repository": "example/repo",
+  "branch": "feat/example",
   "base_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "head_rev": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f",
+  "head_rev": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "generated_at": "2026-11-15T07:00:00Z",
   "delivery_state": "ready_for_review",
   "task_graph": {
@@ -17,12 +17,12 @@
   },
   "pull_requests": [
     {
-      "number": 8,
-      "url": "https://github.com/mojomast/jackpotsyndicate/pull/8",
+      "number": 1,
+      "url": "https://github.com/example/repo/pull/1",
       "draft": true,
       "state": "open",
       "base": "main",
-      "head_sha": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "merge_order": 1
     }
   ],
@@ -32,17 +32,21 @@
       "statement": "The final tree passes the full package and application test suite.",
       "kind": "test",
       "status": "PASS",
-      "evidence": ["artifacts/test-run-final.log"],
+      "evidence": [
+        "evidence/test-run-final.log"
+      ],
       "command": "pnpm test",
-      "head_sha": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f"
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
     {
       "id": "AC-002",
       "statement": "The playable table renders its authored art at the reviewed desktop viewport.",
       "kind": "visual",
       "status": "PASS",
-      "evidence": ["artifacts/screenshots/table-1440.png"],
-      "head_sha": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f"
+      "evidence": [
+        "evidence/screenshots/table-1440.png"
+      ],
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
     {
       "id": "AC-003",
@@ -51,13 +55,13 @@
       "status": "NOT RUN",
       "evidence": [],
       "reason": "The browser audit is not implemented; the jsdom check is a no-op.",
-      "head_sha": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f"
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     }
   ],
   "test_runs": [
     {
       "command": "pnpm test",
-      "head_sha": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "passed": 226,
       "failed": 0,
       "skipped": 0,
@@ -67,25 +71,37 @@
   "audits": [
     {
       "source": "Independent read-only review",
-      "head_sha": "794318a3b2ff296f9cd2ab71d0b45783eb1dc96f",
-      "findings": ["Save safety and frozen-cell scoring gaps were found."],
-      "fixed": ["Save phases fail closed; frozen cells no longer score."],
-      "rejected": ["Removing inline symbol data broke the zero-runtime-network test."],
-      "deferred": ["The axe audit and coverage measurement remain unproven."]
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "findings": [
+        "Save safety and frozen-cell scoring gaps were found."
+      ],
+      "fixed": [
+        "Save phases fail closed; frozen cells no longer score."
+      ],
+      "rejected": [
+        "Removing inline symbol data broke the zero-runtime-network test."
+      ],
+      "deferred": [
+        "The axe audit and coverage measurement remain unproven."
+      ]
     }
   ],
   "artifacts": {
-    "screenshots": ["artifacts/screenshots/table-1440.png"],
+    "screenshots": [
+      "evidence/screenshots/table-1440.png"
+    ],
     "performance": [
       {
         "metric": "bundle",
         "value": 1.9,
         "unit": "MB gzip",
         "budget": 3.0,
-        "evidence": "artifacts/perf.txt"
+        "evidence": "evidence/perf.txt"
       }
     ],
-    "assets": ["assets/manifest.jsonl"]
+    "assets": [
+      "assets/manifest.jsonl"
+    ]
   },
   "not_run": [
     {
@@ -99,5 +115,7 @@
     "No merge, tag, release or deploy was performed."
   ],
   "receiver_decision": "pending",
-  "recommended_merge_order": [8]
+  "recommended_merge_order": [
+    1
+  ]
 }
