@@ -88,6 +88,38 @@ class RefusalTests(unittest.TestCase):
         del report["acceptance"][2]["reason"]
         self.assert_refused(report, "campaign_acceptance_reason")
 
+    def test_passing_evidence_must_be_a_reference(self):
+        report = example()
+        report["acceptance"][0]["evidence"] = ["TODO"]
+        self.assert_refused(report, "campaign_evidence")
+
+    def test_passing_evidence_cannot_be_an_empty_label(self):
+        report = example()
+        report["acceptance"][0]["evidence"] = ["see the report"]
+        self.assert_refused(report, "campaign_evidence")
+
+    def test_a_passing_criterion_must_name_the_final_head(self):
+        report = example()
+        del report["acceptance"][0]["head_sha"]
+        self.assert_refused(report, "campaign_acceptance_head")
+
+    def test_a_passing_criterion_cannot_use_an_older_head(self):
+        report = example()
+        report["acceptance"][0]["head_sha"] = "c" * 40
+        self.assert_refused(report, "campaign_acceptance_revision")
+
+    def test_ready_campaign_test_runs_must_be_at_the_final_head(self):
+        report = example()
+        report["test_runs"][0]["head_sha"] = "c" * 40
+        self.assert_refused(report, "campaign_test_head")
+
+    def test_audit_findings_need_a_disposition(self):
+        report = example()
+        report["audits"][0]["fixed"] = []
+        report["audits"][0]["rejected"] = []
+        report["audits"][0]["deferred"] = []
+        self.assert_refused(report, "campaign_audit_disposition")
+
     def test_an_agent_cannot_fill_the_receiver_decision(self):
         report = example()
         report["receiver_decision"] = "accepted"
@@ -156,7 +188,7 @@ class RefusalTests(unittest.TestCase):
 
     def test_private_host_paths_are_refused(self):
         report = example()
-        report["acceptance"][0]["evidence"] = ["/home/alice/artifacts/test.log"]
+        report["acceptance"][0]["reason"] = "/home/alice/artifacts/test.log"
         self.assert_refused(report, "campaign_secret")
 
     def test_secret_values_are_refused(self):

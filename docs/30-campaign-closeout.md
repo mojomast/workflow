@@ -146,9 +146,13 @@ The validator names the rule that failed. The important ones:
 | `campaign_receiver_decision` | an agent-written acceptance; the field must be `pending` |
 | `campaign_acceptance_pass_without_evidence` | `PASS` with an empty evidence list |
 | `campaign_acceptance_command` | a passing `test` criterion without the command that ran |
+| `campaign_acceptance_head` / `campaign_acceptance_revision` | a passing test, integration, visual, performance or asset criterion with no head, or a head other than the reported final head |
+| `campaign_test_head` | a `ready_for_review` report whose recorded test runs are not at the reported final head |
+| `campaign_evidence` | a bare label, placeholder or absolute path instead of a repository-relative artifact or public `https` URL |
 | `campaign_acceptance_reason` | `NOT RUN`, `BLOCKED` or `UNVERIFIED` without a reason |
 | `campaign_ready_with_blocker` | `ready_for_review` while a criterion is `FAIL`, `BLOCKED` or `UNVERIFIED` |
 | `campaign_test_failed` / `campaign_test_runs` | a ready campaign whose recorded suite failed, or no run at all |
+| `campaign_audit_disposition` | audit findings present with no fixed, rejected or deferred disposition |
 | `campaign_limits_required` | a ready campaign with unrun checks but no `known_limits` |
 | `campaign_task_graph` | counts that imply accepted > integrated > implemented, or a wrong `remaining` |
 | `campaign_merge_order` | a merge order naming a PR that is not open |
@@ -157,6 +161,16 @@ The validator names the rule that failed. The important ones:
 `NOT RUN` is intentionally allowed in a `ready_for_review` campaign when it is
 also disclosed in `known_limits`. The status is not a pass; it is a limit the
 receiver can weigh.
+
+## 5.1 What the validator can and cannot prove
+
+The validator proves the report has the required shape, that its counts do not
+contradict one another, that a ready campaign's recorded runs and revision-bound
+evidence name the reported head, and that a finding has at least one disposition.
+It cannot prove that an evidence file exists, that a URL returns the claimed
+bytes, that the command was actually run, or that the human reviewer's judgment
+was sound. A valid report is a reviewable claim, not proof of the underlying
+work. The reviewer must open the evidence and reproduce what matters.
 
 ## 6. Closeout is not a merge plan
 

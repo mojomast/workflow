@@ -29,6 +29,7 @@ DELIVERY_STATES = {"ready_for_review", "incomplete", "blocked"}
 ACCEPTANCE_KINDS = {"test", "integration", "visual", "performance", "asset", "manual"}
 ACCEPTANCE_STATUSES = {"PASS", "FAIL", "NOT RUN", "BLOCKED", "UNVERIFIED"}
 PR_STATES = {"open", "merged", "closed"}
+REVISION_BOUND_KINDS = {"test", "integration", "visual", "performance", "asset"}
 
 REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -36,6 +37,12 @@ ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 AC_RE = re.compile(r"^AC-[0-9]{1,}$")
 TIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
+EVIDENCE_URL_RE = re.compile(r"^https://\S+$")
+EVIDENCE_PATH_RE = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+$")
+EVIDENCE_PLACEHOLDER_RE = re.compile(
+    r"^(?:todo|tbd|n/?a|unknown|pending|see(?:\s+.*)?|placeholder)$",
+    re.IGNORECASE,
 )
 
 # Values that must never be copied into a public campaign report. Evidence
@@ -118,6 +125,23 @@ def _time(value: Any, field: str) -> str:
     return text
 
 
+def _evidence_ref(value: Any, field: str) -> str:
+    text = _text(value, field)
+    if EVIDENCE_PLACEHOLDER_RE.fullmatch(text):
+        _fail(
+            "campaign_evidence",
+            f"{field} is a placeholder, not evidence",
+            "Name a repository-relative artifact path or a public https URL.",
+        )
+    if not (EVIDENCE_URL_RE.fullmatch(text) or EVIDENCE_PATH_RE.fullmatch(text)):
+        _fail(
+            "campaign_evidence",
+            f"{field} must be a repository-relative path or a public https URL",
+            "Use evidence/<file> or https://... rather than a bare label.",
+        )
+    return text
+
+
 def _secret_check(value: Any, path: str = "report") -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
@@ -138,7 +162,13 @@ def _secret_check(value: Any, path: str = "report") -> None:
             )
 
 
-def _acceptance(entry: Any, index: int, *, delivery_state: str) -> dict[str, Any]:
+def _acceptance(
+    entry: Any,
+    index: int,
+    *,
+    delivery_state: str,
+    head_rev: str,
+) -> dict[str, Any]:
     item = _object(entry, f"acceptance[{index}]")
     criterion_id = _text(item.get("id"), f"acceptance[{index}].id")
     if not AC_RE.fullmatch(criterion_id):
@@ -151,7 +181,10 @@ def _acceptance(entry: Any, index: int, *, delivery_state: str) -> dict[str, Any
     if status not in ACCEPTANCE_STATUSES:
         _fail("campaign_acceptance_status", f"acceptance[{index}].status is not supported")
     evidence = _list(item.get("evidence"), f"acceptance[{index}].evidence")
-    evidence = [_text(value, f"acceptance[{index}].evidence") for value in evidence]
+    evidence = [
+        _evidence_ref(value, f"acceptance[{index}].evidence[{position}]")
+        for position, value in enumerate(evidence)
+    ]
     reason = _optional_text(item.get("reason"), f"acceptance[{index}].reason")
     command = _optional_text(item.get("command"), f"acceptance[{index}].command")
     head_sha = item.get("head_sha")
@@ -176,6 +209,19 @@ def _acceptance(entry: Any, index: int, *, delivery_state: str) -> dict[str, Any
             f"{criterion_id} is a passing test but names no command",
             "Record the exact command that produced the result.",
         )
+    if delivery_state == "ready_for_review" and status == "PASS" and kind in REVISION_BOUND_KINDS:
+        if not head_sha:
+            _fail(
+                "campaign_acceptance_head",
+                f"{criterion_id} is a passing {kind} criterion but names no head",
+                "Record the exact final head the evidence was observed at.",
+            )
+        if head_sha != head_rev:
+            _fail(
+                "campaign_acceptance_revision",
+                f"{criterion_id} was observed at {head_sha}, not the reported final head {head_rev}",
+                "Re-run the check on the final head or report the campaign as incomplete.",
+            )
     if delivery_state == "ready_for_review" and status in {"FAIL", "BLOCKED", "UNVERIFIED"}:
         _fail(
             "campaign_ready_with_blocker",
@@ -257,6 +303,14 @@ def _audit(entry: Any, index: int) -> dict[str, Any]:
     for field in ("findings", "fixed", "rejected", "deferred"):
         values = _list(item.get(field), f"audits[{index}].{field}")
         fields[field] = [_text(value, f"audits[{index}].{field}") for value in values]
+    if fields["findings"] and not any(
+        fields[field] for field in ("fixed", "rejected", "deferred")
+    ):
+        _fail(
+            "campaign_audit_disposition",
+            f"audits[{index}] has findings but no fixed, rejected or deferred disposition",
+            "Give every finding a disposition; a deferred item needs a reason in the report.",
+        )
     return {"source": source, "head_sha": head_sha, **fields}
 
 
@@ -314,7 +368,7 @@ def validate(report: Any) -> dict[str, Any]:
 
     acceptance_raw = _list(root.get("acceptance"), "acceptance", nonempty=True)
     acceptance = [
-        _acceptance(entry, index, delivery_state=delivery_state)
+        _acceptance(entry, index, delivery_state=delivery_state, head_rev=head_rev)
         for index, entry in enumerate(acceptance_raw)
     ]
     ids = [item["id"] for item in acceptance]
@@ -329,6 +383,13 @@ def validate(report: Any) -> dict[str, Any]:
             _fail("campaign_test_runs", "a ready campaign needs at least one recorded test run")
         if any(run["failed"] for run in test_runs):
             _fail("campaign_test_failed", "a ready campaign cannot have a failed test run")
+        stale = [run["head_sha"] for run in test_runs if run["head_sha"] != head_rev]
+        if stale:
+            _fail(
+                "campaign_test_head",
+                f"test run(s) were recorded at {', '.join(sorted(set(stale)))}, not the final head {head_rev}",
+                "Re-run the final checks on the reported head or report the campaign as incomplete.",
+            )
 
     audits = [_audit(entry, index) for index, entry in enumerate(
         _list(root.get("audits") or [], "audits")
@@ -394,7 +455,9 @@ def validate(report: Any) -> dict[str, Any]:
                         _fail("campaign_metric", f"artifacts.performance[{index}].budget must be numeric")
                     row["budget"] = budget
                 if item.get("evidence") is not None:
-                    row["evidence"] = _text(item["evidence"], f"artifacts.performance[{index}].evidence")
+                    row["evidence"] = _evidence_ref(
+                        item["evidence"], f"artifacts.performance[{index}].evidence"
+                    )
                 rows.append(row)
             artifacts["performance"] = rows
 
