@@ -27,6 +27,10 @@ a worker was blocked.
 | 02:46:08 | `bees landed` | 02:26:10, wave in flight | 19 m 58 s | tick stopped; worker wait; nudge |
 | 03:26:55 | `the last bee landeed` | 03:15:59, final wave in flight | 10 m 56 s | tick stopped; terminal wave; nudge (the exact attempt is not reconstructed) |
 
+The six recorded silences total **1 h 9 m 39 s** of wall clock. That is a measure
+of how long the owner was silent, not of worker idle time: bees were running for
+part of every gap. No gap is evidence that a worker was stuck.
+
 Other user turns were not continuity pauses:
 
 - 01:36:45 asked what the assets were — a genuine information decision.
