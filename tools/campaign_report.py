@@ -7,8 +7,8 @@ acceptance separate, and it refuses a receiver decision written by an agent.
 
 The JSON Schema lives at schemas/campaign-report.schema.json. This module adds
 the checks a schema cannot express safely: task arithmetic, final-head test
-results, PASS-with-evidence, reasons for unrun checks, merge-order references
-and the always-pending receiver decision.
+results, PASS-with-evidence, reasons for unrun checks, merge-order references,
+traceable audit-finding dispositions and the always-pending receiver decision.
 """
 
 from __future__ import annotations
@@ -18,8 +18,10 @@ import copy
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 
 BASE = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = BASE / "schemas" / "campaign-report.schema.json"
@@ -30,10 +32,13 @@ ACCEPTANCE_KINDS = {"test", "integration", "visual", "performance", "asset", "ma
 ACCEPTANCE_STATUSES = {"PASS", "FAIL", "NOT RUN", "BLOCKED", "UNVERIFIED"}
 PR_STATES = {"open", "merged", "closed"}
 REVISION_BOUND_KINDS = {"test", "integration", "visual", "performance", "asset"}
+AUDIT_DISPOSITIONS = {"fixed", "rejected", "deferred"}
+AUDIT_LEGACY_FIELDS = ("fixed", "rejected", "deferred")
 
 REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+AUDIT_ID_RE = re.compile(r"^AF-[0-9]{1,}$")
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 AC_RE = re.compile(r"^AC-[0-9]{1,}$")
 TIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -57,6 +62,7 @@ SECRET_PATTERNS = (
     re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"),
     re.compile(r"\bBearer\s+[A-Za-z0-9._~+/-]{16,}\b"),
     re.compile(r"(?:^|[\s\"'=(])/(?:home|Users)/[^/\s]+"),
+    re.compile(r"(?:^|[\s\"'=(])/(?:root|tmp|var|etc|opt|mnt|srv|usr|private|workspace)/[^/\s]+"),
     re.compile(r"(?:^|[\s\"'=(])[A-Za-z]:\\Users\\[^\\\s]+"),
     re.compile(r"(?:^|[\s/])(?:\.ssh|\.aws|\.gnupg)(?:/|\b)"),
 )
@@ -122,6 +128,13 @@ def _time(value: Any, field: str) -> str:
     text = _text(value, field)
     if not TIME_RE.fullmatch(text):
         _fail("campaign_invalid", f"{field} must be an RFC 3339 timestamp")
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        _fail("campaign_invalid", f"{field} must be a real RFC 3339 timestamp")
+        return text
+    if parsed.tzinfo is None:
+        _fail("campaign_invalid", f"{field} must include a timezone")
     return text
 
 
@@ -133,11 +146,33 @@ def _evidence_ref(value: Any, field: str) -> str:
             f"{field} is a placeholder, not evidence",
             "Name a repository-relative artifact path or a public https URL.",
         )
-    if not (EVIDENCE_URL_RE.fullmatch(text) or EVIDENCE_PATH_RE.fullmatch(text)):
+    if EVIDENCE_URL_RE.fullmatch(text):
+        parsed = urlsplit(text)
+        if parsed.username is not None or parsed.password is not None:
+            _fail(
+                "campaign_secret",
+                f"{field} embeds credentials in the URL",
+                "Use a public URL without userinfo, or a repository-relative path.",
+            )
+        return text
+    if not EVIDENCE_PATH_RE.fullmatch(text):
         _fail(
             "campaign_evidence",
             f"{field} must be a repository-relative path or a public https URL",
             "Use evidence/<file> or https://... rather than a bare label.",
+        )
+    parts = [part for part in text.split("/") if part]
+    if any(part in {".", ".."} for part in parts):
+        _fail(
+            "campaign_evidence",
+            f"{field} must not escape the repository",
+            "Use a repository-relative path without . or .. segments.",
+        )
+    if any(EVIDENCE_PLACEHOLDER_RE.fullmatch(part) for part in parts):
+        _fail(
+            "campaign_evidence",
+            f"{field} contains a placeholder path segment",
+            "Name the actual evidence artifact.",
         )
     return text
 
@@ -191,6 +226,16 @@ def _acceptance(
     if head_sha is not None:
         head_sha = _revision(head_sha, f"acceptance[{index}].head_sha")
 
+    if status == "PASS" and kind == "visual":
+        if not any(
+            re.search(r"\.(?:png|jpe?g|webp|gif|mp4|webm)(?:[?#].*)?$", ref, re.IGNORECASE)
+            for ref in evidence
+        ):
+            _fail(
+                "campaign_evidence_kind",
+                f"{criterion_id} is a visual PASS but cites no image or recording",
+                "Attach a screenshot or recording path/URL, with viewport and head in the report.",
+            )
     if status == "PASS" and not evidence:
         _fail(
             "campaign_acceptance_pass_without_evidence",
@@ -280,7 +325,13 @@ def _test_run(entry: Any, index: int) -> dict[str, Any]:
     passed = _integer(item.get("passed"), f"test_runs[{index}].passed")
     failed = _integer(item.get("failed"), f"test_runs[{index}].failed")
     skipped = _integer(item.get("skipped"), f"test_runs[{index}].skipped")
-    ran_at = _text(item.get("ran_at"), f"test_runs[{index}].ran_at")
+    if passed + failed + skipped == 0:
+        _fail(
+            "campaign_test_runs",
+            f"test_runs[{index}] recorded zero tests",
+            "Record a run that actually executed the suite, or mark it NOT RUN with a reason.",
+        )
+    ran_at = _time(item.get("ran_at"), f"test_runs[{index}].ran_at")
     note = _optional_text(item.get("note"), f"test_runs[{index}].note")
     return {
         "command": command,
@@ -293,31 +344,79 @@ def _test_run(entry: Any, index: int) -> dict[str, Any]:
     }
 
 
+def _audit_finding(entry: Any, index: int, audit_index: int) -> dict[str, Any]:
+    field = f"audits[{audit_index}].findings[{index}]"
+    item = _object(entry, field)
+    raw_id = str(item.get("id") or "").strip()
+    if not raw_id:
+        _fail(
+            "campaign_audit_id",
+            f"{field}.id must look like AF-001",
+            "Give each audit finding a stable id that does not change between reports.",
+        )
+    finding_id = raw_id
+    if not AUDIT_ID_RE.fullmatch(finding_id):
+        _fail(
+            "campaign_audit_id",
+            f"{field}.id must look like AF-001",
+            "Give each audit finding a stable id that does not change between reports.",
+        )
+    summary = _text(item.get("summary"), f"{field}.summary")
+    disposition = str(item.get("disposition") or "").strip()
+    if disposition not in AUDIT_DISPOSITIONS:
+        _fail(
+            "campaign_audit_disposition",
+            f"{field}.disposition must be fixed, rejected or deferred",
+            "Use one disposition per finding; do not put the same finding in multiple buckets.",
+        )
+    reason = _optional_text(item.get("reason"), f"{field}.reason")
+    if disposition in {"rejected", "deferred"} and not reason:
+        _fail(
+            "campaign_audit_reason",
+            f"{field} is {disposition} but has no reason",
+            "Explain why the finding was rejected or deferred.",
+        )
+    evidence = item.get("evidence")
+    if evidence is not None:
+        evidence = _evidence_ref(evidence, f"{field}.evidence")
+    result = {
+        "id": finding_id,
+        "summary": summary,
+        "disposition": disposition,
+    }
+    if reason:
+        result["reason"] = reason
+    if evidence is not None:
+        result["evidence"] = evidence
+    return result
+
+
 def _audit(entry: Any, index: int) -> dict[str, Any]:
     item = _object(entry, f"audits[{index}]")
+    legacy = [field for field in AUDIT_LEGACY_FIELDS if field in item]
+    if legacy:
+        _fail(
+            "campaign_audit_legacy",
+            f"audits[{index}] uses untraceable disposition array(s): {', '.join(legacy)}",
+            "Replace fixed/rejected/deferred arrays with findings[] objects, each with an id, one disposition and a reason where required.",
+        )
     source = _text(item.get("source"), f"audits[{index}].source")
     head_sha = item.get("head_sha")
     if head_sha is not None:
         head_sha = _revision(head_sha, f"audits[{index}].head_sha")
-    fields = {}
-    for field in ("findings", "fixed", "rejected", "deferred"):
-        values = _list(item.get(field), f"audits[{index}].{field}")
-        fields[field] = [_text(value, f"audits[{index}].{field}") for value in values]
-    if fields["findings"] and not any(
-        fields[field] for field in ("fixed", "rejected", "deferred")
-    ):
-        _fail(
-            "campaign_audit_disposition",
-            f"audits[{index}] has findings but no fixed, rejected or deferred disposition",
-            "Give every finding a disposition; a deferred item needs a reason in the report.",
-        )
-    return {"source": source, "head_sha": head_sha, **fields}
+    raw_findings = _list(item.get("findings"), f"audits[{index}].findings", nonempty=True)
+    findings = [
+        _audit_finding(finding, position, index)
+        for position, finding in enumerate(raw_findings)
+    ]
+    return {"source": source, "head_sha": head_sha, "findings": findings}
 
 
 def validate(report: Any) -> dict[str, Any]:
     """Validate one campaign report and return a detached normal form."""
 
     root = _object(report, "report")
+    _secret_check(root)
     if root.get("schema") != SCHEMA:
         _fail("campaign_schema", f"schema must be {SCHEMA}")
 
@@ -334,7 +433,18 @@ def validate(report: Any) -> dict[str, Any]:
     delivery_state = _text(root.get("delivery_state"), "delivery_state")
     if delivery_state not in DELIVERY_STATES:
         _fail("campaign_delivery_state", "delivery_state is not supported")
+    if delivery_state == "ready_for_review" and base_rev == head_rev:
+        _fail(
+            "campaign_revision",
+            "base_rev and head_rev are identical; a ready campaign must name a changed head",
+            "Record the actual reviewed head.",
+        )
     receiver_decision = root.get("receiver_decision")
+    if receiver_decision is None:
+        _fail(
+            "campaign_receiver_decision",
+            "receiver_decision is missing; the receiver decision must remain pending",
+        )
     if receiver_decision != "pending":
         _fail(
             "campaign_receiver_decision",
@@ -365,6 +475,9 @@ def validate(report: Any) -> dict[str, Any]:
     numbers = [item["number"] for item in pull_requests]
     if len(set(numbers)) != len(numbers):
         _fail("campaign_pr_duplicate", "pull_requests contains a duplicate PR number")
+    urls = [item["url"] for item in pull_requests]
+    if len(set(urls)) != len(urls):
+        _fail("campaign_pr_duplicate", "pull_requests contains a duplicate PR URL")
 
     acceptance_raw = _list(root.get("acceptance"), "acceptance", nonempty=True)
     acceptance = [
@@ -374,6 +487,14 @@ def validate(report: Any) -> dict[str, Any]:
     ids = [item["id"] for item in acceptance]
     if len(set(ids)) != len(ids):
         _fail("campaign_acceptance_duplicate", "acceptance contains a duplicate criterion id")
+    if delivery_state == "ready_for_review" and not any(
+        item["status"] == "PASS" for item in acceptance
+    ):
+        _fail(
+            "campaign_ready_without_pass",
+            "a ready campaign has no passing acceptance criterion",
+            "Record at least one verified product criterion, or report the campaign as incomplete.",
+        )
 
     test_runs = [_test_run(entry, index) for index, entry in enumerate(
         _list(root.get("test_runs"), "test_runs")
@@ -391,9 +512,31 @@ def validate(report: Any) -> dict[str, Any]:
                 "Re-run the final checks on the reported head or report the campaign as incomplete.",
             )
 
-    audits = [_audit(entry, index) for index, entry in enumerate(
-        _list(root.get("audits") or [], "audits")
+    raw_audits = root.get("audits")
+    audits = [] if raw_audits is None else [_audit(entry, index) for index, entry in enumerate(
+        _list(raw_audits, "audits")
     )]
+    audit_ids = [finding["id"] for audit in audits for finding in audit["findings"]]
+    if len(set(audit_ids)) != len(audit_ids):
+        _fail(
+            "campaign_audit_duplicate",
+            "audit finding ids must be unique across the report",
+            "Give every finding a stable id and keep its one disposition in one place.",
+        )
+    if delivery_state == "ready_for_review":
+        for index, audit in enumerate(audits):
+            if not audit["head_sha"]:
+                _fail(
+                    "campaign_audit_head",
+                    f"audits[{index}] has no head_sha",
+                    "Record the exact head the audit reviewed, or mark the campaign incomplete.",
+                )
+            if audit["head_sha"] != head_rev:
+                _fail(
+                    "campaign_audit_head",
+                    f"audits[{index}] reviewed {audit['head_sha']}, not the final head {head_rev}",
+                    "Re-run the audit on the final head or report the campaign as incomplete.",
+                )
 
     not_run = []
     for index, entry in enumerate(_list(root.get("not_run"), "not_run")):
@@ -421,6 +564,15 @@ def validate(report: Any) -> dict[str, Any]:
     ]
     if len(set(merge_order)) != len(merge_order):
         _fail("campaign_merge_order_duplicate", "recommended_merge_order repeats a number")
+    pr_orders = [item["merge_order"] for item in pull_requests if item["merge_order"] is not None]
+    if len(set(pr_orders)) != len(pr_orders):
+        _fail("campaign_merge_order_duplicate", "pull_requests repeats a merge_order")
+    if pr_orders and set(pr_orders) != set(merge_order):
+        _fail(
+            "campaign_merge_order",
+            "pull_requests[].merge_order and recommended_merge_order disagree",
+            "Use one merge-order source and make every open PR appear exactly once.",
+        )
     open_numbers = {item["number"] for item in pull_requests if item["state"] == "open"}
     unknown = [number for number in merge_order if number not in open_numbers]
     if unknown:
@@ -435,7 +587,7 @@ def validate(report: Any) -> dict[str, Any]:
         for field in ("screenshots", "assets"):
             if field in artifacts:
                 artifacts[field] = [
-                    _text(value, f"artifacts.{field}")
+                    _evidence_ref(value, f"artifacts.{field}")
                     for value in _list(artifacts[field], f"artifacts.{field}")
                 ]
         if "performance" in artifacts:

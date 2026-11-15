@@ -113,12 +113,85 @@ class RefusalTests(unittest.TestCase):
         report["test_runs"][0]["head_sha"] = "c" * 40
         self.assert_refused(report, "campaign_test_head")
 
-    def test_audit_findings_need_a_disposition(self):
+    def test_each_audit_finding_needs_one_disposition(self):
         report = example()
-        report["audits"][0]["fixed"] = []
-        report["audits"][0]["rejected"] = []
-        report["audits"][0]["deferred"] = []
+        del report["audits"][0]["findings"][0]["disposition"]
         self.assert_refused(report, "campaign_audit_disposition")
+
+    def test_rejected_and_deferred_findings_need_a_reason(self):
+        report = example()
+        del report["audits"][0]["findings"][1]["reason"]
+        self.assert_refused(report, "campaign_audit_reason")
+
+    def test_audit_finding_ids_must_be_unique(self):
+        report = example()
+        report["audits"][0]["findings"][1]["id"] = "AF-001"
+        self.assert_refused(report, "campaign_audit_duplicate")
+
+    def test_audit_finding_ids_must_be_stable_looking(self):
+        report = example()
+        report["audits"][0]["findings"][0]["id"] = "finding-one"
+        self.assert_refused(report, "campaign_audit_id")
+
+    def test_legacy_disposition_arrays_are_refused(self):
+        report = example()
+        report["audits"][0]["fixed"] = ["a free-text disposition"]
+        self.assert_refused(report, "campaign_audit_legacy")
+
+    def test_audit_finding_evidence_is_a_reference(self):
+        report = example()
+        report["audits"][0]["findings"][0]["evidence"] = "see the notes"
+        self.assert_refused(report, "campaign_evidence")
+
+    def test_a_ready_audit_must_be_at_the_final_head(self):
+        report = example()
+        report["audits"][0]["head_sha"] = "c" * 40
+        self.assert_refused(report, "campaign_audit_head")
+
+    def test_a_ready_audit_must_name_a_head(self):
+        report = example()
+        del report["audits"][0]["head_sha"]
+        self.assert_refused(report, "campaign_audit_head")
+
+    def test_a_zero_count_test_run_is_not_a_run(self):
+        report = example()
+        report["test_runs"][0].update(passed=0, failed=0, skipped=0)
+        self.assert_refused(report, "campaign_test_runs")
+
+    def test_placeholder_path_segments_are_refused(self):
+        report = example()
+        report["acceptance"][0]["evidence"] = ["evidence/TODO"]
+        self.assert_refused(report, "campaign_evidence")
+
+    def test_evidence_cannot_escape_the_repository(self):
+        report = example()
+        report["acceptance"][0]["evidence"] = ["../../secrets/vault.txt"]
+        self.assert_refused(report, "campaign_evidence")
+
+    def test_credentialed_evidence_urls_are_refused(self):
+        report = example()
+        report["acceptance"][0]["evidence"] = ["https://user:pass@example.com/run.log"]
+        self.assert_refused(report, "campaign_secret")
+
+    def test_artifacts_use_the_same_evidence_contract(self):
+        report = example()
+        report["artifacts"]["screenshots"] = ["TODO"]
+        self.assert_refused(report, "campaign_evidence")
+
+    def test_merge_order_sources_must_agree(self):
+        report = example()
+        report["pull_requests"][0]["merge_order"] = 2
+        self.assert_refused(report, "campaign_merge_order")
+
+    def test_timestamps_must_parse(self):
+        report = example()
+        report["generated_at"] = "2026-99-99T99:99:99Z"
+        self.assert_refused(report, "campaign_invalid")
+
+    def test_a_secret_in_an_unknown_key_is_still_refused(self):
+        report = example()
+        report["api_token"] = "sk-" + "a" * 24
+        self.assert_refused(report, "campaign_secret")
 
     def test_an_agent_cannot_fill_the_receiver_decision(self):
         report = example()
@@ -203,6 +276,19 @@ class RefusalTests(unittest.TestCase):
             with self.assertRaises(campaign_report.CampaignReportError) as caught:
                 campaign_report.load(path)
         self.assertEqual(caught.exception.code, "campaign_invalid")
+
+
+    def test_ready_needs_at_least_one_pass(self):
+        report = example()
+        for criterion in report["acceptance"]:
+            criterion["status"] = "NOT RUN"
+            criterion["reason"] = "not run"
+        self.assert_refused(report, "campaign_ready_without_pass")
+
+    def test_visual_pass_needs_an_image_or_recording(self):
+        report = example()
+        report["acceptance"][1]["evidence"] = ["docs/30-campaign-closeout.md"]
+        self.assert_refused(report, "campaign_evidence_kind")
 
 
 class CliTests(unittest.TestCase):

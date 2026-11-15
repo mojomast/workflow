@@ -81,8 +81,8 @@ A campaign checkpoint must record at least:
 1. objective and the one job that executes it;
 2. a snapshot of the sealed authorization: auth id, statement, repo, base
    revision, scope, budget and human gates;
-3. phase: `authorized`, `ready_to_advance`, `running`, `ready_for_review` or
-   `blocked`;
+3. phase: `authorized`, `ready_to_advance`, `running`, `job_complete`,
+   `ready_for_review` or `blocked`;
 4. active workers/tasks, with state and attempt ids;
 5. dependencies;
 6. the last completed action;
@@ -91,7 +91,10 @@ A campaign checkpoint must record at least:
 9. a revision that changes only when the reconciled view changes.
 
 The job remains the authority. A campaign record is a review objective and a
-checkpoint, not a grant. If the record's repo/base revision no longer matches the
+checkpoint, not a grant. `job_complete` means the queue/job acceptance check
+passed — verified attempts, gitleaks, suite and an accepted integration wave —
+not that every task row merely says `accepted`. Campaign `ready_for_review`
+remains unavailable until a verified closeout gate exists. If the record's repo/base revision no longer matches the
 job, reconciliation refuses rather than silently adopting a different job.
 
 ## 31.3 Restart reconciliation
@@ -106,7 +109,9 @@ On every scheduler pass and on restart:
 5. record the latest event as the last completed action;
 6. choose the next action and wait condition;
 7. write only if the view changed;
-8. stop at `ready_for_review` or `blocked`, with the reason recorded.
+8. stop at `job_complete`, `ready_for_review` or `blocked`, with the reason
+   recorded. Task-row acceptance alone does not produce `job_complete`; missing
+   job evidence is `blocked` at `repair_job_evidence`.
 
 The campaign layer does not dispatch. Duplicate suppression remains in the job's
 dispatch intent/idempotency key, the signed lease and the queue's exclusive
@@ -187,7 +192,9 @@ art was visible. A DOM assertion is not a visual acceptance.
 - a `PASS` on a revision-bound criterion (`test`, `integration`, `visual`,
   `performance`, `asset`) with no head or a stale head;
 - empty, placeholder, bare-label or absolute-path evidence;
-- audit findings without at least one of fixed/rejected/deferred;
+- an audit finding with no id, no single disposition, a duplicate id, or a
+  rejected/deferred finding without a reason; legacy untraceable disposition
+  arrays are refused;
 - a non-pending receiver decision, or an incomplete merge order.
 
 `NOT RUN` remains allowed in a ready report only when disclosed in
@@ -199,16 +206,19 @@ reviewable claim, not proof.
 ## 31.7 Bounded trial
 
 The deterministic trial is
-`bundlebees-closeout/tests/test_campaign_continuity.py`: two tasks, simulated
+`bundlebees/tests/test_campaign_continuity.py`: two tasks, simulated
 dispatch/integration state, a fresh checkpoint read, a second reconcile, an
-unchanged revision, no redispatch, `ready_for_review` requiring a human. It is
-not a live-host trial.
+unchanged revision, no redispatch, and `job_complete` requiring a campaign
+closeout rather than review acceptance. The separate production-driver restart test
+(`bundlebees/tests/test_factory_cli_e2e.py`) uses an authorized job in the real
+feature queue and the real `job_cli.tick` path in CI; it is not a live-host
+trial.
 
 Measured on **2026-11-15 UTC**:
 
-- `pytest tests/test_campaign_continuity.py -q` → **11 passed**;
+- `pytest tests/test_campaign_continuity.py -q` → **16 passed**;
 - `pytest tests/test_campaign_continuity.py tests/test_project_plan.py -q` →
-  **21 passed**;
+  **26 passed**;
 - bundlebees CI run `43699214662` at code head `d2db0d2`: **1318 passed,
   7 skipped**, 4/4 checks green (tests sandbox included, real Orbit round trip,
   plugin doctor, gitleaks);

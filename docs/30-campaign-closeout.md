@@ -84,11 +84,12 @@ without evidence; the human reviewer still decides whether the picture is good.
 The first pass was green and still had real defects. A second independent,
 read-only review found save-safety gaps, a frozen-cell scoring gap, a stale
 `ROUND_RESULT`, UI specificity bugs and a stale test count. The closeout must
-record audit findings as **fixed**, **rejected** or **deferred**, with a reason
-for each rejected or deferred item. An attempted fix that broke another
-invariant is evidence, not something to erase: removing the inline symbol data
-made the zero-runtime-network test fail, so the change was reverted and the
-283 KB cost was recorded.
+record each audit finding with a stable id and exactly one disposition:
+**fixed**, **rejected** or **deferred**. Rejected and deferred findings need a
+reason. The same finding cannot appear twice or in two buckets. An attempted fix
+that broke another invariant is evidence, not something to erase: removing the
+inline symbol data made the zero-runtime-network test fail, so the change was
+reverted and the 283 KB cost was recorded.
 
 ### 3.5 Deterministic fixtures change with behavior
 
@@ -125,8 +126,9 @@ accept a known limit; they cannot accept a hidden one.
 3. **Fill the acceptance matrix.** One row per criterion from the plan or
    contract. Use `PASS` only with evidence; use `NOT RUN` with a reason and put
    the same item in `not_run` and `known_limits`.
-4. **Triage the audits.** Every finding is fixed, rejected with a reason, or
-   deferred with a reason. A finding cannot disappear.
+4. **Triage the audits.** Every finding has a stable `AF-###` id and exactly one
+   disposition: fixed, rejected with a reason, or deferred with a reason. A
+   finding cannot disappear, appear twice, or appear in two buckets.
 5. **Write the report.** Use the template, then validate it:
 
    ```bash
@@ -148,11 +150,19 @@ The validator names the rule that failed. The important ones:
 | `campaign_acceptance_command` | a passing `test` criterion without the command that ran |
 | `campaign_acceptance_head` / `campaign_acceptance_revision` | a passing test, integration, visual, performance or asset criterion with no head, or a head other than the reported final head |
 | `campaign_test_head` | a `ready_for_review` report whose recorded test runs are not at the reported final head |
-| `campaign_evidence` | a bare label, placeholder or absolute path instead of a repository-relative artifact or public `https` URL |
+| `campaign_evidence` | a bare label, placeholder, path traversal or absolute path instead of a repository-relative artifact or public `https` URL |
+| `campaign_evidence_kind` | a `visual` PASS with no image or recording evidence |
+| `campaign_ready_without_pass` | `ready_for_review` with no passing acceptance criterion |
 | `campaign_acceptance_reason` | `NOT RUN`, `BLOCKED` or `UNVERIFIED` without a reason |
 | `campaign_ready_with_blocker` | `ready_for_review` while a criterion is `FAIL`, `BLOCKED` or `UNVERIFIED` |
 | `campaign_test_failed` / `campaign_test_runs` | a ready campaign whose recorded suite failed, or no run at all |
-| `campaign_audit_disposition` | audit findings present with no fixed, rejected or deferred disposition |
+| `campaign_audit_id` | a finding id that is not stable-looking (`AF-###`) |
+| `campaign_audit_disposition` | a finding with no valid single disposition |
+| `campaign_audit_reason` | a rejected or deferred finding without a reason |
+| `campaign_audit_head` | a ready report whose audit was not performed at the final head |
+| `campaign_audit_duplicate` | the same finding id appears more than once in the report |
+| `campaign_audit_legacy` | old free-text fixed/rejected/deferred arrays instead of traceable findings |
+| `campaign_revision` | `base_rev` equals `head_rev` in a ready report |
 | `campaign_limits_required` | a ready campaign with unrun checks but no `known_limits` |
 | `campaign_task_graph` | counts that imply accepted > integrated > implemented, or a wrong `remaining` |
 | `campaign_merge_order` | a merge order naming a PR that is not open |

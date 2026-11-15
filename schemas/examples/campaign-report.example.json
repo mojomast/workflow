@@ -73,16 +73,24 @@
       "source": "Independent read-only review",
       "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "findings": [
-        "Save safety and frozen-cell scoring gaps were found."
-      ],
-      "fixed": [
-        "Save phases fail closed; frozen cells no longer score."
-      ],
-      "rejected": [
-        "Removing inline symbol data broke the zero-runtime-network test."
-      ],
-      "deferred": [
-        "The axe audit and coverage measurement remain unproven."
+        {
+          "id": "AF-001",
+          "summary": "Save safety and frozen-cell scoring gaps were found.",
+          "disposition": "fixed",
+          "evidence": "evidence/audit-001.md"
+        },
+        {
+          "id": "AF-002",
+          "summary": "Removing inline symbol data broke the zero-runtime-network test.",
+          "disposition": "rejected",
+          "reason": "The removal failed the NET test; the change was reverted and the 283 KB duplication retained."
+        },
+        {
+          "id": "AF-003",
+          "summary": "The axe audit and coverage measurement remain unproven.",
+          "disposition": "deferred",
+          "reason": "No browser axe run or coverage tool is available on this host; recorded under known limits."
+        }
       ]
     }
   ],

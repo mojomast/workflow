@@ -21,7 +21,7 @@ not an approval; the receiver decision stays pending.
 - Implemented:
 - Integrated:
 - Accepted evidence rows:
-- Remaining:
+- Remaining (unimplemented; total − implemented):
 - Note on the distinction:
 
 ## Pull requests
@@ -47,9 +47,12 @@ One row per criterion. `PASS` needs evidence; `NOT RUN`, `BLOCKED` and
 
 ## Audits
 
-| Source | Head SHA | Findings | Fixed | Rejected (reason) | Deferred (reason) |
+One row per finding. `Disposition` is exactly one of `fixed`, `rejected` or `deferred`; `rejected`
+and `deferred` require a reason. The id is stable across reports.
+
+| Source | Head SHA | Finding id | Finding | Disposition | Reason / evidence |
 |---|---|---|---|---|---|
-| | | | | | |
+| | | AF-001 | | fixed / rejected / deferred | |
 
 ## Artifacts and limits
 
