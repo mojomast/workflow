@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/campaign-report.schema.json",
+  "title": "Rizzstack campaign report",
+  "description": "A closeout record for one automated-development campaign. It records product acceptance separately from task implementation, the exact test runs and revisions, and the remaining limits. It is evidence for a human receiver, never an acceptance decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "campaign_id",
+    "repository",
+    "branch",
+    "base_rev",
+    "head_rev",
+    "generated_at",
+    "delivery_state",
+    "task_graph",
+    "pull_requests",
+    "acceptance",
+    "test_runs",
+    "not_run",
+    "known_limits",
+    "receiver_decision",
+    "recommended_merge_order"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.campaign-report/1"
+    },
+    "campaign_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_rev": {
+      "$ref": "#/$defs/revision"
+    },
+    "head_rev": {
+      "$ref": "#/$defs/revision"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "delivery_state": {
+      "enum": ["ready_for_review", "incomplete", "blocked"]
+    },
+    "task_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "implemented", "integrated", "accepted", "remaining"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "implemented": {"type": "integer", "minimum": 0},
+        "integrated": {"type": "integer", "minimum": 0},
+        "accepted": {"type": "integer", "minimum": 0},
+        "remaining": {"type": "integer", "minimum": 0},
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "pull_requests": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/pull_request"}
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/acceptance"}
+    },
+    "test_runs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/test_run"}
+    },
+    "audits": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/audit"}
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "screenshots": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence_ref"}
+        },
+        "performance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metric", "value", "unit"],
+            "properties": {
+              "metric": {"type": "string", "minLength": 1},
+              "value": {"type": "number"},
+              "unit": {"type": "string", "minLength": 1},
+              "budget": {"type": "number"},
+              "evidence": {"$ref": "#/$defs/evidence_ref"}
+            }
+          }
+        },
+        "assets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence_ref"}
+        }
+      }
+    },
+    "not_run": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/not_run"}
+    },
+    "known_limits": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "receiver_decision": {
+      "const": "pending"
+    },
+    "recommended_merge_order": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "PR numbers in merge order: the open PRs sorted by their 1-based merge_order position. This is a sequence, not a set: the validator compares it exactly with the order derived from the positions and refuses a reversed, partial or padded plan and any PR that is not open. Nonconsecutive PR numbers are normal; the positions are what must be consecutive.",
+      "items": {"type": "integer", "minimum": 1}
+    }
+  },
+  "$defs": {
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "evidence_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:https://\\S+|[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)$",
+      "description": "A public https URL or a repository-relative artifact path with at least one directory segment. The validator additionally refuses placeholder segments, path traversal, credentials in a URL and credential material anywhere in the report."
+    },
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "url", "draft", "state", "base", "head_sha"],
+      "properties": {
+        "number": {"type": "integer", "minimum": 1},
+        "url": {"type": "string", "pattern": "^https://"},
+        "draft": {"type": "boolean"},
+        "state": {"enum": ["open", "merged", "closed"]},
+        "base": {"type": "string", "minLength": 1},
+        "head_sha": {"$ref": "#/$defs/revision"},
+        "merge_order": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based position of this open PR in the merge sequence. Over all open PRs the positions are exactly 1..N with no gap and no duplicate; a merged or closed PR is not in the merge sequence and must not carry a position."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "open"}}, "required": ["state"]},
+          "then": {"required": ["merge_order"]},
+          "else": {"properties": {"merge_order": false}}
+        }
+      ]
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "kind", "status", "evidence"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^AC-[0-9]{1,}$"},
+        "statement": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["test", "integration", "visual", "performance", "asset", "manual"]},
+        "status": {"enum": ["PASS", "FAIL", "NOT RUN", "BLOCKED", "UNVERIFIED"]},
+        "evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence_ref"}
+        },
+        "reason": {"type": "string", "minLength": 1},
+        "command": {"type": "string", "minLength": 1},
+        "head_sha": {"$ref": "#/$defs/revision"}
+      }
+    },
+    "test_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "head_sha", "passed", "failed", "skipped", "ran_at"],
+      "properties": {
+        "command": {"type": "string", "minLength": 1},
+        "head_sha": {"$ref": "#/$defs/revision"},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0},
+        "ran_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "status", "findings"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "status": {
+          "enum": ["clean", "findings", "not_run"],
+          "description": "clean: the audit ran and found nothing (findings empty, head_sha required). findings: the audit ran and every finding carries exactly one disposition (findings nonempty). not_run: the audit did not run (findings empty, reason required); the validator refuses to read not_run as a pass and requires known_limits in a ready report."
+        },
+        "head_sha": {"$ref": "#/$defs/revision"},
+        "reason": {"type": "string", "minLength": 1},
+        "findings": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/audit_finding"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "clean"}}, "required": ["status"]},
+          "then": {
+            "required": ["head_sha"],
+            "properties": {"findings": {"maxItems": 0}}
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "findings"}}, "required": ["status"]},
+          "then": {"properties": {"findings": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "not_run"}}, "required": ["status"]},
+          "then": {
+            "required": ["reason"],
+            "properties": {"findings": {"maxItems": 0}}
+          }
+        }
+      ]
+    },
+    "audit_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "disposition"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^AF-[0-9]{1,}$"},
+        "summary": {"type": "string", "minLength": 1},
+        "disposition": {"enum": ["fixed", "rejected", "deferred"]},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence": {"$ref": "#/$defs/evidence_ref"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["disposition"],
+            "properties": {"disposition": {"enum": ["rejected", "deferred"]}}
+          },
+          "then": {"required": ["reason"]}
+        }
+      ]
+    },
+    "not_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check", "reason"],
+      "properties": {
+        "check": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
