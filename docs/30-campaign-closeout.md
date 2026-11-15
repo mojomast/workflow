@@ -91,6 +91,18 @@ that broke another invariant is evidence, not something to erase: removing the
 inline symbol data made the zero-runtime-network test fail, so the change was
 reverted and the 283 KB cost was recorded.
 
+Every audit also carries a `status` so that "found nothing" and "did not look"
+are different records:
+
+- **`clean`** — the review ran on a named head and found nothing. `findings` is
+  empty and `head_sha` is required. A clean audit needs a head because the claim
+  is revision-bound; it does not need an invented `AF-###` row.
+- **`findings`** — the review ran and found something; `findings` is nonempty.
+- **`not_run`** — the review did not happen. `findings` is empty and a reason is
+  required. A ready report must also disclose it in `known_limits`, and it needs
+  at least one audit that actually ran, so `not_run` cannot be used as a silent
+  pass.
+
 ### 3.5 Deterministic fixtures change with behavior
 
 When boss-freeze preservation and frozen-cell scoring changed, the old golden
@@ -124,11 +136,14 @@ accept a known limit; they cannot accept a hidden one.
    the browser/application acceptance command and the asset/perf checks that the
    contract names. Record commands, exit codes, counts and timestamps.
 3. **Fill the acceptance matrix.** One row per criterion from the plan or
-   contract. Use `PASS` only with evidence; use `NOT RUN` with a reason and put
-   the same item in `not_run` and `known_limits`.
-4. **Triage the audits.** Every finding has a stable `AF-###` id and exactly one
-   disposition: fixed, rejected with a reason, or deferred with a reason. A
-   finding cannot disappear, appear twice, or appear in two buckets.
+   contract. Use `PASS` only with evidence; use `NOT RUN` with a reason, name the
+   criterion id in `not_run`, and put the item in `known_limits`.
+4. **Triage the audits.** Give each audit a `status`. Every finding has a stable
+   `AF-###` id and exactly one disposition: fixed, rejected with a reason, or
+   deferred with a reason. A finding cannot disappear, appear twice, or appear in
+   two buckets. A review that found nothing is `clean` with an empty `findings`
+   list; a review that did not run is `not_run` with a reason and appears in
+   `known_limits`.
 5. **Write the report.** Use the template, then validate it:
 
    ```bash
@@ -157,20 +172,35 @@ The validator names the rule that failed. The important ones:
 | `campaign_ready_with_blocker` | `ready_for_review` while a criterion is `FAIL`, `BLOCKED` or `UNVERIFIED` |
 | `campaign_test_failed` / `campaign_test_runs` | a ready campaign whose recorded suite failed, or no run at all |
 | `campaign_audit_id` | a finding id that is not stable-looking (`AF-###`) |
+| `campaign_audit_status` | an audit whose `status` is missing or not `clean`, `findings` or `not_run` |
+| `campaign_audit_clean` | a `clean` audit that reports findings |
+| `campaign_audit_findings` | a `findings` audit with an empty findings list |
+| `campaign_audit_not_run` | a `not_run` audit that reports findings |
+| `campaign_audit_missing` | a ready report with no audit that actually ran |
 | `campaign_audit_disposition` | a finding with no valid single disposition |
-| `campaign_audit_reason` | a rejected or deferred finding without a reason |
-| `campaign_audit_head` | a ready report whose audit was not performed at the final head |
+| `campaign_audit_reason` | a rejected or deferred finding without a reason, or a `not_run` audit without one |
+| `campaign_audit_head` | a `clean` audit without a head, or a ready report whose audit that ran was not performed at the final head |
 | `campaign_audit_duplicate` | the same finding id appears more than once in the report |
 | `campaign_audit_legacy` | old free-text fixed/rejected/deferred arrays instead of traceable findings |
 | `campaign_revision` | `base_rev` equals `head_rev` in a ready report |
-| `campaign_limits_required` | a ready campaign with unrun checks but no `known_limits` |
+| `campaign_limits_required` | a ready campaign with unrun checks or a `not_run` audit but no `known_limits` |
+| `campaign_not_run_consistency` | a `NOT RUN` criterion that no `not_run` entry names by id |
 | `campaign_task_graph` | counts that imply accepted > integrated > implemented, or a wrong `remaining` |
-| `campaign_merge_order` | a merge order naming a PR that is not open |
+| `campaign_acceptance_test_run` | a passing `test` criterion whose command a recorded run reports as failing |
+| `campaign_merge_order` | a recommended order that is not the open PRs in ascending `merge_order` position (reversed, partial, padded, or naming a closed PR) |
+| `campaign_merge_order_position` | `merge_order` positions that are not exactly 1..N over the open PRs |
+| `campaign_merge_order_duplicate` | a repeated `merge_order` position or a repeated PR number |
+| `campaign_merge_order_missing` | an open PR with no `merge_order` |
+| `campaign_merge_order_state` | a merged or closed PR carrying a `merge_order` |
+| `campaign_metric` | a non-numeric or non-finite performance `value` or `budget` |
 | `campaign_secret` | credentials or private host paths copied into the report |
+| `campaign_invalid` | an unknown field, a wrong type, an empty optional string, or an unparseable timestamp |
 
 `NOT RUN` is intentionally allowed in a `ready_for_review` campaign when it is
-also disclosed in `known_limits`. The status is not a pass; it is a limit the
-receiver can weigh.
+also disclosed in `known_limits` and named in `not_run` by criterion id. The
+status is not a pass; it is a limit the receiver can weigh. The same is true of a
+`not_run` audit: it needs a reason and a `known_limits` entry, and the campaign
+still needs at least one audit that actually ran.
 
 ## 5.1 What the validator can and cannot prove
 
@@ -188,6 +218,50 @@ work. The reviewer must open the evidence and reproduce what matters.
 the receiver's decision pending and does not call a forge API. The campaign may
 end with every PR still a draft, which is the correct outcome when the approver
 has said "feature branches and draft PRs only".
+
+### 6.1 Merge-order semantics
+
+Two fields describe one plan, and they must agree as sequences:
+
+- `pull_requests[].merge_order` is the **1-based position** of that PR in the
+  merge sequence. It is not the PR number and it is not a second copy of the
+  recommended list.
+- `recommended_merge_order` is the **list of PR numbers**, ordered by that
+  position: `[pr.number for pr in open PRs sorted by merge_order]`.
+
+The validator derives that list and compares it with `recommended_merge_order`
+exactly. A set comparison is wrong here: it rejects a normal report whose first
+PR is `#2` in position `1`, and it accepts a list that contradicts the positions
+(`#1` in position 1, `#2` in position 2, recommended `[2, 1]`).
+
+| Case | Handling |
+|---|---|
+| Nonconsecutive PR numbers (`#2`, `#7`) | Allowed. Forge numbers are not dense; only positions are consecutive. |
+| Reversed or shuffled order | Refused (`campaign_merge_order`) with the derived order in the message. |
+| Duplicate positions | Refused (`campaign_merge_order_duplicate`). |
+| Position gap (`1`, `3`) | Refused (`campaign_merge_order_position`): positions are exactly `1..N` over the open PRs. |
+| Open PR with no position | Refused (`campaign_merge_order_missing`): the order would be ambiguous. |
+| Merged or closed PR with a position | Refused (`campaign_merge_order_state`): it is not in the merge sequence. |
+| Merged or closed PR in `recommended_merge_order` | Refused (`campaign_merge_order`). |
+| No open PRs | `recommended_merge_order` must be empty. |
+
+The JSON Schema carries the same state rule (`merge_order` required when
+`state` is `open`, forbidden otherwise) and the validator carries the sequence
+rule, which a schema cannot express.
+
+### 6.2 Not implemented here
+
+Recorded rather than hidden:
+
+- `recommended_merge_order` must name **every** open PR. A campaign that wants to
+  recommend only a ready subset would need an explicit field for the rest; today
+  the order is the whole open set, which keeps the plan unambiguous.
+- `artifacts.performance` rows are not bound to a head revision. The number can
+  therefore come from an older commit than `head_rev`; a `head_sha` per row is
+  the obvious next step.
+- A `manual` acceptance criterion is not revision-bound, because a human review
+  may legitimately happen without a checkout. Only `test`, `integration`,
+  `visual`, `performance` and `asset` PASS rows must name the final head.
 
 ## 7. First-use caveats
 

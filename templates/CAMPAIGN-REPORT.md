@@ -26,7 +26,11 @@ not an approval; the receiver decision stays pending.
 
 ## Pull requests
 
-| Number | URL | Draft? | State | Base | Head SHA | Merge order |
+`Merge order` is a **1-based position**, not the PR number: one row per open PR,
+positions exactly 1..N. Merged and closed PRs leave it blank. The recommended
+order at the end of this form is the open PR numbers in that position order.
+
+| Number | URL | Draft? | State | Base | Head SHA | Merge order (1..N) |
 |---|---|---|---|---|---|---|
 | | | | | | | |
 
@@ -47,25 +51,35 @@ One row per criterion. `PASS` needs evidence; `NOT RUN`, `BLOCKED` and
 
 ## Audits
 
-One row per finding. `Disposition` is exactly one of `fixed`, `rejected` or `deferred`; `rejected`
-and `deferred` require a reason. The id is stable across reports.
+One audit block per independent review; each needs a `status`:
 
-| Source | Head SHA | Finding id | Finding | Disposition | Reason / evidence |
-|---|---|---|---|---|---|
-| | | AF-001 | | fixed / rejected / deferred | |
+- `clean` — the review ran and found nothing. `findings` is empty and `head_sha`
+  is required. Do not invent an `AF-###` finding to satisfy a shape.
+- `findings` — the review ran and found something. `findings` is nonempty and
+  each finding has exactly one `fixed`, `rejected` or `deferred` disposition;
+  `rejected` and `deferred` require a reason.
+- `not_run` — the review did not happen. `findings` is empty and a reason is
+  required. It is a disclosed limit, not a pass: a ready report also names it in
+  `known_limits`, and a ready report needs at least one audit that actually ran.
+
+The id is stable across reports.
+
+| Source | Status | Head SHA | Finding id | Finding | Disposition | Reason / evidence |
+|---|---|---|---|---|---|---|
+| | clean / findings / not_run | | AF-001 | | fixed / rejected / deferred | |
 
 ## Artifacts and limits
 
 - Screenshots / recordings (viewport and head):
 - Performance measurements (metric, value, unit, budget):
 - Asset verification:
-- Checks not run, with reasons:
+- Checks not run, with reasons (name each `NOT RUN` criterion by its `AC-###` id):
 - Known limits the receiver should weigh:
 - Placeholders or fallbacks still visible to a user:
 
 ## Handoff
 
-- Recommended merge order (review aid, not authorization):
+- Recommended merge order (open PR numbers in merge-order position; review aid, not authorization):
 - What must not be merged/tagged/released/deployed without the approver:
 - Where the full evidence lives:
 - Receiver decision: **pending**

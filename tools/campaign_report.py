@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 import re
 import sys
 from datetime import datetime
@@ -34,6 +35,48 @@ PR_STATES = {"open", "merged", "closed"}
 REVISION_BOUND_KINDS = {"test", "integration", "visual", "performance", "asset"}
 AUDIT_DISPOSITIONS = {"fixed", "rejected", "deferred"}
 AUDIT_LEGACY_FIELDS = ("fixed", "rejected", "deferred")
+AUDIT_STATUSES = {"clean", "findings", "not_run"}
+
+# Field allowlists. The JSON Schema sets additionalProperties: false at every
+# level, so an unknown key is refused here too instead of being dropped from the
+# normal form. Keep these in step with schemas/campaign-report.schema.json.
+ROOT_FIELDS = frozenset({
+    "schema",
+    "campaign_id",
+    "repository",
+    "branch",
+    "base_rev",
+    "head_rev",
+    "generated_at",
+    "delivery_state",
+    "task_graph",
+    "pull_requests",
+    "acceptance",
+    "test_runs",
+    "audits",
+    "artifacts",
+    "not_run",
+    "known_limits",
+    "receiver_decision",
+    "recommended_merge_order",
+})
+TASK_GRAPH_FIELDS = frozenset({
+    "total", "implemented", "integrated", "accepted", "remaining", "note",
+})
+PR_FIELDS = frozenset({"number", "url", "draft", "state", "base", "head_sha", "merge_order"})
+ACCEPTANCE_FIELDS = frozenset({
+    "id", "statement", "kind", "status", "evidence", "reason", "command", "head_sha",
+})
+TEST_RUN_FIELDS = frozenset({
+    "command", "head_sha", "passed", "failed", "skipped", "ran_at", "note",
+})
+AUDIT_FIELDS = frozenset({"source", "status", "head_sha", "findings", "reason"})
+AUDIT_FINDING_FIELDS = frozenset({"id", "summary", "disposition", "reason", "evidence"})
+NOT_RUN_FIELDS = frozenset({"check", "reason"})
+ARTIFACT_FIELDS = frozenset({"screenshots", "performance", "assets"})
+PERFORMANCE_FIELDS = frozenset({"metric", "value", "unit", "budget", "evidence"})
+
+AC_TOKEN_RE = re.compile(r"\bAC-[0-9]{1,}\b")
 
 REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 AUDIT_ID_RE = re.compile(r"^AF-[0-9]{1,}$")
@@ -85,6 +128,11 @@ def _fail(code: str, message: str, fix: str = "") -> "None":
     raise CampaignReportError(code, message, fix)
 
 
+def _reject_constant(name: str) -> "None":
+    """json.loads hook: NaN/Infinity are Python extensions, not JSON numbers."""
+    raise ValueError(f"{name} is not a JSON number")
+
+
 def _object(value: Any, field: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         _fail("campaign_invalid", f"{field} must be an object")
@@ -115,6 +163,25 @@ def _integer(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         _fail("campaign_invalid", f"{field} must be a non-negative integer")
     return value
+
+
+def _number(value: Any, field: str) -> float | int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        _fail("campaign_metric", f"{field} must be a finite number")
+    if isinstance(value, float) and not math.isfinite(value):
+        # NaN/inf are not JSON numbers and make any budget comparison meaningless.
+        _fail("campaign_metric", f"{field} must be a finite number")
+    return value
+
+
+def _no_unknown(item: Mapping[str, Any], field: str, allowed: frozenset[str]) -> None:
+    extra = sorted(str(key) for key in item if key not in allowed)
+    if extra:
+        _fail(
+            "campaign_invalid",
+            f"{field} has unknown field(s): {', '.join(extra)}",
+            "Remove the field or extend schemas/campaign-report.schema.json; the schema forbids extra fields.",
+        )
 
 
 def _revision(value: Any, field: str) -> str:
@@ -205,6 +272,7 @@ def _acceptance(
     head_rev: str,
 ) -> dict[str, Any]:
     item = _object(entry, f"acceptance[{index}]")
+    _no_unknown(item, f"acceptance[{index}]", ACCEPTANCE_FIELDS)
     criterion_id = _text(item.get("id"), f"acceptance[{index}].id")
     if not AC_RE.fullmatch(criterion_id):
         _fail("campaign_acceptance_id", f"acceptance[{index}].id must look like AC-001")
@@ -274,20 +342,25 @@ def _acceptance(
             "Resolve the criterion or change delivery_state to incomplete/blocked.",
         )
 
-    return {
+    result = {
         "id": criterion_id,
         "statement": statement,
         "kind": kind,
         "status": status,
         "evidence": evidence,
-        "reason": reason,
-        "command": command,
-        "head_sha": head_sha,
     }
+    if reason is not None:
+        result["reason"] = reason
+    if command is not None:
+        result["command"] = command
+    if head_sha is not None:
+        result["head_sha"] = head_sha
+    return result
 
 
 def _pull_request(entry: Any, index: int) -> dict[str, Any]:
     item = _object(entry, f"pull_requests[{index}]")
+    _no_unknown(item, f"pull_requests[{index}]", PR_FIELDS)
     number = _integer(item.get("number"), f"pull_requests[{index}].number")
     if number < 1:
         _fail("campaign_pr_number", f"pull_requests[{index}].number must be positive")
@@ -300,6 +373,12 @@ def _pull_request(entry: Any, index: int) -> dict[str, Any]:
     state = _text(item.get("state"), f"pull_requests[{index}].state")
     if state not in PR_STATES:
         _fail("campaign_pr_state", f"pull_requests[{index}].state is not supported")
+    if state != "open" and "merge_order" in item:
+        _fail(
+            "campaign_merge_order_state",
+            f"pull_requests[{index}] is {state} but carries merge_order",
+            "Only open PRs occupy a merge position; omit the field on merged or closed PRs.",
+        )
     base = _text(item.get("base"), f"pull_requests[{index}].base")
     head_sha = _revision(item.get("head_sha"), f"pull_requests[{index}].head_sha")
     merge_order = item.get("merge_order")
@@ -307,19 +386,22 @@ def _pull_request(entry: Any, index: int) -> dict[str, Any]:
         merge_order = _integer(merge_order, f"pull_requests[{index}].merge_order")
         if merge_order < 1:
             _fail("campaign_pr_merge_order", f"pull_requests[{index}].merge_order must be positive")
-    return {
+    result = {
         "number": number,
         "url": url,
         "draft": draft,
         "state": state,
         "base": base,
         "head_sha": head_sha,
-        "merge_order": merge_order,
     }
+    if merge_order is not None:
+        result["merge_order"] = merge_order
+    return result
 
 
 def _test_run(entry: Any, index: int) -> dict[str, Any]:
     item = _object(entry, f"test_runs[{index}]")
+    _no_unknown(item, f"test_runs[{index}]", TEST_RUN_FIELDS)
     command = _text(item.get("command"), f"test_runs[{index}].command")
     head_sha = _revision(item.get("head_sha"), f"test_runs[{index}].head_sha")
     passed = _integer(item.get("passed"), f"test_runs[{index}].passed")
@@ -333,20 +415,23 @@ def _test_run(entry: Any, index: int) -> dict[str, Any]:
         )
     ran_at = _time(item.get("ran_at"), f"test_runs[{index}].ran_at")
     note = _optional_text(item.get("note"), f"test_runs[{index}].note")
-    return {
+    result = {
         "command": command,
         "head_sha": head_sha,
         "passed": passed,
         "failed": failed,
         "skipped": skipped,
         "ran_at": ran_at,
-        "note": note,
     }
+    if note is not None:
+        result["note"] = note
+    return result
 
 
 def _audit_finding(entry: Any, index: int, audit_index: int) -> dict[str, Any]:
     field = f"audits[{audit_index}].findings[{index}]"
     item = _object(entry, field)
+    _no_unknown(item, field, AUDIT_FINDING_FIELDS)
     raw_id = str(item.get("id") or "").strip()
     if not raw_id:
         _fail(
@@ -400,16 +485,63 @@ def _audit(entry: Any, index: int) -> dict[str, Any]:
             f"audits[{index}] uses untraceable disposition array(s): {', '.join(legacy)}",
             "Replace fixed/rejected/deferred arrays with findings[] objects, each with an id, one disposition and a reason where required.",
         )
+    _no_unknown(item, f"audits[{index}]", AUDIT_FIELDS)
     source = _text(item.get("source"), f"audits[{index}].source")
     head_sha = item.get("head_sha")
     if head_sha is not None:
         head_sha = _revision(head_sha, f"audits[{index}].head_sha")
-    raw_findings = _list(item.get("findings"), f"audits[{index}].findings", nonempty=True)
+    status = str(item.get("status") or "").strip()
+    if status not in AUDIT_STATUSES:
+        _fail(
+            "campaign_audit_status",
+            f"audits[{index}].status must be clean, findings or not_run",
+            "A completed audit with no findings is clean; an audit that did not run is not_run, never a silent pass.",
+        )
+    raw_findings = _list(item.get("findings"), f"audits[{index}].findings")
     findings = [
         _audit_finding(finding, position, index)
         for position, finding in enumerate(raw_findings)
     ]
-    return {"source": source, "head_sha": head_sha, "findings": findings}
+    reason = _optional_text(item.get("reason"), f"audits[{index}].reason")
+    if status == "clean":
+        if findings:
+            _fail(
+                "campaign_audit_clean",
+                f"audits[{index}] is clean but reports {len(findings)} finding(s)",
+                "A clean audit has an empty findings list; record the finding and use status findings instead.",
+            )
+        if not head_sha:
+            _fail(
+                "campaign_audit_head",
+                f"audits[{index}] is clean but names no head",
+                "Record the exact head the clean audit reviewed.",
+            )
+    elif status == "findings":
+        if not findings:
+            _fail(
+                "campaign_audit_findings",
+                f"audits[{index}] is findings but has none",
+                "A completed audit with no findings is status clean.",
+            )
+    else:
+        if findings:
+            _fail(
+                "campaign_audit_not_run",
+                f"audits[{index}] is not_run but reports {len(findings)} finding(s)",
+                "An audit that did not run cannot report findings; run it or record the limit.",
+            )
+        if not reason:
+            _fail(
+                "campaign_audit_reason",
+                f"audits[{index}] is not_run but has no reason",
+                "State why the audit did not run; a not_run audit is a limit, not a pass.",
+            )
+    result: dict[str, Any] = {"source": source, "status": status, "findings": findings}
+    if head_sha is not None:
+        result["head_sha"] = head_sha
+    if reason:
+        result["reason"] = reason
+    return result
 
 
 def validate(report: Any) -> dict[str, Any]:
@@ -419,6 +551,7 @@ def validate(report: Any) -> dict[str, Any]:
     _secret_check(root)
     if root.get("schema") != SCHEMA:
         _fail("campaign_schema", f"schema must be {SCHEMA}")
+    _no_unknown(root, "report", ROOT_FIELDS)
 
     campaign_id = _text(root.get("campaign_id"), "campaign_id")
     if not ID_RE.fullmatch(campaign_id):
@@ -452,6 +585,7 @@ def validate(report: Any) -> dict[str, Any]:
         )
 
     graph = _object(root.get("task_graph"), "task_graph")
+    _no_unknown(graph, "task_graph", TASK_GRAPH_FIELDS)
     total = _integer(graph.get("total"), "task_graph.total")
     implemented = _integer(graph.get("implemented"), "task_graph.implemented")
     integrated = _integer(graph.get("integrated"), "task_graph.integrated")
@@ -512,6 +646,36 @@ def validate(report: Any) -> dict[str, Any]:
                 "Re-run the final checks on the reported head or report the campaign as incomplete.",
             )
 
+    # A PASS that names a command this same report records as failing is a
+    # contradiction, not evidence. Compare only the latest run of that command:
+    # an incomplete report may legitimately document a red run and a later green
+    # rerun, and the old run is history, not the current result. Ready reports
+    # already reject any failed run above.
+    latest_by_command: dict[str, dict[str, Any]] = {}
+    for run in test_runs:
+        command = " ".join(run["command"].split())
+        previous = latest_by_command.get(command)
+        if previous is None or datetime.fromisoformat(
+            run["ran_at"].replace("Z", "+00:00")
+        ) >= datetime.fromisoformat(previous["ran_at"].replace("Z", "+00:00")):
+            latest_by_command[command] = run
+    failed_commands = {
+        command: run["failed"]
+        for command, run in latest_by_command.items()
+        if run["failed"]
+    }
+    for item in acceptance:
+        if item["kind"] != "test" or item["status"] != "PASS" or not item["command"]:
+            continue
+        command = " ".join(item["command"].split())
+        if command in failed_commands:
+            _fail(
+                "campaign_acceptance_test_run",
+                f"{item['id']} is PASS for '{command}' but a recorded run of that command failed "
+                f"({failed_commands[command]} failing)",
+                "Re-run the command, or record the criterion as FAIL until it passes.",
+            )
+
     raw_audits = root.get("audits")
     audits = [] if raw_audits is None else [_audit(entry, index) for index, entry in enumerate(
         _list(raw_audits, "audits")
@@ -524,14 +688,24 @@ def validate(report: Any) -> dict[str, Any]:
             "Give every finding a stable id and keep its one disposition in one place.",
         )
     if delivery_state == "ready_for_review":
+        if not any(audit["status"] != "not_run" for audit in audits):
+            _fail(
+                "campaign_audit_missing",
+                "a ready campaign records no audit that actually ran",
+                "Record the independent review as clean or findings; a not_run audit is a disclosed limit, not a pass.",
+            )
         for index, audit in enumerate(audits):
-            if not audit["head_sha"]:
+            if audit["status"] == "not_run":
+                # An audit that did not run has no head to bind; its reason and
+                # known_limits disclose it instead of letting it pass silently.
+                continue
+            if not audit.get("head_sha"):
                 _fail(
                     "campaign_audit_head",
                     f"audits[{index}] has no head_sha",
                     "Record the exact head the audit reviewed, or mark the campaign incomplete.",
                 )
-            if audit["head_sha"] != head_rev:
+            if audit.get("head_sha") != head_rev:
                 _fail(
                     "campaign_audit_head",
                     f"audits[{index}] reviewed {audit['head_sha']}, not the final head {head_rev}",
@@ -541,49 +715,97 @@ def validate(report: Any) -> dict[str, Any]:
     not_run = []
     for index, entry in enumerate(_list(root.get("not_run"), "not_run")):
         item = _object(entry, f"not_run[{index}]")
+        _no_unknown(item, f"not_run[{index}]", NOT_RUN_FIELDS)
         not_run.append({
             "check": _text(item.get("check"), f"not_run[{index}].check"),
             "reason": _text(item.get("reason"), f"not_run[{index}].reason"),
         })
 
+    # A NOT RUN criterion that no not_run entry names is a silent gap: the
+    # acceptance matrix and the not_run list must describe the same checks.
+    named_checks = {
+        token for entry in not_run for token in AC_TOKEN_RE.findall(entry["check"])
+    }
+    unlisted = [
+        item["id"]
+        for item in acceptance
+        if item["status"] == "NOT RUN" and item["id"] not in named_checks
+    ]
+    if unlisted:
+        _fail(
+            "campaign_not_run_consistency",
+            f"acceptance criterion(s) {', '.join(unlisted)} are NOT RUN but no not_run entry names them",
+            "Add a not_run entry whose check starts with the criterion id, or run the check.",
+        )
+
     known_limits = [
         _text(value, "known_limits")
         for value in _list(root.get("known_limits"), "known_limits")
     ]
-    if delivery_state == "ready_for_review" and (not_run or any(
-        item["status"] == "NOT RUN" for item in acceptance
-    )) and not known_limits:
+    if delivery_state == "ready_for_review" and (
+        not_run
+        or any(item["status"] == "NOT RUN" for item in acceptance)
+        or any(audit["status"] == "not_run" for audit in audits)
+    ) and not known_limits:
         _fail(
             "campaign_limits_required",
-            "a ready campaign with unrun checks must record known_limits",
+            "a ready campaign with unrun checks or audits must record known_limits",
         )
 
+    # `merge_order` is a 1..N position among the open PRs; `recommended_merge_order`
+    # is the open PR numbers in that position order. Compare the exact sequences:
+    # a set comparison both mistakes a PR number for a position and accepts a
+    # reversed or otherwise contradictory plan.
     merge_order = [
         _integer(value, "recommended_merge_order")
         for value in _list(root.get("recommended_merge_order"), "recommended_merge_order")
     ]
+    if any(number < 1 for number in merge_order):
+        _fail("campaign_merge_order", "recommended_merge_order must name positive PR numbers")
     if len(set(merge_order)) != len(merge_order):
-        _fail("campaign_merge_order_duplicate", "recommended_merge_order repeats a number")
-    pr_orders = [item["merge_order"] for item in pull_requests if item["merge_order"] is not None]
-    if len(set(pr_orders)) != len(pr_orders):
-        _fail("campaign_merge_order_duplicate", "pull_requests repeats a merge_order")
-    if pr_orders and set(pr_orders) != set(merge_order):
+        _fail("campaign_merge_order_duplicate", "recommended_merge_order repeats a PR number")
+    open_prs = [item for item in pull_requests if item["state"] == "open"]
+    closed_with_position = [
+        item["number"]
+        for item in pull_requests
+        if item["state"] != "open" and item.get("merge_order") is not None
+    ]
+    if closed_with_position:
         _fail(
-            "campaign_merge_order",
-            "pull_requests[].merge_order and recommended_merge_order disagree",
-            "Use one merge-order source and make every open PR appear exactly once.",
+            "campaign_merge_order_state",
+            f"closed or merged PR(s) {sorted(closed_with_position)} record a merge_order",
+            "Only open PRs occupy a merge position; a closed PR is not in the merge sequence.",
         )
-    open_numbers = {item["number"] for item in pull_requests if item["state"] == "open"}
-    unknown = [number for number in merge_order if number not in open_numbers]
-    if unknown:
+    missing_positions = [item["number"] for item in open_prs if item.get("merge_order") is None]
+    if missing_positions:
+        _fail(
+            "campaign_merge_order_missing",
+            f"open PR(s) {sorted(missing_positions)} have no merge_order",
+            "Give every open PR a 1..N position so the recommended order is unambiguous.",
+        )
+    positions = [item["merge_order"] for item in open_prs]
+    if len(set(positions)) != len(positions):
+        _fail("campaign_merge_order_duplicate", "pull_requests repeats a merge_order position")
+    if sorted(positions) != list(range(1, len(positions) + 1)):
+        _fail(
+            "campaign_merge_order_position",
+            f"merge_order positions must be exactly 1..{len(positions)}; got {sorted(positions)}",
+            "Close the gap: a missing position means a missing PR or a typo.",
+        )
+    expected_order = [
+        item["number"] for item in sorted(open_prs, key=lambda item: item["merge_order"])
+    ]
+    if expected_order != merge_order:
         _fail(
             "campaign_merge_order",
-            f"recommended_merge_order names PRs that are not open: {unknown}",
+            f"recommended_merge_order is {merge_order} but the open PRs in position order are {expected_order}",
+            "List the open PR numbers in ascending merge_order position; never list a closed PR.",
         )
 
     artifacts = root.get("artifacts")
     if artifacts is not None:
         artifacts = dict(_object(artifacts, "artifacts"))
+        _no_unknown(artifacts, "artifacts", ARTIFACT_FIELDS)
         for field in ("screenshots", "assets"):
             if field in artifacts:
                 artifacts[field] = [
@@ -594,18 +816,19 @@ def validate(report: Any) -> dict[str, Any]:
             rows = []
             for index, entry in enumerate(_list(artifacts["performance"], "artifacts.performance")):
                 item = _object(entry, f"artifacts.performance[{index}]")
+                _no_unknown(item, f"artifacts.performance[{index}]", PERFORMANCE_FIELDS)
+                # A budget has no enforced direction: it is a ceiling for latency
+                # and a floor for throughput, so the unit and the contract define
+                # it. The validator proves the numbers are finite, nothing more.
                 row = {
                     "metric": _text(item.get("metric"), f"artifacts.performance[{index}].metric"),
-                    "value": item.get("value"),
+                    "value": _number(item.get("value"), f"artifacts.performance[{index}].value"),
                     "unit": _text(item.get("unit"), f"artifacts.performance[{index}].unit"),
                 }
-                if not isinstance(row["value"], (int, float)) or isinstance(row["value"], bool):
-                    _fail("campaign_metric", f"artifacts.performance[{index}].value must be numeric")
                 if item.get("budget") is not None:
-                    budget = item["budget"]
-                    if not isinstance(budget, (int, float)) or isinstance(budget, bool):
-                        _fail("campaign_metric", f"artifacts.performance[{index}].budget must be numeric")
-                    row["budget"] = budget
+                    row["budget"] = _number(
+                        item["budget"], f"artifacts.performance[{index}].budget"
+                    )
                 if item.get("evidence") is not None:
                     row["evidence"] = _evidence_ref(
                         item["evidence"], f"artifacts.performance[{index}].evidence"
@@ -628,7 +851,7 @@ def validate(report: Any) -> dict[str, Any]:
             "integrated": integrated,
             "accepted": accepted,
             "remaining": remaining,
-            "note": graph_note,
+            **({"note": graph_note} if graph_note is not None else {}),
         },
         "pull_requests": pull_requests,
         "acceptance": acceptance,
@@ -652,7 +875,9 @@ def load(path: Path | str) -> dict[str, Any]:
     except OSError as exc:
         raise CampaignReportError("campaign_unreadable", f"cannot read report: {exc}") from exc
     try:
-        value = json.loads(raw)
+        # Python's json accepts NaN and Infinity; JSON does not, and a
+        # non-finite performance value cannot be reviewed or compared.
+        value = json.loads(raw, parse_constant=_reject_constant)
     except ValueError as exc:
         raise CampaignReportError("campaign_invalid", f"report is not valid JSON: {exc}") from exc
     return validate(value)

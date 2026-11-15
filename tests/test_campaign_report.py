@@ -23,6 +23,51 @@ def example() -> dict:
     return json.loads(EXAMPLE.read_text(encoding="utf-8"))
 
 
+def pull_request(number, *, state="open", merge_order=None, head_sha=None):
+    entry = {
+        "number": number,
+        "url": f"https://github.com/example/repo/pull/{number}",
+        "draft": True,
+        "state": state,
+        "base": "main",
+        "head_sha": head_sha or "b" * 40,
+    }
+    if merge_order is not None:
+        entry["merge_order"] = merge_order
+    return entry
+
+
+def audit(*, status="findings", head_sha: str | None = "b" * 40, findings=None, reason=None):
+    entry = {
+        "source": "Independent read-only review",
+        "status": status,
+        "findings": [] if findings is None else findings,
+    }
+    if head_sha is not None:
+        entry["head_sha"] = head_sha
+    if reason is not None:
+        entry["reason"] = reason
+    return entry
+
+
+def fixed_finding(finding_id="AF-001"):
+    return {
+        "id": finding_id,
+        "summary": "A real defect was found and repaired.",
+        "disposition": "fixed",
+        "evidence": "evidence/audit-001.md",
+    }
+
+
+class RefusalMixin(unittest.TestCase):
+    def assert_refused(self, report, code):
+        with self.assertRaises(campaign_report.CampaignReportError) as caught:
+            campaign_report.validate(report)
+        self.assertEqual(caught.exception.code, code)
+        return caught.exception
+
+
+
 class ValidReportTests(unittest.TestCase):
     def test_the_example_validates(self):
         report = campaign_report.validate(example())
@@ -67,12 +112,7 @@ class ValidReportTests(unittest.TestCase):
         jsonschema.validate(example(), schema)
 
 
-class RefusalTests(unittest.TestCase):
-    def assert_refused(self, report, code):
-        with self.assertRaises(campaign_report.CampaignReportError) as caught:
-            campaign_report.validate(report)
-        self.assertEqual(caught.exception.code, code)
-
+class RefusalTests(RefusalMixin):
     def test_pass_without_evidence_is_refused(self):
         report = example()
         report["acceptance"][0]["evidence"] = []
@@ -178,10 +218,10 @@ class RefusalTests(unittest.TestCase):
         report["artifacts"]["screenshots"] = ["TODO"]
         self.assert_refused(report, "campaign_evidence")
 
-    def test_merge_order_sources_must_agree(self):
+    def test_a_position_must_match_the_recommended_order(self):
         report = example()
         report["pull_requests"][0]["merge_order"] = 2
-        self.assert_refused(report, "campaign_merge_order")
+        self.assert_refused(report, "campaign_merge_order_position")
 
     def test_timestamps_must_parse(self):
         report = example()
@@ -283,12 +323,376 @@ class RefusalTests(unittest.TestCase):
         for criterion in report["acceptance"]:
             criterion["status"] = "NOT RUN"
             criterion["reason"] = "not run"
+        report["not_run"] = [
+            {"check": f"{criterion['id']}: {criterion['statement']}", "reason": "not run"}
+            for criterion in report["acceptance"]
+        ]
         self.assert_refused(report, "campaign_ready_without_pass")
 
     def test_visual_pass_needs_an_image_or_recording(self):
         report = example()
         report["acceptance"][1]["evidence"] = ["docs/30-campaign-closeout.md"]
         self.assert_refused(report, "campaign_evidence_kind")
+
+
+class MergeOrderTests(RefusalMixin):
+    """`merge_order` is a 1..N position; `recommended_merge_order` lists PR numbers."""
+
+    def test_a_low_pr_number_can_merge_first(self):
+        # THE DEFECT: PR #2 in position 1 is normal work, not a contradiction.
+        report = example()
+        report["pull_requests"] = [pull_request(2, merge_order=1)]
+        report["recommended_merge_order"] = [2]
+        validated = campaign_report.validate(report)
+        self.assertEqual(validated["recommended_merge_order"], [2])
+        self.assertEqual(validated["pull_requests"][0]["merge_order"], 1)
+
+    def test_nonconsecutive_pr_numbers_are_allowed(self):
+        report = example()
+        report["pull_requests"] = [
+            pull_request(7, merge_order=1),
+            pull_request(2, merge_order=2),
+        ]
+        report["recommended_merge_order"] = [7, 2]
+        self.assertEqual(campaign_report.validate(report)["recommended_merge_order"], [7, 2])
+
+    def test_a_contradictory_order_is_refused(self):
+        # THE OTHER DEFECT: positions say #1 first, the list says #2 first.
+        report = example()
+        report["pull_requests"] = [
+            pull_request(1, merge_order=1),
+            pull_request(2, merge_order=2),
+        ]
+        report["recommended_merge_order"] = [2, 1]
+        self.assert_refused(report, "campaign_merge_order")
+
+    def test_duplicate_positions_are_refused(self):
+        report = example()
+        report["pull_requests"] = [
+            pull_request(1, merge_order=1),
+            pull_request(2, merge_order=2),
+            pull_request(3, merge_order=2),
+        ]
+        report["recommended_merge_order"] = [1, 2, 3]
+        self.assert_refused(report, "campaign_merge_order_duplicate")
+
+    def test_position_gaps_are_refused(self):
+        report = example()
+        report["pull_requests"] = [
+            pull_request(1, merge_order=1),
+            pull_request(2, merge_order=3),
+        ]
+        report["recommended_merge_order"] = [1, 2]
+        self.assert_refused(report, "campaign_merge_order_position")
+
+    def test_an_open_pr_without_a_position_is_refused(self):
+        report = example()
+        report["pull_requests"] = [pull_request(1, merge_order=1), pull_request(2)]
+        report["recommended_merge_order"] = [1, 2]
+        self.assert_refused(report, "campaign_merge_order_missing")
+
+    def test_a_closed_pr_cannot_carry_a_position(self):
+        report = example()
+        report["pull_requests"] = [
+            pull_request(1, merge_order=1),
+            pull_request(2, state="merged", merge_order=2),
+        ]
+        report["recommended_merge_order"] = [1]
+        self.assert_refused(report, "campaign_merge_order_state")
+
+    def test_a_closed_pr_cannot_carry_an_explicit_null_position(self):
+        report = example()
+        report["pull_requests"] = [
+            pull_request(1, merge_order=1),
+            pull_request(2, state="closed"),
+        ]
+        report["pull_requests"][1]["merge_order"] = None
+        report["recommended_merge_order"] = [1]
+        self.assert_refused(report, "campaign_merge_order_state")
+
+    def test_a_closed_pr_cannot_appear_in_the_recommended_order(self):
+        report = example()
+        report["pull_requests"] = [pull_request(1, merge_order=1), pull_request(2, state="closed")]
+        report["recommended_merge_order"] = [1, 2]
+        self.assert_refused(report, "campaign_merge_order")
+
+    def test_an_all_merged_report_has_an_empty_recommended_order(self):
+        report = example()
+        report["pull_requests"] = [
+            pull_request(1, state="merged"),
+            pull_request(4, state="closed"),
+        ]
+        report["recommended_merge_order"] = []
+        self.assertEqual(campaign_report.validate(report)["recommended_merge_order"], [])
+
+    def test_an_empty_recommended_order_cannot_hide_an_open_pr(self):
+        report = example()
+        report["pull_requests"] = [pull_request(3, merge_order=1)]
+        report["recommended_merge_order"] = []
+        self.assert_refused(report, "campaign_merge_order")
+
+    def test_recommended_order_must_name_positive_pr_numbers(self):
+        report = example()
+        report["recommended_merge_order"] = [0]
+        self.assert_refused(report, "campaign_merge_order")
+
+    def test_recommended_order_cannot_repeat_a_pr_number(self):
+        report = example()
+        report["recommended_merge_order"] = [1, 1]
+        self.assert_refused(report, "campaign_merge_order_duplicate")
+
+
+class AuditStatusTests(RefusalMixin):
+    """A completed audit with zero findings is `clean`, not an invented finding."""
+
+    def test_a_clean_audit_with_no_findings_passes(self):
+        report = example()
+        report["audits"] = [audit(status="clean")]
+        validated = campaign_report.validate(report)
+        self.assertEqual(validated["audits"][0]["status"], "clean")
+        self.assertEqual(validated["audits"][0]["findings"], [])
+        self.assertEqual(validated["audits"][0]["head_sha"], "b" * 40)
+
+    def test_a_findings_audit_keeps_its_findings_and_dispositions(self):
+        report = example()
+        report["audits"] = [audit(status="findings", findings=[fixed_finding()])]
+        validated = campaign_report.validate(report)
+        self.assertEqual(validated["audits"][0]["findings"][0]["disposition"], "fixed")
+
+    def test_a_not_run_audit_is_recorded_as_not_run(self):
+        report = example()
+        report["audits"] = [
+            audit(status="findings", findings=[fixed_finding()]),
+            audit(status="not_run", head_sha=None, reason="The coverage audit needs a tool the host lacks."),
+        ]
+        validated = campaign_report.validate(report)
+        self.assertEqual([item["status"] for item in validated["audits"]], ["findings", "not_run"])
+
+    def test_an_audit_needs_a_status(self):
+        report = example()
+        del report["audits"][0]["status"]
+        self.assert_refused(report, "campaign_audit_status")
+
+    def test_an_unknown_audit_status_is_refused(self):
+        report = example()
+        report["audits"][0]["status"] = "done"
+        self.assert_refused(report, "campaign_audit_status")
+
+    def test_a_clean_audit_cannot_carry_findings(self):
+        report = example()
+        report["audits"][0]["status"] = "clean"
+        self.assert_refused(report, "campaign_audit_clean")
+
+    def test_a_clean_audit_needs_a_head(self):
+        report = example()
+        report["audits"] = [audit(status="clean", head_sha=None)]
+        self.assert_refused(report, "campaign_audit_head")
+
+    def test_a_clean_audit_at_a_stale_head_is_refused(self):
+        report = example()
+        report["audits"] = [audit(status="clean", head_sha="c" * 40)]
+        self.assert_refused(report, "campaign_audit_head")
+
+    def test_a_findings_audit_needs_findings(self):
+        report = example()
+        report["audits"] = [audit(status="findings")]
+        self.assert_refused(report, "campaign_audit_findings")
+
+    def test_a_not_run_audit_needs_a_reason(self):
+        report = example()
+        report["audits"] = [audit(status="not_run", head_sha=None)]
+        self.assert_refused(report, "campaign_audit_reason")
+
+    def test_a_not_run_audit_cannot_carry_findings(self):
+        report = example()
+        report["audits"][0]["status"] = "not_run"
+        report["audits"][0]["reason"] = "Not run on this host."
+        self.assert_refused(report, "campaign_audit_not_run")
+
+    def test_a_ready_campaign_needs_an_audit_that_ran(self):
+        report = example()
+        report["audits"] = [audit(status="not_run", head_sha=None, reason="No audit was run.")]
+        self.assert_refused(report, "campaign_audit_missing")
+
+    def test_a_ready_campaign_needs_a_recorded_audit(self):
+        report = example()
+        report["audits"] = []
+        self.assert_refused(report, "campaign_audit_missing")
+
+    def test_a_not_run_audit_must_be_disclosed_in_known_limits(self):
+        report = example()
+        report["audits"] = [
+            audit(status="findings", findings=[fixed_finding()]),
+            audit(status="not_run", head_sha=None, reason="The coverage audit needs an unavailable tool."),
+        ]
+        report["known_limits"] = []
+        self.assert_refused(report, "campaign_limits_required")
+
+
+class NotRunDisclosureTests(RefusalMixin):
+    def test_a_not_run_criterion_must_be_named_in_not_run(self):
+        report = example()
+        report["not_run"] = [
+            entry for entry in report["not_run"] if "AC-003" not in entry["check"]
+        ]
+        self.assert_refused(report, "campaign_not_run_consistency")
+
+    def test_a_free_text_not_run_entry_is_still_allowed(self):
+        report = example()
+        report["not_run"].append({"check": "Full WebKit journey suite", "reason": "No runnable WebKit."})
+        campaign_report.validate(report)
+
+
+class MetricTests(RefusalMixin):
+    def test_a_nan_metric_value_is_refused(self):
+        report = example()
+        report["artifacts"]["performance"][0]["value"] = float("nan")
+        self.assert_refused(report, "campaign_metric")
+
+    def test_an_infinite_budget_is_refused(self):
+        report = example()
+        report["artifacts"]["performance"][0]["budget"] = float("inf")
+        self.assert_refused(report, "campaign_metric")
+
+    def test_a_bool_metric_value_is_refused(self):
+        report = example()
+        report["artifacts"]["performance"][0]["value"] = True
+        self.assert_refused(report, "campaign_metric")
+
+    def test_a_nan_in_the_source_json_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "report.json"
+            path.write_text(
+                json.dumps(example()).replace('"value": 1.9', '"value": NaN'),
+                encoding="utf-8",
+            )
+            with self.assertRaises(campaign_report.CampaignReportError) as caught:
+                campaign_report.load(path)
+        self.assertEqual(caught.exception.code, "campaign_invalid")
+
+    def test_a_budget_has_no_enforced_direction(self):
+        # A budget may be a ceiling (latency) or a floor (throughput); the unit
+        # and the contract define the direction, so the validator records it.
+        report = example()
+        report["artifacts"]["performance"][0].update(value=4.0, budget=3.0)
+        validated = campaign_report.validate(report)
+        self.assertEqual(validated["artifacts"]["performance"][0]["budget"], 3.0)
+
+
+class UnknownFieldTests(RefusalMixin):
+    def test_an_unknown_root_field_is_refused(self):
+        report = example()
+        report["extra_notes"] = "not in the schema"
+        self.assert_refused(report, "campaign_invalid")
+
+    def test_an_unknown_pull_request_field_is_refused(self):
+        report = example()
+        report["pull_requests"][0]["label"] = "merge-queue"
+        self.assert_refused(report, "campaign_invalid")
+
+    def test_an_unknown_acceptance_field_is_refused(self):
+        report = example()
+        report["acceptance"][0]["owner"] = "nobody"
+        self.assert_refused(report, "campaign_invalid")
+
+
+class AcceptanceTestRunTests(RefusalMixin):
+    def test_a_pass_cannot_contradict_a_failed_run_of_the_same_command(self):
+        report = example()
+        report["delivery_state"] = "incomplete"
+        report["test_runs"][0]["failed"] = 1
+        self.assert_refused(report, "campaign_acceptance_test_run")
+
+    def test_a_pass_may_name_a_command_that_was_not_the_full_run(self):
+        report = example()
+        report["acceptance"][0]["command"] = "pnpm test --filter acceptance"
+        campaign_report.validate(report)
+
+    def test_a_later_green_rerun_supersedes_an_earlier_red_run(self):
+        # An incomplete report may honestly record a failed attempt and a green
+        # rerun of the same command. The latest run is the current result.
+        report = example()
+        report["delivery_state"] = "incomplete"
+        report["test_runs"][0]["failed"] = 1
+        report["test_runs"].append({
+            **report["test_runs"][0],
+            "failed": 0,
+            "passed": report["test_runs"][0]["passed"] + 1,
+            "ran_at": "2026-11-15T09:30:00Z",
+        })
+        campaign_report.validate(report)
+
+
+@unittest.skipUnless(jsonschema is not None, "jsonschema is optional")
+class SchemaParityTests(unittest.TestCase):
+    """The JSON Schema and the semantic validator must agree on shape."""
+
+    def setUp(self):
+        self.schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+    def assert_schema_refuses(self, report):
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(report, self.schema)
+
+    def test_a_free_text_ran_at_is_refused(self):
+        report = example()
+        report["test_runs"][0]["ran_at"] = "yesterday"
+        self.assert_schema_refuses(report)
+
+    def test_a_placeholder_screenshot_is_refused(self):
+        report = example()
+        report["artifacts"]["screenshots"] = ["TODO"]
+        self.assert_schema_refuses(report)
+
+    def test_an_empty_reason_is_refused(self):
+        report = example()
+        report["acceptance"][0]["reason"] = ""
+        self.assert_schema_refuses(report)
+
+    def test_an_audit_needs_a_status(self):
+        report = example()
+        del report["audits"][0]["status"]
+        self.assert_schema_refuses(report)
+
+    def test_a_clean_audit_cannot_carry_findings(self):
+        report = example()
+        report["audits"][0]["status"] = "clean"
+        self.assert_schema_refuses(report)
+
+    def test_a_clean_audit_needs_a_head(self):
+        report = example()
+        report["audits"] = [audit(status="clean", head_sha=None)]
+        self.assert_schema_refuses(report)
+
+    def test_a_not_run_audit_needs_a_reason(self):
+        report = example()
+        report["audits"] = [audit(status="not_run", head_sha=None)]
+        self.assert_schema_refuses(report)
+
+    def test_a_closed_pr_cannot_carry_a_position(self):
+        report = example()
+        report["pull_requests"] = [pull_request(1, state="closed", merge_order=1)]
+        self.assert_schema_refuses(report)
+
+    def test_an_open_pr_needs_a_position(self):
+        report = example()
+        report["pull_requests"] = [pull_request(1)]
+        self.assert_schema_refuses(report)
+
+    def test_a_clean_audit_is_accepted_by_the_schema(self):
+        report = example()
+        report["audits"] = [audit(status="clean")]
+        jsonschema.validate(report, self.schema)
+
+    def test_the_validator_normal_form_validates_against_the_schema(self):
+        # The normal form omits absent optional keys rather than emitting nulls;
+        # otherwise a report accepted by validate() would fail its own schema.
+        jsonschema.validate(campaign_report.validate(example()), self.schema)
+
+    def test_a_placeholder_performance_evidence_is_refused_by_the_schema(self):
+        report = example()
+        report["artifacts"]["performance"][0]["evidence"] = "TODO"
+        self.assert_schema_refuses(report)
 
 
 class CliTests(unittest.TestCase):

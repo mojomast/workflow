@@ -71,6 +71,7 @@
   "audits": [
     {
       "source": "Independent read-only review",
+      "status": "findings",
       "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "findings": [
         {
@@ -92,6 +93,12 @@
           "reason": "No browser axe run or coverage tool is available on this host; recorded under known limits."
         }
       ]
+    },
+    {
+      "source": "Second read-only review of the final head",
+      "status": "clean",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "findings": []
     }
   ],
   "artifacts": {
@@ -112,6 +119,10 @@
     ]
   },
   "not_run": [
+    {
+      "check": "AC-003: automated accessibility audit",
+      "reason": "The browser audit is not implemented; the jsdom check is a no-op."
+    },
     {
       "check": "Full WebKit journey suite",
       "reason": "The host lacks a runnable WebKit dependency; only the golden replay was run."

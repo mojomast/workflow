@@ -190,18 +190,31 @@ art was visible. A DOM assertion is not a visual acceptance.
 - `ready_for_review` with failed test runs, no test runs, or a recorded test run
   whose `head_sha` is not the final `head_rev`;
 - a `PASS` on a revision-bound criterion (`test`, `integration`, `visual`,
-  `performance`, `asset`) with no head or a stale head;
+  `performance`, `asset`) with no head or a stale head, and a passing `test`
+  criterion whose command a recorded run reports as failing;
 - empty, placeholder, bare-label or absolute-path evidence;
+- an audit with no `status`, a `clean` audit that reports findings or names no
+  head, a `findings` audit with no findings, a `not_run` audit with no reason or
+  with findings, and a ready report in which no audit actually ran;
 - an audit finding with no id, no single disposition, a duplicate id, or a
   rejected/deferred finding without a reason; legacy untraceable disposition
   arrays are refused;
-- a non-pending receiver decision, or an incomplete merge order.
+- a `NOT RUN` criterion that no `not_run` entry names by id;
+- a non-pending receiver decision, a non-finite performance value or budget, an
+  unknown field, or a merge order that is not the open PRs in `merge_order`
+  position order (positions are exactly `1..N`, closed PRs have no position).
+
+`merge_order` is a position, not a PR number: a report whose first PR is `#2`
+with position `1` is valid, and `recommended_merge_order` must equal the open PR
+numbers sorted by position. Comparing the two as sets is what the earlier
+validator did, which refused normal reports and accepted contradictory ones.
 
 `NOT RUN` remains allowed in a ready report only when disclosed in
-`known_limits`; it is a limit the receiver can accept or reject. The validator
-proves shape and internal consistency, not that an artifact exists, that a URL
-returns the claimed bytes, or that a command actually ran. A valid report is a
-reviewable claim, not proof.
+`known_limits` and named in `not_run`; it is a limit the receiver can accept or
+reject. A `not_run` audit is disclosed the same way and never counts as an audit
+that ran. The validator proves shape and internal consistency, not that an
+artifact exists, that a URL returns the claimed bytes, or that a command actually
+ran. A valid report is a reviewable claim, not proof.
 
 ## 31.7 Bounded trial
 
@@ -216,15 +229,18 @@ trial.
 
 Measured on **2026-11-15 UTC**:
 
-- workflow `python3 -m unittest tests.test_campaign_report -q` → **48 passed**;
-- bundlebees `pytest tests/test_campaign_continuity.py -q` → **16 passed**;
+- workflow `python3 -m unittest tests.test_campaign_report -q` → **100 passed**;
+- workflow `python3 -m unittest discover -s tests -t . -q` → **346 passed**;
+- bundlebees `pytest tests/test_campaign_continuity.py -q` → **18 passed**;
 - `pytest tests/test_campaign_continuity.py tests/test_project_plan.py -q` →
-  **26 passed**;
+  **28 passed**;
 - bundlebees CI run `43719698698` at code head `817b7ee`: **1324 passed,
   7 skipped**, 4/4 checks green (tests sandbox included, real Orbit round trip,
   plugin doctor, gitleaks);
 - workflow CI run `43719698748` at `57cea41`: **14/14 checks green**, including
-  the campaign report protocol (294 tests).
+  the campaign report protocol (the job runs `tests.test_campaign_report`, which
+  held 48 tests at that commit; the repo-wide `unittest discover` count there was
+  294).
 
 No live-host restart, no real-agent multi-hour run and no Git/PR race trial were
 run. Those are separate approvals.
