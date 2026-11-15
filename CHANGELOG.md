@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- [30 Campaign closeout](docs/30-campaign-closeout.md), `rizzstack.campaign-report/1` ([schema](schemas/campaign-report.schema.json), [validator](tools/campaign_report.py)) and the [campaign report template](templates/CAMPAIGN-REPORT.md): the first Jackpot Syndicate campaign showed that 27/27 task rows did not mean product acceptance. The closeout separates implemented, integrated and accepted evidence; requires a command and revision for test PASS rows; requires evidence for visual/perf/asset rows; records audit findings as fixed, rejected or deferred; allows NOT RUN only with a reason and known limits; and keeps the receiver decision pending. The validator refuses an agent-filled acceptance, a ready campaign with a failed suite or blocker, stale merge orders, task-count arithmetic that implies acceptance, and credentials/private paths. A `campaign-report` CI job runs the protocol tests; it is not added to branch protection by this change.
 ### Added
 
 - [21 Autonomy gap analysis](docs/21-autonomy-gap-analysis.md), [22 Autonomy architecture](docs/22-autonomy-architecture.md), [23 Autonomy development plan](docs/23-autonomy-devplan.md) and [24 Autonomy dogfood](docs/24-autonomy-dogfood.md): where the autonomous loop breaks today, the smallest coordinator that closes it, the milestones, and the campaign that would prove it

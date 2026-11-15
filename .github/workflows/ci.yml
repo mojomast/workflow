@@ -189,6 +189,27 @@ jobs:
       - name: Every module under tests/
         run: python3 -m unittest discover -s tests -t . -q
 
+  campaign-report:
+    name: campaign report protocol
+    # Validates rizzstack.campaign-report/1: implementation vs integration vs
+    # acceptance, final-head test results, PASS evidence, unrun reasons, audit
+    # triage, merge-order references and the always-pending receiver decision.
+    # This job is additive; making it a required context in branch protection
+    # needs a separate owner decision.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Campaign report protocol tests
+        run: python3 -m unittest tests.test_campaign_report -v
+      - name: Validate the campaign report example
+        run: python3 tools/campaign_report.py validate schemas/examples/campaign-report.example.json
+
   return-manifest:
     name: return manifest protocol (required)
     # Validates rizzstack.return/1: digest recomputation, the always-pending

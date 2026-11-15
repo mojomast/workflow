@@ -169,6 +169,8 @@ Honesty rules:
 
 Which of these rules has a mechanical check behind it and which rests on a recorded incident is graded in [28](28-agent-lessons.md) — L-05 for the claim/evidence split, L-09 for unrun status, L-16 and L-17 for adoption and exactly-once. The five steps above stay the procedure, and a grade never lowers the bar.
 
+For a multi-task product campaign, the handoff is a separate [campaign closeout](30-campaign-closeout.md): implemented, integrated and accepted evidence are distinct, visual and performance criteria need their own evidence, and the campaign report validator refuses an agent-written receiver decision or a ready campaign with a failed suite.
+
 ---
 
 ## 5. The ACDD and TDD gates
