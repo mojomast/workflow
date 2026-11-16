@@ -1,0 +1,67 @@
+{
+  "schema": "rizzstack.modularity.profile/1",
+  "profile": "full",
+  "description": "All four elements. Protocol, execution, worker host and control surface, each from its recorded revision. This is the maintainer-shaped stack, not yet a one-command newcomer install.",
+  "components": [
+    {
+      "repo": "workflow",
+      "role": "protocol: schemas, validators, templates, acceptance harness, checkers",
+      "required": true,
+      "why": "the executor loads protocol validators from the pinned checkout and the acceptance harness lives here"
+    },
+    {
+      "repo": "hyvv",
+      "role": "worker host: /v1 attempts API and governed provisioning",
+      "required": true,
+      "why": "the production dispatch path targets the worker host"
+    },
+    {
+      "repo": "bundlebees",
+      "role": "execution system: dispatch, leases, verify, integrate, recovery, RETURN",
+      "required": true,
+      "why": "the loop that turns briefs into accepted artifacts"
+    },
+    {
+      "repo": "orbitdesktop",
+      "role": "control surface: boards, sessions, activity, launcher front-end",
+      "required": true,
+      "why": "the full profile includes the coordination interface; the protocol itself never requires it"
+    }
+  ],
+  "env": [
+    {"name": "WORKFLOW_SRC", "set_by": "operator shell or CI", "required": true, "note": "pinned workflow checkout for the executor suite"},
+    {"name": "HYVV_SRC", "set_by": "operator shell or CI", "required": true, "note": "pinned hyvv checkout for the executor suite"},
+    {"name": "REQUIRE_WORKFLOW", "set_by": "operator shell or CI", "required": true, "note": "fail closed when the workflow checkout is missing"},
+    {"name": "REQUIRE_HYVV", "set_by": "operator shell or CI", "required": true, "note": "fail closed when the hyvv checkout is missing"},
+    {"name": "ACCEPTANCE_MODE", "set_by": "operator shell", "required": false, "note": "docker or local for the cold-start acceptance run"},
+    {"name": "ACCEPTANCE_ACDD", "set_by": "operator shell", "required": false, "note": "require fails without an ACDD-capable bundlebees"},
+    {"name": "BUNDLEBEES_ALLOW_WEAK_UNSHARE", "set_by": "operator shell", "required": false, "note": "documented-unsafe override; never set in production"}
+  ],
+  "ports": ["loopback-only default across all four elements: workers dial out, nothing needs an inbound port from the open internet"],
+  "auth_posture": "the human owner holds every gate (merge, tag, release, deploy, budgets, enrollment); HMAC key files at 0600 sign coordinator records; provider keys live in user-only 0600 files, never in config or git; the verify sandbox carries no coordinator credentials",
+  "cannot_do": [
+    "cannot be installed by a stranger with one command yet: the Orbit runnable-by-anyone path is in progress (docs/15) and bundlebees hardening is untagged on main",
+    "cannot run contract-aware verify from a tagged release: ACDD dispatch, verify and integrate live on the bundlebees feat branch under review, not main",
+    "cannot run the real-model recovery or wake-up paths unsupervised: those are env-gated, supervised-only runs",
+    "cannot skip human authority anywhere in the loop: silence is not consent and a relayed yes is not approval",
+    "cannot prove a live Windows worker host or a cross-machine run: both are recorded limitations"
+  ],
+  "refs": [
+    {"path": "profiles/repos.json", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/quickstarts/full.md", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/modularity.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/workflow.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/bundlebees.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/hyvv.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/orbitdesktop.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "acceptance/cold_start.sh", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "acceptance/README.md", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "reference/run_demo.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "docs/12-three-layer-architecture.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/13-bundlebees-hardening.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/14-networking-and-worker-deploy.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/15-agent-agnostic-and-orbit-start.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/22-autonomy-architecture.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/23-autonomy-devplan.md", "kind": "doc_chapter", "exists_in_repo": true}
+  ]
+}
