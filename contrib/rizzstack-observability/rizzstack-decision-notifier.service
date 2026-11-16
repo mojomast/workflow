@@ -1,0 +1,60 @@
+# rizzstack-decision-notifier.service — systemd **user** unit template
+#
+# Durable notifier over the written decision-queue contract (docs/22 section 5
+# plus the snapshot backlog schema plus the collector). It loops: one pass per
+# --interval-s, chat plus desktop notification for owner-needed items
+# (needs_approval: decision, blocked: blocker), dashboard-only for routine
+# statuses, degrade-to-marker on delivery failure — never silent loss.
+#
+# Install (see contrib/rizzstack-observability/README.md for the full steps):
+#
+#   install -d -m 0700 ~/.config/rizzstack-obs
+#   install -m 0600 /dev/null ~/.config/rizzstack-obs/notifier.env
+#     then put one line in it assigning the chat webhook value to
+#     the RIZZSTACK_NOTIFIER_CHAT_WEBHOOK variable
+#   install -d -m 0700 ~/.local/state/rizzstack-decision-notifier
+#   cp contrib/rizzstack-observability/decision_notifier.py ~/.local/bin/
+#   cp contrib/rizzstack-observability/rizzstack-decision-notifier.service \
+#       ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now rizzstack-decision-notifier
+#
+# The chat webhook is read from the environment file named below at runtime.
+# It is never placed on a command line, and the notifier never prints or logs
+# it; the status.json delivery marker carries generic error codes only.
+
+[Unit]
+Description=rizzstack decision-queue notifier (chat, desktop, status marker)
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/decision_notifier.py \
+    --state-dir %h/.hermes/plugin-state \
+    --status-dir %h/.local/state/rizzstack-decision-notifier \
+    --loop --interval-s 300
+EnvironmentFile=%h/.config/rizzstack-obs/notifier.env
+Restart=on-failure
+RestartSec=30
+
+# Hardening: the notifier reads its queue source and writes only its own
+# status marker under the state path opened below; everything else stays
+# read-only.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/rizzstack-decision-notifier
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=default.target

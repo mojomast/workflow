@@ -1,0 +1,49 @@
+{
+  "schema": "rizzstack.modularity.profile/1",
+  "profile": "worker",
+  "description": "A worker host only. hyvv serves the versioned /v1 attempts API and governed provisioning on its own machine; a coordinator elsewhere sends work to it.",
+  "components": [
+    {
+      "repo": "hyvv",
+      "role": "worker host: attempts API, governed provisioning, host filesystem owner",
+      "required": true,
+      "why": "the worker profile is exactly this element"
+    },
+    {
+      "repo": "bundlebees",
+      "role": "the dispatcher that would send briefs to this host",
+      "required": false,
+      "why": "the host runs and serves its API without a coordinator; tests and the contract suite are self-contained"
+    },
+    {
+      "repo": "orbitdesktop",
+      "role": "front-end the coordinator may use to reach the launcher path",
+      "required": false,
+      "why": "workers dial out to a coordinator; they never need the desktop app locally"
+    }
+  ],
+  "env": [
+    {"name": "GITLEAKS", "set_by": "operator install", "required": false, "note": "the scan leg requires gitleaks on PATH; the lint, unit, contract, release and installer legs do not"}
+  ],
+  "ports": ["the /v1 API binds on the worker host; default posture is loopback or a dial-out coordinator route, never an open inbound port on the open internet"],
+  "auth_posture": "credentials stay on the host: git access for provisioning is host-side and never handed to a request; provisioning is authorized by the host-enrolled policy file, not by the caller; dispatch authorization flows from the coordinator",
+  "cannot_do": [
+    "cannot dispatch, queue or accept work on its own: something else must call /v1/attempts",
+    "cannot run the coordinator, the reconciler or any verify suite",
+    "cannot prove the live Windows path: handling is unit-tested but a live Windows host has not run it",
+    "cannot enforce the parked-project refusal: the gate is a hyvv proposal (PR 1), not shipped behaviour",
+    "governed provisioning endpoints live on the pinned feat branch (PR 4 open), not on a merged mainline"
+  ],
+  "refs": [
+    {"path": "profiles/repos.json", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/quickstarts/worker.md", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/modularity.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/hyvv.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "docs/14-networking-and-worker-deploy.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/18-parking-projects.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/19-coordinator-playbook.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/22-autonomy-architecture.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "hyvv /v1/attempts and /v1/provision/* endpoints (capabilities, project, receipts, cleanup)", "kind": "other_repo_module", "exists_in_repo": false},
+    {"path": "hyvv scripts: install.sh dry-run, build_release_assets.py, scan-secrets.sh, contract module", "kind": "other_repo_module", "exists_in_repo": false}
+  ]
+}
