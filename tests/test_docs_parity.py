@@ -108,74 +108,96 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
             "schemas/rails/event.schema.json",
         ),
     },
-)
-
-#: The in-review wave: workflow PRs #41-#52 open against main 9850efa as of
-#: 2026-11-16 (none merged). The changelog must represent this wave in the
-#: Unreleased section — under the ``### In review`` subsection while the PRs
-#: are open, as merged coverage once they land — so the umbrella truth table
-#: and the next docs-sync can be written from the changelog, not from memory.
-#: Keywords are drawn from the open PRs' leased file lists and bodies.
-IN_REVIEW_ROWS: tuple[dict[str, object], ...] = (
     {
+        # fix/obs-fleet-health-wiring: collector fleet+health sections read the real bb CLI (merged 5b94f2b).
         "pr": 41,
         "name": "collector fleet+health wiring to the real bundlebees CLI",
         "keywords": ("bundlebees attempts", "fleet and health"),
     },
     {
+        # feat/obs-bottlenecks-section: bottlenecks section in the snapshot contract + collector (merged 20d1d85).
         "pr": 42,
         "name": "bottlenecks section in the snapshot contract + collector",
         "keywords": ("bottlenecks", "dwell-time median", "WIP versus capacity"),
     },
     {
+        # feat/owner-decision-queue: durable owner decision queue rizzstack.owner-decision/1 (merged 44dcd80).
         "pr": 43,
         "name": "owner decision queue (rizzstack.owner-decision/1)",
         "keywords": ("rizzstack.owner-decision/1", "request_digest", "decision_nonce"),
     },
     {
+        # docs/f15-f19-packets-r6: packets F15-F19 rebuilt on main (merged df8f2ee).
         "pr": 44,
         "name": "feature packets F15-F19 rebuilt on main",
         "keywords": ("F15", "F19", "test_f15_f19_packets"),
     },
     {
+        # docs/research-before-retry: the normative research-before-retry/plan rule (merged 34a35c4).
         "pr": 45,
         "name": "RESEARCH-BEFORE-RETRY + RESEARCH-BEFORE-PLAN",
         "keywords": ("RESEARCH-BEFORE-RETRY", "RESEARCH-BEFORE-PLAN", "research pass"),
     },
     {
+        # docs/m2-canary-prep: M2 canary packet + runbook pre-staged (merged 246e7b3).
         "pr": 46,
         "name": "M2 canary prep (packet + runbook)",
         "keywords": ("M2 canary", "rizzstack-m2-canary", "runbook"),
     },
     {
+        # docs/rebrand-and-website-plan: rebrand + website plans, PLAN-ONLY (merged b1afcd1).
         "pr": 47,
         "name": "rebrand + website plans (PLAN-ONLY)",
         "keywords": ("rebrand plan", "website plan", "PLAN-ONLY"),
     },
     {
-        "pr": 48,
-        "name": "gate-backlog seed (plans/backlog.json)",
-        "keywords": ("bundlebees.gate-backlog/1", "plans/backlog.json"),
-    },
-    {
+        # feat/obs-events-bridge: observatory events bridge (merged 833ec05).
         "pr": 49,
         "name": "Observatory events bridge",
         "keywords": ("events_bridge", "Observatory events bridge"),
     },
     {
+        # feat/memory-contract: memory contract chapter 32 + rizzstack.memory/1 (merged e809694).
         "pr": 50,
         "name": "memory contract (rizzstack.memory/1, chapter 32)",
         "keywords": ("rizzstack.memory/1", "memory-contract", "Obsidian-compatible"),
     },
     {
+        # feat/decision-notifier: decision notifier service + unit (merged 585acd3).
         "pr": 51,
         "name": "decision notifier service",
         "keywords": ("decision notifier", "decision_notifier"),
     },
     {
+        # docs/umbrella-modularity: modularity umbrella + install profiles (merged 99e75e6).
         "pr": 52,
         "name": "modularity umbrella (quickstarts + install profiles)",
         "keywords": ("quickstarts", "install profiles", "test_modularity_spec"),
+    },
+    {
+        # docs/ground-truth-audit: memory ground-truth audit, Phase 1 (merged 8e15bff).
+        "pr": 53,
+        "name": "memory ground-truth audit (Hindsight Phase 1)",
+        "keywords": ("ground_truth.json", "memory-ground-truth-audit"),
+    },
+    {
+        # docs/hindsight-mechanism-report: hindsight mechanism report, Phase 2 (merged 97ce568).
+        "pr": 54,
+        "name": "hindsight mechanism report (Hindsight Phase 2)",
+        "keywords": ("hindsight-mechanism-report", "test_hindsight_mechanisms"),
+    },
+)
+
+#: The in-review wave: workflow PR #48 (the gate-backlog seed) open against main
+# as of the 2026-11-16 post-drain state; #41-#47 and #49-#54 merged in the drain
+# and moved to MERGED_WINDOW_ROWS. The changelog must represent open work in
+# the ``### In review`` subsection so the umbrella truth table and the next
+# docs-sync can be written from the changelog, not from memory.
+IN_REVIEW_ROWS: tuple[dict[str, object], ...] = (
+    {
+        "pr": 48,
+        "name": "gate-backlog seed (plans/backlog.json)",
+        "keywords": ("bundlebees.gate-backlog/1", "plans/backlog.json"),
     },
 )
 
