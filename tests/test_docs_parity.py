@@ -214,8 +214,10 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
     },
 )
 
-#: The in-review wave: no campaign PR is open as of the 2026-11-16 post-#48 state
-# (the drain landed #41-#47 and #49-#54; #55, #56, #62 and #48 followed). The changelog
+#: The in-review wave: no coordinator-dispatched campaign PR is open as of the
+# 2026-11-16 post-#48 state (the drain landed #41-#47 and #49-#54; #55, #56, #62 and
+# #48 followed). The concurrent actor's lanes #57/#58/#59 are open and are represented
+# in the changelog's In-review prose; their keyword rows ride their own merges.
 # must represent open work in the ``### In review`` subsection so the umbrella truth table
 # and the next docs-sync can be written from the changelog, not from memory.
 IN_REVIEW_ROWS: tuple[dict[str, object], ...] = (
