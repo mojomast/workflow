@@ -456,6 +456,11 @@ class DecisionQueue:
             f"{request_id}.json does not have the queue record shape",
         )
         _need(isinstance(record["request"], dict), "bad_record_file", f"{request_id}.json has no request")
+        _need(
+            record["request"].get("request_id") == request_id,
+            "bad_record_file",
+            f"{request_id}.json holds the record of another request",
+        )
         return record
 
     def _write(self, record: Mapping[str, Any]) -> None:
