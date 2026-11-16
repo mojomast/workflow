@@ -219,7 +219,7 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
 # #55, #56, #62 and #48 have merged since). The concurrent actor's lanes #57/#58/#59
 # are open; the changelog's In-review prose names them, and their changelog coverage
 # (registry rows or exclusions) is a duty of the docs-sync that follows their merges -
-# the self-coverage pattern this PR established for companion PRs. The changelog must
+# the self-coverage pattern PR 62 established for companion PRs. The changelog must
 # represent open work in the ``### In review`` subsection so the umbrella truth table
 # and the next docs-sync can be written from the changelog, not from memory.
 IN_REVIEW_ROWS: tuple[dict[str, object], ...] = (
