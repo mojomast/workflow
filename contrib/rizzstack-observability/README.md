@@ -20,7 +20,7 @@ dashboard (or any local consumer) can poll.
 
 | Section | Source | Notes |
 | --- | --- | --- |
-| `fleet` | `hermes bundlebees attempt op=attempts` and `op=status` (read-only CLI calls) | Live attempt states normalized to the lifecycle-aligned state vocabulary; unrecognized labels are carried as `unknown` with the raw label in `detail`. |
+| `fleet` | `hermes bundlebees attempts` and `hermes bundlebees status` (read-only CLI subcommands) | Live attempt states normalized to the lifecycle-aligned state vocabulary; unrecognized labels are carried as `unknown` with the raw label in `detail`. `in_flight` and `bee_cap` come from the CLI's `status` summary; when that call cannot answer, `in_flight` falls back to counting active rows the `attempts` call itself reported, and `bee_cap` stays null. |
 | `usage` | a `bee.usage/v1` JSONL file (`--usage PATH`) | Tokens and cost aggregated by model/provider and by repo. Unknown token or cost values stay null and set the family's status to `partial`/`unknown` — unknown is never folded into 0. |
 | `pipeline` | `jobs/*.json` under `--state-dir` | Task states, escalation reasons (including an awaiting approval gate), and blocker rows for rejected/failed/superseded tasks. Unrecognized task states are skipped: the vocabulary is closed. |
 | `backlog` | `queue.json` | Feature rows and per-status counts. |
@@ -41,6 +41,18 @@ and `generated_at`. Every section carries `status`:
 The top-level `degraded` array lists the sections not `live` this run. A
 missing source is a degradation, never a crash, and the other sections still
 report.
+
+The fleet section derives from two fixed read-only subcommands. When the CLI
+cannot answer, it degrades with a precise generic cause — `fleet_cli_missing`
+(the binary is absent or not executable), `fleet_cli_timeout` (the subprocess
+budget elapsed), `fleet_command_failed` (non-zero exit), or
+`fleet_output_unparseable` (exit 0 but no attempts list in the output) — and
+`in_flight`/`bee_cap` stay null rather than collapsing to zero. When the
+newest row's `updated_at` is older than `--stale-after-s`, the section marks
+itself `stale` while keeping the rows it read. The health section consumes the
+same fleet numbers: its `bees_in_flight` quota row (value, cap, remaining)
+appears only when the CLI reported them, and unknown counts stay null there
+too.
 
 ## Usage
 
@@ -102,8 +114,8 @@ Flags:
 
 - Files are opened for reading only; nothing is created, moved, or removed.
 - The CLI calls it makes are a fixed read-only allowlist, exactly as invoked
-  in `collector.py`: `<bundlebees-bin> bundlebees attempt op=attempts`,
-  `op=status`, `gh pr list --repo <slug> --state open --json …`, and
+  in `collector.py`: `<bundlebees-bin> bundlebees attempts`,
+  `<bundlebees-bin> bundlebees status`, `gh pr list --repo <slug> --state open --json …`, and
   `gh pr checks <number> --repo <slug> --json name,state`. `gh pr view` is
   not on the allowlist and is never called, and no mutating bundlebees or
   `gh` verb is ever called.
@@ -128,6 +140,7 @@ ledger rows.
 
 ```bash
 python3 -m pytest tests/test_obs_snapshot.py -q
+python3 -m pytest tests/test_obs_fleet_wiring.py -q
 python3 -m unittest discover -s observability/tests
 ```
 
