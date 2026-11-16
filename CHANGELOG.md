@@ -48,6 +48,8 @@
 
 Open work is recorded here with its real state so the changelog stays the source the umbrella
 truth table and the next docs-sync are written from. None of this is on `main`; nothing below
-links to an unmerged artifact. As of this update no campaign PR is open: the 2026-11-16 merge
-drain and the follow-up merges (#55, #56, #62, #48) have landed, and #48's gate-backlog seed
-is merged coverage above.
+links to an unmerged artifact. The 2026-11-16 merge drain and the follow-up merges (#55, #56, #62, #48) have landed,
+and #48's gate-backlog seed is merged coverage above. Still open as of this update, owned by
+the concurrent actor session (their entries ride their own merges' docs-sync): #57 (Hindsight
+synthesis: trial design + gated plan, Phase 3), #58 (rebrand execution runbook), #59 (Rails
+R00/R01 conversion r3).
