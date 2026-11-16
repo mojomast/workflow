@@ -182,6 +182,18 @@ Worked example (gitleaks fingerprints, Nov 2026): a commit-form `.gitleaksignore
 
 For a multi-task product campaign, the handoff is a separate [campaign closeout](30-campaign-closeout.md): implemented, integrated and accepted evidence are distinct, visual and performance criteria need their own evidence, and the campaign report validator refuses an agent-written receiver decision or a ready campaign with a failed suite.
 
+### Research before plan (RESEARCH-BEFORE-PLAN)
+
+RESEARCH-BEFORE-RETRY governs the recovery half: research before the next attempt. The planning half gets the same discipline as the complementary rule **RESEARCH-BEFORE-PLAN** (recorded for the autonomy campaign in [24 §2](24-autonomy-dogfood.md#2-the-controlled-failure-declared-in-advance)): **a spec, a work-package breakdown, or a non-trivial brief MUST be the product of a prior-art plus known-pitfalls research pass, and the findings MUST live in the artifact itself as a required prior-art-and-pitfalls section.** The section records the prior art actually read (existing rules, sibling lanes, upstream behaviour, earlier attempts on the same surface), the known pitfalls it must avoid, and at least one documented rejected alternative — an option considered and declined, with the reason it was declined. Findings that live only in the coordinator's context or in a side channel do not satisfy the rule: the artifact is what a later reader gets, and the rejected alternatives are what turn a research pass from a reading list into a decision. Where a research pass genuinely finds no prior art and no pitfalls to record, the section says exactly that instead of being omitted.
+
+Exemplars on record: the rails-spec and Hive-spec research digests, and the F6/V1 fencing/RCV research — each carried its prior art, its pitfalls and its rejected alternatives in the artifact itself.
+
+Trivial-task threshold: a task is exempt when it changes no shared surface, follows a pattern the artifact set already fixes, and could not plausibly surprise the executor. The exemption is a documented judgment, applied narrowly — when in doubt, the task is not trivial and carries the section. The threshold exists so the rule's cost lands on decisions, not on chores.
+
+This rule cross-references RESEARCH-BEFORE-RETRY and does not fork it: the two rules cover different phases of the same discipline, plan first and retry second, and both put their findings into durable evidence rather than into a coordinator's memory.
+
+Disclosure, by this rule's own standard: this subsection's prior art is the RESEARCH-BEFORE-RETRY rule above and its conformance tests, `tests/test_research_before_retry.py`, already on this branch. Documented rejected alternative: a mechanical pre-dispatch checklist gate — a fixed checklist ticked before every dispatch. Rejected because it recreates the rubber-stamp class: a gate satisfied by ticking boxes rather than by recorded findings, the same claims-without-evidence failure the verification rules above exist to prevent. Known pitfalls, carried from the sibling lane that landed RESEARCH-BEFORE-RETRY: abbreviated lease paths once caused a `scope_violation` refusal, so briefs use exactly the `assigned_files` paths given; and prose-byte-pinning conformance tests proved brittle, so conformance tests assert the contract rather than exact sentences, except where a verbatim owner quote is the point.
+
 ---
 
 ## 5. The ACDD and TDD gates

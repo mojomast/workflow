@@ -58,6 +58,25 @@ attempt record as part of the repair evidence. Findings that reveal a known upst
 recorded as environment-class and routed accordingly — escalated, not retried blind. The rule adds a
 step between diagnosis and the next attempt; it widens no envelope and no decision right.
 
+### Research before plan (RESEARCH-BEFORE-PLAN)
+
+Recorded here by owner directive (Nov 16, 2026): the planning phase carries the research discipline the
+recovery loop above gives the retry phase — for **a spec, a work-package breakdown, or a non-trivial
+brief, the artifact MUST be the product of a prior-art plus known-pitfalls research pass, with the
+findings in the artifact itself as a required prior-art-and-pitfalls section and at least one documented
+rejected alternative** — an option considered and declined, with the reason. The rule is the
+planning-phase sibling of RESEARCH-BEFORE-RETRY above and is codified normatively in
+[19 §4](19-coordinator-playbook.md#4-verification); it cross-references that rule instead of forking it. Exemplars on record (reported, carried in their own
+artifacts): the rails-spec and Hive-spec research digests, and the F6/V1 fencing/RCV research.
+Trivial-task threshold: tasks that change no shared surface, follow a pattern the artifact set already
+fixes, and could not plausibly surprise the executor are exempt — a documented judgment, applied
+narrowly; when in doubt the task is not trivial. The threshold exists so the rule's cost lands on
+decisions, not on chores. Documented rejected alternative: a mechanical pre-dispatch checklist gate,
+declined because it recreates the rubber-stamp class — a gate satisfied by ticking boxes rather than by
+recorded findings. Had this rule been in force for this campaign, the objective and task table in
+[§1](#1-the-objective) and the envelope in [§3](#3-authorization-asked-once) would each have carried the
+section.
+
 ## 3. Authorization (asked once)
 
 One envelope, written into the job file before dispatch:
