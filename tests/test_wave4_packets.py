@@ -4,7 +4,9 @@ Parses the four Wave-4 feature packets under plans/packets/ (F11-F14) and
 fails closed on any packet that drops the F1-F10 packet shape: the header
 block, Intent, Delivered and remaining, Acceptance criteria
 (`AC-NNN ... -> proven by <path::test>`), Dependencies, Authorization needs
-and exactly one Next executable action. Also checks that cross-references
+and exactly one Next executable action. The directory-contents test pins the
+exact packet set: wave-4 F11-F14 plus the F15-F19 reconstruction wave plus
+the README index. Also checks that cross-references
 between packets resolve, that each packet's repository and dependency story
 matches the recovered dogfood plan's Wave-4 scope, and that the README index
 lists the packets.
@@ -173,14 +175,25 @@ def assert_shape(parsed: dict) -> None:
 
 
 class Wave4PacketTests(unittest.TestCase):
-    def test_all_four_packets_exist_and_nothing_else(self):
+    def test_all_campaign_packets_exist_and_nothing_else(self):
         files = sorted(p.name for p in PACKETS.iterdir() if p.is_file())
-        # Manifest lock: the four Wave-4 feature packets, plus the M2 canary
-        # prep packet (wf docs/m2-canary-prep), plus the README index. The
-        # M2-canary packet recorded this exact lock extension as a repo-hygiene
-        # handoff because the test file was outside that packet lease.
+        # Manifest lock: the four Wave-4 feature packets, the F15-F19
+        # reconstruction wave (tests/test_f15_f19_packets.py pins those five
+        # files, their shapes and their pins), plus the M2 canary prep packet
+        # (wf docs/m2-canary-prep) and the README index. The M2-canary packet
+        # recorded this exact lock extension as a repo-hygiene handoff because
+        # the test file was outside that packet lease; the F15-F19 wave
+        # extended the same lock. The exact-set rule stays: a missing packet
+        # or an extra file fails closed.
+        f15_f19 = (
+            "F15-relay.md",
+            "F16-tailcat.md",
+            "F17-join-probing.md",
+            "F18-revocable-tokens.md",
+            "F19-live-host-join-install.md",
+        )
         self.assertEqual(
-            files, sorted([*WAVE4.values(), "M2-canary.md", "README.md"])
+            files, sorted([*WAVE4.values(), *f15_f19, "M2-canary.md", "README.md"])
         )
 
     def test_each_packet_parses_with_the_full_required_shape(self):

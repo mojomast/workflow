@@ -1,0 +1,34 @@
+{
+  "schema": "rizzstack.modularity.profile/1",
+  "profile": "observer",
+  "description": "Watch, do not dispatch. Orbit desktop with its boards, agent sessions and activity view; no execution system attached.",
+  "components": [
+    {
+      "repo": "orbitdesktop",
+      "role": "coordination interface: collaboration boards, agent sessions, activity view",
+      "required": true,
+      "why": "the observer profile is exactly this element; it coordinates nothing without an execution system but still shows boards and sessions"
+    }
+  ],
+  "env": [],
+  "env_notes": ["no variable is required to run the unit suites; the browser-e2e CI leg declares chromium but no profile step installs a browser, so install one yourself before running that suite"],
+  "ports": ["loopback only: the desktop app and its local services bind locally; the profile publishes no inbound ports"],
+  "auth_posture": "provider keys, when the user adds agents, live in user-only files with 0600 permissions, never in config files or git; an observer install adds no keys of its own",
+  "cannot_do": [
+    "cannot create or verify attempts (no bundlebees attached)",
+    "cannot prove any work happened: a board status is never evidence that work completed",
+    "cannot start workers or hold a launcher queue",
+    "one-command first run for a stranger is not landed yet (docs/15); setup today still follows the maintainer deployment shape"
+  ],
+  "refs": [
+    {"path": "profiles/repos.json", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/quickstarts/observer.md", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/modularity.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/orbitdesktop.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "docs/12-three-layer-architecture.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/15-agent-agnostic-and-orbit-start.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/17-orbit-plans.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "orbitdesktop: docs/QUICKSTART.md, docs/CONFIG.md", "kind": "other_repo_module", "exists_in_repo": false},
+    {"path": "orbitdesktop: unit, browser-e2e, python-launcher CI legs", "kind": "other_repo_module", "exists_in_repo": false}
+  ]
+}
