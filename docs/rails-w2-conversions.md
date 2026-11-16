@@ -6,14 +6,17 @@ Committed on branch `docs/rails-w2-conversions-r3`; the coordinator pushes (this
 
 ## 1. Purpose and scope
 
-Records the W2 conversion state of the two SUCCEEDED Rails readiness attempts whose work was
-committed-but-unpushed when their workspaces were destroyed by the 2026-11-16 18:02 UTC worker restart:
+Records the W2 conversion state of the two Rails readiness attempts whose turns ended (state succeeded)
+but whose patches the coordinator's verify REFUSED - scope_violation, nothing applied, sha null - and whose
+workspaces were in any case destroyed by the 2026-11-16 18:02:25 EST (23:02:25 UTC) restart-idle:
 
 - `att_ef6953fe272341f9` — `feat/rails-r00-readiness` (R00 source/attachment feasibility)
 - `att_584b1d5f44824af8` — `feat/rails-r01-freeze` (R01 contract freeze)
 
-Both conversions therefore produced **nothing pushable**: the branch tips are unrecoverable from this
-worker. The required remedy is re-dispatch of R00 and R01 from the frozen spec (merged via #40).
+No verified work was ever produced: verify refused both patches before anything was applied, so no branch
+tip exists and nothing that had passed verification was lost. The remedies recorded before the owner are
+(a) corrected-lease re-dispatch re-applying the already-written R00/R01 packets, or (b) full re-dispatch
+from the frozen spec (merged via #40) if the owner declines the corrected leases.
 Also assesses re-dispatch readiness from the spec as extractable in this workspace.
 
 Regeneration history: r1 pushed only `docs/parity-audit-nov16` (already PR #55 — not duplicated here, out of
@@ -24,8 +27,8 @@ This file is the r3 regeneration, authored from the current worker after exhaust
 
 | Attempt | Branch | Result | Work state at restart | Conversion outcome |
 |---|---|---|---|---|
-| att_ef6953fe272341f9 | feat/rails-r00-readiness | SUCCEEDED | committed, unpushed; workspace destroyed 18:02 UTC | **LOST — no pushable tip; re-dispatch required** |
-| att_584b1d5f44824af8 | feat/rails-r01-freeze | SUCCEEDED | committed, unpushed; workspace destroyed 18:02 UTC | **LOST — no pushable tip; re-dispatch required** |
+| att_ef6953fe272341f9 | feat/rails-r00-readiness | turn ended; verify REFUSED | no accepted patch (scope_violation); workspace destroyed 18:02:25 EST | **no verified work existed; path pending owner corrected-lease decisions** |
+| att_584b1d5f44824af8 | feat/rails-r01-freeze | turn ended; verify REFUSED | no accepted patch (scope_violation); workspace destroyed 18:02:25 EST | **no verified work existed; path pending owner corrected-lease decisions** |
 
 ## 3. Attempt records
 
@@ -33,25 +36,32 @@ This file is the r3 regeneration, authored from the current worker after exhaust
 
 - Attempt id: `att_ef6953fe272341f9`
 - Branch: `feat/rails-r00-readiness`
-- Original dispatch time: before the 2026-11-16 18:02 UTC worker restart; the exact dispatch timestamp is
-  **not recoverable from this worker** (it lived with the destroyed workspace; the coordinator's dispatch
-  record is authoritative).
-- Result: SUCCEEDED (per coordinator record).
+- Original dispatch time: 2026-11-16 16:39:01 EST (coordinator dispatch record; authoritative).
+- Result: the attempt's turn ended (state succeeded), but the coordinator's verify REFUSED the patch -
+  scope_violation, nothing applied, sha null (verify-results/att_ef6953fe272341f9.json: ok:false; recorded
+  23:15:00Z). The patch's full out-of-lease file list (11 files incl. vendor-manifest.json and
+  vendor_rails.py) is recorded verbatim in the campaign record (§136). The workspace was destroyed by the
+  18:02:25 EST restart-idle before any corrected-lease decision existed.
 - Destruction evidence: see §4. No surviving workspace, ref, stash, reflog entry, dangling object, pack
   or stray artifact from this attempt exists anywhere on this worker.
-- Required remedy: **re-dispatch R00 from the frozen spec** (§5). R00's committed-but-unpushed tip cannot
-  be fetched: no remote is configured on this worker and workers hold no push/pull credentials by design.
+- Remedy path (owner decision pending): corrected-lease re-dispatch re-applying the recorded R00 packet, or
+  full re-dispatch from the frozen spec (§5) if declined. Workers hold no push/pull credentials by design.
 
 ### att_584b1d5f44824af8 — R01 freeze
 
 - Attempt id: `att_584b1d5f44824af8`
 - Branch: `feat/rails-r01-freeze`
-- Original dispatch time: before the 2026-11-16 18:02 UTC worker restart; exact dispatch timestamp
-  **not recoverable from this worker** (same as above).
-- Result: SUCCEEDED (per coordinator record).
+- Original dispatch time: 2026-11-16 16:39:08 EST (coordinator dispatch record; authoritative).
+- Result: the attempt's turn ended (state succeeded), but the coordinator's verify REFUSED the patch -
+  scope_violation, nothing applied, sha null (verify-results/att_584b1d5f44824af8.json: ok:false; recorded
+  22:39:52Z). The patch's full out-of-lease file list (24 files incl. the OWNER'S frozen-interface
+  schemas/rails/event.schema.json, README.md and examples.json) is recorded verbatim in the campaign
+  record (§136). The workspace was destroyed by the 18:02:25 EST restart-idle before any corrected-lease
+  decision existed.
 - Destruction evidence: see §4.
-- Required remedy: **re-dispatch R01 from the frozen spec** (§5), sequenced after the R00 re-dispatch
-  (R01 depends on "R00 inputs" per the spec's packet table).
+- Remedy path (owner decision pending): corrected-lease re-dispatch re-applying the recorded R01 packet,
+  or full re-dispatch from the frozen spec (§5) if declined, sequenced after R00 (R01 depends on
+  "R00 inputs" per the spec's packet table).
 
 ## 4. Destruction evidence (this worker, verified 2026-11-16 ~23:04 UTC)
 
@@ -71,25 +81,34 @@ The worker was re-provisioned at 23:03 UTC (seed commit authored 2026-11-16 23:0
 | 9 | Remotes | `git remote -v` | none configured — nothing to fetch from; credentials absent by design |
 | 10 | Stray artifacts | `ls /tmp/opencode`, home sweep | empty; no prior-attempt files anywhere |
 
-Conclusion: the 18:02 UTC restart destroyed both workspaces, and the 23:03 UTC re-provisioning replaced the
+Conclusion: the 18:02:25 EST (23:02:25 UTC) restart-idle destroyed both workspaces, and the 23:03 UTC re-provisioning replaced the
 worker entirely. The committed-but-unpushed tips of both attempts left no recoverable trace on this machine.
 **Unrecoverable from this worker — verified, not assumed.**
 
 ## 5. Required remedy
 
-**Re-dispatch R00 and R01 from the frozen spec** (`specs/rizzstack-rails-spec.md`, merged via #40).
-No alternative exists: the tips died with the workspaces and workers hold no push/pull credentials, so
-nothing can be recovered or pushed from here. Concretely:
+**Primary (pending owner decision): corrected-lease re-dispatch.** The R00/R01 packets were already
+written; they were refused only because their file lists exceed the dispatched leases (full lists in the
+campaign record §136). Re-applying them under corrected leases needs no re-run; R01's lease touches the
+owner's frozen-interface schemas/rails files, which is exactly why the decision is the owner's.
+**Alternative (if the owner declines): full re-dispatch from the frozen spec**
+(`specs/rizzstack-rails-spec.md`, merged via #40). What is true regardless of path: the tips died with the
+workspaces and workers hold no push/pull credentials, so nothing can be recovered or pushed from here.
+Concretely, under either path:
 
-1. Coordinator re-dispatches **R00** (`att` brief: spec §9 packet table, R00 row) onto a fresh branch.
-   Original branch names may be reused (no refs survive) at the coordinator's discretion.
-2. Coordinator re-dispatches **R01** (spec §9, R01 row) after R00's re-run produces its inputs; R01's
-   depends-on is literally "R00 inputs; this draft".
+1. Coordinator re-dispatches **R00** (corrected lease re-applying the recorded packet, or an `att` brief:
+   spec §9 packet table, R00 row) onto a fresh branch. Original branch names may be reused (no refs
+   survive) at the coordinator's discretion.
+2. Coordinator re-dispatches **R01** (same split by path; spec §9, R01 row) after R00's output exists;
+   R01's depends-on is literally "R00 inputs; this draft".
 3. Order matters: spec §11 states "First ready work: R00 source/attachment feasibility, followed by R01
    freeze"; the critical path to M1a is R00 → R01 → R02 (§9 schedule), so this re-dispatch is the
    unblocking step for every dependent wave (R02/R03 next; R05–R14 and R17 further downstream).
-4. Salvage is impossible: partial findings, notes and fixture drafts from the lost attempts are gone. The
-   re-dispatched bees start from the spec and the in-tree draft artifacts (§6) alone.
+4. Salvage of workspace contents is impossible: partial findings, notes and fixture drafts from the
+   destroyed workspaces are gone. This is a statement about the workspaces only - it does not decide the
+   lease question, because the recorded packets survive independently as refusal evidence. Under the
+   corrected-lease path those packets are the starting point; under full re-dispatch the bees start from
+   the spec and the in-tree draft artifacts (§6) alone.
 
 Operational note (process, not a blocker): while workers hold no push credentials by design, any
 committed-but-unpushed work at the instant of a worker restart has no durable copy. The coordinator should
