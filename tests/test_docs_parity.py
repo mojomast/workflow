@@ -46,6 +46,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    64: (
+        "docs-sync companion (the PR 48 coverage row + entry) - same class: a registry "
+        "bookkeeping change whose test-file diff is exclusions plus the #48 registry row; "
+        "it carries its own exclusion so merging it leaves main green"
+    ),
     62: (
         "docs-sync companion (the PR 56 exclusion) - this PR is the same class: a registry "
         "bookkeeping change whose only content is this exclusion; it carries its own "
@@ -196,6 +201,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("hindsight-mechanism-report", "test_hindsight_mechanisms"),
     },
     {
+        # plans/gate-backlog-seed: the machine-readable gate-backlog (merged d952681).
+        "pr": 48,
+        "name": "gate-backlog seed (plans/backlog.json)",
+        "keywords": ("bundlebees.gate-backlog/1", "plans/backlog.json"),
+    },
+    {
         # docs/parity-audit-nov16: the parity audit + its own coverage guard (merged a0193ad).
         "pr": 55,
         "name": "docs parity audit + coverage registry",
@@ -203,17 +214,15 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
     },
 )
 
-#: The in-review wave: workflow PR #48 (the gate-backlog seed) open against main
-# as of the 2026-11-16 post-drain state; #41-#47 and #49-#54 merged in the drain
-# and moved to MERGED_WINDOW_ROWS. The changelog must represent open work in
-# the ``### In review`` subsection so the umbrella truth table and the next
-# docs-sync can be written from the changelog, not from memory.
+#: The in-review wave: no coordinator-dispatched campaign PR is open as of the
+# 2026-11-16 post-#48 state (the drain landed #41-#47 and #49-#54; the follow-ups
+# #55, #56, #62 and #48 have merged since). The concurrent actor's lanes #57/#58/#59
+# are open; the changelog's In-review prose names them, and their changelog coverage
+# (registry rows or exclusions) is a duty of the docs-sync that follows their merges -
+# the self-coverage pattern this PR established for companion PRs. The changelog must
+# represent open work in the ``### In review`` subsection so the umbrella truth table
+# and the next docs-sync can be written from the changelog, not from memory.
 IN_REVIEW_ROWS: tuple[dict[str, object], ...] = (
-    {
-        "pr": 48,
-        "name": "gate-backlog seed (plans/backlog.json)",
-        "keywords": ("bundlebees.gate-backlog/1", "plans/backlog.json"),
-    },
 )
 
 #: The umbrella protocol-map rows, corrected to post-#40 reality. Each pair is
