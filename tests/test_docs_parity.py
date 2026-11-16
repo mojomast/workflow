@@ -186,6 +186,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "hindsight mechanism report (Hindsight Phase 2)",
         "keywords": ("hindsight-mechanism-report", "test_hindsight_mechanisms"),
     },
+    {
+        # docs/parity-audit-nov16: five-repo docs-parity audit + fixes (merged a0193ad).
+        "pr": 55,
+        "name": "docs-parity audit (five-repo coverage wave)",
+        "keywords": ("docs-parity-audit", "docs-parity", "coverage registry"),
+    },
 )
 
 #: The in-review wave: workflow PR #48 (the gate-backlog seed) open against main
