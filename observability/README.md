@@ -21,6 +21,7 @@ data, draw a dashboard, or define a usage schema.
 | `vcs.snapshot/v1` | `schemas/vcs-snapshot.schema.json` | Commits, open pull requests, and CI for allowlisted repos |
 | `board.snapshot/v1` | `schemas/board-snapshot.schema.json` | Board status counts and blocker age |
 | `resource.snapshot/v1` | `schemas/resource-snapshot.schema.json` | Credits, allowances, compute units, in-flight bees, host capacity |
+| `rizzstack.observability/snapshot/1` | `schemas/snapshot.schema.json` | One assembled point-in-time view across fleet, usage, pipeline, backlog, ci, failures, health, and alerts sections, emitted by the read-only collector in `contrib/rizzstack-observability/` |
 
 ## Envelope discriminator
 
@@ -34,7 +35,7 @@ ingestion normalizes both shapes with `envelope.record_type()` /
 
 | Record | `schema` | `schema_version` | Discriminator |
 | --- | --- | --- | --- |
-| this package (lifecycle, failure, vcs, board, resource) | `agent.lifecycle/v1` … | `v1` | `schema` |
+| this package (lifecycle, failure, vcs, board, resource) and the assembled snapshot | `agent.lifecycle/v1` …; `rizzstack.observability/snapshot/1` for the snapshot | `v1`; absent for the snapshot (the rizzstack.* family carries its major version in the discriminator itself) | `schema` |
 | Hermes Forge usage (frozen) | absent | `bee.usage/v1` | `schema_version` |
 
 A record whose two fields contradict each other is refused.
