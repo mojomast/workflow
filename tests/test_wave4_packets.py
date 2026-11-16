@@ -177,11 +177,14 @@ def assert_shape(parsed: dict) -> None:
 class Wave4PacketTests(unittest.TestCase):
     def test_all_campaign_packets_exist_and_nothing_else(self):
         files = sorted(p.name for p in PACKETS.iterdir() if p.is_file())
-        # The directory carries the wave-4 packets plus the F15-F19
+        # Manifest lock: the four Wave-4 feature packets, the F15-F19
         # reconstruction wave (tests/test_f15_f19_packets.py pins those five
-        # files, their shapes and their pins). The exact-set rule stays:
-        # every file must be one of the nine campaign packets or the README
-        # index - a missing packet or an extra file fails closed.
+        # files, their shapes and their pins), plus the M2 canary prep packet
+        # (wf docs/m2-canary-prep) and the README index. The M2-canary packet
+        # recorded this exact lock extension as a repo-hygiene handoff because
+        # the test file was outside that packet lease; the F15-F19 wave
+        # extended the same lock. The exact-set rule stays: a missing packet
+        # or an extra file fails closed.
         f15_f19 = (
             "F15-relay.md",
             "F16-tailcat.md",
@@ -189,7 +192,9 @@ class Wave4PacketTests(unittest.TestCase):
             "F18-revocable-tokens.md",
             "F19-live-host-join-install.md",
         )
-        self.assertEqual(files, sorted([*WAVE4.values(), *f15_f19, "README.md"]))
+        self.assertEqual(
+            files, sorted([*WAVE4.values(), *f15_f19, "M2-canary.md", "README.md"])
+        )
 
     def test_each_packet_parses_with_the_full_required_shape(self):
         for packet_id, name in WAVE4.items():
