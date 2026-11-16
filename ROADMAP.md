@@ -85,8 +85,8 @@ incomplete.
 **Merged to main** (workflow PR #36, merge `84263c1`): the
 `rizzstack.observability/snapshot/1` schema
 (`observability/schemas/snapshot.schema.json`) and the read-only snapshot
-collector (`contrib/rizzstack-observability/collector.py`); nothing is
-deployed, and the Orbit observatory app on orbitdesktop is not merged, so
+collector (`contrib/rizzstack-observability/collector.py`); nothing in
+this repository deploys it, and the Orbit observatory app on orbitdesktop is not merged, so
 the dashboard stays planned (Phase 6 below).
 
 **Open PR (formats) / planned (everything that runs).** Only the record
