@@ -1,0 +1,50 @@
+{
+  "job_id": "job_20261113_a",
+  "authorization": {"ref": "authorizations/job_20261113_a.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "goal": {
+    "summary": "synthetic fixture job: add the snapshot collector slice",
+    "repo": "mojomast/workflow",
+    "base_rev": "5f4e3d2c1b0a9f8e7d6c5b4a39281706f5e4d3c2"
+  },
+  "tasks": [
+    {
+      "task_id": "T1",
+      "objective": "synthetic fixture task: write the schema",
+      "lease": ["observability/schemas/snapshot.schema.json"],
+      "depends_on": [],
+      "state": "accepted",
+      "attempts": [
+        {"attempt_id": "att_1", "state": "succeeded", "outcome": "ok", "ts": "2026-11-16T08:10:00Z"}
+      ],
+      "verify": {"outcome": "ok", "suite": {"exit_code": 0, "passed": 6, "failed": 0}},
+      "intent": null
+    },
+    {
+      "task_id": "T2",
+      "objective": "synthetic fixture task: wire the http surface",
+      "lease": ["contrib/rizzstack-observability/collector.py"],
+      "depends_on": ["T1"],
+      "state": "failed",
+      "attempts": [
+        {"attempt_id": "att_2", "state": "failed", "outcome": "failure", "reason": "verify suite exited 1 on the combined branch", "ts": "2026-11-16T08:30:00Z"}
+      ],
+      "verify": {"outcome": "failure", "code": "verify_suite_failed", "suite": {"exit_code": 1, "passed": 4, "failed": 2}},
+      "intent": null
+    }
+  ],
+  "integration": {"wave": "w1", "state": "pending", "evidence": null},
+  "recovery_policy": {},
+  "approval_gate": {"required": true, "for": "merge", "state": "waiting"},
+  "injected_failures": [],
+  "escalations": [
+    {
+      "reason": "needs_agent",
+      "detail": "mechanical tick exhausted its one recovery attempt for task T2",
+      "ts": "2026-11-16T08:31:00Z"
+    }
+  ],
+  "events": [
+    {"kind": "task_state", "task_id": "T1", "from": "verifying", "to": "accepted", "ts": "2026-11-16T08:12:00Z"},
+    {"kind": "task_state", "task_id": "T2", "from": "verifying", "to": "failed", "ts": "2026-11-16T08:30:00Z"}
+  ]
+}

@@ -1,0 +1,848 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/snapshot.schema.json",
+  "title": "Observability snapshot (rizzstack.observability/snapshot/1)",
+  "description": "One assembled point-in-time view across eight sections: fleet, usage, pipeline, backlog, ci, failures, health, alerts. Emitted by the read-only collector in contrib/rizzstack-observability. Every record (the document and every row inside a section) carries schema and generated_at. Each section carries status: live (source read this run), stale (source read but older than the collector's freshness threshold), or unavailable (source missing, unreadable, or the reader refused). A section that degrades is present with empty rows plus its status marker; it is never omitted. Credentials, bearer material, private URLs, IP addresses, and hostnames are never part of a snapshot. Repository fields are owner/name slugs only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at",
+    "collector",
+    "degraded",
+    "fleet",
+    "usage",
+    "pipeline",
+    "backlog",
+    "ci",
+    "failures",
+    "health",
+    "alerts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.observability/snapshot/1",
+      "description": "Envelope discriminator for the assembled snapshot. The rizzstack.* family carries its major version in the discriminator itself (as rizzstack.return/1 does), so there is no separate schema_version field."
+    },
+    "generated_at": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "collector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "$ref": "common.schema.json#/$defs/id_token"
+        }
+      }
+    },
+    "degraded": {
+      "type": "array",
+      "description": "Sections whose status is not live this run, for a quick machine check. Sections themselves always remain present.",
+      "items": {
+        "enum": [
+          "fleet",
+          "usage",
+          "pipeline",
+          "backlog",
+          "ci",
+          "failures",
+          "health",
+          "alerts"
+        ]
+      }
+    },
+    "fleet": {
+      "$ref": "#/$defs/fleet_section"
+    },
+    "usage": {
+      "$ref": "#/$defs/usage_section"
+    },
+    "pipeline": {
+      "$ref": "#/$defs/pipeline_section"
+    },
+    "backlog": {
+      "$ref": "#/$defs/backlog_section"
+    },
+    "ci": {
+      "$ref": "#/$defs/ci_section"
+    },
+    "failures": {
+      "$ref": "#/$defs/failures_section"
+    },
+    "health": {
+      "$ref": "#/$defs/health_section"
+    },
+    "alerts": {
+      "$ref": "#/$defs/alerts_section"
+    }
+  },
+  "$defs": {
+    "section_status": {
+      "description": "Per-section degradation marker. live: the source was read this run. stale: the source was read but its newest record is older than the freshness threshold. unavailable: the source is missing, unreadable, or the reader refused; rows are then empty and error may name the generic cause (never a path with credential material).",
+      "enum": ["live", "stale", "unavailable"]
+    },
+    "section_header": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/section_status"
+        },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Generic degradation cause such as source_missing or read_failed. Never raw stderr, a command line, or any credential material."
+        },
+        "collected_at": {
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        }
+      },
+      "required": ["status", "collected_at"]
+    },
+    "agg_status": {
+      "description": "Aggregation completeness for a numeric family. known: every contributing record carried a value. partial: some records reported unknown (their absence is preserved, never folded into 0). unknown: no contributing record carried a value. unavailable: the section did not read any record.",
+      "enum": ["known", "partial", "unknown", "unavailable"]
+    },
+    "repo_slug": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+      "description": "GitHub owner/name slug only, as in vcs.snapshot/v1."
+    },
+    "branch_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$",
+      "description": "A git branch or ref name. Not a URL."
+    },
+    "check_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 .,_()/-]{0,119}$",
+      "description": "Check names only, never logs or URLs, as in vcs.snapshot/v1."
+    },
+    "ci_state": {
+      "enum": ["passing", "failing", "pending", "mixed", "unavailable"]
+    },
+    "nullable_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "tokens": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Token count, or null when the contributing record reported it unknown. Unknown is never folded into 0."
+    },
+    "cost_usd": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "List-price cost in US dollars, or null when the contributing record reported it unknown. Unknown is never folded into 0."
+    },
+    "task_state": {
+      "description": "Job task states from the coordinator job document (see the autonomy architecture chapter).",
+      "enum": [
+        "pending",
+        "dispatching",
+        "dispatched",
+        "running",
+        "verifying",
+        "verified",
+        "integrating",
+        "accepted",
+        "rejected",
+        "failed",
+        "superseded"
+      ]
+    },
+    "queue_status": {
+      "description": "Feature queue statuses (see the autonomy architecture chapter).",
+      "enum": [
+        "queued",
+        "claimed",
+        "running",
+        "ready_for_review",
+        "blocked",
+        "failed",
+        "needs_approval"
+      ]
+    },
+    "failure_class": {
+      "description": "The closed failure/v1 class vocabulary.",
+      "enum": [
+        "environmental",
+        "regression",
+        "rate-limit",
+        "auth",
+        "unavailable",
+        "cancelled",
+        "unknown"
+      ]
+    },
+    "resource_kind": {
+      "description": "Recognized kinds are in the first branch; other resources use an extension label, as in resource.snapshot/v1.",
+      "anyOf": [
+        {
+          "enum": [
+            "deepseek_credit",
+            "go_allowance",
+            "google_colab_cu",
+            "grok_bot_usage",
+            "bees_in_flight",
+            "cursor_cloud_agents",
+            "hermes_host",
+            "hyvv_host",
+            "box_disk",
+            "box_cpu",
+            "box_ram",
+            "pc_disk",
+            "pc_cpu",
+            "pc_ram"
+          ]
+        },
+        {
+          "$ref": "common.schema.json#/$defs/provider_label"
+        }
+      ]
+    },
+    "resource_unit": {
+      "type": ["string", "null"],
+      "enum": [null, "usd", "percent", "count", "compute_unit", "byte", "ratio"]
+    },
+    "resource_status": {
+      "enum": ["ok", "low", "exhausted", "unavailable"]
+    },
+    "route_label": {
+      "description": "Recognized routes are go and deepseek; other providers are extension labels, as in lifecycle.schema.json.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "anyOf": [
+            {
+              "enum": ["go", "deepseek"]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/provider_label"
+            }
+          ]
+        }
+      ]
+    },
+    "fleet_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "attempts", "in_flight", "bee_cap"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "attempts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fleet_attempt" }
+        },
+        "in_flight": {
+          "$ref": "#/$defs/nullable_count",
+          "description": "Attempts currently in flight per the CLI, or null when unknown."
+        },
+        "bee_cap": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Shared bee cap when known. Do not invent a value."
+        }
+      }
+    },
+    "fleet_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "attempt_id", "state", "job_id", "task_id", "repo", "branch", "route", "started_at", "updated_at", "detail"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "attempt_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "state": {
+          "description": "Normalized attempt state. The recognized values align with the lifecycle state vocabulary; anything the CLI reports beyond them is carried as unknown with the raw label in detail.",
+          "enum": [
+            "queued",
+            "starting",
+            "running",
+            "working",
+            "backoff",
+            "blocked",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "accepted",
+            "rejected",
+            "not_started",
+            "done",
+            "unknown"
+          ]
+        },
+        "job_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "task_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "repo": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/repo_slug" }
+          ]
+        },
+        "branch": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/branch_name" }
+          ]
+        },
+        "route": { "$ref": "#/$defs/route_label" },
+        "started_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        },
+        "updated_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed note, for example the raw CLI state label when it normalized to unknown."
+        }
+      }
+    },
+    "usage_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "source", "totals", "by_model", "by_repo"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "generated_at", "record_count", "parse_errors", "usage_status"],
+          "properties": {
+            "schema": { "const": "rizzstack.observability/snapshot/1" },
+            "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+            "record_count": { "$ref": "#/$defs/nullable_count" },
+            "parse_errors": { "$ref": "#/$defs/nullable_count" },
+            "usage_status": { "$ref": "#/$defs/agg_status" }
+          }
+        },
+        "totals": { "$ref": "#/$defs/usage_totals" },
+        "by_model": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/usage_by_model" }
+        },
+        "by_repo": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/usage_by_repo" }
+        }
+      }
+    },
+    "usage_totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "requests", "input_tokens", "output_tokens", "total_tokens", "cost_usd", "tokens_status", "cost_status", "unknown_cost_records", "http_429_count", "fallback_count"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input_tokens": { "$ref": "#/$defs/tokens" },
+        "output_tokens": { "$ref": "#/$defs/tokens" },
+        "total_tokens": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "$ref": "#/$defs/cost_usd" },
+        "tokens_status": { "$ref": "#/$defs/agg_status" },
+        "cost_status": { "$ref": "#/$defs/agg_status" },
+        "unknown_cost_records": {
+          "$ref": "#/$defs/nullable_count",
+          "description": "Records whose cost was reported unknown; preserved so an unknown is visible, never folded into 0."
+        },
+        "http_429_count": { "$ref": "#/$defs/nullable_count" },
+        "fallback_count": { "$ref": "#/$defs/nullable_count" }
+      }
+    },
+    "usage_by_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "model", "provider", "requests", "input_tokens", "output_tokens", "total_tokens", "cost_usd", "tokens_status", "cost_status"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "model": {
+          "$ref": "common.schema.json#/$defs/id_token",
+          "description": "Served model label, for example deepseek-v4.1-flash."
+        },
+        "provider": { "$ref": "common.schema.json#/$defs/provider_label" },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input_tokens": { "$ref": "#/$defs/tokens" },
+        "output_tokens": { "$ref": "#/$defs/tokens" },
+        "total_tokens": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "$ref": "#/$defs/cost_usd" },
+        "tokens_status": { "$ref": "#/$defs/agg_status" },
+        "cost_status": { "$ref": "#/$defs/agg_status" }
+      }
+    },
+    "usage_by_repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "repo", "requests", "input_tokens", "output_tokens", "total_tokens", "cost_usd", "tokens_status", "cost_status"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "repo": { "$ref": "#/$defs/repo_slug" },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input_tokens": { "$ref": "#/$defs/tokens" },
+        "output_tokens": { "$ref": "#/$defs/tokens" },
+        "total_tokens": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "$ref": "#/$defs/cost_usd" },
+        "tokens_status": { "$ref": "#/$defs/agg_status" },
+        "cost_status": { "$ref": "#/$defs/agg_status" }
+      }
+    },
+    "pipeline_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "jobs", "counts", "escalations", "blockers"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "jobs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pipeline_job" }
+        },
+        "counts": {
+          "type": "object",
+          "description": "Task count by task state across all jobs. Empty when no job document was readable.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "escalations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/escalation_row" }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/blocker_row" }
+        }
+      }
+    },
+    "pipeline_job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "job_id", "repo", "base_rev", "task_count", "tasks", "escalation_count"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "job_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "repo": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/repo_slug" }
+          ]
+        },
+        "base_rev": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40,64}$",
+          "description": "The job's base revision (full hex). Not a secret."
+        },
+        "task_count": { "$ref": "#/$defs/nullable_count" },
+        "tasks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pipeline_task" }
+        },
+        "escalation_count": { "$ref": "#/$defs/nullable_count" }
+      }
+    },
+    "pipeline_task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "task_id", "state", "attempts_count", "reason"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "task_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "state": { "$ref": "#/$defs/task_state" },
+        "attempts_count": { "$ref": "#/$defs/nullable_count" },
+        "reason": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed reason carried by rejected, failed, superseded, or blocked task states. Truncated by the collector; never a prompt or transcript."
+        }
+      }
+    },
+    "escalation_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "job_id", "reason", "detail", "created_at"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "job_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "reason": {
+          "$ref": "common.schema.json#/$defs/id_token",
+          "description": "Stable escalation reason code, for example needs_agent."
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed detail. The escalation prompt itself is never copied into a snapshot."
+        },
+        "created_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        }
+      }
+    },
+    "blocker_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "job_id", "task_id", "reason", "detail", "created_at"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "job_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "task_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "reason": { "$ref": "common.schema.json#/$defs/id_token" },
+        "detail": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "created_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        }
+      }
+    },
+    "backlog_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "features", "counts"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "features": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backlog_feature" }
+        },
+        "counts": {
+          "type": "object",
+          "description": "Feature count by queue status. Empty when no queue file was readable.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "backlog_feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "feature_id", "job_id", "status", "depends_on"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "feature_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "job_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "status": { "$ref": "#/$defs/queue_status" },
+        "depends_on": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/id_token" }
+        }
+      }
+    },
+    "ci_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "repos", "prs"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "repos": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ci_repo" }
+        },
+        "prs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ci_pr" }
+        }
+      }
+    },
+    "ci_repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "repo", "branch", "open_prs", "ci_state", "failing_check_names"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "repo": { "$ref": "#/$defs/repo_slug" },
+        "branch": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/branch_name" }
+          ]
+        },
+        "open_prs": { "$ref": "#/$defs/nullable_count" },
+        "ci_state": { "$ref": "#/$defs/ci_state" },
+        "failing_check_names": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/check_name" }
+        }
+      }
+    },
+    "ci_pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "repo", "number", "state", "head_branch", "ci_state", "failing_check_names"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "repo": { "$ref": "#/$defs/repo_slug" },
+        "number": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "description": "Pull request state as reported by the CLI, lower-cased.",
+          "enum": ["open", "merged", "closed", "draft", "unknown"]
+        },
+        "head_branch": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/branch_name" }
+          ]
+        },
+        "ci_state": { "$ref": "#/$defs/ci_state" },
+        "failing_check_names": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/check_name" }
+        }
+      }
+    },
+    "failures_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "failures", "counts"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "failures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/failure_row" }
+        },
+        "counts": {
+          "type": "object",
+          "description": "Failure count by class. Empty when no failure was observed.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "failure_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "ts", "attempt_id", "job_id", "task_id", "class", "code", "component", "retryable", "http_429", "fallback_to", "note"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "ts": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "attempt_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "job_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "task_id": { "$ref": "common.schema.json#/$defs/nullable_id" },
+        "class": { "$ref": "#/$defs/failure_class" },
+        "code": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/id_token" }
+          ]
+        },
+        "component": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/id_token" }
+          ]
+        },
+        "retryable": {
+          "type": ["boolean", "null"]
+        },
+        "http_429": {
+          "type": ["boolean", "null"]
+        },
+        "fallback_to": {
+          "description": "Set when a rate-limit (or similar) event caused a route fallback, as in failure/v1.",
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/route_label" }
+          ]
+        },
+        "note": {
+          "type": ["string", "null"],
+          "maxLength": 500,
+          "description": "Short scrubbed note, truncated by the collector."
+        }
+      }
+    },
+    "health_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "scheduler", "quota", "bees_in_flight", "bee_cap"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "scheduler": { "$ref": "#/$defs/scheduler_health" },
+        "quota": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/quota_row" }
+        },
+        "bees_in_flight": { "$ref": "#/$defs/nullable_count" },
+        "bee_cap": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
+    "scheduler_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "liveness", "alive", "last_event_at", "last_event_age_s", "source"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "liveness": {
+          "description": "live: the metrics log recorded an event within the freshness threshold. stale: the newest record is older. unavailable: no readable metrics.",
+          "enum": ["live", "stale", "unavailable"]
+        },
+        "alive": {
+          "type": ["boolean", "null"],
+          "description": "True only when liveness is live; null when unknown."
+        },
+        "last_event_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        },
+        "last_event_age_s": { "$ref": "#/$defs/nullable_count" },
+        "source": { "$ref": "common.schema.json#/$defs/id_token" }
+      }
+    },
+    "quota_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "kind", "resource_id", "value", "unit", "cap", "remaining", "status"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "kind": { "$ref": "#/$defs/resource_kind" },
+        "resource_id": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "description": "Local label that distinguishes peers of the same kind, such as two OpenCode Go keys. Never key material."
+        },
+        "value": {
+          "type": ["number", "null"],
+          "description": "Observed value. Null when status is unavailable. Zero is allowed only when the value is genuinely zero."
+        },
+        "unit": { "$ref": "#/$defs/resource_unit" },
+        "cap": {
+          "type": ["number", "null"]
+        },
+        "remaining": {
+          "type": ["number", "null"]
+        },
+        "status": { "$ref": "#/$defs/resource_status" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "unavailable" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "value": { "type": "null" },
+              "remaining": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "alerts_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "active"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "active": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/alert_row" }
+        }
+      }
+    },
+    "alert_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "generated_at", "key", "severity", "message", "observed", "threshold", "ts"],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "key": {
+          "$ref": "common.schema.json#/$defs/id_token",
+          "description": "Threshold key from alert.thresholds/v1, for example bees_in_flight_warn_at."
+        },
+        "severity": {
+          "enum": ["warn"],
+          "description": "Version 1 actions are warn only."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "observed": {
+          "type": ["number", "null"]
+        },
+        "threshold": {
+          "type": ["number", "null"]
+        },
+        "ts": { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+      }
+    }
+  }
+}
