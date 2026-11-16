@@ -21,7 +21,7 @@ data, draw a dashboard, or define a usage schema.
 | `vcs.snapshot/v1` | `schemas/vcs-snapshot.schema.json` | Commits, open pull requests, and CI for allowlisted repos |
 | `board.snapshot/v1` | `schemas/board-snapshot.schema.json` | Board status counts and blocker age |
 | `resource.snapshot/v1` | `schemas/resource-snapshot.schema.json` | Credits, allowances, compute units, in-flight bees, host capacity |
-| `rizzstack.observability/snapshot/1` | `schemas/snapshot.schema.json` | One assembled point-in-time view across fleet, usage, pipeline, backlog, ci, failures, health, and alerts sections, emitted by the read-only collector in `contrib/rizzstack-observability/` |
+| `rizzstack.observability/snapshot/1` | `schemas/snapshot.schema.json` | One assembled point-in-time view across fleet, usage, pipeline, backlog, ci, failures, health, alerts, and bottlenecks sections, emitted by the read-only collector in `contrib/rizzstack-observability/` |
 
 ## Envelope discriminator
 
@@ -52,6 +52,64 @@ Consumers should display unrecognized labels as they are, not drop them.
 JSON Schema is draft 2020-12. Shared join-key and timestamp definitions live in
 `schemas/common.schema.json`. Examples that validate against these schemas are
 in `examples/`.
+
+## The bottlenecks section
+
+The snapshot carries a `bottlenecks` section so a dashboard can show where
+work is piling up. It is computed read-only from the records the collector
+already reads — no new data source, no second collection pass over anything
+the other sections do not already touch.
+
+Per pipeline stage, one row each for `verify`, `review`, `integrate` and
+`deploy`:
+
+| Stage | Queue depth counts | Oldest-item age from |
+| --- | --- | --- |
+| `verify` | job tasks in the `verifying` state | the recorded transition into `verifying`, else the newest attempt timestamp |
+| `review` | action-queue features in `ready_for_review` | the newest completion record (attempt or review report) of the linked job |
+| `integrate` | job tasks in the `verified` state | the transition into `verified`, else the review-report timestamp, else the newest attempt |
+| `deploy` | open pull requests | the pull request `createdAt` reported by the CLI |
+
+Each row also carries dwell-time median and p95 (completed waiting stays,
+reconstructed from recorded state transitions), throughput as items
+advanced per hour over the last hour and the last day (verify and integrate
+count recorded advancing transitions; review and deploy have no record of
+completed stays, so their dwell and throughput stay `unknown`), and
+WIP versus capacity where a cap exists — the verify stage carries the bees
+at work (`wip`) against the shared bee cap (`capacity`, with
+`capacity_source` of `bee_cap`).
+
+The `invariant` object carries the reconciliation headline: authorized and
+eligible work waiting despite available capacity. `ready` counts queued
+features, `waiting_despite_capacity` is decided only when both the ready
+count and the bee headroom (`bee_cap` minus bees in flight) are known —
+unknown on either side leaves it null, never a confident false. Supporting
+counts: `total_outstanding` (non-terminal features, or non-terminal job
+tasks when the queue is unreadable), `claimed`, `active_workers`,
+`awaiting_verify` / `awaiting_review` / `awaiting_integrate` /
+`awaiting_deploy`, `blocked_with_reason` plus `blocked_reasons` (reasons
+resolved from recorded gate states, task blockers, or unmet dependencies —
+unresolvable ones are not counted), `human_approvals_required` (job
+approval gates waiting on a human decision), `last_auto_progress_at` and
+its age (newest dispatch, verify, recovery, or recorded state transition;
+human interventions do not count), and the worker-completion-to-next-action
+median and p95 (gap between a verify event and the next dispatch or
+recovery for the same task).
+
+Degradation follows the house rules: every unknown stays null with an
+`agg_status` marker (`known`, `partial`, `unknown`, `unavailable`); a
+numeric zero appears only when the source was read this run and is
+genuinely zero. The section is `live` when any contributing source was read
+this run, `stale` when every readable source is older than the freshness
+threshold, and `unavailable` (`no_bottleneck_sources`) when none are.
+
+Dwell-time targets per stage are configuration, not constants: the collector
+ships defaults (`verify_dwell_target_s` 3600, `review_dwell_target_s`
+14400, `integrate_dwell_target_s` 7200, `deploy_dwell_target_s` 86400) and
+operators override them like any other threshold key. The section echoes
+the effective targets under `thresholds` so the dashboard can draw
+threshold lines and color stages (`state`: `ok`, `over` when median or p95
+dwell exceeds the target, `unknown` when not observable).
 
 ## Alert thresholds
 

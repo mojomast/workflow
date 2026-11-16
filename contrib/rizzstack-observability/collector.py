@@ -10,6 +10,13 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
+The bottlenecks section is computed from the same records (job documents,
+the feature queue, review reports, scheduler metrics, the fleet, open pull
+requests): per stage queue depth, oldest-item age, dwell-time median and
+p95, throughput, WIP versus capacity, and the reconciliation headline of
+authorized and eligible work waiting despite available capacity. Dwell
+targets per stage are threshold configuration, not constants.
+
 Every section degrades independently: a missing or unreadable source yields
 an empty section with a ``stale``/``unavailable`` status marker, never a
 crash, and unknown numeric values are preserved as null rather than folded
@@ -33,6 +40,7 @@ from __future__ import annotations
 import argparse
 import hmac
 import json
+import math
 import os
 import re
 import subprocess
@@ -54,6 +62,7 @@ SECTION_NAMES = (
     "failures",
     "health",
     "alerts",
+    "bottlenecks",
 )
 
 ACTIVE_FLEET_STATES = frozenset(
@@ -162,6 +171,24 @@ PROVIDER_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S+")
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
 
+# Bottleneck stages. Each maps to the real record that shows work waiting
+# there: verify counts job tasks in the verifying state, review counts
+# features ready for review on the action queue, integrate counts verified
+# tasks awaiting the integration wave, and deploy counts open pull requests.
+STAGE_NAMES = ("verify", "review", "integrate", "deploy")
+VERIFY_ENTRY_STATE = "verifying"
+VERIFY_ADVANCE_STATES = frozenset({"verified", "integrating", "accepted"})
+INTEGRATE_ENTRY_STATE = "verified"
+INTEGRATE_ADVANCE_STATES = frozenset({"integrating", "accepted"})
+NON_TERMINAL_TASK_STATES = frozenset(
+    TASK_STATES - {"accepted", "rejected", "failed", "superseded"}
+)
+NON_TERMINAL_QUEUE_STATUSES = frozenset(QUEUE_STATUSES - {"failed"})
+AUTO_PROGRESS_EVENTS = frozenset({"dispatch", "verify", "recovery"})
+NEXT_ACTION_EVENTS = frozenset({"dispatch", "recovery"})
+GATE_SETTLED_STATES = frozenset({"done", "satisfied"})
+WORKING_FLEET_STATES = frozenset({"running", "working"})
+
 DEFAULT_THRESHOLDS = {
     "deepseek_balance_below_usd": 5,
     "go_allowance_pct_used": 80,
@@ -171,6 +198,13 @@ DEFAULT_THRESHOLDS = {
     "disk_free_pct": 10,
     "bees_in_flight_warn_at": 12,
     "daily_model_spend_above_usd": 10,
+    # SLO-style dwell targets per bottleneck stage, in seconds. The dashboard
+    # draws threshold lines from these; operators override them like any
+    # other threshold key.
+    "verify_dwell_target_s": 3600,
+    "review_dwell_target_s": 14400,
+    "integrate_dwell_target_s": 7200,
+    "deploy_dwell_target_s": 86400,
 }
 
 
@@ -361,6 +395,118 @@ def agg_status(known: int, total: int, any_source: bool) -> str:
     if known <= 0:
         return "unknown"
     return "partial"
+
+
+def _median_of(values: Sequence[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    count = len(ordered)
+    middle = count // 2
+    if count % 2:
+        return float(ordered[middle])
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _p95_of(values: Sequence[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, math.ceil(0.95 * len(ordered)))
+    return float(ordered[rank - 1])
+
+
+def _age_s(moment: datetime | None, now: datetime) -> int | None:
+    if moment is None:
+        return None
+    return max(0, int((now - moment).total_seconds()))
+
+
+def _window_rates(
+    moments: Sequence[datetime], now: datetime
+) -> tuple[float, float]:
+    """Items advanced per hour over the last hour and the last day."""
+    hour_ago = now - timedelta(hours=1)
+    day_ago = now - timedelta(hours=24)
+    recent = sum(1 for moment in moments if moment >= hour_ago)
+    daily = sum(1 for moment in moments if moment >= day_ago)
+    return round(float(recent), 6), round(daily / 24.0, 6)
+
+
+def _stage_walk(
+    transitions: Sequence[tuple[datetime, str]],
+    entry_state: str,
+    advance_states: frozenset[str],
+) -> tuple[datetime | None, list[float], list[datetime]]:
+    """Walk one task's recorded state transitions.
+
+    Returns (open entry into the stage, completed dwell seconds, moments the
+    task advanced past the stage). A stay at the stage opens on a transition
+    into ``entry_state`` and closes on the next transition to a different
+    state; it counts as an advance when that state is in ``advance_states``.
+    Transitions without a recorded entry show nothing: unknown stays unknown.
+    """
+    stays: list[float] = []
+    advances: list[datetime] = []
+    open_entry: datetime | None = None
+    entered: datetime | None = None
+    for moment, to_state in transitions:
+        if to_state == entry_state:
+            entered = moment
+        elif entered is not None:
+            stays.append(max(0.0, (moment - entered).total_seconds()))
+            if to_state in advance_states:
+                advances.append(moment)
+            entered = None
+    if entered is not None:
+        open_entry = entered
+    return open_entry, stays, advances
+
+
+def _stage_row(
+    generated: str,
+    stage: str,
+    *,
+    now: datetime,
+    queue_depth: int | None,
+    oldest_item_age_s: int | None,
+    dwell_samples: Sequence[float],
+    dwell_status: str,
+    advanced: Sequence[datetime],
+    throughput_status: str,
+    wip: int | None,
+    capacity: int | None,
+    capacity_source: str | None,
+    target: float | None,
+) -> dict[str, Any]:
+    median = _median_of(dwell_samples)
+    p95 = _p95_of(dwell_samples)
+    if throughput_status in ("known", "partial"):
+        per_hour_1h, per_hour_24h = _window_rates(advanced, now)
+    else:
+        per_hour_1h = per_hour_24h = None
+    if target is None or (median is None and p95 is None):
+        state = "unknown"
+    else:
+        worst = max(value for value in (median, p95) if value is not None)
+        state = "over" if worst > target else "ok"
+    return {
+        "schema": SCHEMA,
+        "generated_at": generated,
+        "stage": stage,
+        "queue_depth": queue_depth,
+        "oldest_item_age_s": oldest_item_age_s,
+        "dwell_median_s": median,
+        "dwell_p95_s": p95,
+        "dwell_status": dwell_status,
+        "throughput_per_hour_1h": per_hour_1h,
+        "throughput_per_hour_24h": per_hour_24h,
+        "throughput_status": throughput_status,
+        "wip": wip,
+        "capacity": capacity,
+        "capacity_source": capacity_source,
+        "state": state,
+    }
 
 
 def section(
@@ -1056,7 +1202,7 @@ class Collector:
                     "--limit",
                     "50",
                     "--json",
-                    "number,headRefName,state,statusCheckRollup",
+                    "number,headRefName,state,createdAt,statusCheckRollup",
                 ],
             )
             payload = extract_json(out) if code == 0 else None
@@ -1103,6 +1249,7 @@ class Collector:
                         "number": number,
                         "state": pr_state,
                         "head_branch": head,
+                        "created_at": parse_iso_or_none(pr.get("createdAt")),
                         "ci_state": ci_state,
                         "failing_check_names": failing_names,
                     }
@@ -1255,6 +1402,658 @@ class Collector:
             "http_429": http_429,
             "fallback_to": fallback,
             "note": note,
+        }
+
+    # ----------------------------------------------------------- bottlenecks
+    def _read_job_documents(self) -> list[dict[str, Any]]:
+        """Read-only pass over the job documents for the bottlenecks section:
+        per task the state, attempt timestamps and recorded blocker reason,
+        plus the task_state transition history and the approval gate."""
+        docs: list[dict[str, Any]] = []
+        job_dir = self.state_dir / "jobs" if self.state_dir else None
+        paths: list[Path] = []
+        if job_dir is not None:
+            try:
+                paths = sorted(p for p in job_dir.glob("*.json") if p.is_file())
+            except OSError:
+                paths = []
+        for path in paths:
+            data = read_json_dict(path)
+            if data is None:
+                continue
+            job_id = id_token(data.get("job_id")) or id_token(path.stem) or "unknown"
+            tasks: list[dict[str, Any]] = []
+            for index, task in enumerate(as_list(data.get("tasks"))):
+                if not isinstance(task, dict):
+                    continue
+                task_id = id_token(task.get("task_id")) or f"T{index + 1}"
+                state = task.get("state")
+                state = state if isinstance(state, str) and state in TASK_STATES else None
+                attempt_ts = [
+                    moment
+                    for moment in (
+                        parse_ts(first_str(attempt, ("ts", "created_at", "time")))
+                        for attempt in as_list(task.get("attempts"))
+                        if isinstance(attempt, dict)
+                    )
+                    if moment is not None
+                ]
+                blocker: str | None = None
+                if state in ("rejected", "failed", "superseded"):
+                    reason = scrub(first_str(task, ("reason", "blocker_reason", "failure_reason")), 80)
+                    blocker = _reason_token(reason) if reason else "task_" + str(state)
+                tasks.append(
+                    {
+                        "task_id": task_id,
+                        "state": state,
+                        "attempt_ts": attempt_ts,
+                        "blocker": blocker,
+                    }
+                )
+            events: list[tuple[datetime, str, str]] = []
+            event_count = 0
+            for event in as_list(data.get("events")):
+                if not isinstance(event, dict) or event.get("kind") != "task_state":
+                    continue
+                event_count += 1
+                task_id = id_token(event.get("task_id"))
+                to_state = event.get("to")
+                moment = parse_ts(first_str(event, ("ts", "time", "created_at")))
+                if task_id and isinstance(to_state, str) and moment is not None:
+                    events.append((moment, task_id, to_state))
+            events.sort(key=lambda item: (item[0], item[1]))
+            gate = data.get("approval_gate")
+            gate_state = (
+                gate.get("state").strip().lower()
+                if isinstance(gate, dict) and isinstance(gate.get("state"), str)
+                else None
+            )
+            docs.append(
+                {
+                    "job_id": job_id,
+                    "tasks": tasks,
+                    "events": events,
+                    "event_count": event_count,
+                    "gate_state": gate_state,
+                }
+            )
+        return docs
+
+    def _read_verify_reports(self) -> list[dict[str, Any]]:
+        """Read-only pass over the review reports (verify results): the
+        timestamp each report was produced, keyed by attempt, job and task."""
+        rows: list[dict[str, Any]] = []
+        report_dir = self.state_dir / "verify-results" if self.state_dir else None
+        paths: list[Path] = []
+        if report_dir is not None:
+            try:
+                paths = sorted(p for p in report_dir.glob("*.json") if p.is_file())
+            except OSError:
+                paths = []
+        for path in paths:
+            data = read_json_dict(path)
+            if not isinstance(data, dict):
+                continue
+            rows.append(
+                {
+                    "attempt_id": id_token(first_str(data, ("attempt_id",))) or id_token(path.stem),
+                    "job_id": id_token(first_str(data, ("job_id",))),
+                    "task_id": id_token(first_str(data, ("task_id",))),
+                    "ts": parse_ts(first_str(data, ("ts", "created_at", "time", "finished_at"))),
+                }
+            )
+        return rows
+
+    def _read_metric_events(self) -> tuple[list[dict[str, Any]], bool]:
+        """Read-only pass over the scheduler metrics logs. Returns the parsed
+        events (newest last) and whether any metrics file was seen at all."""
+        events: list[dict[str, Any]] = []
+        seen = False
+        metrics_dir = self.state_dir / "metrics" if self.state_dir else None
+        paths: list[Path] = []
+        if metrics_dir is not None:
+            try:
+                paths = sorted(p for p in metrics_dir.glob("*.jsonl") if p.is_file())
+            except OSError:
+                paths = []
+        for path in paths:
+            seen = True
+            records, _ = read_jsonl(path)
+            for record in records:
+                if not isinstance(record, dict):
+                    continue
+                moment = parse_ts(first_str(record, ("ts", "time", "timestamp", "created_at")))
+                if moment is None:
+                    continue
+                events.append(
+                    {
+                        "ts": moment,
+                        "event": scrub(first_str(record, ("event", "kind")), 40) or "",
+                        "job_id": id_token(first_str(record, ("job_id",))),
+                        "task_id": id_token(first_str(record, ("task_id",))),
+                    }
+                )
+        events.sort(key=lambda item: item["ts"])
+        return events, seen
+
+    def bottlenecks_section(
+        self,
+        *,
+        pipeline_body: Mapping[str, Any],
+        backlog_body: Mapping[str, Any],
+        ci_body: Mapping[str, Any],
+        fleet_body: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Compute the bottlenecks section read-only from records the other
+        sections already read: job documents, the action queue, review
+        reports, scheduler metrics, the fleet, and open pull requests. Each
+        contributing source degrades independently: a metric its source
+        cannot show stays null with a status marker, never zero."""
+        now = self.now()
+        generated = utc_now_string(now)
+        docs = self._read_job_documents()
+        reports = self._read_verify_reports()
+        events, metrics_seen = self._read_metric_events()
+
+        pipeline_readable = pipeline_body.get("status") != "unavailable"
+        queue_readable = backlog_body.get("status") != "unavailable"
+        ci_readable = ci_body.get("status") != "unavailable"
+        features = [f for f in as_list(backlog_body.get("features")) if isinstance(f, dict)]
+        docs_by_id = {doc["job_id"]: doc for doc in docs}
+
+        transitions: dict[tuple[str, str], list[tuple[datetime, str]]] = {}
+        for doc in docs:
+            for moment, task_id, to_state in doc["events"]:
+                transitions.setdefault((doc["job_id"], task_id), []).append((moment, to_state))
+        for rows in transitions.values():
+            rows.sort(key=lambda item: item[0])
+
+        report_ts_by_task: dict[tuple[str, str], datetime] = {}
+        for report in reports:
+            if report["ts"] is None or not report["job_id"] or not report["task_id"]:
+                continue
+            key = (report["job_id"], report["task_id"])
+            known = report_ts_by_task.get(key)
+            if known is None or report["ts"] > known:
+                report_ts_by_task[key] = report["ts"]
+
+        targets: dict[str, float | None] = {}
+        for stage in STAGE_NAMES:
+            value = self.thresholds.get(stage + "_dwell_target_s")
+            targets[stage] = (
+                float(value)
+                if isinstance(value, (int, float)) and not isinstance(value, bool)
+                else None
+            )
+
+        raw_events = sum(doc["event_count"] for doc in docs)
+        parsed_events = sum(len(doc["events"]) for doc in docs)
+        if not pipeline_readable:
+            event_status = "unavailable"
+        elif raw_events == 0:
+            event_status = "known"
+        elif parsed_events == 0:
+            event_status = "unknown"
+        elif parsed_events < raw_events:
+            event_status = "partial"
+        else:
+            event_status = "known"
+
+        stages = [
+            self._verify_stage_row(
+                now, generated, docs, transitions, fleet_body,
+                targets["verify"], pipeline_readable, event_status,
+            ),
+            self._review_stage_row(
+                now, generated, features, docs_by_id, report_ts_by_task,
+                queue_readable, targets["review"],
+            ),
+            self._integrate_stage_row(
+                now, generated, docs, transitions, report_ts_by_task,
+                pipeline_readable, targets["integrate"], event_status,
+            ),
+            self._deploy_stage_row(now, generated, ci_body, ci_readable, targets["deploy"]),
+        ]
+        invariant = self._bottleneck_invariant(
+            now,
+            generated,
+            features=features,
+            queue_readable=queue_readable,
+            docs=docs,
+            pipeline_readable=pipeline_readable,
+            fleet_body=fleet_body,
+            ci_body=ci_body,
+            ci_readable=ci_readable,
+            events=events,
+            metrics_seen=metrics_seen,
+        )
+
+        readable = [
+            pipeline_readable,
+            queue_readable,
+            ci_readable,
+            fleet_body.get("status") != "unavailable",
+            metrics_seen,
+        ]
+        if not any(readable):
+            status, error = "unavailable", "no_bottleneck_sources"
+        else:
+            live_flags = [
+                pipeline_body.get("status") == "live",
+                backlog_body.get("status") == "live",
+                ci_body.get("status") == "live",
+                fleet_body.get("status") == "live",
+            ]
+            if events:
+                newest = events[-1]["ts"]
+                if (now - newest) <= timedelta(seconds=self.stale_after_s):
+                    live_flags.append(True)
+            if any(live_flags):
+                status, error = "live", None
+            else:
+                status, error = "stale", "bottleneck_sources_older_than_threshold"
+        return section(
+            now,
+            status,
+            error,
+            stages=stages,
+            invariant=invariant,
+            thresholds={stage: {"dwell_target_s": targets[stage]} for stage in STAGE_NAMES},
+        )
+
+    def _verify_stage_row(
+        self,
+        now: datetime,
+        generated: str,
+        docs: Sequence[Mapping[str, Any]],
+        transitions: Mapping[tuple[str, str], Sequence[tuple[datetime, str]]],
+        fleet_body: Mapping[str, Any],
+        target: float | None,
+        source_readable: bool,
+        event_status: str,
+    ) -> dict[str, Any]:
+        open_count = 0
+        entries: list[datetime] = []
+        stays: list[float] = []
+        advances: list[datetime] = []
+        for doc in docs:
+            for task in doc["tasks"]:
+                rows = transitions.get((doc["job_id"], task["task_id"]), [])
+                open_entry, task_stays, task_advances = _stage_walk(
+                    rows, VERIFY_ENTRY_STATE, VERIFY_ADVANCE_STATES
+                )
+                stays.extend(task_stays)
+                advances.extend(task_advances)
+                if source_readable and task["state"] == VERIFY_ENTRY_STATE:
+                    open_count += 1
+                    entry = open_entry or (max(task["attempt_ts"]) if task["attempt_ts"] else None)
+                    if entry is not None:
+                        entries.append(entry)
+        oldest = min(entries) if entries else None
+        wip = None
+        capacity = None
+        capacity_source = None
+        if fleet_body.get("status") != "unavailable":
+            wip = sum(
+                1
+                for row in as_list(fleet_body.get("attempts"))
+                if isinstance(row, dict) and row.get("state") in WORKING_FLEET_STATES
+            )
+            cap = fleet_body.get("bee_cap")
+            if isinstance(cap, int) and not isinstance(cap, bool) and cap >= 1:
+                capacity = cap
+                capacity_source = "bee_cap"
+        return _stage_row(
+            generated,
+            "verify",
+            now=now,
+            queue_depth=open_count if source_readable else None,
+            oldest_item_age_s=_age_s(oldest, now),
+            dwell_samples=stays,
+            dwell_status="known" if (stays and source_readable) else ("unknown" if source_readable else "unavailable"),
+            advanced=advances,
+            throughput_status=event_status,
+            wip=wip,
+            capacity=capacity,
+            capacity_source=capacity_source,
+            target=target,
+        )
+
+    def _review_stage_row(
+        self,
+        now: datetime,
+        generated: str,
+        features: Sequence[Mapping[str, Any]],
+        docs_by_id: Mapping[str, Mapping[str, Any]],
+        report_ts_by_task: Mapping[tuple[str, str], datetime],
+        source_readable: bool,
+        target: float | None,
+    ) -> dict[str, Any]:
+        if not source_readable:
+            return _stage_row(
+                generated,
+                "review",
+                now=now,
+                queue_depth=None,
+                oldest_item_age_s=None,
+                dwell_samples=[],
+                dwell_status="unavailable",
+                advanced=[],
+                throughput_status="unavailable",
+                wip=None,
+                capacity=None,
+                capacity_source=None,
+                target=target,
+            )
+        waiting = [f for f in features if f.get("status") == "ready_for_review"]
+        ready_at: list[datetime] = []
+        for feature in waiting:
+            job_id = feature.get("job_id")
+            doc = docs_by_id.get(job_id) if isinstance(job_id, str) else None
+            if doc is None:
+                continue
+            candidates: list[datetime] = []
+            for task in doc["tasks"]:
+                candidates.extend(task["attempt_ts"])
+                report = report_ts_by_task.get((doc["job_id"], task["task_id"]))
+                if report is not None:
+                    candidates.append(report)
+            if candidates:
+                # The newest completion record of the linked job is when the
+                # work became reviewable; no record means unknown, not zero.
+                ready_at.append(max(candidates))
+        oldest = min(ready_at) if ready_at else None
+        # The queue snapshot carries no record of completed review stays or
+        # of items leaving review, so dwell and throughput stay unknown.
+        return _stage_row(
+            generated,
+            "review",
+            now=now,
+            queue_depth=len(waiting),
+            oldest_item_age_s=_age_s(oldest, now),
+            dwell_samples=[],
+            dwell_status="unknown",
+            advanced=[],
+            throughput_status="unknown",
+            wip=None,
+            capacity=None,
+            capacity_source=None,
+            target=target,
+        )
+
+    def _integrate_stage_row(
+        self,
+        now: datetime,
+        generated: str,
+        docs: Sequence[Mapping[str, Any]],
+        transitions: Mapping[tuple[str, str], Sequence[tuple[datetime, str]]],
+        report_ts_by_task: Mapping[tuple[str, str], datetime],
+        source_readable: bool,
+        target: float | None,
+        event_status: str,
+    ) -> dict[str, Any]:
+        open_count = 0
+        entries: list[datetime] = []
+        stays: list[float] = []
+        advances: list[datetime] = []
+        for doc in docs:
+            for task in doc["tasks"]:
+                rows = transitions.get((doc["job_id"], task["task_id"]), [])
+                open_entry, task_stays, task_advances = _stage_walk(
+                    rows, INTEGRATE_ENTRY_STATE, INTEGRATE_ADVANCE_STATES
+                )
+                stays.extend(task_stays)
+                advances.extend(task_advances)
+                if source_readable and task["state"] == INTEGRATE_ENTRY_STATE:
+                    open_count += 1
+                    entry = open_entry
+                    if entry is None:
+                        entry = report_ts_by_task.get((doc["job_id"], task["task_id"]))
+                    if entry is None and task["attempt_ts"]:
+                        entry = max(task["attempt_ts"])
+                    if entry is not None:
+                        entries.append(entry)
+        oldest = min(entries) if entries else None
+        return _stage_row(
+            generated,
+            "integrate",
+            now=now,
+            queue_depth=open_count if source_readable else None,
+            oldest_item_age_s=_age_s(oldest, now),
+            dwell_samples=stays,
+            dwell_status="known" if (stays and source_readable) else ("unknown" if source_readable else "unavailable"),
+            advanced=advances,
+            throughput_status=event_status,
+            wip=None,
+            capacity=None,
+            capacity_source=None,
+            target=target,
+        )
+
+    def _deploy_stage_row(
+        self,
+        now: datetime,
+        generated: str,
+        ci_body: Mapping[str, Any],
+        source_readable: bool,
+        target: float | None,
+    ) -> dict[str, Any]:
+        rows = [pr for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)]
+        if not source_readable:
+            return _stage_row(
+                generated,
+                "deploy",
+                now=now,
+                queue_depth=None,
+                oldest_item_age_s=None,
+                dwell_samples=[],
+                dwell_status="unavailable",
+                advanced=[],
+                throughput_status="unavailable",
+                wip=None,
+                capacity=None,
+                capacity_source=None,
+                target=target,
+            )
+        opened = [
+            moment
+            for moment in (parse_ts(pr.get("created_at")) for pr in rows)
+            if moment is not None
+        ]
+        oldest = min(opened) if opened else None
+        # Open pull requests carry no record here of completed stays or of
+        # merges, so dwell and throughput stay unknown.
+        return _stage_row(
+            generated,
+            "deploy",
+            now=now,
+            queue_depth=len(rows),
+            oldest_item_age_s=_age_s(oldest, now),
+            dwell_samples=[],
+            dwell_status="unknown",
+            advanced=[],
+            throughput_status="unknown",
+            wip=None,
+            capacity=None,
+            capacity_source=None,
+            target=target,
+        )
+
+    def _blocked_reason(
+        self,
+        feature: Mapping[str, Any],
+        docs_by_id: Mapping[str, Mapping[str, Any]],
+    ) -> str | None:
+        """Resolve a blocked feature's reason from recorded causes: the linked
+        job's pending approval gate, its recorded task blockers, or an unmet
+        dependency. Unresolvable means uncounted."""
+        job_id = feature.get("job_id")
+        doc = docs_by_id.get(job_id) if isinstance(job_id, str) else None
+        if doc is not None:
+            gate_state = doc["gate_state"]
+            if isinstance(gate_state, str) and gate_state not in GATE_SETTLED_STATES:
+                return "approval_required"
+            blockers = [task["blocker"] for task in doc["tasks"] if task["blocker"]]
+            if blockers:
+                return blockers[0]
+        if as_list(feature.get("depends_on")):
+            return "dependency"
+        return None
+
+    def _bottleneck_invariant(
+        self,
+        now: datetime,
+        generated: str,
+        *,
+        features: Sequence[Mapping[str, Any]],
+        queue_readable: bool,
+        docs: Sequence[Mapping[str, Any]],
+        pipeline_readable: bool,
+        fleet_body: Mapping[str, Any],
+        ci_body: Mapping[str, Any],
+        ci_readable: bool,
+        events: Sequence[Mapping[str, Any]],
+        metrics_seen: bool,
+    ) -> dict[str, Any]:
+        tasks = [task for doc in docs for task in doc["tasks"]]
+        docs_by_id = {doc["job_id"]: doc for doc in docs}
+
+        ready = claimed = None
+        total_outstanding = None
+        awaiting_review = None
+        blocked_with_reason = None
+        blocked_reasons: dict[str, int] = {}
+        if queue_readable:
+            ready = sum(1 for f in features if f.get("status") == "queued")
+            claimed = sum(1 for f in features if f.get("status") == "claimed")
+            total_outstanding = sum(
+                1 for f in features if f.get("status") in NON_TERMINAL_QUEUE_STATUSES
+            )
+            awaiting_review = sum(
+                1 for f in features if f.get("status") == "ready_for_review"
+            )
+            resolved = 0
+            for feature in features:
+                if feature.get("status") != "blocked":
+                    continue
+                reason = self._blocked_reason(feature, docs_by_id)
+                if reason is None:
+                    continue
+                resolved += 1
+                blocked_reasons[reason] = blocked_reasons.get(reason, 0) + 1
+            blocked_with_reason = resolved
+        elif pipeline_readable:
+            total_outstanding = sum(
+                1 for task in tasks if task["state"] in NON_TERMINAL_TASK_STATES
+            )
+
+        awaiting_verify = awaiting_integrate = None
+        if pipeline_readable:
+            awaiting_verify = sum(1 for task in tasks if task["state"] == VERIFY_ENTRY_STATE)
+            awaiting_integrate = sum(
+                1 for task in tasks if task["state"] == INTEGRATE_ENTRY_STATE
+            )
+
+        active_workers = fleet_body.get("in_flight")
+        if not isinstance(active_workers, int) or isinstance(active_workers, bool):
+            active_workers = None
+
+        awaiting_deploy = None
+        if ci_readable:
+            awaiting_deploy = sum(
+                1 for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)
+            )
+
+        human_approvals_required = None
+        if pipeline_readable:
+            human_approvals_required = sum(
+                1
+                for doc in docs
+                if isinstance(doc["gate_state"], str)
+                and doc["gate_state"] not in GATE_SETTLED_STATES
+            )
+
+        last_auto_at = None
+        for event in events:
+            if event["event"] in AUTO_PROGRESS_EVENTS:
+                if last_auto_at is None or event["ts"] > last_auto_at:
+                    last_auto_at = event["ts"]
+        for doc in docs:
+            for moment, _task_id, _to_state in doc["events"]:
+                if last_auto_at is None or moment > last_auto_at:
+                    last_auto_at = moment
+
+        gaps: list[float] = []
+        by_task: dict[tuple[str | None, str | None], list[tuple[datetime, str]]] = {}
+        for event in events:
+            by_task.setdefault((event["job_id"], event["task_id"]), []).append(
+                (event["ts"], event["event"])
+            )
+        for rows in by_task.values():
+            rows.sort(key=lambda item: item[0])
+            for index, (moment, kind) in enumerate(rows):
+                if kind != "verify":
+                    continue
+                for later_moment, later_kind in rows[index + 1:]:
+                    if later_kind in NEXT_ACTION_EVENTS:
+                        gaps.append(max(0.0, (later_moment - moment).total_seconds()))
+                        break
+        if not metrics_seen:
+            gap_status = "unavailable"
+        elif gaps:
+            gap_status = "known"
+        else:
+            gap_status = "unknown"
+
+        bee_cap = fleet_body.get("bee_cap")
+        if not isinstance(bee_cap, int) or isinstance(bee_cap, bool) or bee_cap < 1:
+            bee_cap = None
+        if ready is None or bee_cap is None or active_workers is None:
+            waiting_despite = None
+            waiting_count = None
+        else:
+            headroom = bee_cap - active_workers
+            waiting_despite = bool(ready > 0 and headroom > 0)
+            waiting_count = ready if waiting_despite else 0
+
+        sources = [
+            queue_readable,
+            pipeline_readable,
+            fleet_body.get("status") != "unavailable",
+            ci_readable,
+            metrics_seen,
+        ]
+        if not any(sources):
+            invariant_status = "unavailable"
+        elif all(sources):
+            invariant_status = "known"
+        else:
+            invariant_status = "partial"
+
+        return {
+            "schema": SCHEMA,
+            "generated_at": generated,
+            "status": invariant_status,
+            "total_outstanding": total_outstanding,
+            "ready": ready,
+            "ready_waiting_despite_capacity": waiting_count,
+            "waiting_despite_capacity": waiting_despite,
+            "claimed": claimed,
+            "active_workers": active_workers,
+            "awaiting_verify": awaiting_verify,
+            "awaiting_review": awaiting_review,
+            "awaiting_integrate": awaiting_integrate,
+            "awaiting_deploy": awaiting_deploy,
+            "blocked_with_reason": blocked_with_reason,
+            "blocked_reasons": blocked_reasons,
+            "human_approvals_required": human_approvals_required,
+            "last_auto_progress_at": (
+                last_auto_at.strftime("%Y-%m-%dT%H:%M:%SZ") if last_auto_at else None
+            ),
+            "last_auto_progress_age_s": _age_s(last_auto_at, now),
+            "completion_to_next_action_median_s": _median_of(gaps),
+            "completion_to_next_action_p95_s": _p95_of(gaps),
+            "completion_to_next_action_status": gap_status,
         }
 
     # ---------------------------------------------------------------- health
@@ -1474,6 +2273,12 @@ class Collector:
         backlog = self.backlog_section()
         ci = self.ci_section(pipeline.get("jobs", []))
         failures = self.failures_section()
+        bottlenecks = self.bottlenecks_section(
+            pipeline_body=pipeline,
+            backlog_body=backlog,
+            ci_body=ci,
+            fleet_body=fleet,
+        )
         health, observations = self.health_section(fleet, usage_summary)
         any_live = any(
             body.get("status") == "live"
@@ -1494,6 +2299,7 @@ class Collector:
             "failures": failures,
             "health": health,
             "alerts": alerts,
+            "bottlenecks": bottlenecks,
         }
         return {
             "schema": SCHEMA,
