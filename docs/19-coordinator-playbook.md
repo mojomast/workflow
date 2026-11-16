@@ -95,6 +95,7 @@ Rules for briefs:
 
 - **Always name the exact branch and the full `source_rev`.** "Latest main" isn't a baseline. bundlebees refuses a patch whose declared base differs from the brief ([13 §4](13-bundlebees-hardening.md#4-source_rev-checks-and-the-combined-branch-suite)).
 - **Hand over the problem and the bar, not a line-by-line fix.** Give symptoms, findings, reproduction steps and AC ids. Label any hunch about the cause as non-binding.
+- **A repair brief for a failure that isn't understood after one diagnosis pass carries a research phase.** Name the exact error signature and the tool/version context to research; the findings, with citations, come back and are recorded as part of the repair evidence ([§4](#4-verification)).
 - **Copy the hard rules into every brief.** Workers don't inherit your context.
 - **Say which existing branches to use.** If the approver said "on the existing branches", a new branch breaks the approval's scope.
 
@@ -169,7 +170,29 @@ Honesty rules:
 
 Which of these rules has a mechanical check behind it and which rests on a recorded incident is graded in [28](28-agent-lessons.md) — L-05 for the claim/evidence split, L-09 for unrun status, L-16 and L-17 for adoption and exactly-once. The five steps above stay the procedure, and a grade never lowers the bar.
 
+### Research before retry (RESEARCH-BEFORE-RETRY)
+
+A verification failure feeds the bounded recovery loop of [27](27-recovery-protocol.md): classify, reject, supersede or re-dispatch, escalate. This subsection adds the normative step between diagnosis and the next attempt — for the coordinator, and for bees and lanes alike.
+
+**When a verify failure, a CI failure or a blocker is not understood after the first diagnosis pass, the next action MUST be a research pass, not another fix attempt.** The research pass carries the exact error signature plus tool/version context — search for the error, known issues and version-specific behavior — before another fix attempt. It applies to the coordinator's own diagnosis and to every repair dispatch: a brief for a failure that is not understood after one diagnosis pass MUST include a research phase, and the findings, with citations, are recorded in the attempt record and become part of the repair evidence. A blind fix cycle burns the attempts the envelope caps; research costs minutes.
+
+Escalation binding: when the research pass shows the failure is a known upstream or tool issue rather than a defect in the patch, record it as such — environment-class in the sense of [27](27-recovery-protocol.md) — and route it accordingly: escalate, or fix at the environment level. Do not retry blind.
+
+Worked example (gitleaks fingerprints, Nov 2026): a commit-form `.gitleaksignore` fingerprint is SHA-pinned — it names the commit that held the finding — so after a history rewrite (rebase, squash, cherry-pick) the pinned SHA matches nothing and the ignore silently stops matching: every new commit re-flags the same finding. That is upstream gitleaks behavior, not a defect in the patch; research with the exact error signature found the upstream behavior in minutes, where a blind fix cycle (regenerating fingerprints after every rewrite) would have burned one attempt per guess. The durable forms: the global `file:rule:line` ignore form, which survives history rewrites, or inline `gitleaks:allow` on intentional fixtures. A finding like this is recorded as a known upstream tool issue (environment-class) and routed accordingly, not retried as a patch fix.
+
 For a multi-task product campaign, the handoff is a separate [campaign closeout](30-campaign-closeout.md): implemented, integrated and accepted evidence are distinct, visual and performance criteria need their own evidence, and the campaign report validator refuses an agent-written receiver decision or a ready campaign with a failed suite.
+
+### Research before plan (RESEARCH-BEFORE-PLAN)
+
+RESEARCH-BEFORE-RETRY governs the recovery half: research before the next attempt. The planning half gets the same discipline as the complementary rule **RESEARCH-BEFORE-PLAN** (recorded for the autonomy campaign in [24 §2](24-autonomy-dogfood.md#2-the-controlled-failure-declared-in-advance)): **a spec, a work-package breakdown, or a non-trivial brief MUST be the product of a prior-art plus known-pitfalls research pass, and the findings MUST live in the artifact itself as a required prior-art-and-pitfalls section.** The section records the prior art actually read (existing rules, sibling lanes, upstream behaviour, earlier attempts on the same surface), the known pitfalls it must avoid, and at least one documented rejected alternative — an option considered and declined, with the reason it was declined. Findings that live only in the coordinator's context or in a side channel do not satisfy the rule: the artifact is what a later reader gets, and the rejected alternatives are what turn a research pass from a reading list into a decision. Where a research pass genuinely finds no prior art and no pitfalls to record, the section says exactly that instead of being omitted.
+
+Exemplars on record: the rails-spec and Hive-spec research digests, and the F6/V1 fencing/RCV research — each carried its prior art, its pitfalls and its rejected alternatives in the artifact itself.
+
+Trivial-task threshold: a task is exempt when it changes no shared surface, follows a pattern the artifact set already fixes, and could not plausibly surprise the executor. The exemption is a documented judgment, applied narrowly — when in doubt, the task is not trivial and carries the section. The threshold exists so the rule's cost lands on decisions, not on chores.
+
+This rule cross-references RESEARCH-BEFORE-RETRY and does not fork it: the two rules cover different phases of the same discipline, plan first and retry second, and both put their findings into durable evidence rather than into a coordinator's memory.
+
+Disclosure, by this rule's own standard: this subsection's prior art is the RESEARCH-BEFORE-RETRY rule above and its conformance tests, `tests/test_research_before_retry.py`, already on this branch. Documented rejected alternative: a mechanical pre-dispatch checklist gate — a fixed checklist ticked before every dispatch. Rejected because it recreates the rubber-stamp class: a gate satisfied by ticking boxes rather than by recorded findings, the same claims-without-evidence failure the verification rules above exist to prevent. Known pitfalls, carried from the sibling lane that landed RESEARCH-BEFORE-RETRY: abbreviated lease paths once caused a `scope_violation` refusal, so briefs use exactly the `assigned_files` paths given; and prose-byte-pinning conformance tests proved brittle, so conformance tests assert the contract rather than exact sentences, except where a verbatim owner quote is the point.
 
 ---
 
