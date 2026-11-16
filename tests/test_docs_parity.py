@@ -46,6 +46,10 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    56: (
+        "docs-sync companion (changelog + registry row for #55) - the #55 Unreleased entry "
+        "it landed is the coverage for that merge; same class as the #37 exclusion"
+    ),
     37: (
         "docs/obs-snapshot-docs — the changelog/README companion PR itself; the "
         "#36 Unreleased entry it landed is the coverage for that merge"
