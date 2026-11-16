@@ -95,6 +95,7 @@ Rules for briefs:
 
 - **Always name the exact branch and the full `source_rev`.** "Latest main" isn't a baseline. bundlebees refuses a patch whose declared base differs from the brief ([13 §4](13-bundlebees-hardening.md#4-source_rev-checks-and-the-combined-branch-suite)).
 - **Hand over the problem and the bar, not a line-by-line fix.** Give symptoms, findings, reproduction steps and AC ids. Label any hunch about the cause as non-binding.
+- **A repair brief for a failure that isn't understood after one diagnosis pass carries a research phase.** Name the exact error signature and the tool/version context to research; the findings, with citations, come back and are recorded as part of the repair evidence ([§4](#4-verification)).
 - **Copy the hard rules into every brief.** Workers don't inherit your context.
 - **Say which existing branches to use.** If the approver said "on the existing branches", a new branch breaks the approval's scope.
 
@@ -168,6 +169,16 @@ Honesty rules:
 - **A bounded independent review beats a self-review.** On Nov 12, an independent review of the open PRs found blocking issues that the lanes' self-reports had missed. That review is why merges were paused.
 
 Which of these rules has a mechanical check behind it and which rests on a recorded incident is graded in [28](28-agent-lessons.md) — L-05 for the claim/evidence split, L-09 for unrun status, L-16 and L-17 for adoption and exactly-once. The five steps above stay the procedure, and a grade never lowers the bar.
+
+### Research before retry (RESEARCH-BEFORE-RETRY)
+
+A verification failure feeds the bounded recovery loop of [27](27-recovery-protocol.md): classify, reject, supersede or re-dispatch, escalate. This subsection adds the normative step between diagnosis and the next attempt — for the coordinator, and for bees and lanes alike.
+
+**When a verify failure, a CI failure or a blocker is not understood after the first diagnosis pass, the next action MUST be a research pass, not another fix attempt.** The research pass carries the exact error signature plus tool/version context — search for the error, known issues and version-specific behavior — before another fix attempt. It applies to the coordinator's own diagnosis and to every repair dispatch: a brief for a failure that is not understood after one diagnosis pass MUST include a research phase, and the findings, with citations, are recorded in the attempt record and become part of the repair evidence. A blind fix cycle burns the attempts the envelope caps; research costs minutes.
+
+Escalation binding: when the research pass shows the failure is a known upstream or tool issue rather than a defect in the patch, record it as such — environment-class in the sense of [27](27-recovery-protocol.md) — and route it accordingly: escalate, or fix at the environment level. Do not retry blind.
+
+Worked example (gitleaks fingerprints, Nov 2026): a commit-form `.gitleaksignore` fingerprint is SHA-pinned — it names the commit that held the finding — so after a history rewrite (rebase, squash, cherry-pick) the pinned SHA matches nothing and the ignore silently stops matching: every new commit re-flags the same finding. That is upstream gitleaks behavior, not a defect in the patch; research with the exact error signature found the upstream behavior in minutes, where a blind fix cycle (regenerating fingerprints after every rewrite) would have burned one attempt per guess. The durable forms: the global `file:rule:line` ignore form, which survives history rewrites, or inline `gitleaks:allow` on intentional fixtures. A finding like this is recorded as a known upstream tool issue (environment-class) and routed accordingly, not retried as a patch fix.
 
 For a multi-task product campaign, the handoff is a separate [campaign closeout](30-campaign-closeout.md): implemented, integrated and accepted evidence are distinct, visual and performance criteria need their own evidence, and the campaign report validator refuses an agent-written receiver decision or a ready campaign with a failed suite.
 

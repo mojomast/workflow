@@ -45,6 +45,19 @@ The failure is declared in the job file under `injected_failures`, so nobody can
 defect or claim the run was flawless. The superseding contract keeps the same id (`T2-REACHABILITY`) and
 changes only its hash, so the correction is visible as a same-id revision rather than a new task.
 
+### Research before retry (RESEARCH-BEFORE-RETRY)
+
+The loop above recovers the failure it was designed for: a named test that cannot exist, classified,
+superseded and re-dispatched once. For failures nobody designed for, the normative rule is
+RESEARCH-BEFORE-RETRY, anchoring the recovery protocol of [27](27-recovery-protocol.md): **when a verify
+failure, a CI failure or a blocker is not understood after the first diagnosis pass, the next action MUST
+be a research pass — the exact error signature plus tool/version context, searching for the error, known
+issues and version-specific behaviour — before another fix attempt.** A repair dispatch for such a
+failure carries a research phase in its brief, and the findings, with citations, are recorded in the
+attempt record as part of the repair evidence. Findings that reveal a known upstream or tool issue are
+recorded as environment-class and routed accordingly — escalated, not retried blind. The rule adds a
+step between diagnosis and the next attempt; it widens no envelope and no decision right.
+
 ## 3. Authorization (asked once)
 
 One envelope, written into the job file before dispatch:
