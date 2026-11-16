@@ -46,6 +46,10 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    56: (
+        "docs-sync/pr55-coverage - the companion that ADDS registry rows is itself "
+        "registry maintenance (non-feature merge); its content IS the #55 row"
+    ),
     37: (
         "docs/obs-snapshot-docs — the changelog/README companion PR itself; the "
         "#36 Unreleased entry it landed is the coverage for that merge"
@@ -191,6 +195,24 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 55,
         "name": "docs parity audit + coverage registry",
         "keywords": ("docs-parity-audit", "test_docs_parity"),
+    },
+    {
+        # docs/hindsight-synthesis: Phase 3 gap analysis + trial design + gated plan.
+        "pr": 57,
+        "name": "hindsight synthesis (Phase 3: trial design + gated plan)",
+        "keywords": ("hindsight-synthesis", "controlled trial", "WP-0"),
+    },
+    {
+        # docs/rebrand-execution-runbook: recovery path + same-place mapping + parallel operation.
+        "pr": 58,
+        "name": "rebrand execution runbook",
+        "keywords": ("rebrand-execution-runbook", "same-place mapping", "parallel operation"),
+    },
+    {
+        # docs/rails-w2-conversions-r3: R00/R01 destruction evidence + re-dispatch remedy.
+        "pr": 59,
+        "name": "rails R00/R01 conversion r3",
+        "keywords": ("rails-w2-conversions", "re-dispatch remedy", "destruction evidence"),
     },
 )
 
