@@ -56,45 +56,85 @@ in `examples/`.
 ## The bottlenecks section
 
 The snapshot carries a `bottlenecks` section so a dashboard can show where
-work is piling up. It is computed read-only from the records the collector
-already reads — no new data source, no second collection pass over anything
-the other sections do not already touch.
+work is piling up. It is computed read-only from records in the plugin state
+directory (job documents, the feature queue file, the live claim records,
+the recorded approval decisions, verify results, scheduler metrics) and from
+the fleet and pull-request sections the collector already reads — no new
+external data source. Every metric reads the record shapes the producers
+actually write, and a record that cannot yield a timing value degrades to
+null with a status marker, never to a fabricated zero.
+
+Under the `rizzstack.observability/snapshot/1` discriminator the section,
+and the ci pull-request `created_at` field, are optional rather than
+required: both are new in this revision, no document emitted before this
+change contains them, and snapshots emitted earlier must keep validating
+without a discriminator bump. No old consumer expects the section, so
+optionality is the compatible path; the collector always emits both when it
+runs.
 
 Per pipeline stage, one row each for `verify`, `review`, `integrate` and
 `deploy`:
 
 | Stage | Queue depth counts | Oldest-item age from |
 | --- | --- | --- |
-| `verify` | job tasks in the `verifying` state | the recorded transition into `verifying`, else the newest attempt timestamp |
-| `review` | action-queue features in `ready_for_review` | the newest completion record (attempt or review report) of the linked job |
-| `integrate` | job tasks in the `verified` state | the transition into `verified`, else the review-report timestamp, else the newest attempt |
+| `verify` | job tasks in the `verifying` state | the recorded transition into `verifying`, else the scheduler dispatch record for the task's attempt |
+| `review` | action-queue features in `ready_for_review` | the newest passing verify record among the linked job's attempts |
+| `integrate` | job tasks in the `verified` or `integrating` states | the recorded transition into `verified`, else the task's verify record, else the dispatch record |
 | `deploy` | open pull requests | the pull request `createdAt` reported by the CLI |
 
-Each row also carries dwell-time median and p95 (completed waiting stays,
-reconstructed from recorded state transitions), throughput as items
-advanced per hour over the last hour and the last day (verify and integrate
-count recorded advancing transitions; review and deploy have no record of
-completed stays, so their dwell and throughput stay `unknown`), and
-WIP versus capacity where a cap exists — the verify stage carries the bees
-at work (`wip`) against the shared bee cap (`capacity`, with
-`capacity_source` of `bee_cap`).
+Each row also carries dwell-time median and p95 over completed stays
+reconstructed from recorded job transitions: a stay opens on a transition
+into the stage and closes on the next transition out of the stage's states,
+and a recorded transition to a state past the stage counts as an advance
+even when the stage entry was never recorded (once per passage). Throughput
+is items advanced per hour over the last hour and the last day, for verify
+and integrate. Throughput reads `known` only when job documents were read
+and at least one recorded transition parsed; with tasks present and no
+parsed transition it reads `unknown` — unknown is never folded into 0.0.
+Review and deploy have no record of completed stays, so their dwell and
+throughput stay `unknown`; the only timing observable there is
+`oldest_item_age_s`, and the row's `state` still reflects dwell against the
+target, so it stays `unknown` for those stages too — a dashboard that wants
+an age-based signal reads `oldest_item_age_s` directly. The verify stage
+carries the bees at work (`wip`) against the shared bee cap (`capacity`,
+with `capacity_source` of `bee_cap`).
 
-The `invariant` object carries the reconciliation headline: authorized and
-eligible work waiting despite available capacity. `ready` counts queued
-features, `waiting_despite_capacity` is decided only when both the ready
-count and the bee headroom (`bee_cap` minus bees in flight) are known —
-unknown on either side leaves it null, never a confident false. Supporting
-counts: `total_outstanding` (non-terminal features, or non-terminal job
-tasks when the queue is unreadable), `claimed`, `active_workers`,
-`awaiting_verify` / `awaiting_review` / `awaiting_integrate` /
-`awaiting_deploy`, `blocked_with_reason` plus `blocked_reasons` (reasons
-resolved from recorded gate states, task blockers, or unmet dependencies —
-unresolvable ones are not counted), `human_approvals_required` (job
-approval gates waiting on a human decision), `last_auto_progress_at` and
-its age (newest dispatch, verify, recovery, or recorded state transition;
-human interventions do not count), and the worker-completion-to-next-action
-median and p95 (gap between a verify event and the next dispatch or
-recovery for the same task).
+The `invariant` object mirrors the coordinator reconciler's invariant, not
+a parallel formula. `ready` counts only eligible queue items: status
+`queued`, the feature itself not done, and every recorded dependency done —
+a dependency is done when its linked job is accepted, which the queue checks
+against the tasks' verify records and an accepted integration wave, never
+against status strings. `claimed` counts live claim records in the claim
+store (`queue/<feature_id>.json`, states claimed or running).
+`active_workers` counts job tasks in the `running` state, as the reconciler
+counts them; `awaiting_verify` counts `verifying` tasks, and
+`awaiting_integrate` counts `verified` and `integrating` tasks. Then
+`in_use` is claimed plus active workers plus awaiting verify, `available`
+is the work scheduler's max-active (4) minus `in_use` floored at zero — the
+scheduler's slot budget, not the shared bee cap — and the three numbers are
+reported under `capacity`. `owner_messages` counts pending approvals plus
+blocked items. A pending approval is a declared gate with no recorded
+decision file: a gate stays in the `waiting` state by design even after its
+decision is recorded (see the recovery protocol), so the recorded file is
+what counts and a job with a recorded grant counts zero pending approvals.
+Blocked items are blocked queue features, rejected, failed or superseded
+tasks, and records that could not be read; a blocked feature whose cause
+resolves to its job's already-counted task blocker or pending approval
+counts once, and one whose cause cannot be resolved still counts under
+`unresolved`, because the blocked status itself is recorded. The headline
+`waiting_despite_capacity` is true exactly when the reconciler would expect
+advancement — `ready` > 0, `available` > 0, and `owner_messages` == 0 —
+false when the invariant genuinely does not hold, and null when any input
+it needs is unknown; unknown is never resolved into a confident answer.
+Supporting counts: `total_outstanding` (non-terminal features, or
+non-terminal job tasks when the queue is unreadable), `awaiting_review`,
+`awaiting_deploy`, `blocked_with_reason` plus `blocked_reasons`,
+`last_auto_progress_at` and its age (the newest recorded transition whose
+destination is an automatic forward state, or a dispatch, verify, or
+integrate scheduler event; human interventions and recovery decisions do
+not count), and the worker-completion-to-next-action median and p95 (the
+gap between a recorded `->verifying` transition and the next recorded event
+of the same job, in document order — the reconciler's own latency pair).
 
 Degradation follows the house rules: every unknown stays null with an
 `agg_status` marker (`known`, `partial`, `unknown`, `unavailable`); a
@@ -103,13 +143,28 @@ genuinely zero. The section is `live` when any contributing source was read
 this run, `stale` when every readable source is older than the freshness
 threshold, and `unavailable` (`no_bottleneck_sources`) when none are.
 
-Dwell-time targets per stage are configuration, not constants: the collector
-ships defaults (`verify_dwell_target_s` 3600, `review_dwell_target_s`
-14400, `integrate_dwell_target_s` 7200, `deploy_dwell_target_s` 86400) and
-operators override them like any other threshold key. The section echoes
-the effective targets under `thresholds` so the dashboard can draw
-threshold lines and color stages (`state`: `ok`, `over` when median or p95
-dwell exceeds the target, `unknown` when not observable).
+Dwell-time targets per stage are configuration, not constants: the
+collector ships defaults (`verify_dwell_target_s` 3600,
+`review_dwell_target_s` 14400, `integrate_dwell_target_s` 7200,
+`deploy_dwell_target_s` 86400) and accepts overrides through its own
+threshold configuration. The versioned alert-thresholds contract does not
+accept these dwell keys yet — its thresholds object is closed, so an
+override document containing a dwell target is refused by that contract
+today; extending the versioned threshold schema is recorded as pending
+work, and until then the override lives only in the collector's own
+configuration. The section echoes the effective targets under `thresholds`
+so the dashboard can draw threshold lines and color stages (`state`: `ok`,
+`over` when median or p95 dwell exceeds the target, `unknown` when not
+observable).
+
+### Pending follow-ups from the review of this section
+
+- Extend the versioned alert-thresholds schema to accept the per-stage
+  dwell targets (the threshold schema files are outside this change; until
+  then the operator override is accepted only by the collector's own
+  configuration, as stated above).
+- The collector's own README under `contrib/rizzstack-observability/` does
+  not document the bottlenecks section yet; updating it is a follow-up.
 
 ## Alert thresholds
 

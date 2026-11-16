@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mojomast/workflow/observability/schemas/snapshot.schema.json",
   "title": "Observability snapshot (rizzstack.observability/snapshot/1)",
-  "description": "One assembled point-in-time view across nine sections: fleet, usage, pipeline, backlog, ci, failures, health, alerts, bottlenecks. Emitted by the read-only collector in contrib/rizzstack-observability. Every record (the document and every row inside a section) carries schema and generated_at. Each section carries status: live (source read this run), stale (source read but older than the collector's freshness threshold), or unavailable (source missing, unreadable, or the reader refused). A section that degrades is present with empty rows plus its status marker; it is never omitted. Secrets, keys, private URLs, IP addresses, and hostnames are never part of a snapshot. Repository fields are owner/name slugs only.",
+  "description": "One assembled point-in-time view across nine sections: fleet, usage, pipeline, backlog, ci, failures, health, alerts, bottlenecks. Emitted by the read-only collector in contrib/rizzstack-observability. Every record (the document and every row inside a section) carries schema and generated_at. Each section carries status: live (source read this run), stale (source read but older than the collector's freshness threshold), or unavailable (source missing, unreadable, or the reader refused). A section that degrades is present with empty rows plus its status marker; it is never omitted. Secrets, keys, private URLs, IP addresses, and hostnames are never part of a snapshot. Repository fields are owner/name slugs only. The bottlenecks section and the ci pull-request created_at field are optional under this discriminator: both are new in this revision, no document emitted before this change contains them, and snapshots emitted earlier must keep validating without a discriminator bump. The collector always emits them when it runs; the optional form exists for backward compatibility with older documents, not because the fields may go missing going forward.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,8 +17,7 @@
     "ci",
     "failures",
     "health",
-    "alerts",
-    "bottlenecks"
+    "alerts"
   ],
   "properties": {
     "schema": {
@@ -620,7 +619,7 @@
     "ci_pr": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema", "generated_at", "repo", "number", "state", "head_branch", "created_at", "ci_state", "failing_check_names"],
+      "required": ["schema", "generated_at", "repo", "number", "state", "head_branch", "ci_state", "failing_check_names"],
       "properties": {
         "schema": { "const": "rizzstack.observability/snapshot/1" },
         "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
@@ -644,7 +643,7 @@
             { "type": "null" },
             { "$ref": "common.schema.json#/$defs/utc_timestamp" }
           ],
-          "description": "When the pull request was opened, as reported by the CLI; null when the CLI did not report it. Feeds the oldest-item age of the deploy stage in the bottlenecks section."
+          "description": "When the pull request was opened, as reported by the CLI; null when the CLI did not report it. Feeds the oldest-item age of the deploy stage in the bottlenecks section. Optional so snapshots emitted before this field existed keep validating under the unchanged discriminator; the collector sets it whenever the CLI reports it."
         },
         "ci_state": { "$ref": "#/$defs/ci_state" },
         "failing_check_names": {
@@ -877,13 +876,13 @@
         "schema": { "const": "rizzstack.observability/snapshot/1" },
         "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
         "stage": {
-          "description": "verify: work awaiting verification (job task state verifying). review: work ready for review (feature queue ready_for_review). integrate: verified work awaiting the integration wave (job task state verified). deploy: accepted work awaiting publish, observed as open pull requests.",
+          "description": "verify: work awaiting verification (job task state verifying). review: work ready for review (feature queue ready_for_review). integrate: work at the integration wave (job task states verified and integrating). deploy: accepted work awaiting publish, observed as open pull requests.",
           "enum": ["verify", "review", "integrate", "deploy"]
         },
         "queue_depth": { "$ref": "#/$defs/nullable_count" },
         "oldest_item_age_s": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Seconds since the longest-waiting item entered this stage, from recorded transitions or completion reports; null when no record dates the entry."
+          "description": "Seconds since the longest-waiting item entered this stage, from recorded state transitions, verify records, or scheduler dispatch records for the item's attempt; null when no record dates the entry."
         },
         "dwell_median_s": {
           "type": ["number", "null"],
@@ -927,7 +926,7 @@
       }
     },
     "bottleneck_invariant": {
-      "description": "The reconciliation headline: authorized and eligible work waiting despite available capacity. Each count comes from the real record of its kind (feature queue, job tasks, fleet, pull requests) and is null, never zero, when that record is unreadable. waiting_despite_capacity is decided only when both the ready count and the bee headroom are known.",
+      "description": "The coordinator reconciler's invariant: advancement is expected exactly when eligible work is ready, scheduler capacity is available, and no owner messages (pending approvals plus blocked items) are outstanding. in_use is claimed plus active workers plus tasks awaiting verification; available is the work scheduler's max-active minus in_use, floored at zero. Each count comes from the real record of its kind (feature queue, claim store, job tasks, recorded approval decisions, pull requests) and is null, never a guessed zero, when that record cannot be read. The headline is decided only when every input it needs is known; otherwise it is null.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -966,23 +965,23 @@
         },
         "ready": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Queued features eligible to be claimed right now."
+          "description": "Queued features eligible to be claimed now, per the queue's eligibility rule: status queued, the feature itself not done, and every recorded dependency done, where a dependency is done when its linked job is accepted against verify records and an accepted integration wave."
         },
         "ready_waiting_despite_capacity": {
           "$ref": "#/$defs/nullable_count",
-          "description": "The headline: ready items waiting while bee headroom exists. Null when either side is unknown."
+          "description": "The ready count when the invariant holds, otherwise zero; null when the invariant is undecidable this run."
         },
         "waiting_despite_capacity": {
           "type": ["boolean", "null"],
-          "description": "True when ready items wait although capacity is available; false only when one side is genuinely empty; null when unknown."
+          "description": "The reconciler invariant: true when eligible work is ready, scheduler capacity is available, and no owner messages are outstanding; false only when the invariant genuinely does not hold; null when any input is unknown."
         },
         "claimed": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Features claimed by a bee but not yet running."
+          "description": "Live claim records in the feature claim store whose state is claimed or running; zero when no claim store exists, null when it cannot be read."
         },
         "active_workers": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Bees in flight per the fleet CLI; null when the fleet is unreadable."
+          "description": "Job tasks in the running state, as the reconciler counts active workers; null when job documents are unreadable."
         },
         "awaiting_verify": {
           "$ref": "#/$defs/nullable_count",
@@ -994,31 +993,46 @@
         },
         "awaiting_integrate": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Job tasks verified and awaiting the integration wave."
+          "description": "Job tasks in the verified or integrating states, at the integration wave."
         },
         "awaiting_deploy": {
           "$ref": "#/$defs/nullable_count",
           "description": "Open pull requests awaiting publish; null when CI is unreadable."
         },
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_active", "in_use", "available"],
+          "description": "Scheduler capacity behind the invariant: max_active is the work scheduler's active-slot budget (4), in_use is claimed plus active workers plus tasks awaiting verification, and available is max_active minus in_use floored at zero. A component is null when its record could not be read. Optional so snapshots emitted before this object existed keep validating; the collector always emits it.",
+          "properties": {
+            "max_active": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The work scheduler's active-slot budget."
+            },
+            "in_use": { "$ref": "#/$defs/nullable_count" },
+            "available": { "$ref": "#/$defs/nullable_count" }
+          }
+        },
         "blocked_with_reason": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Blocked features whose blocking reason resolves to a recorded cause; unresolved ones are not counted here."
+          "description": "Blocked items counted with a recorded cause: blocked queue features, rejected, failed, or superseded tasks, and records that could not be read. A blocked feature whose specific cause cannot be resolved from records still counts, under the reason unresolved, because the blocked status itself is recorded."
         },
         "blocked_reasons": {
           "type": "object",
-          "description": "Count of blocked items by reason code, from recorded gate states and task blockers.",
+          "description": "Count of blocked items by reason code, from recorded causes such as unmet dependencies, task blockers, gates without a recorded decision file, and unreadable records.",
           "additionalProperties": { "type": "integer", "minimum": 0 }
         },
         "human_approvals_required": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Job approval gates currently waiting on a human decision."
+          "description": "Declared approval gates with no recorded decision file. A gate stays in the waiting state by design even after its decision is recorded, so the recorded file, not the gate state, is what counts; a job with a recorded decision counts zero pending approvals."
         },
         "last_auto_progress_at": {
           "oneOf": [
             { "type": "null" },
             { "$ref": "common.schema.json#/$defs/utc_timestamp" }
           ],
-          "description": "Newest recorded automatic progression (dispatch, verify, recovery, or recorded state transition); human interventions do not count."
+          "description": "Newest recorded automatic progression: a job state transition whose destination is an automatic forward state, or a dispatch, verify, or integrate scheduler event. Human interventions and recovery decisions do not count."
         },
         "last_auto_progress_age_s": {
           "$ref": "#/$defs/nullable_count",
@@ -1027,7 +1041,7 @@
         "completion_to_next_action_median_s": {
           "type": ["number", "null"],
           "minimum": 0,
-          "description": "Median seconds between a worker completing verification and the next coordinator action on the same task."
+          "description": "Median seconds between a recorded worker-completion transition and the next recorded event of the same job, the reconciler's own latency pair."
         },
         "completion_to_next_action_p95_s": {
           "type": ["number", "null"],

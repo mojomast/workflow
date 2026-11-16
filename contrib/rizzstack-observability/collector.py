@@ -4,18 +4,21 @@
 Assembles one ``rizzstack.observability/snapshot/1`` document from:
 
 - plugin local state (``jobs/*.json``, ``verify-results/*.json``,
-  ``metrics/*.jsonl``, ``queue.json`` under ``--state-dir``),
+  ``metrics/*.jsonl``, ``queue.json``, the live claim records under
+  ``queue/``, and the recorded decision files under ``approvals/`` under
+  ``--state-dir``),
 - the Hermes bundlebees CLI (``<bin> bundlebees attempt op=attempts`` and
   ``op=status``, both read-only) for the live fleet,
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
 The bottlenecks section is computed from the same records (job documents,
-the feature queue, review reports, scheduler metrics, the fleet, open pull
-requests): per stage queue depth, oldest-item age, dwell-time median and
-p95, throughput, WIP versus capacity, and the reconciliation headline of
-authorized and eligible work waiting despite available capacity. Dwell
-targets per stage are threshold configuration, not constants.
+the feature queue, the claim store, recorded approval decisions, verify
+results, scheduler metrics, the fleet, open pull requests): per stage queue
+depth, oldest-item age, dwell-time median and p95, throughput, WIP versus
+capacity, and the coordinator reconciler's own invariant of eligible work
+waiting despite available scheduler capacity. Dwell targets per stage are
+threshold configuration, not constants.
 
 Every section degrades independently: a missing or unreadable source yields
 an empty section with a ``stale``/``unavailable`` status marker, never a
@@ -174,19 +177,34 @@ CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
 # Bottleneck stages. Each maps to the real record that shows work waiting
 # there: verify counts job tasks in the verifying state, review counts
 # features ready for review on the action queue, integrate counts verified
-# tasks awaiting the integration wave, and deploy counts open pull requests.
+# and integrating tasks at the integration wave, and deploy counts open
+# pull requests.
 STAGE_NAMES = ("verify", "review", "integrate", "deploy")
-VERIFY_ENTRY_STATE = "verifying"
+VERIFY_ENTRY_STATES = frozenset({"verifying"})
+VERIFY_MEMBER_STATES = frozenset({"verifying"})
 VERIFY_ADVANCE_STATES = frozenset({"verified", "integrating", "accepted"})
-INTEGRATE_ENTRY_STATE = "verified"
-INTEGRATE_ADVANCE_STATES = frozenset({"integrating", "accepted"})
+INTEGRATE_ENTRY_STATES = frozenset({"verified"})
+INTEGRATE_MEMBER_STATES = frozenset({"verified", "integrating"})
+INTEGRATE_ADVANCE_STATES = frozenset({"accepted"})
+INTEGRATE_QUEUE_STATES = frozenset({"verified", "integrating"})
 NON_TERMINAL_TASK_STATES = frozenset(
     TASK_STATES - {"accepted", "rejected", "failed", "superseded"}
 )
 NON_TERMINAL_QUEUE_STATUSES = frozenset(QUEUE_STATUSES - {"failed"})
-AUTO_PROGRESS_EVENTS = frozenset({"dispatch", "verify", "recovery"})
-NEXT_ACTION_EVENTS = frozenset({"dispatch", "recovery"})
-GATE_SETTLED_STATES = frozenset({"done", "satisfied"})
+# The reconciler's automatic-progress destinations: a recorded job
+# transition into one of these states is automatic progression, and a
+# scheduler dispatch, verify or integrate event is its metrics counterpart.
+# Human interventions and recovery decisions do not count.
+AUTOMATIC_PROGRESS_STATES = frozenset(
+    {"dispatching", "dispatched", "running", "verifying", "verified", "integrating", "accepted"}
+)
+METRIC_AUTO_EVENTS = frozenset({"dispatch", "verify", "integrate"})
+WORKER_COMPLETED_SUFFIX = "->verifying"
+# The work scheduler's active-slot budget (work_scheduler.MAX_ACTIVE). This,
+# not the shared bee cap, is the capacity the reconciler's invariant uses.
+SCHEDULER_MAX_ACTIVE = 4
+# Claim records the queue store treats as in flight (QueueStore.active()).
+ACTIVE_CLAIM_STATES = frozenset({"claimed", "running"})
 WORKING_FLEET_STATES = frozenset({"running", "working"})
 
 DEFAULT_THRESHOLDS = {
@@ -435,29 +453,38 @@ def _window_rates(
 
 def _stage_walk(
     transitions: Sequence[tuple[datetime, str]],
-    entry_state: str,
+    entry_states: frozenset[str],
+    member_states: frozenset[str],
     advance_states: frozenset[str],
 ) -> tuple[datetime | None, list[float], list[datetime]]:
     """Walk one task's recorded state transitions.
 
     Returns (open entry into the stage, completed dwell seconds, moments the
-    task advanced past the stage). A stay at the stage opens on a transition
-    into ``entry_state`` and closes on the next transition to a different
-    state; it counts as an advance when that state is in ``advance_states``.
-    Transitions without a recorded entry show nothing: unknown stays unknown.
+    task advanced past the stage). A stay opens on a transition into an
+    entry state and closes on the next transition out of the stage's member
+    states; a move deeper into the stage (for example verified into
+    integrating) keeps the stay open. A recorded transition to a state past
+    the stage counts as an advance even when the stage entry was never
+    recorded, but only once per passage. Records that show no entry
+    contribute no dwell: unknown stays unknown.
     """
     stays: list[float] = []
     advances: list[datetime] = []
     open_entry: datetime | None = None
     entered: datetime | None = None
+    advanced = False
     for moment, to_state in transitions:
-        if to_state == entry_state:
-            entered = moment
-        elif entered is not None:
+        if to_state in member_states:
+            if entered is None and to_state in entry_states:
+                entered = moment
+                advanced = False
+            continue
+        if entered is not None:
             stays.append(max(0.0, (moment - entered).total_seconds()))
-            if to_state in advance_states:
-                advances.append(moment)
             entered = None
+        if to_state in advance_states and not advanced:
+            advances.append(moment)
+            advanced = True
     if entered is not None:
         open_entry = entered
     return open_entry, stays, advances
@@ -1405,11 +1432,21 @@ class Collector:
         }
 
     # ----------------------------------------------------------- bottlenecks
-    def _read_job_documents(self) -> list[dict[str, Any]]:
-        """Read-only pass over the job documents for the bottlenecks section:
-        per task the state, attempt timestamps and recorded blocker reason,
-        plus the task_state transition history and the approval gate."""
+    def _read_job_documents(self) -> tuple[list[dict[str, Any]], int]:
+        """Read-only pass over the job documents for the bottlenecks section.
+
+        Reads the shapes the producers actually write: task attempts are a
+        list of attempt-id strings (reconcile.py appends ids), and the
+        recorded events are documents with at/task_id/transition/actor/
+        reason where transition is the ``from->to`` string (job.py
+        transition). An event record that cannot yield a transition still
+        counts as seen, so a half-readable history degrades to partial or
+        unknown instead of passing as complete.
+
+        Returns (documents, unreadable_document_count).
+        """
         docs: list[dict[str, Any]] = []
+        unreadable = 0
         job_dir = self.state_dir / "jobs" if self.state_dir else None
         paths: list[Path] = []
         if job_dir is not None:
@@ -1420,6 +1457,7 @@ class Collector:
         for path in paths:
             data = read_json_dict(path)
             if data is None:
+                unreadable += 1
                 continue
             job_id = id_token(data.get("job_id")) or id_token(path.stem) or "unknown"
             tasks: list[dict[str, Any]] = []
@@ -1429,14 +1467,10 @@ class Collector:
                 task_id = id_token(task.get("task_id")) or f"T{index + 1}"
                 state = task.get("state")
                 state = state if isinstance(state, str) and state in TASK_STATES else None
-                attempt_ts = [
-                    moment
-                    for moment in (
-                        parse_ts(first_str(attempt, ("ts", "created_at", "time")))
-                        for attempt in as_list(task.get("attempts"))
-                        if isinstance(attempt, dict)
-                    )
-                    if moment is not None
+                attempt_ids = [
+                    tok
+                    for tok in (id_token(attempt) for attempt in as_list(task.get("attempts")))
+                    if tok
                 ]
                 blocker: str | None = None
                 if state in ("rejected", "failed", "superseded"):
@@ -1446,42 +1480,70 @@ class Collector:
                     {
                         "task_id": task_id,
                         "state": state,
-                        "attempt_ts": attempt_ts,
+                        "attempt_ids": attempt_ids,
                         "blocker": blocker,
+                        "binding": task.get("binding") if isinstance(task.get("binding"), dict) else {},
+                        "contract_sha256": first_str(task, ("contract_sha256",)),
                     }
                 )
             events: list[tuple[datetime, str, str]] = []
-            event_count = 0
+            ordered: list[tuple[datetime, str]] = []
+            raw_events = 0
+            latency_gaps: list[float] = []
             for event in as_list(data.get("events")):
-                if not isinstance(event, dict) or event.get("kind") != "task_state":
+                raw_events += 1
+                if not isinstance(event, dict):
                     continue
-                event_count += 1
                 task_id = id_token(event.get("task_id"))
-                to_state = event.get("to")
-                moment = parse_ts(first_str(event, ("ts", "time", "created_at")))
-                if task_id and isinstance(to_state, str) and moment is not None:
-                    events.append((moment, task_id, to_state))
+                moment = parse_ts(first_str(event, ("at",)))
+                transition = event.get("transition")
+                if not (task_id and moment is not None and isinstance(transition, str) and "->" in transition):
+                    continue
+                to_state = transition.rsplit("->", 1)[-1]
+                if not to_state:
+                    continue
+                events.append((moment, task_id, to_state))
+                ordered.append((moment, transition))
             events.sort(key=lambda item: (item[0], item[1]))
+            # The reconciler's own latency pair: a recorded worker-completion
+            # transition and the next recorded event of the job, in document
+            # order.
+            for index, (moment, transition) in enumerate(ordered):
+                if not transition.endswith(WORKER_COMPLETED_SUFFIX):
+                    continue
+                following = ordered[index + 1][0] if index + 1 < len(ordered) else None
+                if following is not None:
+                    latency_gaps.append(max(0.0, (following - moment).total_seconds()))
             gate = data.get("approval_gate")
-            gate_state = (
-                gate.get("state").strip().lower()
-                if isinstance(gate, dict) and isinstance(gate.get("state"), str)
-                else None
-            )
+            gate_names: list[str] = []
+            if isinstance(gate, dict):
+                gate_names = [
+                    name.strip()
+                    for name in (item for item in as_list(gate.get("gates")) if isinstance(item, str))
+                    if name.strip()
+                ]
             docs.append(
                 {
                     "job_id": job_id,
                     "tasks": tasks,
                     "events": events,
-                    "event_count": event_count,
-                    "gate_state": gate_state,
+                    "raw_events": raw_events,
+                    "latency_gaps": latency_gaps,
+                    "gate_names": gate_names,
+                    "integration": data.get("integration") if isinstance(data.get("integration"), dict) else {},
                 }
             )
-        return docs
+        return docs, unreadable
 
     def _read_verify_reports(self) -> list[dict[str, Any]]:
-        """Read-only pass over the review reports (verify results): the
-        timestamp each report was produced, keyed by attempt, job and task."""
+        """Read-only pass over the verify results.
+
+        The producers write attempt_id/ok/sha/branch/files/tests/at/evidence
+        with no job or task reference (the cli.py verify writer; the
+        commit-local writer adds base_rev, suite and gitleaks outcomes), so
+        rows key on the attempt id alone. The job link comes from the
+        task's attempt-id list.
+        """
         rows: list[dict[str, Any]] = []
         report_dir = self.state_dir / "verify-results" if self.state_dir else None
         paths: list[Path] = []
@@ -1494,19 +1556,37 @@ class Collector:
             data = read_json_dict(path)
             if not isinstance(data, dict):
                 continue
+            suite = data.get("suite") if isinstance(data.get("suite"), dict) else {}
+            gitleaks = data.get("gitleaks") if isinstance(data.get("gitleaks"), dict) else {}
+            suite_exit = suite.get("exit_code")
+            gitleaks_exit = gitleaks.get("exit_code")
             rows.append(
                 {
                     "attempt_id": id_token(first_str(data, ("attempt_id",))) or id_token(path.stem),
-                    "job_id": id_token(first_str(data, ("job_id",))),
-                    "task_id": id_token(first_str(data, ("task_id",))),
-                    "ts": parse_ts(first_str(data, ("ts", "created_at", "time", "finished_at"))),
+                    "ok": data.get("ok") if isinstance(data.get("ok"), bool) else None,
+                    "sha": first_str(data, ("sha",)),
+                    "base_rev": first_str(data, ("base_rev",)),
+                    "suite_exit": (
+                        suite_exit
+                        if isinstance(suite_exit, int) and not isinstance(suite_exit, bool)
+                        else None
+                    ),
+                    "gitleaks_exit": (
+                        gitleaks_exit
+                        if isinstance(gitleaks_exit, int) and not isinstance(gitleaks_exit, bool)
+                        else None
+                    ),
+                    "at": parse_ts(first_str(data, ("at",))),
                 }
             )
         return rows
 
     def _read_metric_events(self) -> tuple[list[dict[str, Any]], bool]:
-        """Read-only pass over the scheduler metrics logs. Returns the parsed
-        events (newest last) and whether any metrics file was seen at all."""
+        """Read-only pass over the scheduler metrics logs. The producer
+        writes seq/at/event/run_id plus event fields such as attempt_id
+        (metrics.py append_event); records carry no job or task reference.
+        Returns the parsed events (oldest first) and whether any metrics
+        file was seen at all."""
         events: list[dict[str, Any]] = []
         seen = False
         metrics_dir = self.state_dir / "metrics" if self.state_dir else None
@@ -1522,19 +1602,82 @@ class Collector:
             for record in records:
                 if not isinstance(record, dict):
                     continue
-                moment = parse_ts(first_str(record, ("ts", "time", "timestamp", "created_at")))
+                moment = parse_ts(first_str(record, ("at",)))
                 if moment is None:
                     continue
                 events.append(
                     {
                         "ts": moment,
-                        "event": scrub(first_str(record, ("event", "kind")), 40) or "",
-                        "job_id": id_token(first_str(record, ("job_id",))),
-                        "task_id": id_token(first_str(record, ("task_id",))),
+                        "event": scrub(first_str(record, ("event",)), 40) or "",
+                        "attempt_id": id_token(first_str(record, ("attempt_id",))),
                     }
                 )
         events.sort(key=lambda item: item["ts"])
         return events, seen
+
+    def _read_claim_store(self) -> tuple[int | None, int, bool]:
+        """Live claim records, as QueueStore.active() counts them: readable
+        records under queue/ whose state is claimed or running. A record
+        that cannot be read may be an active claim, so it is counted as an
+        unreadable owner message rather than dropped. Returns (active
+        count or None, unreadable count, whether the store was seen)."""
+        claims_dir = self.state_dir / "queue" if self.state_dir else None
+        if claims_dir is None or not claims_dir.is_dir():
+            return 0, 0, False
+        try:
+            paths = sorted(p for p in claims_dir.glob("*.json") if p.is_file())
+        except OSError:
+            return None, 0, True
+        active = 0
+        unreadable = 0
+        for path in paths:
+            data = read_json_dict(path)
+            if data is None:
+                unreadable += 1
+                continue
+            if data.get("state") in ACTIVE_CLAIM_STATES:
+                active += 1
+        return active, unreadable, True
+
+    def _approval_state(self, docs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        """Declared approval gates without a recorded decision file, the
+        reconciler's own pending-approval rule. A gate stays in the waiting
+        state by design even after its decision is recorded, so the recorded
+        file at approvals/<job>.<gate>.json is what counts, never the gate
+        state. Returns the pending count, per-job missing gate slugs,
+        whether every check could be performed, and whether the source
+        contributed."""
+        approvals_dir = self.state_dir / "approvals" if self.state_dir else None
+        per_doc: dict[str, set[str]] = {}
+        pending = 0
+        known = True
+        declared = False
+        for doc in docs:
+            missing: set[str] = set()
+            for gate in doc["gate_names"]:
+                declared = True
+                if approvals_dir is None:
+                    known = False
+                    continue
+                path = approvals_dir / f"{doc['job_id']}.{_gate_slug(gate)}.json"
+                try:
+                    recorded = path.exists()
+                except OSError:
+                    known = False
+                    continue
+                if not recorded:
+                    missing.add(_gate_slug(gate))
+            if missing:
+                per_doc[doc["job_id"]] = missing
+                pending += len(missing)
+        source = False
+        if approvals_dir is not None:
+            try:
+                source = approvals_dir.is_dir()
+            except OSError:
+                source = True
+        source = source or declared
+        return {"pending": pending, "per_doc": per_doc, "known": known, "source": source}
 
     def bottlenecks_section(
         self,
@@ -1545,15 +1688,17 @@ class Collector:
         fleet_body: Mapping[str, Any],
     ) -> dict[str, Any]:
         """Compute the bottlenecks section read-only from records the other
-        sections already read: job documents, the action queue, review
-        reports, scheduler metrics, the fleet, and open pull requests. Each
-        contributing source degrades independently: a metric its source
-        cannot show stays null with a status marker, never zero."""
+        sections already read: job documents, the feature queue, the claim
+        store, recorded approval decisions, review reports, scheduler
+        metrics, the fleet, and open pull requests. Each contributing source
+        degrades independently: a metric its source cannot show stays null
+        with a status marker, never zero."""
         now = self.now()
         generated = utc_now_string(now)
-        docs = self._read_job_documents()
+        docs, unreadable_jobs = self._read_job_documents()
         reports = self._read_verify_reports()
         events, metrics_seen = self._read_metric_events()
+        approval_state = self._approval_state(docs)
 
         pipeline_readable = pipeline_body.get("status") != "unavailable"
         queue_readable = backlog_body.get("status") != "unavailable"
@@ -1568,14 +1713,28 @@ class Collector:
         for rows in transitions.values():
             rows.sort(key=lambda item: item[0])
 
-        report_ts_by_task: dict[tuple[str, str], datetime] = {}
+        # Verify records join to tasks through the task's attempt-id list;
+        # the newest record per attempt wins, as the record file is rewritten
+        # on a resumed verify.
+        report_by_attempt: dict[str, dict[str, Any]] = {}
         for report in reports:
-            if report["ts"] is None or not report["job_id"] or not report["task_id"]:
+            attempt_id = report["attempt_id"]
+            if not attempt_id:
                 continue
-            key = (report["job_id"], report["task_id"])
-            known = report_ts_by_task.get(key)
-            if known is None or report["ts"] > known:
-                report_ts_by_task[key] = report["ts"]
+            known = report_by_attempt.get(attempt_id)
+            if known is None or (report["at"] is not None and (known["at"] is None or report["at"] > known["at"])):
+                report_by_attempt[attempt_id] = report
+
+        # Scheduler dispatch records date an attempt's start; the earliest
+        # dispatch of an attempt is the one that started it.
+        dispatch_by_attempt: dict[str, datetime] = {}
+        for event in events:
+            attempt_id = event["attempt_id"]
+            if event["event"] != "dispatch" or not attempt_id:
+                continue
+            known = dispatch_by_attempt.get(attempt_id)
+            if known is None or event["ts"] < known:
+                dispatch_by_attempt[attempt_id] = event["ts"]
 
         targets: dict[str, float | None] = {}
         for stage in STAGE_NAMES:
@@ -1586,13 +1745,12 @@ class Collector:
                 else None
             )
 
-        raw_events = sum(doc["event_count"] for doc in docs)
+        total_tasks = sum(len(doc["tasks"]) for doc in docs)
+        raw_events = sum(doc["raw_events"] for doc in docs)
         parsed_events = sum(len(doc["events"]) for doc in docs)
         if not pipeline_readable:
             event_status = "unavailable"
-        elif raw_events == 0:
-            event_status = "known"
-        elif parsed_events == 0:
+        elif total_tasks > 0 and parsed_events == 0:
             event_status = "unknown"
         elif parsed_events < raw_events:
             event_status = "partial"
@@ -1601,16 +1759,16 @@ class Collector:
 
         stages = [
             self._verify_stage_row(
-                now, generated, docs, transitions, fleet_body,
+                now, generated, docs, transitions, dispatch_by_attempt, fleet_body,
                 targets["verify"], pipeline_readable, event_status,
             ),
             self._review_stage_row(
-                now, generated, features, docs_by_id, report_ts_by_task,
+                now, generated, features, docs_by_id, report_by_attempt,
                 queue_readable, targets["review"],
             ),
             self._integrate_stage_row(
-                now, generated, docs, transitions, report_ts_by_task,
-                pipeline_readable, targets["integrate"], event_status,
+                now, generated, docs, transitions, report_by_attempt,
+                dispatch_by_attempt, pipeline_readable, targets["integrate"], event_status,
             ),
             self._deploy_stage_row(now, generated, ci_body, ci_readable, targets["deploy"]),
         ]
@@ -1620,12 +1778,14 @@ class Collector:
             features=features,
             queue_readable=queue_readable,
             docs=docs,
+            unreadable_jobs=unreadable_jobs,
             pipeline_readable=pipeline_readable,
-            fleet_body=fleet_body,
             ci_body=ci_body,
             ci_readable=ci_readable,
             events=events,
             metrics_seen=metrics_seen,
+            report_by_attempt=report_by_attempt,
+            approval_state=approval_state,
         )
 
         readable = [
@@ -1667,6 +1827,7 @@ class Collector:
         generated: str,
         docs: Sequence[Mapping[str, Any]],
         transitions: Mapping[tuple[str, str], Sequence[tuple[datetime, str]]],
+        dispatch_by_attempt: Mapping[str, datetime],
         fleet_body: Mapping[str, Any],
         target: float | None,
         source_readable: bool,
@@ -1680,13 +1841,24 @@ class Collector:
             for task in doc["tasks"]:
                 rows = transitions.get((doc["job_id"], task["task_id"]), [])
                 open_entry, task_stays, task_advances = _stage_walk(
-                    rows, VERIFY_ENTRY_STATE, VERIFY_ADVANCE_STATES
+                    rows, VERIFY_ENTRY_STATES, VERIFY_MEMBER_STATES, VERIFY_ADVANCE_STATES
                 )
                 stays.extend(task_stays)
                 advances.extend(task_advances)
-                if source_readable and task["state"] == VERIFY_ENTRY_STATE:
+                if source_readable and task["state"] == "verifying":
                     open_count += 1
-                    entry = open_entry or (max(task["attempt_ts"]) if task["attempt_ts"] else None)
+                    entry = open_entry
+                    if entry is None:
+                        # No recorded transition into verifying: the
+                        # scheduler dispatch record of the task's newest
+                        # attempt dates the entry. No record means unknown.
+                        dispatched = [
+                            dispatch_by_attempt[attempt_id]
+                            for attempt_id in task["attempt_ids"]
+                            if attempt_id in dispatch_by_attempt
+                        ]
+                        if dispatched:
+                            entry = max(dispatched)
                     if entry is not None:
                         entries.append(entry)
         oldest = min(entries) if entries else None
@@ -1725,7 +1897,7 @@ class Collector:
         generated: str,
         features: Sequence[Mapping[str, Any]],
         docs_by_id: Mapping[str, Mapping[str, Any]],
-        report_ts_by_task: Mapping[tuple[str, str], datetime],
+        report_by_attempt: Mapping[str, Mapping[str, Any]],
         source_readable: bool,
         target: float | None,
     ) -> dict[str, Any]:
@@ -1754,13 +1926,13 @@ class Collector:
                 continue
             candidates: list[datetime] = []
             for task in doc["tasks"]:
-                candidates.extend(task["attempt_ts"])
-                report = report_ts_by_task.get((doc["job_id"], task["task_id"]))
-                if report is not None:
-                    candidates.append(report)
+                for attempt_id in task["attempt_ids"]:
+                    report = report_by_attempt.get(attempt_id)
+                    # A passing verify record is when the work became
+                    # reviewable; a failed one is not a completion.
+                    if report is not None and report["ok"] is True and report["at"] is not None:
+                        candidates.append(report["at"])
             if candidates:
-                # The newest completion record of the linked job is when the
-                # work became reviewable; no record means unknown, not zero.
                 ready_at.append(max(candidates))
         oldest = min(ready_at) if ready_at else None
         # The queue snapshot carries no record of completed review stays or
@@ -1787,7 +1959,8 @@ class Collector:
         generated: str,
         docs: Sequence[Mapping[str, Any]],
         transitions: Mapping[tuple[str, str], Sequence[tuple[datetime, str]]],
-        report_ts_by_task: Mapping[tuple[str, str], datetime],
+        report_by_attempt: Mapping[str, Mapping[str, Any]],
+        dispatch_by_attempt: Mapping[str, datetime],
         source_readable: bool,
         target: float | None,
         event_status: str,
@@ -1800,17 +1973,31 @@ class Collector:
             for task in doc["tasks"]:
                 rows = transitions.get((doc["job_id"], task["task_id"]), [])
                 open_entry, task_stays, task_advances = _stage_walk(
-                    rows, INTEGRATE_ENTRY_STATE, INTEGRATE_ADVANCE_STATES
+                    rows, INTEGRATE_ENTRY_STATES, INTEGRATE_MEMBER_STATES, INTEGRATE_ADVANCE_STATES
                 )
                 stays.extend(task_stays)
                 advances.extend(task_advances)
-                if source_readable and task["state"] == INTEGRATE_ENTRY_STATE:
+                if source_readable and task["state"] in INTEGRATE_QUEUE_STATES:
                     open_count += 1
                     entry = open_entry
                     if entry is None:
-                        entry = report_ts_by_task.get((doc["job_id"], task["task_id"]))
-                    if entry is None and task["attempt_ts"]:
-                        entry = max(task["attempt_ts"])
+                        passed = [
+                            report_by_attempt[attempt_id]["at"]
+                            for attempt_id in task["attempt_ids"]
+                            if attempt_id in report_by_attempt
+                            and report_by_attempt[attempt_id]["ok"] is True
+                            and report_by_attempt[attempt_id]["at"] is not None
+                        ]
+                        if passed:
+                            entry = max(passed)
+                    if entry is None:
+                        dispatched = [
+                            dispatch_by_attempt[attempt_id]
+                            for attempt_id in task["attempt_ids"]
+                            if attempt_id in dispatch_by_attempt
+                        ]
+                        if dispatched:
+                            entry = max(dispatched)
                     if entry is not None:
                         entries.append(entry)
         oldest = min(entries) if entries else None
@@ -1883,22 +2070,93 @@ class Collector:
         self,
         feature: Mapping[str, Any],
         docs_by_id: Mapping[str, Mapping[str, Any]],
-    ) -> str | None:
-        """Resolve a blocked feature's reason from recorded causes: the linked
-        job's pending approval gate, its recorded task blockers, or an unmet
-        dependency. Unresolvable means uncounted."""
+        approval_state: Mapping[str, Any],
+        done: set[str],
+    ) -> tuple[str, str]:
+        """Resolve a blocked feature's cause from recorded causes. Returns
+        (kind, reason): the linked job's declared gate without a recorded
+        decision file (approval), its recorded task blockers (task), an
+        unmet dependency (dependency), or unresolved when only the blocked
+        status itself is recorded. The blocked status is always a recorded
+        cause, so the item still counts once."""
         job_id = feature.get("job_id")
         doc = docs_by_id.get(job_id) if isinstance(job_id, str) else None
         if doc is not None:
-            gate_state = doc["gate_state"]
-            if isinstance(gate_state, str) and gate_state not in GATE_SETTLED_STATES:
-                return "approval_required"
+            if approval_state["per_doc"].get(doc["job_id"]):
+                return "approval", "approval_required"
             blockers = [task["blocker"] for task in doc["tasks"] if task["blocker"]]
             if blockers:
-                return blockers[0]
-        if as_list(feature.get("depends_on")):
-            return "dependency"
-        return None
+                return "task", blockers[0]
+        deps = [dep for dep in as_list(feature.get("depends_on")) if isinstance(dep, str)]
+        if deps and not all(dep in done for dep in deps):
+            return "dependency", "dependency"
+        return "unresolved", "unresolved"
+
+    def _done_features(
+        self,
+        features: Sequence[Mapping[str, Any]],
+        docs_by_id: Mapping[str, Mapping[str, Any]],
+        report_by_attempt: Mapping[str, Mapping[str, Any]],
+    ) -> set[str]:
+        """Features whose linked job is accepted, mirroring the queue's own
+        acceptance check: every task accepted with a passing verify record
+        for its last attempt, and an accepted integration wave naming an
+        integrated commit. A job that fails the check is a computed no, not
+        an unknown; a feature without a linked job is simply not done."""
+        done: set[str] = set()
+        for feature in features:
+            job_id = feature.get("job_id")
+            if not isinstance(job_id, str) or not job_id:
+                continue
+            doc = docs_by_id.get(job_id)
+            if doc is None:
+                continue
+            if self._job_acceptable(doc, report_by_attempt):
+                feature_id = feature.get("feature_id")
+                if isinstance(feature_id, str) and feature_id:
+                    done.add(feature_id)
+        return done
+
+    def _job_acceptable(
+        self,
+        doc: Mapping[str, Any],
+        report_by_attempt: Mapping[str, Mapping[str, Any]],
+    ) -> bool:
+        """The queue's job-acceptance check, read-only: all tasks accepted,
+        each with a passing verify record for its last attempt (record ok,
+        commit sha, scan and suite exits, and any recorded binding matches),
+        and an accepted integration wave naming a commit."""
+        tasks = doc["tasks"]
+        if not tasks:
+            return False
+        for task in tasks:
+            if task["state"] != "accepted":
+                return False
+            attempt_ids = task["attempt_ids"]
+            if not attempt_ids:
+                return False
+            record = report_by_attempt.get(attempt_ids[-1])
+            if record is None or record["ok"] is not True or not record["sha"]:
+                return False
+            binding = task["binding"]
+            if binding.get("source_rev") and str(record["base_rev"]) != str(binding["source_rev"]):
+                return False
+            if binding.get("contract_sha256") and str(task["contract_sha256"] or "") != str(
+                binding["contract_sha256"]
+            ):
+                return False
+            if record["gitleaks_exit"] != 0:
+                return False
+            if record["suite_exit"] != 0:
+                return False
+        integration = doc["integration"]
+        waves = [wave for wave in as_list(integration.get("accepted_waves")) if isinstance(wave, dict)]
+        if not waves:
+            return False
+        last_commit = first_str(integration, ("last_commit",)) or first_str(waves[-1], ("commit",))
+        if not last_commit:
+            return False
+        return True
 
     def _bottleneck_invariant(
         self,
@@ -1908,55 +2166,86 @@ class Collector:
         features: Sequence[Mapping[str, Any]],
         queue_readable: bool,
         docs: Sequence[Mapping[str, Any]],
+        unreadable_jobs: int,
         pipeline_readable: bool,
-        fleet_body: Mapping[str, Any],
         ci_body: Mapping[str, Any],
         ci_readable: bool,
         events: Sequence[Mapping[str, Any]],
         metrics_seen: bool,
+        report_by_attempt: Mapping[str, Mapping[str, Any]],
+        approval_state: Mapping[str, Any],
     ) -> dict[str, Any]:
-        tasks = [task for doc in docs for task in doc["tasks"]]
+        """The reconciliation invariant, identical to the coordinator
+        reconciler's: in_use is claimed plus active workers plus tasks
+        awaiting verification, available is the work scheduler's max-active
+        minus in_use, owner messages are pending approvals plus blocked
+        items, and advancement is expected when ready work, available
+        capacity and zero owner messages coincide. Every count comes from
+        the real record of its kind; a record the collector cannot read
+        leaves the headline unknown, never a guessed answer."""
         docs_by_id = {doc["job_id"]: doc for doc in docs}
+        tasks = [task for doc in docs for task in doc["tasks"]]
 
-        ready = claimed = None
+        claimed, claims_unreadable, claims_dir_seen = self._read_claim_store()
+        claims_known = claimed is not None
+        done = self._done_features(features, docs_by_id, report_by_attempt) if queue_readable else set()
+
+        ready = None
         total_outstanding = None
         awaiting_review = None
-        blocked_with_reason = None
         blocked_reasons: dict[str, int] = {}
+
+        def note_blocked(reason: str) -> None:
+            blocked_reasons[reason] = blocked_reasons.get(reason, 0) + 1
+
         if queue_readable:
-            ready = sum(1 for f in features if f.get("status") == "queued")
-            claimed = sum(1 for f in features if f.get("status") == "claimed")
+            ready = 0
+            for feature in features:
+                feature_id = feature.get("feature_id")
+                if feature.get("status") != "queued" or not isinstance(feature_id, str) or not feature_id:
+                    continue
+                if feature_id in done:
+                    continue
+                deps = [dep for dep in as_list(feature.get("depends_on")) if isinstance(dep, str)]
+                if all(dep in done for dep in deps):
+                    ready += 1
             total_outstanding = sum(
                 1 for f in features if f.get("status") in NON_TERMINAL_QUEUE_STATUSES
             )
-            awaiting_review = sum(
-                1 for f in features if f.get("status") == "ready_for_review"
-            )
-            resolved = 0
+            awaiting_review = sum(1 for f in features if f.get("status") == "ready_for_review")
             for feature in features:
                 if feature.get("status") != "blocked":
                     continue
-                reason = self._blocked_reason(feature, docs_by_id)
-                if reason is None:
+                kind, reason = self._blocked_reason(feature, docs_by_id, approval_state, done)
+                if kind in ("approval", "task"):
+                    # One underlying blocker, one owner message: an
+                    # approval-reason card is already counted in the pending
+                    # approvals, and a task-reason card is already counted
+                    # with the job's task blocker.
                     continue
-                resolved += 1
-                blocked_reasons[reason] = blocked_reasons.get(reason, 0) + 1
-            blocked_with_reason = resolved
+                note_blocked(reason)
         elif pipeline_readable:
             total_outstanding = sum(
                 1 for task in tasks if task["state"] in NON_TERMINAL_TASK_STATES
             )
+        if pipeline_readable:
+            for doc in docs:
+                for task in doc["tasks"]:
+                    if task["blocker"]:
+                        note_blocked(task["blocker"])
+        for _ in range(unreadable_jobs):
+            note_blocked("job_unreadable")
+        for _ in range(claims_unreadable):
+            note_blocked("queue_claims_unreadable")
 
         awaiting_verify = awaiting_integrate = None
+        active_workers = None
         if pipeline_readable:
-            awaiting_verify = sum(1 for task in tasks if task["state"] == VERIFY_ENTRY_STATE)
+            awaiting_verify = sum(1 for task in tasks if task["state"] == "verifying")
             awaiting_integrate = sum(
-                1 for task in tasks if task["state"] == INTEGRATE_ENTRY_STATE
+                1 for task in tasks if task["state"] in INTEGRATE_QUEUE_STATES
             )
-
-        active_workers = fleet_body.get("in_flight")
-        if not isinstance(active_workers, int) or isinstance(active_workers, bool):
-            active_workers = None
+            active_workers = sum(1 for task in tasks if task["state"] == "running")
 
         awaiting_deploy = None
         if ci_readable:
@@ -1964,64 +2253,49 @@ class Collector:
                 1 for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)
             )
 
-        human_approvals_required = None
-        if pipeline_readable:
-            human_approvals_required = sum(
-                1
-                for doc in docs
-                if isinstance(doc["gate_state"], str)
-                and doc["gate_state"] not in GATE_SETTLED_STATES
-            )
+        blocked_known = queue_readable and pipeline_readable
+        owner_messages_known = approval_state["known"] and blocked_known and claims_known
+        owner_messages = approval_state["pending"] + sum(blocked_reasons.values())
+
+        in_use = None
+        available = None
+        waiting_despite = None
+        waiting_count = None
+        if ready is not None and claims_known and pipeline_readable and owner_messages_known:
+            in_use = (claimed or 0) + (active_workers or 0) + (awaiting_verify or 0)
+            available = max(0, SCHEDULER_MAX_ACTIVE - in_use)
+            advancement = ready > 0 and available > 0 and owner_messages == 0
+            waiting_despite = advancement
+            waiting_count = ready if advancement else 0
 
         last_auto_at = None
-        for event in events:
-            if event["event"] in AUTO_PROGRESS_EVENTS:
-                if last_auto_at is None or event["ts"] > last_auto_at:
-                    last_auto_at = event["ts"]
         for doc in docs:
-            for moment, _task_id, _to_state in doc["events"]:
-                if last_auto_at is None or moment > last_auto_at:
+            for moment, _task_id, to_state in doc["events"]:
+                if to_state in AUTOMATIC_PROGRESS_STATES and (
+                    last_auto_at is None or moment > last_auto_at
+                ):
                     last_auto_at = moment
-
-        gaps: list[float] = []
-        by_task: dict[tuple[str | None, str | None], list[tuple[datetime, str]]] = {}
         for event in events:
-            by_task.setdefault((event["job_id"], event["task_id"]), []).append(
-                (event["ts"], event["event"])
-            )
-        for rows in by_task.values():
-            rows.sort(key=lambda item: item[0])
-            for index, (moment, kind) in enumerate(rows):
-                if kind != "verify":
-                    continue
-                for later_moment, later_kind in rows[index + 1:]:
-                    if later_kind in NEXT_ACTION_EVENTS:
-                        gaps.append(max(0.0, (later_moment - moment).total_seconds()))
-                        break
-        if not metrics_seen:
+            if event["event"] in METRIC_AUTO_EVENTS and (
+                last_auto_at is None or event["ts"] > last_auto_at
+            ):
+                last_auto_at = event["ts"]
+
+        gaps = [gap for doc in docs for gap in doc["latency_gaps"]]
+        if not pipeline_readable:
             gap_status = "unavailable"
         elif gaps:
             gap_status = "known"
         else:
             gap_status = "unknown"
 
-        bee_cap = fleet_body.get("bee_cap")
-        if not isinstance(bee_cap, int) or isinstance(bee_cap, bool) or bee_cap < 1:
-            bee_cap = None
-        if ready is None or bee_cap is None or active_workers is None:
-            waiting_despite = None
-            waiting_count = None
-        else:
-            headroom = bee_cap - active_workers
-            waiting_despite = bool(ready > 0 and headroom > 0)
-            waiting_count = ready if waiting_despite else 0
-
         sources = [
             queue_readable,
             pipeline_readable,
-            fleet_body.get("status") != "unavailable",
             ci_readable,
             metrics_seen,
+            claims_dir_seen,
+            approval_state["source"],
         ]
         if not any(sources):
             invariant_status = "unavailable"
@@ -2044,9 +2318,14 @@ class Collector:
             "awaiting_review": awaiting_review,
             "awaiting_integrate": awaiting_integrate,
             "awaiting_deploy": awaiting_deploy,
-            "blocked_with_reason": blocked_with_reason,
+            "capacity": {
+                "max_active": SCHEDULER_MAX_ACTIVE,
+                "in_use": in_use,
+                "available": available,
+            },
+            "blocked_with_reason": sum(blocked_reasons.values()),
             "blocked_reasons": blocked_reasons,
-            "human_approvals_required": human_approvals_required,
+            "human_approvals_required": approval_state["pending"],
             "last_auto_progress_at": (
                 last_auto_at.strftime("%Y-%m-%dT%H:%M:%SZ") if last_auto_at else None
             ),
@@ -2313,6 +2592,12 @@ class Collector:
 def _reason_token(value: str) -> str:
     token = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip()).strip("_")[:64]
     return token or "escalation"
+
+
+def _gate_slug(value: str) -> str:
+    """The decision-file name for a gate, as the job writer slugs it."""
+    text = str(value or "").strip().lower()
+    return "".join(ch if ch.isalnum() or ch in "-_." else "-" for ch in text)
 
 
 def _infer_failure_class(outcome_norm: str, code: str | None) -> str:
