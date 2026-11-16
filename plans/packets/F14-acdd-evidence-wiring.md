@@ -14,8 +14,9 @@ Finish the ACDD evidence view that merged Orbit #26 built and merged #30 bounded
 board and the activity feed, and give it a live smoke test against a running server. The view stays
 read-only — Orbit only displays; the decision stays with bundlebees' verifier and the human gates —
 and it stays per-job evidence, never a campaign closeout, which is exactly the boundary #30's change
-map recorded. Wiring the panel into the board was explicitly held until the runnable-by-anyone work
-landed (docs/16 §9); with #25 merged and F11 drafted, that wait is over.
+map recorded. Wiring the panel into the board is held until the runnable-by-anyone work lands
+(sequencing chosen by this packet; docs/16 §9 records only that board chips and the feed are
+not wired yet); with #25 merged and F11 drafted, that wait is over.
 
 ## Delivered and remaining
 
@@ -34,7 +35,7 @@ landed (docs/16 §9); with #25 merged and F11 drafted, that wait is over.
 
 - Orbit #26 (merged 2026-11-16 per handoff notes): the model, panel, route and menu entry this packet wires; their behaviour is the baseline, not something to rebuild
 - Orbit #30 (merged 2026-11-16 per handoff notes): the per-job-evidence boundary the wiring must respect
-- F11 (drafted): docs/16 §9 holds that wiring the panel into the board waits for the runnable-by-anyone work; F11 is that work's packet, so its hermetic-test baseline gates this packet's dispatch
+- F11 (drafted): this packet sequences itself after the runnable-by-anyone work, so F11's hermetic-test baseline gates F14's dispatch
 - docs/16-acdd-tdd.md §7: the failure-code table the feed must quote verbatim
 
 ## Authorization needs
