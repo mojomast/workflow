@@ -6,8 +6,11 @@ invocation shape and to the documented degradation ladder: ``live`` with real
 rows when the CLI works, ``unavailable`` with a precise generic error code
 when it does not, ``stale`` when its newest output is older than the
 freshness threshold, and ``null`` (never zero) for every count the CLI did
-not report. All fixture output is synthetic; the leak stand-in constant is
-named so it can never be mistaken for a real credential.
+not report. The live fixtures mirror the real shipped CLI shapes verbatim
+(flat ``status`` payload with no ``summary`` wrapper; attempts rows carrying
+only the four real states dispatched/verified/failed/accepted); synthetic and
+malformed payloads are kept solely as degradation coverage. The leak
+stand-in constant is named so it can never be mistaken for a real credential.
 """
 
 from __future__ import annotations
@@ -60,29 +63,68 @@ def attempts_payload(*rows) -> dict:
     return {"attempts": list(rows)}
 
 
-LIVE_ROW_FRESH = {
-    "attempt_id": "att_live_1",
-    "state": "running",
-    "job_id": "job_20261116_a",
-    "task_id": "T1",
-    "repo": "mojomast/workflow",
-    "branch": "feat/cli-attempts-status",
-    "route": "go",
-    "started_at": "2026-11-16T09:00:00Z",
-    "updated_at": "2026-11-16T09:29:30Z",
-    # Unmapped CLI fields must never be copied into a record.
+# Real shipped CLI shapes, captured verbatim from the merged bundlebees CLI
+# (main ced3ba8): ``status`` is a FLAT payload (no ``summary`` wrapper) and
+# attempts rows carry exactly the fields below, with the four states
+# dispatched/verified/failed/accepted; in-flight is {dispatched, verified}.
+REAL_STATUS = {
+    "bee_cap": 12,
+    "health": {
+        "adapter": "orbit-loopback",
+        "credential_configured": False,
+        "launcher_url_configured": False,
+    },
+    "in_flight": 2,
+    "in_flight_attempts": ["att-disp", "att-verif"],
+}
+REAL_ATTEMPTS_ROWS = [
+    {
+        "attempt_id": "att-disp",
+        "branch": "feat/att-disp",
+        "created_at": "2026-11-16T09:00:00Z",
+        "model": "go",
+        "project": "proj-a",
+        "state": "dispatched",
+        "updated_at": "2026-11-16T09:00:00Z",
+    },
+    {
+        "attempt_id": "att-verif",
+        "branch": "feat/att-verif",
+        "created_at": "2026-11-16T09:05:00Z",
+        "model": "deepseek",
+        "project": "proj-a",
+        "state": "verified",
+        "updated_at": "2026-11-16T09:20:00Z",
+    },
+    {
+        "attempt_id": "att-fail",
+        "branch": "feat/att-fail",
+        "created_at": "2026-11-16T09:06:00Z",
+        "model": None,
+        "project": None,
+        "state": "failed",
+        "updated_at": "2026-11-16T09:21:00Z",
+    },
+    {
+        "attempt_id": "att-accept",
+        "branch": "feat/att-accept",
+        "created_at": "2026-11-16T09:07:00Z",
+        "model": None,
+        "project": None,
+        "state": "accepted",
+        "updated_at": "2026-11-16T09:21:30Z",
+    },
+]
+REAL_ATTEMPTS = attempts_payload(*REAL_ATTEMPTS_ROWS)
+
+# Kept synthetic rows, used only for degradation coverage: a state label no
+# shipped CLI emits, plus unmapped diagnostic fields that must never surface.
+UNKNOWN_STATE_ROW = {
+    "attempt_id": "att-future",
+    "state": "warp-drive",
     "note": "diagnostic " + LEAK_MARK,
+    "trace_url": LEAK_URL,
 }
-LIVE_ROW_VERIFYING = {
-    "attempt_id": "att_live_2",
-    "state": "verifying",
-    "job_id": "job_20261116_a",
-    "task_id": "T2",
-    "updated_at": "2026-11-16T09:28:00Z",
-}
-LIVE_ROW_UNKNOWN_STATE = {"attempt_id": "att_live_3", "state": "warp-drive"}
-LIVE_ATTEMPTS = attempts_payload(LIVE_ROW_FRESH, LIVE_ROW_VERIFYING, LIVE_ROW_UNKNOWN_STATE)
-LIVE_STATUS = {"summary": {"in_flight": 2, "bee_cap": 12}}
 
 
 def cli_runner(attempts, status, *, attempts_code=0, status_code=0):
@@ -140,7 +182,7 @@ class TestFleetArgvShape:
 
         def runner(argv):
             seen.append(list(argv))
-            return cli_runner(LIVE_ATTEMPTS, LIVE_STATUS)(argv)
+            return cli_runner(REAL_ATTEMPTS, REAL_STATUS)(argv)
 
         snap = wiring_collector(fleet_runner=runner).build_snapshot()
         validated(snap)
@@ -157,7 +199,7 @@ class TestLiveCli:
     @pytest.fixture()
     def snapshot(self) -> dict:
         snap = wiring_collector(
-            fleet_runner=cli_runner(LIVE_ATTEMPTS, LIVE_STATUS),
+            fleet_runner=cli_runner(REAL_ATTEMPTS, REAL_STATUS),
         ).build_snapshot()
         validated(snap)
         return snap
@@ -167,32 +209,45 @@ class TestLiveCli:
         assert fleet["status"] == "live"
         assert fleet["error"] is None
         by_id = {row["attempt_id"]: row for row in fleet["attempts"]}
-        assert by_id["att_live_1"]["state"] == "running"
-        assert by_id["att_live_1"]["repo"] == "mojomast/workflow"
-        assert by_id["att_live_1"]["branch"] == "feat/cli-attempts-status"
-        assert by_id["att_live_1"]["route"] == "go"
-        assert by_id["att_live_1"]["started_at"] == "2026-11-16T09:00:00Z"
-        assert by_id["att_live_1"]["updated_at"] == "2026-11-16T09:29:30Z"
-        # verifying normalizes into the lifecycle-aligned working state
-        assert by_id["att_live_2"]["state"] == "working"
-        # An unrecognized CLI label stays unknown and keeps its raw label.
-        assert by_id["att_live_3"]["state"] == "unknown"
-        assert by_id["att_live_3"]["detail"] == "warp-drive"
+        assert sorted(by_id) == ["att-accept", "att-disp", "att-fail", "att-verif"]
+        # All four real CLI states map onto the frozen snapshot vocabulary:
+        # dispatched and verified are the in-flight pair, failed/accepted are
+        # terminal.
+        assert by_id["att-disp"]["state"] == "starting"
+        assert by_id["att-verif"]["state"] == "working"
+        assert by_id["att-fail"]["state"] == "failed"
+        assert by_id["att-accept"]["state"] == "accepted"
+        # Mapped passthrough fields survive the real row shape.
+        assert by_id["att-verif"]["branch"] == "feat/att-verif"
+        assert by_id["att-verif"]["updated_at"] == "2026-11-16T09:20:00Z"
+        # Fields the real rows never carry stay null, never invented.
+        assert by_id["att-verif"]["repo"] is None
+        assert by_id["att-verif"]["route"] is None
+        assert by_id["att-verif"]["started_at"] is None
+        assert by_id["att-verif"]["detail"] is None
 
-    def test_counts_come_from_status_summary(self, snapshot: dict) -> None:
+    def test_counts_come_from_flat_status_payload(self, snapshot: dict) -> None:
         assert snapshot["fleet"]["in_flight"] == 2
         assert snapshot["fleet"]["bee_cap"] == 12
 
     def test_unmapped_cli_fields_never_enter_the_snapshot(self, snapshot: dict) -> None:
         dumped = json.dumps(snapshot)
-        assert LEAK_MARK not in dumped
-        assert "internal.example" not in dumped
+        # Only mapped fields cross into records: the rows' model/project/
+        # created_at and the flat status payload's health/in_flight_attempts
+        # are never copied through.
+        assert "proj-a" not in dumped
+        assert '"model"' not in dumped
+        assert "created_at" not in dumped
+        assert "orbit-loopback" not in dumped
+        assert "in_flight_attempts" not in dumped
+        # ...while the fields that are mapped do land.
+        assert "feat/att-verif" in dumped
 
     def test_health_derives_quota_and_liveness_from_real_state(self, tmp_path: Path) -> None:
         state = fresh_metrics_dir(tmp_path)
         snap = wiring_collector(
             state_dir=state,
-            fleet_runner=cli_runner(LIVE_ATTEMPTS, LIVE_STATUS),
+            fleet_runner=cli_runner(REAL_ATTEMPTS, REAL_STATUS),
         ).build_snapshot()
         validated(snap)
         health = snap["health"]
@@ -209,6 +264,31 @@ class TestLiveCli:
         assert bees["remaining"] == 10
         assert bees["unit"] == "count"
         assert bees["status"] == "ok"
+
+
+# ------------------------------------------------------------- verified state
+
+
+class TestVerifiedStateWiring:
+    """The merged CLI emits ``verified`` as a frequent in-flight state
+    (in-flight = {dispatched, verified}); it must render ``working``, never
+    ``unknown``, and the status-failure fallback must not undercount it."""
+
+    def test_verified_state_maps_to_working(self) -> None:
+        collector_under_test = wiring_collector()
+        assert collector_under_test._normalize_fleet_state("dispatched") == "starting"
+        assert collector_under_test._normalize_fleet_state("verified") == "working"
+
+    def test_verified_row_counts_in_status_failure_fallback(self) -> None:
+        snap = wiring_collector(
+            fleet_runner=cli_runner(REAL_ATTEMPTS, None, status_code=1),
+        ).build_snapshot()
+        validated(snap)
+        fleet = snap["fleet"]
+        assert fleet["status"] == "live"
+        # att-disp (dispatched) and att-verif (verified) are in flight per the
+        # CLI's own definition; the fallback must count both, not just one.
+        assert fleet["in_flight"] == 2
 
 
 # --------------------------------------------------------------- degradation
@@ -277,18 +357,33 @@ class TestCliDegradation:
         assert snap["fleet"]["bee_cap"] is None
 
     def test_stale_output_marks_stale_but_keeps_real_rows(self) -> None:
-        stale_row = dict(LIVE_ROW_FRESH, updated_at="2026-11-16T07:00:00Z")
+        stale_row = dict(REAL_ATTEMPTS_ROWS[0], updated_at="2026-11-16T07:00:00Z")
         snap = wiring_collector(
-            fleet_runner=cli_runner(attempts_payload(stale_row), LIVE_STATUS),
+            fleet_runner=cli_runner(attempts_payload(stale_row), REAL_STATUS),
         ).build_snapshot()
         validated(snap)
         fleet = snap["fleet"]
         assert fleet["status"] == "stale"
         assert fleet["error"] == "fleet_state_older_than_threshold"
-        assert [row["attempt_id"] for row in fleet["attempts"]] == ["att_live_1"]
+        assert [row["attempt_id"] for row in fleet["attempts"]] == ["att-disp"]
         # The reported counts are still the CLI's own numbers.
         assert fleet["in_flight"] == 2
         assert fleet["bee_cap"] == 12
+
+    def test_unrecognized_label_degrades_to_unknown_without_leaking(self) -> None:
+        snap = wiring_collector(
+            fleet_runner=cli_runner(attempts_payload(UNKNOWN_STATE_ROW), None, status_code=1),
+        ).build_snapshot()
+        validated(snap)
+        fleet = snap["fleet"]
+        assert fleet["status"] == "live"
+        # An unrecognized CLI label stays unknown and keeps its raw label.
+        assert fleet["attempts"][0]["state"] == "unknown"
+        assert fleet["attempts"][0]["detail"] == "warp-drive"
+        # Unmapped diagnostic fields on the row never surface either.
+        dumped = json.dumps(snap)
+        assert LEAK_MARK not in dumped
+        assert "internal.example" not in dumped
 
     def test_missing_inputs_never_crash_and_never_fold_unknown_into_zero(self) -> None:
         snap = wiring_collector(
@@ -310,27 +405,27 @@ class TestCliDegradation:
 
 class TestPartialCli:
     def test_status_subcommand_failure_keeps_rows_and_null_cap(self) -> None:
-        done_row = {"attempt_id": "att_live_2", "state": "succeeded", "job_id": "job_20261116_a"}
-        rows = attempts_payload(LIVE_ROW_FRESH, done_row)
         snap = wiring_collector(
-            fleet_runner=cli_runner(rows, None, status_code=1),
+            fleet_runner=cli_runner(REAL_ATTEMPTS, None, status_code=1),
         ).build_snapshot()
         validated(snap)
         fleet = snap["fleet"]
         assert fleet["status"] == "live"
-        assert len(fleet["attempts"]) == 2
-        # Derived from real rows: exactly one row is in an active state.
-        assert fleet["in_flight"] == 1
+        assert len(fleet["attempts"]) == 4
+        # Derived from real rows: the in-flight pair {dispatched, verified} is
+        # counted, so the fallback equals the CLI's own in_flight of 2 rather
+        # than undercounting the verified row.
+        assert fleet["in_flight"] == 2
         # Cap was never reported: it stays null, never zero.
         assert fleet["bee_cap"] is None
         bees = next(row for row in snap["health"]["quota"] if row["kind"] == "bees_in_flight")
-        assert bees["value"] == 1.0
+        assert bees["value"] == 2.0
         assert bees["cap"] is None
         assert bees["remaining"] is None
 
     def test_summary_without_cap_falls_back_and_stays_null_where_unknown(self) -> None:
         snap = wiring_collector(
-            fleet_runner=cli_runner(LIVE_ATTEMPTS, {"summary": {"in_flight": 5}}),
+            fleet_runner=cli_runner(REAL_ATTEMPTS, {"summary": {"in_flight": 5}}),
         ).build_snapshot()
         validated(snap)
         assert snap["fleet"]["status"] == "live"
@@ -373,13 +468,16 @@ class TestRealSubprocess:
             "args = sys.argv[1:]\n"
             "if args == ['bundlebees', 'attempts']:\n"
             "    print(json.dumps({'attempts': [{"
-            "'attempt_id': 'att_real_1', 'state': 'backoff', "
+            "'attempt_id': 'att_real_1', 'state': 'dispatched', "
             "'job_id': 'job_20261116_r', "
             "'internal_note': 'diag ' + mark, "
             "'trace_url': 'https://' + 'internal.example/' + mark}]}))\n"
             "elif args == ['bundlebees', 'status']:\n"
             "    sys.stderr.write('diag ' + mark + chr(10))\n"
-            "    print(json.dumps({'summary': {'in_flight': 1, 'bee_cap': 12}}))\n"
+            "    print(json.dumps({'bee_cap': 12, "
+            "'health': {'adapter': 'orbit-loopback', "
+            "'credential_configured': False, 'launcher_url_configured': False}, "
+            "'in_flight': 1, 'in_flight_attempts': ['att_real_1']}))\n"
             "else:\n"
             "    sys.stderr.write('unknown invocation' + chr(10))\n"
             "    sys.exit(3)\n"
@@ -392,7 +490,8 @@ class TestRealSubprocess:
         assert fleet["status"] == "live"
         assert fleet["in_flight"] == 1
         assert fleet["bee_cap"] == 12
-        assert fleet["attempts"][0]["state"] == "backoff"
+        # dispatched renders as the lifecycle-aligned starting state.
+        assert fleet["attempts"][0]["state"] == "starting"
         assert fleet["attempts"][0]["attempt_id"] == "att_real_1"
         dumped = json.dumps(snap)
         # Neither stderr from the CLI nor unmapped row fields may surface.

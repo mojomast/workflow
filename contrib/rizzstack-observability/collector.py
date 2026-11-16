@@ -69,6 +69,7 @@ FLEET_STATE_ALIASES = {
     "accepted_by_worker": "starting",
     "verify": "working",
     "verifying": "working",
+    "verified": "working",
     "integrated": "accepted",
     "complete": "succeeded",
     "completed": "succeeded",
