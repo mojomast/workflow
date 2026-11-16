@@ -92,12 +92,11 @@ def fixture_collector(tmp_path: Path, **overrides):
     status_payload = {"in_flight": 2, "bee_cap": 12}
 
     def fleet_runner(argv):
-        assert argv[1:] == ["bundlebees", "attempt", "op=attempts"] or argv[1:] == [
+        assert argv[1:] == ["bundlebees", "attempts"] or argv[1:] == [
             "bundlebees",
-            "attempt",
-            "op=status",
+            "status",
         ], argv
-        if any("op=attempts" in part for part in argv):
+        if "attempts" in argv[1:]:
             return 0, json.dumps(fleet_payload), ""
         return 0, json.dumps(status_payload), ""
 
@@ -404,14 +403,12 @@ class TestFleetCli:
         assert collector.default_fleet_argv("hermes", "attempts") == [
             "hermes",
             "bundlebees",
-            "attempt",
-            "op=attempts",
+            "attempts",
         ]
         assert collector.default_fleet_argv("hermes", "status") == [
             "hermes",
             "bundlebees",
-            "attempt",
-            "op=status",
+            "status",
         ]
 
     def test_fleet_unavailable_when_cli_refuses(self, tmp_path: Path) -> None:
@@ -432,9 +429,9 @@ class TestFleetCli:
             "#!/usr/bin/env python3\n"
             "import json, sys\n"
             'args = sys.argv[1:]\n'
-            'if "op=attempts" in args:\n'
+            'if "attempts" in args:\n'
             '    print(json.dumps({"attempts": [{"attempt_id": "att_1", "state": "verifying", "job_id": "job_20261113_a"}]}))\n'
-            'elif "op=status" in args:\n'
+            'elif "status" in args:\n'
             '    print(json.dumps({"in_flight": 1, "bee_cap": 12}))\n',
             encoding="utf-8",
         )
