@@ -1,0 +1,60 @@
+# rizzstack-obs-collector.service — systemd **user** unit template
+#
+# Serve the rizzstack.observability/snapshot/1 document on loopback only.
+# The template instance id (%i) is the loopback port; enable one instance per
+# port with
+#
+#   systemctl --user enable --now rizzstack-obs-collector@8787
+#
+# The serving credential is read from the environment file named below
+# (mode 0600, owned by the user) under the RIZZSTACK_OBS_TOKEN variable.
+# It is never placed on a command line, and the collector never prints or
+# logs it. Create the files yourself:
+#
+#   install -d -m 0700 ~/.config/rizzstack-obs
+#   install -m 0600 /dev/null ~/.config/rizzstack-obs/8787.env
+#     then put one line in it assigning a long random value to
+#     the RIZZSTACK_OBS_TOKEN variable
+#   install -m 0600 /dev/null ~/.config/rizzstack-obs/8787.credential
+#     then store the same value there on its single line
+#
+# Unit and template live in contrib/rizzstack-observability/; copy the unit to
+# ~/.config/systemd/user/ (adjust paths) before enabling.
+
+[Unit]
+Description=rizzstack observability snapshot collector (%i)
+Documentation=https://github.com/mojomast/workflow
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/rizzstack-obs-collector \
+    --state-dir %h/.hermes/plugin-state \
+    --usage %h/.hermes/usage/usage.jsonl \
+    --serve --host 127.0.0.1 --port %i \
+    --stale-after-s 1800 \
+    --bearer-token-file %h/.config/rizzstack-obs/%i.credential
+EnvironmentFile=%h/.config/rizzstack-obs/%i.env
+Restart=on-failure
+RestartSec=5
+
+# Hardening: the collector is read-only over its inputs and must stay that way.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=default.target

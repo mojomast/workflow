@@ -62,6 +62,7 @@ class ExamplesValidateTests(unittest.TestCase):
                 "failure.schema.json",
                 "lifecycle.schema.json",
                 "resource-snapshot.schema.json",
+                "snapshot.schema.json",
                 "vcs-snapshot.schema.json",
             ],
         )

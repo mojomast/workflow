@@ -1,0 +1,14 @@
+{
+  "attempt_id": "att_2",
+  "job_id": "job_20261113_a",
+  "task_id": "T2",
+  "ts": "2026-11-16T08:30:00Z",
+  "outcome": "failure",
+  "code": "verify_suite_failed",
+  "component": "verify",
+  "retryable": true,
+  "http_429": false,
+  "fallback_to": null,
+  "note": "synthetic fixture: two tests failed on the combined branch",
+  "suite": {"exit_code": 1, "passed": 4, "failed": 2}
+}
