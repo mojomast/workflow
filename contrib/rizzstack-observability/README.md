@@ -101,9 +101,12 @@ Flags:
 ## Read-only guarantees
 
 - Files are opened for reading only; nothing is created, moved, or removed.
-- The CLI calls it makes are read-only (`op=attempts`, `op=status`,
-  `gh pr list`, `gh pr checks`). It never calls a mutating bundlebees or `gh`
-  verb.
+- The CLI calls it makes are a fixed read-only allowlist, exactly as invoked
+  in `collector.py`: `<bundlebees-bin> bundlebees attempt op=attempts`,
+  `op=status`, `gh pr list --repo <slug> --state open --json …`, and
+  `gh pr checks <number> --repo <slug> --json name,state`. `gh pr view` is
+  not on the allowlist and is never called, and no mutating bundlebees or
+  `gh` verb is ever called.
 - The collector holds no credential of its own: the fleet and CI sections use
   whatever ambient authentication those CLIs already have. It does not read,
   write, or move keys.
@@ -113,10 +116,13 @@ Flags:
 ## Privacy
 
 Records keep the observability package's rules: repository fields are
-`owner/name` slugs, free text is scrubbed (control characters dropped, URLs
-masked, length capped), and escalation prompts, patches, transcripts,
-credentials, hostnames, and IP addresses never enter a snapshot. The usage
-section aggregates numbers only; it never copies ledger rows.
+`owner/name` slugs, and keeping prompts, patches, transcripts, credentials,
+hostnames, and IP addresses out of a snapshot starts with the source
+documents — the collector's own guarantee is only what `scrub()` does to
+free text: URLs masked, control characters dropped, length capped.
+`scrub()` does not classify prompts; it neither recognizes nor removes
+prompt text. The usage section aggregates numbers only; it never copies
+ledger rows.
 
 ## Tests
 
@@ -126,6 +132,7 @@ python3 -m unittest discover -s observability/tests
 ```
 
 The fixture state under `tests/fixtures/observability-state/` is synthetic.
+The fixture-driven suite replaces a static example document: `observability/examples/` ships no snapshot example, and these fixtures exercise every section of the contract instead.
 
 ## Not in scope here
 
