@@ -600,5 +600,63 @@ class TestCli:
         assert json.loads(proc.stderr)["code"] == "no_such_request"
 
 
+# ------------------------------------------------------- record identity
+
+
+class TestRecordIdentityIsTheFileName:
+    """A queue record's identity is its file name AND its body id, and they must agree.
+
+    Regression for the r1 review's blocking finding: _read took the identity
+    from the file stem while _write targeted the body's request_id, so a plain
+    copy of a decided record under a new stem was re-applied on every pass -
+    the digests stay valid across a rename, so only a stem-vs-body check can
+    catch it. The queue refuses such a file with ``bad_record_file``.
+    """
+
+    def _decide(self, queue: decision_queue.DecisionQueue) -> None:
+        queue.raise_request(gate_request())
+        queue.record_decision(
+            "odq_gate_1",
+            outcome="approve",
+            decided_by="owner",
+            decided_at="2026-11-16T10:00:00Z",
+            rationale="The gate criteria are met and the evidence references check out.",
+            approval_receipt_ref="approvals/odj_1.release-gate.json",
+        )
+
+    def test_a_copied_decided_record_is_refused_and_never_applied(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        self._decide(queue)
+        source = tmp_path / "decisions" / "odq_gate_1.json"
+        copy = tmp_path / "decisions" / "odq_copy_1.json"
+        copy.write_bytes(source.read_bytes())
+
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.apply_ready()
+        assert excinfo.value.code == "bad_record_file"
+
+        # The pass refused before applying anything: the original stays decided.
+        original = queue.get("odq_gate_1")
+        assert queue.status(original) == "decided"
+        assert original["applied"] is None
+
+        # With the impostor gone, the queue applies the real record exactly once.
+        copy.unlink()
+        assert queue.apply_ready() == ["odq_gate_1"]
+        assert queue.apply_ready() == []
+
+    def test_get_refuses_a_record_whose_body_id_differs_from_the_stem(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        self._decide(queue)
+        source = tmp_path / "decisions" / "odq_gate_1.json"
+        (tmp_path / "decisions" / "odq_copy_1.json").write_bytes(source.read_bytes())
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.get("odq_copy_1")
+        assert excinfo.value.code == "bad_record_file"
+
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
