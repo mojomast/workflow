@@ -1,0 +1,49 @@
+{
+  "schema": "rizzstack.modularity.profile/1",
+  "profile": "contracts",
+  "description": "Protocol only. Write specs, freeze ACDD contracts, lint TDD evidence, check project state, run the reference demo and the offline acceptance tooling. One repo, no workers, no UI, no services.",
+  "components": [
+    {
+      "repo": "workflow",
+      "role": "the protocol itself: schemas, validators, templates, reference demo, checkers",
+      "required": true,
+      "why": "the contracts profile is exactly this repository; nothing else is needed to author and verify a contract"
+    }
+  ],
+  "env": [
+    {"name": "ACCEPTANCE_MODE", "set_by": "operator shell", "required": false, "note": "docker or local for acceptance/cold_start.sh; default picks docker if usable"},
+    {"name": "ACCEPTANCE_ACDD", "set_by": "operator shell", "required": false, "note": "require fails the run without an ACDD-capable bundlebees; auto reports the step UNRUN"},
+    {"name": "WORKFLOW_REF", "set_by": "operator shell", "required": false, "note": "branch or tag the acceptance harness clones; defaults to main"},
+    {"name": "BUNDLEBEES_REF", "set_by": "operator shell", "required": false, "note": "branch or tag the acceptance harness clones for bundlebees; defaults to main"}
+  ],
+  "ports": ["none: this profile starts no service; everything is files, schemas and short-lived checkers"],
+  "auth_posture": "no credentials needed for the reference demo, lint or checkers; the optional cold-start acceptance clones public repos and pip-installs pytest only; nothing reads or stores a key",
+  "cannot_do": [
+    "cannot dispatch work to any worker (no execution layer present)",
+    "cannot run the real verify sandbox loop end to end without a bundlebees checkout (the acceptance harness fetches one itself)",
+    "cannot enforce a parked project: the project-state checker is advisory until an enforcing layer ships (docs/18)",
+    "cannot host boards, sessions or an activity view"
+  ],
+  "refs": [
+    {"path": "profiles/repos.json", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/quickstarts/contracts.md", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/modularity.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "reference/README.md", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "reference/run_demo.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "reference/check_schemas.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "reference/tests", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "tools/acdd-lint", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "tools/project-state/check.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "observability/validate.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "schemas/acdd-contract.schema.json", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "schemas/tdd-evidence.schema.json", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "templates/CONTRACT.md", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "templates/contract.example.json", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "templates/HANDOFF.md", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "acceptance/cold_start.sh", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/workflow.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "docs/09-reproducible-collaboration.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/16-acdd-tdd.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/18-parking-projects.md", "kind": "doc_chapter", "exists_in_repo": true}
+  ]
+}

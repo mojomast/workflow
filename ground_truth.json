@@ -1,0 +1,680 @@
+{
+  "schema": "ground-truth-audit/1",
+  "audit": {
+    "date": "2026-11-16",
+    "brief": "Hindsight research brief, Phase 1: ground truth before memory-intelligence design",
+    "base": {
+      "repo": "mojomast/workflow",
+      "local_commit": "231827bdace61fe4801e4b346070a91bad258aa0",
+      "upstream_head": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+      "tree_sha": "1ff8b943cb8c79c421b20845ea7ed6cf397c4630",
+      "tree_note": "The local squashed base commit's git tree is byte-identical to the upstream workflow main head's tree (both 1ff8b943cb8c79c421b20845ea7ed6cf397c4630), so every file:line citation below is valid for the audited head."
+    },
+    "method": [
+      "Read every protocol chapter, schema, validator, test and evidence artifact in the workflow checkout at the audited tree.",
+      "Verify each claimed head and its ancestry against the live GitHub API on 2026-11-16 rather than trusting the brief.",
+      "Verify CI conclusions for the claimed heads and for the memory-contract PR head via the GitHub check-runs API.",
+      "Probe the local runtime (coordinator store, systemd units, listening sockets, launcher state) and record every negative result.",
+      "Classify each evidence system into exactly one level of the ladder; no level is taken from a PR merge alone."
+    ]
+  },
+  "heads": {
+    "claimed_by_brief": {
+      "workflow": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+      "bundlebees": "chain 2084222 + d0e41b5..e7f95ca",
+      "hyvv": "47d25c2",
+      "orbitdesktop": "ace2eb0",
+      "umbrella": "5bf5174"
+    },
+    "verified": {
+      "workflow": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+      "bundlebees": "e7f95ca5bfba96734ab5dba89aced9b1fbbd6d30",
+      "hyvv": "961a8bce501d0ce38922baeb6e5c10347d1f7efd",
+      "orbitdesktop": "ace2eb0009af4fccc510ca569bb9715218bd9517",
+      "rizzstack": "f70754cce953117bf734588ec1a6f833b2009324"
+    },
+    "brief_heads_now_ancestors": {
+      "hyvv": {
+        "brief_head": "47d25c2",
+        "current_main": "961a8bce501d0ce38922baeb6e5c10347d1f7efd",
+        "ahead_by": 3,
+        "note": "Compare API: status ahead, 3 ahead, 0 behind on 2026-11-16; the brief's head is a valid ancestor but no longer main."
+      },
+      "rizzstack": {
+        "brief_head": "5bf5174",
+        "current_main": "f70754cce953117bf734588ec1a6f833b2009324",
+        "ahead_by": 1,
+        "note": "Compare API: status ahead, 1 ahead, 0 behind on 2026-11-16."
+      }
+    },
+    "verified_chain": {
+      "bundlebees": "2084222 is an ancestor of main e7f95ca (3 ahead, 0 behind); d0e41b5 is an ancestor of main e7f95ca (7 ahead, 0 behind). The claimed chain resolves onto the current head."
+    }
+  },
+  "live_ci": {
+    "verified_on": "2026-11-16",
+    "workflow": {
+      "head": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+      "run": "43869972734",
+      "conclusion": "success",
+      "checks": 14,
+      "failing": []
+    },
+    "bundlebees": {
+      "head": "e7f95ca5bfba96734ab5dba89aced9b1fbbd6d30",
+      "conclusion": "success",
+      "checks": 4,
+      "failing": [],
+      "note": "gitleaks, tests (sandbox included), orbit round trip (real Orbit API, required), hermes plugins doctor (offline) all success."
+    },
+    "hyvv": {
+      "head": "961a8bce501d0ce38922baeb6e5c10347d1f7efd",
+      "conclusion": "success",
+      "checks": 14,
+      "failing": []
+    },
+    "orbitdesktop": {
+      "head": "ace2eb0009af4fccc510ca569bb9715218bd9517",
+      "conclusion": "failure",
+      "checks": 11,
+      "failing": ["workbench", "Workbench / core", "test"]
+    },
+    "memory_contract_pr50": {
+      "head": "39f340c6acf2fd09c03553e12adc306931b68b3a",
+      "state": "open",
+      "protocol_checks": "success (bee-ci/reference, bee-ci/project-state, feature packet, bee-landed, return manifest, recovery protocol, campaign report, observability, cold-start acceptance, reference demo)",
+      "failing": ["gitleaks", "bee-ci/secret-scan"],
+      "run": "43943932096",
+      "note": "Issue #50 discloses these gitleaks-class failures as expected while #40 is open; the merge gate the issue itself states (CI green at the exact head) is NOT satisfied."
+    }
+  },
+  "classification_levels": {
+    "SPECIFIED": "Normative text and/or schema exists in an inspected repo (or on a named branch); no implementation in any audited default branch; no runtime evidence.",
+    "IMPLEMENTED+TESTED": "Implementation exists and its named tests pass in this audit run (workflow side) or are named with a proof level in a durable record (upstream side); the audit flags which side it re-ran itself.",
+    "INTEGRATED": "Two or more components' conformance to each other is evidenced by records the auditor holds: real cross-component artifacts archived in an inspected repo, cross-repo CI pins that ran green, or same-head code on both sides whose contract constants match as verified in this audit.",
+    "DEPLOYED": "Durable evidence the system is installed and operating on a host, recorded by a party at a named time; not necessarily re-observable now.",
+    "VERIFIED-IN-OPERATION": "Deployed AND observed working end-to-end with recorded runtime output (an acceptance run, a CI run ID, captured real records) at a named head and time."
+  },
+  "runtime_probes": [
+    {
+      "probe": "Coordinator plugin state ~/.hermes (plugin-data, plugin-state, usage ledger)",
+      "result": "ABSENT - /home/cua/.hermes does not exist",
+      "separates": "deployed vs verified-in-operation: the coordinator store is deployed on the coordinator host per records, not in this environment"
+    },
+    {
+      "probe": "systemd user units matching rizzstack/obs/bee",
+      "result": "NONE - systemctl --user list-units --all returns no matching unit; usage-ingest.service is not installed here",
+      "separates": "deployed vs verified-in-operation: the ingest unit exists in orbitdesktop main at ace2eb0 but is not installed in this environment"
+    },
+    {
+      "probe": "Listening sockets (ss -tlnp)",
+      "result": "ONLY cua-spacesd:3211 and opencode:4096 - no observability collector (8787), no Observatory server, no launcher endpoint",
+      "separates": "verified-in-operation: nothing in the rizzstack stack is serving in this environment"
+    },
+    {
+      "probe": "Launcher/ingest state paths (~/.orbit-launcher/attempts, ~/.local/state/bee/usage-ingest-status.json, ~/.local/state/bee/usage.jsonl)",
+      "result": "ABSENT - none of the launcher receipt, status-JSON or ledger paths exist",
+      "separates": "deployed vs verified-in-operation: the ingest service's status JSON cannot be read here; the deployed claim rests on records, not this probe"
+    },
+    {
+      "probe": "Sibling repositories (bundlebees, hyvv, orbitdesktop, rizzstack checkouts on this filesystem)",
+      "result": "ABSENT - no checkouts anywhere under the reachable tree; upstream state was verified through the GitHub API instead",
+      "separates": "audit constraint: upstream code/tests were verified at named heads via API, not re-run locally"
+    },
+    {
+      "probe": "Local pytest/jsonschema availability",
+      "result": "INSTALLED during the audit (pytest 9.2.0, jsonschema 4.26.0) - required to run the suite at all",
+      "separates": "audit constraint: the environment was missing the test stack; six pre-existing failures stem from the squashed history, not from the audited code"
+    }
+  ],
+  "systems": [
+    {
+      "id": "bee-landed",
+      "name": "Bee-landed events (rizzstack.bee-landed/1, CloudEvents rizzstack.bee.landed.v1)",
+      "brief_reference": "bee-landed events + usage payloads",
+      "classification": "INTEGRATED",
+      "level_rationale": "Implemented and tested in the workflow protocol repo (this audit re-ran the suite green at the audited head), and integrated with the runtime: bundlebees main's emitter constants match the workflow contract exactly (SCHEMA/EVENT_TYPE verified at named heads), and the outbox-to-consumer wiring is documented on the consumer side. No live event stream was observable in this environment, so VERIFIED-IN-OPERATION is not claimed.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/29-bee-landed.md", "lines": "1-203", "note": "normative chapter; LANDED != VERIFIED != ACCEPTED at lines 20-43; refusal codes lines 164-185"},
+          {"path": "schemas/bee-landed.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "tools/bee_landed.py", "lines": "345,365", "note": "validate() and dedupe_key()"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/bee_events.py", "lines": "91-97", "note": "SCHEMA = \"rizzstack.bee-landed/1\", EVENT_TYPE = \"rizzstack.bee.landed.v1\" - matches the workflow contract; adds delivery/ack/subscriber schemas beyond it; its docs/bee-events.md example shows a stale dotted schema and a non-terminal \"landed\" state that the code and the workflow validator would refuse - doc skew, flagged"}
+        ],
+        "tests": [
+          {"name": "tests/test_bee_landed.py", "count": 45, "examples": ["test_the_exact_landing_validates", "test_the_dedupe_key_is_sha256_of_attempt_state_and_transition"]},
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_cross_repo_landing.py", "count": null},
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_bee_landing_e2e.py", "count": null}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 workflow CI run 43869972734 success at the audited head; the bee-landed required job ran green. No live event outbox exists in this environment (~/.hermes absent)."
+        ],
+        "upstream_records": [
+          "orbitdesktop@ace2eb0 contrib/rizzstack-observability/README.md names the coordinator outbox path ~/.hermes/plugin-data/bundlebees/events/outbox/ as a durable rizzstack.bee.landed.v1 source for the ingest service"
+        ]
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "bundlebees docs/bee-events.md example disagrees with its own code and with the workflow schema (dotted schema const, non-terminal state) - doc skew to fix upstream",
+        "no examples shipped under schemas/examples/bee-landed* (the CI job handles absence)"
+      ]
+    },
+    {
+      "id": "usage-payloads",
+      "name": "Usage payloads (bee.usage/v1 ledger)",
+      "brief_reference": "bee-landed events + usage payloads",
+      "classification": "INTEGRATED",
+      "level_rationale": "The frozen usage contract and the whole ingest/ledger/report stack are merged on orbitdesktop main (verified at ace2eb0; the freeze commit 1617ae0 is an ancestor), the workflow collector consumes the same bee.usage/v1 discriminator (verified same-head on both sides), and the ingest service is wired to the bee-landed outbox. Nothing is deployed or running in this environment, so the level stops at INTEGRATED.",
+      "evidence": {
+        "spec": [
+          {"path": "observability/README.md", "lines": "31-40,89-111", "note": "envelope discriminator; usage record deliberately NOT defined here; frozen upstream at 1617ae0"},
+          {"path": "upstream:orbitdesktop@ace2eb0:pc-launcher/usage-schema.v1.json", "lines": "3,66", "note": "$id and const \"bee.usage/v1\" - matches the workflow envelope table"}
+        ],
+        "implementation": [
+          {"path": "contrib/rizzstack-observability/collector.py", "lines": "547", "note": "usage_section() aggregates a bee.usage/v1 JSONL ledger"},
+          {"path": "upstream:orbitdesktop@ace2eb0:pc-launcher/scripts/usage_ingest_service.py", "lines": "1-end", "note": "ingest service with backfill/once/run modes; launcher receipts and coordinator outbox sources"},
+          {"path": "upstream:orbitdesktop@ace2eb0:contrib/rizzstack-observability/usage-ingest.service", "lines": "1-30", "note": "hardened systemd user unit, 15-minute cadence, writes ~/.local/state/bee/usage.jsonl and usage-ingest-status.json"}
+        ],
+        "tests": [
+          {"name": "tests/test_obs_snapshot.py::ObsSnapshotTests::test_usage_aggregates_and_preserves_unknowns", "count": null},
+          {"name": "upstream:orbitdesktop@ace2eb0:pc-launcher/tests/test_usage_ledger.py", "count": null},
+          {"name": "upstream:orbitdesktop@ace2eb0:pc-launcher/tests/test_usage_wiring.py", "count": null}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-16 probe - no ~/.orbit-launcher/attempts, no ~/.local/state/bee/usage.jsonl, no usage-ingest-status.json, no systemd unit in this environment; the deployed claim rests on upstream records, not this probe"
+        ],
+        "upstream_records": [
+          "orbitdesktop@ace2eb0 contrib/rizzstack-observability/README.md: deployed collector reads the same ledger path; ingest fed from launcher receipts or the Hermes outbox"
+        ]
+      },
+      "verified_here": false,
+      "open_gaps": [
+        "orbitdesktop CI is RED at ace2eb0 (workbench, Workbench / core, test) - the usage stack's home repo does not currently show a green head",
+        "no real ledger row is archived in any inspected repo; only the synthetic fixture exists"
+      ]
+    },
+    {
+      "id": "attempt-records",
+      "name": "Attempt/worker execution records (job documents, attempts, verify results, waves)",
+      "brief_reference": "attempt/worker execution records",
+      "classification": "INTEGRATED",
+      "level_rationale": "The runtime records exist upstream with named Level-A tests (durable record docs/23), real runtime output from bundlebees 191dc85 is archived byte-for-byte in this repo's conformance fixtures, and the workflow collector consumes the job/verify-record shapes. The audit did not re-run the bundlebees suite, so the level stops at INTEGRATED.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/13-bundlebees-hardening.md", "lines": "24-38,69-75", "note": "verify record, waves/<id>.json, metrics JSONL"},
+          {"path": "docs/23-autonomy-devplan.md", "lines": "53-60", "note": "M1-M3, P2-P4 rows with named test files and merge commits"}
+        ],
+        "implementation": [
+          {"path": "contrib/rizzstack-observability/collector.py", "lines": "820,1175", "note": "pipeline_section reads jobs/*.json; failures_section reads verify-results/*.json"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/job.py", "lines": "1-end", "note": "job store present on main; tree verified via API"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/reconcile.py", "lines": "1-end"}
+        ],
+        "tests": [
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_queue_two_features_e2e.py", "count": null, "note": "named in docs/23:58 as the P2 Level-A proof"},
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_crash_recovery_e2e.py", "count": null, "note": "named in docs/24 §4.4"},
+          {"name": "tests/test_runtime_conformance.py", "count": 26, "examples": ["test_the_captured_records_are_byte_identical_to_what_the_runtime_wrote"]}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-14 real bundlebees records captured byte-for-byte at 191dc85 (tests/fixtures/runtime/README.md provenance table; captured-request.json sha256 da6f6300..., captured-decision.json bc95fe8c...) - real attempt/execution output archived in this repo",
+          "RUNTIME: 2026-11-12 acceptance run recorded 3 dispatches, verify results and a wave record (acceptance/results/2026-11-12-first-run/REPORT.md steps 4-8)",
+          "RUNTIME: 2026-11-14/15 docs/31 §31.1 counted 22 lease files and 15 job documents in the durable store on the coordinator host"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "the local jobs/verify-results fixtures under tests/fixtures/observability-state/ are synthetic; no live record is readable in this environment"
+      ]
+    },
+    {
+      "id": "recovery-digests",
+      "name": "Recovery digests (rizzstack.recovery/1 request/decision, request_digest sealing)",
+      "brief_reference": "recovery digests",
+      "classification": "INTEGRATED",
+      "level_rationale": "Implemented and tested in workflow (this audit re-ran 90+26 tests green), and integrated with the real runtime: the archived pre-conformance captures are genuine bundlebees output, the canonical pair derived from them validates, and bundlebees main carries a matching recovery module (SCHEMA const verified at named head).",
+      "evidence": {
+        "spec": [
+          {"path": "docs/27-recovery-protocol.md", "lines": "22-30,131-143,286-310", "note": "schemas/tests pointers, sealing, refusal codes"},
+          {"path": "schemas/recovery.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "tools/recovery.py", "lines": "120,136,277,426,435", "note": "request_digest, seal_request, validate_decision, validate_pair, recovery_entry"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/recovery.py", "lines": "100", "note": "SCHEMA = \"rizzstack.recovery/1\" - matches workflow"}
+        ],
+        "tests": [
+          {"name": "tests/test_recovery_protocol.py", "count": 90, "examples": ["test_a_decision_digest_of_its_own_is_refused_alone"]},
+          {"name": "tests/test_runtime_conformance.py", "count": 26, "examples": ["test_the_canonical_pair_validates_with_validate_pair", "test_the_captured_request_is_refused_and_every_extra_field_is_named"]}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-14 M4 dogfood - the captured request/decision pair is real runtime output from job_m4_dogfood/T2/att_m4_2 (tests/fixtures/runtime/README.md provenance table)",
+          "RUNTIME: 2026-11-13/14 docs/24 §4.2 records three supervised real-model decisions (5.3 s, 5.4 s, 5.9 s, all supersede) and §4.3 the 39.2 s wake-up - Level B, outside CI"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "cost stays UNKNOWN by design (docs/27 Limits); no pricing feed"
+      ]
+    },
+    {
+      "id": "feature-packets",
+      "name": "Feature packets + ACDD source resolution (rizzstack.feature-packet/1 and /2, rizzstack.source-resolution/1)",
+      "brief_reference": "feature packets + ACDD contracts",
+      "classification": "INTEGRATED",
+      "level_rationale": "Implemented and tested in workflow (this audit re-ran 36+18 tests green, minus the two pin tests that fail only because this clone has no history), and integrated into the runtime: bundlebees main's packets.py loads the pinned workflow validator itself and seals packet bytes into the job - single-source-of-truth enforcement verified at named heads.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/25-feature-packet.md", "lines": "17-19,43-65,117-131", "note": "shape, validation refusals, two-stage resolution"},
+          {"path": "schemas/feature-packet.schema.json", "lines": "1-end"},
+          {"path": "schemas/source-resolution.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "tools/feature_packet.py", "lines": "89,154,250,281", "note": "packet_digest, validate, admit, validate_source_resolution"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/packets.py", "lines": "1-30", "note": "loads the pinned workflow validator (WORKFLOW_SRC); persists the intent packet byte-for-byte under <state>/packets/<job_id>.json and seals its SHA-256 into the job"}
+        ],
+        "tests": [
+          {"name": "tests/test_feature_packet.py", "count": 36, "examples": ["test_the_examples_pin_one_real_schema_bearing_ancestor"]},
+          {"name": "tests/test_multi_dependency.py", "count": 18, "examples": ["test_f14_builds_on_merged_orbit_26_and_30_for_chips_feed_and_smoke"]},
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_packet_enforcement.py", "count": null}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 workflow CI run 43869972734 - the feature-packet required job ran green at the audited head"
+        ],
+        "upstream_records": [
+          "docs/23:58 P2 records bundlebees test_queue_two_features_e2e.py (5 tests, real git + real hyvv HTTP + gitleaks) as the production A-to-B packet handoff"
+        ]
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "two pin tests fail in this checkout because the clone is a single squashed commit with no ancestry; they pass upstream (CI green at 9f6aa6d)"
+      ]
+    },
+    {
+      "id": "acdd-contracts",
+      "name": "ACDD contracts + TDD evidence (acdd/1, tdd-evidence/1)",
+      "brief_reference": "feature packets + ACDD contracts",
+      "classification": "INTEGRATED",
+      "level_rationale": "Implemented in workflow (reference demo enforces contract-first by default; acdd-lint checks evidence), tested in CI (this audit re-ran the reference job's checks green at the audited head), and integrated across repos: real RED/GREEN evidence from bundlebees and orbitdesktop builds is archived in evidence/2026-11-12-acdd-build/, and workflow CI pins a bundlebees SHA and REQUIRES ACDD against it.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/16-acdd-tdd.md", "lines": "31-65,100-110", "note": "contract fields, freezing by hash, RED/GREEN/REFACTOR validity"},
+          {"path": "schemas/acdd-contract.schema.json", "lines": "1-end"},
+          {"path": "schemas/tdd-evidence.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "reference/workflow/acdd.py", "lines": "1-end"},
+          {"path": "reference/workflow/tdd.py", "lines": "1-end"},
+          {"path": "tools/acdd-lint/acdd_lint/cli.py", "lines": "1-end", "note": "zero-dependency checker"},
+          {"path": "reference/workflow/contract.py", "lines": "54-67", "note": "teaching-only unkeyed lease fingerprints"}
+        ],
+        "tests": [
+          {"name": "reference/tests/test_acdd.py", "count": null},
+          {"name": "reference/tests/test_tdd.py", "count": null},
+          {"name": "tools/acdd-lint/tests/test_cli.py", "count": null}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-12 evidence/2026-11-12-acdd-build/README.md records real RED/GREEN runs for WF1/WF2 (workflow) and slices BC1-BC5 (bundlebees PR #5), OR1 (orbitdesktop PR #26) - contracts frozen, tests written first, coordinator re-ran everything",
+          "LIVE-VERIFIED: 2026-11-16 workflow CI run 43869972734 - reference job green; cold-start acceptance green with BUNDLEBEES_SHA 39602ff pinned and ACCEPTANCE_ACDD=require (.github/workflows/ci.yml:106-114)"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "docs/16:151-153 still says the bundlebees enforcement is on feat/acdd-tdd under review - ROADMAP.md:20-21 records bundlebees #5 merged as 2f83ae4; the chapter status line is stale relative to the merged state it elsewhere documents"
+      ]
+    },
+    {
+      "id": "return-manifests",
+      "name": "RETURN manifests (rizzstack.return/1)",
+      "brief_reference": "RETURN manifests",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "Implemented and tested in workflow (this audit re-ran 49 tests green at the audited head; two pin tests fail only from the squashed clone), with a matching upstream implementation verified at named head. No real runtime-produced manifest is archived in any inspected repo, so INTEGRATED is not claimed.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/26-return-manifest.md", "lines": "15-18,55-76,80-90", "note": "pointers, digest, pending receiver decision"},
+          {"path": "schemas/return-manifest.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "tools/return_manifest.py", "lines": "78,83,145", "note": "evidence_digest, seal, validate"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/return_report.py", "lines": "65", "note": "RETURN_SCHEMA = \"rizzstack.return/1\" - matches workflow"}
+        ],
+        "tests": [
+          {"name": "tests/test_return_manifest.py", "count": 49, "examples": ["test_evidence_digest_matches_an_independent_oracle", "test_a_filled_receiver_decision_is_refused"]},
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_return_report.py", "count": null}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 workflow CI run 43869972734 - the return-manifest required job ran green at the audited head"
+        ],
+        "upstream_records": [
+          "docs/23:60 P4 records bundlebees job report --verify and test_return_report.py as the P4 Level-A proof"
+        ]
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "the one test failing in this checkout (test_the_examples_pin_one_schema_bearing_ancestor) needs real git history; it is green in the verified upstream run"
+      ]
+    },
+    {
+      "id": "review-findings",
+      "name": "Independent review findings (Nov-12 review record; AF-### audit findings in campaign reports)",
+      "brief_reference": "independent review findings",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "The durable findings mechanism (audit findings with stable ids and exactly one disposition) is implemented and tested in the campaign-report validator; the Nov-12 independent review that motivated it survives only as prose and is explicitly not reproducible from any repository - recorded as the gap rather than upgraded.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/19-coordinator-playbook.md", "lines": "168,200", "note": "bounded independent review beats self-review; superseded approvals"},
+          {"path": "docs/30-campaign-closeout.md", "lines": "83-105,174-186", "note": "audit status clean/findings/not_run, AF-### ids, dispositions, validator codes"}
+        ],
+        "implementation": [
+          {"path": "tools/campaign_report.py", "lines": "431", "note": "_audit_finding validation"},
+          {"path": "docs/28-agent-lessons.md", "lines": "96-104", "note": "L-05 records the review; line 104 states the findings are recorded, not reproducible from this repository"}
+        ],
+        "tests": [
+          {"name": "tests/test_campaign_report.py", "count": 100, "examples": ["test_a_clean_audit_that_reports_findings_is_refused", "test_a_finding_with_two_dispositions_is_refused"]}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 workflow CI run 43869972734 - the campaign-report protocol job ran green at the audited head"
+        ],
+        "upstream_records": [
+          "ROADMAP.md:12-13 records the merge order as recommended by the independent review of 2026-11-12; ci.yml:74-76 records the observability job as added by that review"
+        ]
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "the individual Nov-12 findings have no durable machine-readable record anywhere in the audited repos - they were applied, not archived"
+      ]
+    },
+    {
+      "id": "ci-receipts",
+      "name": "CI/verification receipts (required contexts, protocol jobs, acceptance runs, bee-ci shadow evidence)",
+      "brief_reference": "CI/verification receipts",
+      "classification": "VERIFIED-IN-OPERATION",
+      "level_rationale": "Observed working during this audit: the workflow CI run at the exact audited head completed success with all 14 checks green (verified live via the check-runs API), the receipt-producing machinery is fully in-repo, and the repo also archives a real cross-repo acceptance receipt and historical run IDs. The one thing not provable from here is branch protection itself.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/CI.md", "lines": "3-8,16-24", "note": "required contexts bee-ci/reference, bee-ci/project-state, bee-ci/secret-scan and the gate mapping"},
+          {"path": ".github/workflows/ci.yml", "lines": "139-160,162-190,213-236,238-272,274-331", "note": "protocol required jobs and the gate jobs"}
+        ],
+        "implementation": [
+          {"path": "contrib/bee-ci/verify_result.py", "lines": "1-end", "note": "the only success gate in the shadow harness; fail-closed"},
+          {"path": "contrib/bee-ci/evidence.py", "lines": "1-end", "note": "frozen bee-ci/evidence/v1 index, append-only, first-write-wins"},
+          {"path": "acceptance/cold_start.sh", "lines": "1-end", "note": "the cold-start acceptance script"}
+        ],
+        "tests": [
+          {"name": "contrib/bee-ci/tests/test_evidence.py", "count": null},
+          {"name": "tests/test_cold_start_diagnosis.py", "count": 3}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 workflow CI run 43869972734 at 9f6aa6dc - completed success, 14/14 checks green (checked via the GitHub check-runs API during this audit)",
+          "RUNTIME: 2026-11-12 acceptance receipt archived in-repo: acceptance/results/2026-11-12-first-run/REPORT.md - PASS, 10/10 steps, bundlebees 509649b, workflow 183813f, real bubblewrap sandbox, 0 manual interventions",
+          "RUNTIME: 2026-11-15 docs/31 §31.7 records workflow CI run 43719698748 at 57cea41 (14/14) and bundlebees run 43719698698 at 817b7ee (1324 passed, 7 skipped, 4/4 green)"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "branch protection / ruleset enforcement of the required contexts is not inspectable from this checkout (docs/CI.md boundaries state the workflow never configures it)",
+        "the bee-ci shadow harness posts nothing and gates nothing by design (contrib/bee-ci/README.md:1-22)"
+      ]
+    },
+    {
+      "id": "action-queue",
+      "name": "Coordinator action queue (bundlebees.coordinator-actions/1; durable feature queue)",
+      "brief_reference": "coordinator action queue",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "The fenced, durable action queue is implemented on bundlebees main with its design doc and tests, and the workflow side consumes the queue's observable shapes (backlog fixture); but no real queue record is archived in an inspected repo, so the level stops at IMPLEMENTED+TESTED.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/19-coordinator-playbook.md", "lines": "49-57,259-267", "note": "the intake loop's todo queue and the memory/state rules (prose practice)"},
+          {"path": "docs/23-autonomy-devplan.md", "lines": "58", "note": "P2: production A-to-B handoff through the queue and mirror"}
+        ],
+        "implementation": [
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/coordinator_actions.py", "lines": "1-end", "note": "lease-and-fence queue, fsynced fencing counter, bundlebees.coordinator-actions/1"},
+          {"path": "upstream:bundlebees@e7f95ca:docs/coordinator-actions.md", "lines": "1-45", "note": "durable layout, Kleppmann fencing design"},
+          {"path": "contrib/rizzstack-observability/collector.py", "lines": "979", "note": "backlog_section reads queue.json"},
+          {"path": "tests/fixtures/observability-state/state/queue.json", "lines": "1-end", "note": "synthetic shape fixture"}
+        ],
+        "tests": [
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_queue.py", "count": null},
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_queue_two_features_e2e.py", "count": null}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 bundlebees CI at e7f95ca green (4/4 checks incl. tests sandbox and the real-Orbit round trip) - the queue code sits on a green main"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": false,
+      "open_gaps": [
+        "the coordinator playbook's todo queue is practice prose with no machine-readable record in any audited repo",
+        "issue #40 (open) references the fenced action queue as an existing boundary for Rails feedback - consistent with the upstream implementation, unverifiable beyond code"
+      ]
+    },
+    {
+      "id": "obs-snapshots",
+      "name": "Observability snapshots (rizzstack.observability/snapshot/1 + the read-only collector)",
+      "brief_reference": "observability snapshots",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "Schemas, envelope normalization and the collector are implemented in workflow and this audit re-ran their suites green at the audited head (33 collector tests plus the observability package suite). The serve mode is tested against test doubles; nothing is serving in this environment, so DEPLOYED is not claimed.",
+      "evidence": {
+        "spec": [
+          {"path": "observability/README.md", "lines": "8-14,24,56-87", "note": "status: frozen record formats, not a working pipeline; alert thresholds"},
+          {"path": "observability/schemas/snapshot.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "contrib/rizzstack-observability/collector.py", "lines": "402,445,547,820,979,1033,1175", "note": "Collector with fleet/usage/pipeline/backlog/ci/failures/health sections"},
+          {"path": "observability/envelope.py", "lines": "35,54", "note": "record_type and normalize"},
+          {"path": "observability/alerts.py", "lines": "1-end", "note": "threshold loading/merging"}
+        ],
+        "tests": [
+          {"name": "tests/test_obs_snapshot.py", "count": 33, "examples": ["test_serves_validating_snapshot", "test_collector_writes_nothing", "test_refuses_non_loopback_bind"]},
+          {"name": "observability/tests/test_envelope.py", "count": null},
+          {"name": "observability/tests/test_schemas.py", "count": null}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-16 probe - nothing listens on 8787 or any rizzstack port; the systemd template contrib/rizzstack-observability/rizzstack-obs-collector.service is uninstalled here"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "the workflow collector's fleet/ci sections shell out to `hermes` and `gh`, which do not exist in this environment; those sections degrade to unavailable by design"
+      ]
+    },
+    {
+      "id": "observatory",
+      "name": "The Observatory (orbitdesktop apps/rizzstack-observatory viewer)",
+      "brief_reference": "is the Observatory actually serving",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "A catalog-admissible static viewer for rizzstack.observability/snapshot/1 exists merged on orbitdesktop main with tests and an extension - verified at named head via the API - but its repo's CI is currently RED at that head and nothing serves it in this environment, so the level stops at IMPLEMENTED+TESTED and ROADMAP's stale not-merged claim is corrected.",
+      "evidence": {
+        "spec": [
+          {"path": "upstream:orbitdesktop@ace2eb0:extensions/rizzstack-observatory/README.md", "lines": "1-40", "note": "what it renders; snapshot document shape; catalog admission rules"},
+          {"path": "ROADMAP.md", "lines": "89", "note": "STALE: says the Orbit observatory app is not merged; it is merged at ace2eb0"}
+        ],
+        "implementation": [
+          {"path": "upstream:orbitdesktop@ace2eb0:apps/rizzstack-observatory/app.js", "lines": "1-40", "note": "SNAPSHOT_SCHEMA = rizzstack.observability/snapshot/1; bearer token in localStorage only; no logging"},
+          {"path": "upstream:orbitdesktop@ace2eb0:apps/rizzstack-observatory/index.html", "lines": "1-30"},
+          {"path": "upstream:orbitdesktop@ace2eb0:extensions/rizzstack-observatory/README.md", "lines": "1-end"}
+        ],
+        "tests": [
+          {"name": "upstream:orbitdesktop@ace2eb0:tests/test_rizzstack_observatory.py", "count": null, "note": "tests exist upstream; orbitdesktop CI is RED at ace2eb0 (workbench, Workbench / core, test), so the green claim cannot be made for this head"}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-16 probe - no Observatory process or port in this environment; it is a static bundle that fetches a snapshot URL, so serving requires a deployed collector plus Orbit, neither present here"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": false,
+      "open_gaps": [
+        "orbitdesktop main CI is RED at ace2eb0 - three failing checks (workbench, Workbench / core, test)",
+        "workflow ROADMAP.md:89 still says the observatory app is not merged; superseded by the ace2eb0 tree"
+      ]
+    },
+    {
+      "id": "campaign-report-format",
+      "name": "Campaign closeout record format (rizzstack.campaign-report/1)",
+      "brief_reference": "campaign records",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "Schema, validator, template and 100 tests implemented in workflow; this audit re-ran the suite green and validated the example; the CI job is additive and explicitly not a required context.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/30-campaign-closeout.md", "lines": "36-49,131-155,157-198", "note": "four states, closeout sequence, validator refusals"},
+          {"path": "schemas/campaign-report.schema.json", "lines": "1-end"}
+        ],
+        "implementation": [
+          {"path": "tools/campaign_report.py", "lines": "114-431", "note": "validator with stable refusal codes"},
+          {"path": "templates/CAMPAIGN-REPORT.md", "lines": "1-end"}
+        ],
+        "tests": [
+          {"name": "tests/test_campaign_report.py", "count": 100, "examples": ["test_a_passing_test_criterion_whose_recorded_run_failed_is_refused"]}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-15 docs/31 §31.7 records the campaign-report job green in workflow CI run 43719698748 at 57cea41 (48 tests at that commit)"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "the campaign-report CI job is deliberately NOT a required context (docs/30 note in ci.yml:197-198)"
+      ]
+    },
+    {
+      "id": "campaign-records-store",
+      "name": "Coordinator campaign records store (~/.hermes/plugin-data/bundlebees/campaigns/ and plugin state)",
+      "brief_reference": "campaign records",
+      "classification": "DEPLOYED",
+      "level_rationale": "Durable in-repo records describe the store's real operational contents as of 2026-11-14/15 (22 lease files, 15 job documents, the dogfood-plan-recovery archive), which justifies DEPLOYED; the store is absent in this environment, so nothing higher can be claimed and it cannot be re-verified here.",
+      "evidence": {
+        "spec": [
+          {"path": "plans/packets/README.md", "lines": "3-7", "note": "names ~/.hermes/plugin-data/bundlebees/campaigns/ as the archive location; records that this checkout cannot reach it"},
+          {"path": "docs/31-campaign-continuity.md", "lines": "49-54,77-98", "note": "what must be durable; the counted lease/job state"}
+        ],
+        "implementation": [
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/campaign.py", "lines": "1-end", "note": "campaign checkpoint module on main"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/campaign_cli.py", "lines": "1-end", "note": "init|status|reconcile|resume-plan"}
+        ],
+        "tests": [
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_campaign_continuity.py", "count": null, "note": "18 passed recorded in docs/31 §31.7"}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-15 docs/31 §31.1 - the bundlebees lease directory held 22 lease files naming mojomast/jackpotsyndicate and the job directory held 15 smoke-* job documents, counted in the durable store on the coordinator host",
+          "RUNTIME: 2026-11-16 probe - ~/.hermes absent in this environment; the store cannot be read or re-counted here"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": false,
+      "open_gaps": [
+        "the dogfood-plan-recovery archive (F1-F10 packets, recovered plan) is unreachable from this checkout - the Wave-4 packets' provenance discloses this (plans/packets/README.md:34-40)"
+      ]
+    },
+    {
+      "id": "lease-payloads",
+      "name": "Lease-payload generation (HMAC-signed coordinator leases)",
+      "brief_reference": "lease-payload generation",
+      "classification": "VERIFIED-IN-OPERATION",
+      "level_rationale": "Recorded end-to-end operational demonstration: the archived 2026-11-12 acceptance run generated three signed leases and the verifier rejected an out-of-lease violation with scope_violation against real bundlebees 509649b in a real bubblewrap sandbox. Upstream hardening (O_EXCL, 0400, HMAC) is specified with named tests; the teaching-only unkeyed variant is honestly labeled.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/13-bundlebees-hardening.md", "lines": "51-59", "note": "immutable coordinator lease: O_EXCL, mode 0400, HMAC-SHA256; lease_missing/lease_tampered refusals"},
+          {"path": "reference/workflow/contract.py", "lines": "3-7,54-67", "note": "teaching-only unkeyed SHA-256 fingerprints; the doc says to use the HMAC lease for real enforcement"}
+        ],
+        "implementation": [
+          {"path": "acceptance/harness.py", "lines": "22-33,296-300", "note": "dispatches with signed leases and provokes the out-of-lease violation"},
+          {"path": "upstream:bundlebees@e7f95ca:bundlebees_plugin/leases.py", "lines": "1-end", "note": "lease module present on main; tree verified via API"}
+        ],
+        "tests": [
+          {"name": "upstream:bundlebees@e7f95ca:tests/test_leases.py", "count": null}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-12 acceptance run (acceptance/results/2026-11-12-first-run/REPORT.md steps 4-7): signed leases att-W1/W2/W3 generated; W3's out-of-lease edit rejected with rc=1 code=scope_violation; worker claim of a wider lease refused"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "the reference demo's fingerprints are unkeyed by design and must never be presented as enforcement"
+      ]
+    },
+    {
+      "id": "deploy-provenance",
+      "name": "Deploy/version provenance (pins, recorded heads, rollback rules)",
+      "brief_reference": "deploy/version provenance",
+      "classification": "IMPLEMENTED+TESTED",
+      "level_rationale": "The provenance machinery is implemented and exercised: CI pins exact SHAs (and the acceptance job pins a bundlebees commit while requiring ACDD), acceptance runs record exact commits, and durable records carry run IDs and heads. The host-deploy rules are specified only; no rizzstack deployment is recorded anywhere, so DEPLOYED is not claimed.",
+      "evidence": {
+        "spec": [
+          {"path": "docs/05-infrastructure-hosting-networking.md", "lines": "122-130", "note": "deploy and rollback rules: backup first, exact approved SHA, verify the real thing, roll back on failure"},
+          {"path": "docs/13-bundlebees-hardening.md", "lines": "7-18", "note": "status table: code at c10aa42 untagged, v0.1.1 latest release"}
+        ],
+        "implementation": [
+          {"path": ".github/workflows/ci.yml", "lines": "105-114", "note": "BUNDLEBEES_REF main, BUNDLEBEES_SHA 39602ff... pinned, ACCEPTANCE_ACDD require, deliberate-pin comment"},
+          {"path": "acceptance/results/2026-11-12-first-run/REPORT.md", "lines": "12-18", "note": "records workflow 183813f and bundlebees 509649b for that run"},
+          {"path": "acceptance/results/README.md", "lines": "3-7", "note": "the acceptance-runs table records harness and bundlebees commits per run"}
+        ],
+        "tests": [
+          {"name": "tests/test_cold_start_diagnosis.py", "count": 3, "note": "keeps the ACDD acceptance harness input honest"}
+        ],
+        "runtime_observations": [
+          "LIVE-VERIFIED: 2026-11-16 - upstream workflow/bundlebees/hyvv/orbitdesktop heads and their CI conclusions verified via the GitHub API during this audit (see heads and live_ci)"
+        ],
+        "upstream_records": [
+          "docs/23 §4 pins WORKFLOW_SRC 070b6c1 and HYVV_SRC 5bee1a8 for the bundlebees CI; docs/31 §31.7 records CI runs with exact heads (57cea41, 817b7ee)",
+          "ROADMAP.md:76 records hyvv as the current 0.1.15 launcher line; no deployed-version probe of that launcher exists in any inspected repo"
+        ]
+      },
+      "verified_here": true,
+      "open_gaps": [
+        "no rizzstack component has a recorded deployment; the bundlebees hardening work is explicitly untagged (v0.1.1 remains latest)",
+        "the pinned bundlebees acceptance SHA 39602ff and the docs' c10aa42 differ - both are real pins at different times; the pin is deliberate and commented in CI"
+      ]
+    },
+    {
+      "id": "memory-contract",
+      "name": "Memory contract (rizzstack.memory/1, workflow issue/PR #50)",
+      "brief_reference": "the memory contract (workflow #50 rizzstack.memory/1)",
+      "classification": "SPECIFIED",
+      "level_rationale": "The contract exists as a draft normative chapter, a JSON Schema and a conformance oracle on the open PR branch feat/memory-contract at 39f340c6 (verified via the GitHub API; the schema's const is rizzstack.memory/1), with a recorded in-jail verify GREEN. It is NOT merged into any audited default branch - a grep over the audited tree finds zero rizzstack.memory artifacts - the vault service, capture hooks and distillation runner are design-only per the contract's own gaps table, and CI at the PR head is failing the secret-scan class, so even the issue's own merge gate is unsatisfied. SPECIFIED is the highest level the evidence supports.",
+      "evidence": {
+        "spec": [
+          {"path": "upstream:workflow@feat/memory-contract(39f340c6):docs/memory-contract.md", "lines": "1-40,265-286", "note": "chapter 32, rizzstack.memory/1; the gaps table: vault service, FTS5/embeddings, capture/distill are design-only"},
+          {"path": "upstream:workflow@feat/memory-contract(39f340c6):schemas/memory-schema.v1.json", "lines": "1-60", "note": "const \"rizzstack.memory/1\"; frontmatter record, operation envelopes under $defs"},
+          {"path": "upstream:workflow issue/PR #50 (body)", "lines": "1-20", "note": "verify GREEN att_5369386df80e4094, r2, firejail, sha 39f340c6...; r1 refused secret_detected; merge gate: independent review + CI green at exact head; joins the #40-blocked queue"}
+        ],
+        "implementation": [
+          {"path": "upstream:workflow@feat/memory-contract(39f340c6):tests/test_memory_contract.py", "lines": "1-30", "note": "the normative oracle: fixtures, hand rules, gate-exact scanner self-scan over the four leased files"}
+        ],
+        "tests": [
+          {"name": "upstream:workflow@feat/memory-contract(39f340c6):tests/test_memory_contract.py", "count": null, "note": "recorded passing in-jail (issue #50 body); NOT re-runnable here because the branch is not in this checkout"}
+        ],
+        "runtime_observations": [
+          "RUNTIME: 2026-11-16 (issue #50 body, recorded by the coordinator) - r2 verify GREEN in firejail; r1 verify refused secret_detected; CI run 43943932096 at the PR head: protocol jobs success, gitleaks + bee-ci/secret-scan failure"
+        ],
+        "upstream_records": []
+      },
+      "verified_here": false,
+      "open_gaps": [
+        "not merged: zero rizzstack.memory artifacts in the audited default branches of all four runtime repos (grep evidence in the audit doc)",
+        "the vault service (read/query/write over disk, log.md receipts, vault_rev), FTS5/embeddings/RRF/ripgrep fallback, and capture/distill runners are design-only per docs/memory-contract.md §Gaps",
+        "CI gitleaks/bee-ci/secret-scan failing at the PR head; repo policy blocks merges while #40 is open - the disclosed expected-failure attribution is a claim from the issue body, not an audit finding"
+      ]
+    }
+  ],
+  "umbrella": {
+    "repo": "mojomast/rizzstack",
+    "brief_head": "5bf5174",
+    "current_main": "f70754cce953117bf734588ec1a6f833b2009324",
+    "role": "protocol-distribution-entry-point",
+    "runtime_element": false,
+    "ci": "0 check runs configured on main (verified 2026-11-16) - consistent with a distribution/protocol entry point, not a runtime element",
+    "note": "The umbrella carries the protocol map and distribution; the four runtime elements are workflow, hyvv, bundlebees and orbitdesktop. docs/memory-contract.md §Gaps mirrors the umbrella protocol row into docs/protocol.md."
+  },
+  "constraints": [
+    "No sibling repos: bundlebees, hyvv, orbitdesktop and rizzstack have no checkouts on this filesystem; upstream state was verified through the GitHub API at named heads, and no upstream test suite was re-run locally.",
+    "~/.hermes is absent: no coordinator plugin state, no campaign records, no outbox, no usage ledger, no metrics logs are readable in this environment; the campaigns-store and outbox claims rest on durable records, not this probe.",
+    "The local workflow clone is a single squashed commit (base 9f6aa6dc...): six pre-existing test failures across tests/test_feature_packet.py and tests/test_return_manifest.py are pin/ancestor checks that require real git history; they pass in the live-verified upstream CI run 43869972734.",
+    "pytest and jsonschema were not installed in this environment and were installed during the audit (pytest 9.2.0, jsonschema 4.26.0).",
+    "Live CI checks were read on 2026-11-16; they can change at any time after this audit."
+  ]
+}
