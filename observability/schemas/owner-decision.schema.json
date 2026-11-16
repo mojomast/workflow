@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/owner-decision.schema.json",
+  "title": "Owner decision queue record (rizzstack.owner-decision/1)",
+  "description": "Two durable documents for one decision that only a human may make. A REQUEST is written mechanically by the pipeline when work reaches a point the autonomy architecture reserves for the owner: resolving a gate, spending beyond the authorized budget, widening the file or test scope, or enrolling or revoking a grant. A DECISION is recorded by or for the owner: approve, deny, or defer. The queue validates the pair mechanically and applies a final answer exactly once. Silence is never consent: a request with no decision stays pending and no timeout turns silence into approval. Neither document grants authority; the request restates exactly what is being asked and the decision answers that question and nothing else.",
+  "$comment": "A request is sealed by request_digest: sha256 over json.dumps(request, sort_keys=True, separators=(',', ':'), ensure_ascii=True) without request_digest. A decision binds the exact request bytes through request_digest and echoes the request's decision_nonce, so a decision cannot be replayed against a different request. bundlebees_plugin/decision_queue.py implements the queue, the digests and the mechanical validation.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/decision"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Opaque identifier. Not a URL, path, hostname, or credential."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Random value generated when the request is sealed. The decision must echo it unchanged."
+    },
+    "owner_kind": {
+      "enum": [
+        "gate",
+        "budget",
+        "scope",
+        "grant"
+      ],
+      "description": "gate: resolve a named gate. budget: allow spend beyond the authorized amount. scope: widen the file or test scope. grant: enroll or revoke a grant. The vocabulary is closed in v1: a mechanical queue applies only decisions it recognizes."
+    },
+    "grant_action": {
+      "enum": [
+        "enroll",
+        "revoke"
+      ],
+      "description": "What the grant request asks the owner to decide."
+    },
+    "outcome": {
+      "enum": [
+        "approve",
+        "deny",
+        "defer"
+      ],
+      "description": "approve and deny are final answers the queue applies. defer records that the owner saw the question and is not deciding yet; the request stays pending and a later decision is still possible."
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reference"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "record",
+            "report",
+            "metric"
+          ],
+          "description": "record: a durable state file such as a job document or the approval envelope that authorizes the work. report: a generated report such as a job report or campaign report. metric: an aggregated observability figure."
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Durable reference to the evidence. A reference is not a copy: the record it names stays authoritative."
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Optional content hash of the referenced record, when the producer recorded one."
+        }
+      }
+    },
+    "rel_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$",
+      "description": "Repository-relative path. Never absolute, never an external location."
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "record",
+        "request_id",
+        "kind",
+        "subject",
+        "question",
+        "evidence",
+        "raised_by",
+        "raised_at",
+        "decision_nonce",
+        "request_digest"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "pattern": "^rizzstack\\.owner-decision/[0-9]+$",
+          "description": "Protocol version. Shape only: the queue refuses any version outside rizzstack.owner-decision/1."
+        },
+        "record": {
+          "const": "request",
+          "description": "Discriminates the two documents of one queue entry."
+        },
+        "request_id": {
+          "$ref": "#/$defs/id",
+          "description": "Stable identity of this request. It names the queue record on disk and appears in the snapshot decisions section."
+        },
+        "kind": {
+          "$ref": "#/$defs/owner_kind"
+        },
+        "subject": {
+          "$ref": "#/$defs/id",
+          "description": "What the decision governs: a gate name, a job or feature id, or a grant id. Opaque; never a path or a URL."
+        },
+        "question": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 400,
+          "description": "The question the owner answers, stated before the owner sees it, so the decision stays bounded to it."
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "description": "At least one durable reference the owner can inspect. A request with no evidence is a claim, not a decision request."
+        },
+        "spend_ceiling_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Budget kind only: the spend ceiling the request proposes to raise, in US dollars. Refused on every other kind."
+        },
+        "requested_addition_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Budget kind only: how much spend beyond the currently approved budget the request asks for. Refused on every other kind."
+        },
+        "proposed_paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/rel_path"
+          },
+          "description": "Scope kind only: the paths the request proposes to add to the authorized scope. Refused on every other kind."
+        },
+        "grant_id": {
+          "$ref": "#/$defs/id",
+          "description": "Grant kind only: the grant the request asks to enroll or revoke. Refused on every other kind."
+        },
+        "grant_action": {
+          "$ref": "#/$defs/grant_action",
+          "description": "Grant kind only. Refused on every other kind."
+        },
+        "raised_by": {
+          "$ref": "#/$defs/id",
+          "description": "The mechanical component that raised the request. Agents never raise owner decisions; they may only reason inside a recovery request."
+        },
+        "raised_at": {
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        },
+        "decision_nonce": {
+          "$ref": "#/$defs/nonce",
+          "description": "Sealed into the request and echoed by the decision, so a decision cannot be replayed against a different request even by copy error."
+        },
+        "request_digest": {
+          "$ref": "#/$defs/sha256",
+          "description": "sha256 over the canonical request without request_digest. The queue recomputes it on every read and refuses a mismatch."
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "record",
+        "request_id",
+        "request_digest",
+        "decision_nonce",
+        "decided_by",
+        "decided_at",
+        "outcome",
+        "approval_receipt_ref",
+        "rationale",
+        "decision_digest"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "pattern": "^rizzstack\\.owner-decision/[0-9]+$",
+          "description": "Protocol version. Shape only: the queue refuses any version outside rizzstack.owner-decision/1."
+        },
+        "record": {
+          "const": "decision",
+          "description": "Discriminates the two documents of one queue entry."
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "request_digest": {
+          "$ref": "#/$defs/sha256",
+          "description": "The binding: it must equal the named request's request_digest and a recomputation from that request's body."
+        },
+        "decision_nonce": {
+          "$ref": "#/$defs/nonce",
+          "description": "Must equal the named request's decision_nonce."
+        },
+        "decided_by": {
+          "$ref": "#/$defs/id",
+          "description": "Who recorded the answer. The record preserves it; the approval receipt reference is the proof of the owner's act."
+        },
+        "decided_at": {
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "approval_receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200,
+          "description": "Durable reference to the receipt that proves the owner's act, for example the approval file in the plugin state. Required and non-null when the outcome is approve; the queue refuses an approval without one. Must be null for deny and defer."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 500,
+          "description": "Why this outcome answers the question. Scrubbed: never a prompt, transcript, or credential material."
+        },
+        "decision_digest": {
+          "$ref": "#/$defs/sha256",
+          "description": "sha256 over the canonical decision without decision_digest. The queue recomputes it on every read and refuses a mismatch."
+        }
+      }
+    }
+  }
+}

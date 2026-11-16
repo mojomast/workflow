@@ -76,6 +76,10 @@
     },
     "alerts": {
       "$ref": "#/$defs/alerts_section"
+    },
+    "decisions": {
+      "$ref": "#/$defs/decisions_section",
+      "description": "Optional extension section: the owner-decision queue (rizzstack.owner-decision/1) as exposed by the plugin. Absent when the producing run has no decision source; the section is not required and older producers never emit it."
     }
   },
   "$defs": {
@@ -842,6 +846,94 @@
           "type": ["number", "null"]
         },
         "ts": { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+      }
+    },
+    "decision_state": {
+      "description": "Queue state of an owner-decision request. pending: raised, awaiting the owner. decided: the owner's final answer is recorded but not yet consumed. applied: consumed exactly once by the mechanical tick. withdrawn: retracted while pending; a withdrawn request is never decided.",
+      "enum": ["pending", "decided", "applied", "withdrawn"]
+    },
+    "decision_outcome": {
+      "description": "The owner's final answer. approve resolves the request in favor of the question; deny refuses it. A deferral never appears here: deferring leaves the request pending.",
+      "enum": ["approve", "deny"]
+    },
+    "decision_kind": {
+      "description": "Recognized owner-gate kinds are in the first branch; a newer queue may report another kind as an extension label, as in resource_kind.",
+      "anyOf": [
+        {
+          "enum": [
+            "gate",
+            "budget",
+            "scope",
+            "grant"
+          ]
+        },
+        {
+          "$ref": "common.schema.json#/$defs/provider_label"
+        }
+      ]
+    },
+    "decision_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "generated_at",
+        "request_id",
+        "kind",
+        "subject",
+        "state",
+        "question",
+        "raised_at"
+      ],
+      "properties": {
+        "schema": { "const": "rizzstack.observability/snapshot/1" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "request_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "kind": { "$ref": "#/$defs/decision_kind" },
+        "subject": { "$ref": "common.schema.json#/$defs/id_token" },
+        "state": { "$ref": "#/$defs/decision_state" },
+        "outcome": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/decision_outcome" }
+          ]
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "description": "The question the owner answers, truncated by the producer. Scrubbed: never a prompt, transcript, or credential material."
+        },
+        "raised_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "decided_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        },
+        "applied_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        }
+      }
+    },
+    "decisions_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "requests"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "requests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/decision_row" }
+        }
       }
     }
   }
