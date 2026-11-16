@@ -1,0 +1,70 @@
+{
+  "schema": "rizzstack.modularity.profile/1",
+  "profile": "orchestrator",
+  "description": "Dispatch, verify, integrate, recover, report. Bundlebees as the execution system with its two pinned protocol checkouts (workflow, hyvv); Orbit optional as the control surface.",
+  "components": [
+    {
+      "repo": "bundlebees",
+      "role": "execution system: dispatch, leases, sandboxed verify, integrate, job store, reconciler, queue, recovery, RETURN",
+      "required": true,
+      "why": "this is the element being orchestrated with"
+    },
+    {
+      "repo": "workflow",
+      "role": "protocol source the executor loads validators from at a pinned revision",
+      "required": true,
+      "why": "packets, recovery and return validation load from the pinned checkout and fail closed when it is missing"
+    },
+    {
+      "repo": "hyvv",
+      "role": "worker host providing the /v1 attempts API and governed provisioning",
+      "required": true,
+      "why": "the production dispatch path posts attempts to the worker host; CI also requires its pinned source for contract tests"
+    },
+    {
+      "repo": "orbitdesktop",
+      "role": "control surface: boards, sessions, launcher front-end for the default orbit-loopback backend",
+      "required": false,
+      "why": "a configured launcher URL or a scripted test backend can replace it; the protocol does not require it"
+    }
+  ],
+  "env": [
+    {"name": "WORKFLOW_SRC", "set_by": "operator shell or CI", "required": true, "note": "path to a workflow checkout pinned at the recorded revision; packets and recovery refuse to run without it"},
+    {"name": "HYVV_SRC", "set_by": "operator shell or CI", "required": true, "note": "path to a hyvv checkout pinned at the recorded revision"},
+    {"name": "REQUIRE_WORKFLOW", "set_by": "operator shell or CI", "required": true, "note": "set to 1 so a missing workflow checkout fails instead of skipping"},
+    {"name": "REQUIRE_HYVV", "set_by": "operator shell or CI", "required": true, "note": "set to 1 so a missing hyvv checkout fails instead of skipping"},
+    {"name": "BUNDLEBEES_REQUIRE_ROUNDTRIP", "set_by": "CI leg", "required": false, "note": "turns on the orbit-roundtrip job against pinned Orbit commits"},
+    {"name": "BUNDLEBEES_ALLOW_WEAK_UNSHARE", "set_by": "operator shell", "required": false, "note": "documented-unsafe override that lets verify use unshare; never set in production"},
+    {"name": "HERMES_M42_REAL", "set_by": "supervised run only", "required": false, "note": "gates the real-model recovery adapter test; never set in CI"},
+    {"name": "HERMES_M43_REAL", "set_by": "supervised run only", "required": false, "note": "gates the real-model wake-up test; never set in CI"}
+  ],
+  "ports": ["none of its own: the coordinator talks to the worker host and the launcher over their loopback or configured endpoints; job state is files on disk"],
+  "auth_posture": "coordinator-held HMAC key files at mode 0600 sign leases, jobs and approvals; the launcher credential is read from the environment only and never logged; the verify sandbox gets no coordinator credentials; merge, push, tag, release, deploy and every gate stay human acts",
+  "cannot_do": [
+    "cannot verify without bubblewrap or firejail: it fails closed with sandbox_unavailable unless the explicitly unsafe local override is set",
+    "cannot run its mandatory suite without both pinned checkouts (workflow and hyvv at the recorded revisions)",
+    "cannot merge, push, tag, release or deploy by itself; those are human-gated",
+    "cannot claim exactly-once dispatch: the launcher has no server-side idempotency; adoption reconciles a lost response instead",
+    "cannot enforce parked-project refusals yet: the hyvv gate is a proposal, not running code"
+  ],
+  "refs": [
+    {"path": "profiles/repos.json", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/quickstarts/orchestrator.md", "kind": "profile_bundle", "exists_in_repo": true},
+    {"path": "docs/modularity.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/bundlebees.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/workflow.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "contrib/bee-ci/jobs/hyvv.yaml", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "acceptance/cold_start.sh", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "acceptance/harness.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "tools/feature_packet.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "tools/return_manifest.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "tools/recovery.py", "kind": "in_repo_path", "exists_in_repo": true},
+    {"path": "docs/13-bundlebees-hardening.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/22-autonomy-architecture.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/23-autonomy-devplan.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "docs/19-coordinator-playbook.md", "kind": "doc_chapter", "exists_in_repo": true},
+    {"path": "bundlebees_plugin/brief.py, verify_local.py, reconcile.py, integrate_job.py, job.py", "kind": "other_repo_module", "exists_in_repo": false},
+    {"path": "bundlebees_plugin/packets.py, recovery.py, return_report.py, provisioning.py, grants.py", "kind": "other_repo_module", "exists_in_repo": false},
+    {"path": "bundlebees_plugin/adapters.py (the only module allowed to name an agent or launcher)", "kind": "other_repo_module", "exists_in_repo": false}
+  ]
+}
