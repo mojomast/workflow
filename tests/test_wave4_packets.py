@@ -175,7 +175,13 @@ def assert_shape(parsed: dict) -> None:
 class Wave4PacketTests(unittest.TestCase):
     def test_all_four_packets_exist_and_nothing_else(self):
         files = sorted(p.name for p in PACKETS.iterdir() if p.is_file())
-        self.assertEqual(files, sorted([*WAVE4.values(), "README.md"]))
+        # Manifest lock: the four Wave-4 feature packets, plus the M2 canary
+        # prep packet (wf docs/m2-canary-prep), plus the README index. The
+        # M2-canary packet recorded this exact lock extension as a repo-hygiene
+        # handoff because the test file was outside that packet lease.
+        self.assertEqual(
+            files, sorted([*WAVE4.values(), "M2-canary.md", "README.md"])
+        )
 
     def test_each_packet_parses_with_the_full_required_shape(self):
         for packet_id, name in WAVE4.items():
