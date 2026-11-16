@@ -327,6 +327,37 @@ def test_registry_rows_are_well_formed() -> None:
     assert not overlap, f"a PR cannot be both merged and in review: {sorted(overlap)}"
 
 
+def test_merged_numbered_bullets_carry_merged_state_not_in_review() -> None:
+    """The #42-class defect: a merged PR's numbered bullet left saying "(in review)".
+
+    Every numbered bullet in the Unreleased section whose PR number is a REGISTERED
+    MERGED_WINDOW_ROWS number must carry a "(merged at `" state and must not say
+    "in review"; and any numbered bullet that still says "in review" must belong to a
+    number registered as in-review. Named-entry bullets (the #35-#40 style) carry no
+    state prefix and are out of scope for this guard.
+    """
+    section = _unreleased_section()
+    merged = {int(e["pr"]) for e in MERGED_WINDOW_ROWS}
+    in_review = {int(e["pr"]) for e in IN_REVIEW_ROWS}
+    for line in section.splitlines():
+        m = re.match(r"- #(\d+) \(([^)]*)\): ", line.strip())
+        if not m:
+            continue
+        number, state = int(m.group(1)), m.group(2)
+        if number in merged:
+            assert "(merged at `" in line, (
+                f"merged PR #{number}'s bullet must carry its real merged-at sha: {line[:120]}"
+            )
+            assert "in review" not in state, (
+                f"merged PR #{number}'s bullet still says 'in review': {line[:120]}"
+            )
+        else:
+            assert number in in_review, (
+                f"bullet #{number} claims a state but its PR is neither registered merged "
+                f"nor in review: {line[:120]}"
+            )
+
+
 @pytest.mark.parametrize("entry", MERGED_WINDOW_ROWS, ids=lambda entry: f"pr-{entry['pr']}")
 def test_merged_campaign_pr_has_discoverable_changelog_coverage(
     entry: dict[str, object],

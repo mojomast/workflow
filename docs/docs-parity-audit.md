@@ -285,7 +285,7 @@ post-#40 reality contradicts. Corrections prescribed (exact rows):
 
 The umbrella repository is not part of this working directory, so these rows
 are prescribed here and machine-checked below; the umbrella's next docs-sync
-applies them verbatim.
+applies them verbatim (re-verify against current main before applying: as of the 2026-11-16 post-drain state #41-#47 and #49-#54 are merged and only #48 remains open).
 
 ## 6. Fixes applied in this pass vs prescribed
 
