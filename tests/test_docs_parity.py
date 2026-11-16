@@ -46,6 +46,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    64: (
+        "docs-sync companion (the PR 48 coverage row + entry) - same class: a registry "
+        "bookkeeping change whose only test-file content is exclusions; it carries its own "
+        "exclusion so merging it leaves main green"
+    ),
     62: (
         "docs-sync companion (the PR 56 exclusion) - this PR is the same class: a registry "
         "bookkeeping change whose only content is this exclusion; it carries its own "
