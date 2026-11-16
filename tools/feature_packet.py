@@ -1,11 +1,13 @@
 """Semantic validation for feature packets and dependent source resolution.
 
 Exact features carry a frozen contract. Dependent features carry an immutable
-*intent* packet with an unfrozen contract template, the authorized root, one
-dependency and the enrolled policy id. After the dependency is accepted, a
-separate immutable source-resolution record binds the intent's digest to the
-exact derived revision and the source-bound frozen contract. It grants no new
-authority.
+*intent* packet with an unfrozen contract template, the authorized root, its
+declared dependencies and the enrolled policy id. After every dependency is
+admitted and merged, a separate immutable source-resolution record binds the
+intent's digest to the exact derived revision and the source-bound frozen
+contract. It grants no new authority.
+
+rizzstack.feature-packet/1 allows exactly one dependency; /2 lifts the ceiling.
 """
 
 from __future__ import annotations
@@ -22,7 +24,9 @@ import jsonschema
 BASE = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = BASE / "schemas" / "feature-packet.schema.json"
 SR_SCHEMA_PATH = BASE / "schemas" / "source-resolution.schema.json"
-SUPPORTED = ("rizzstack.feature-packet/1",)
+V1 = "rizzstack.feature-packet/1"
+V2 = "rizzstack.feature-packet/2"
+SUPPORTED = (V1, V2)
 RESOLUTION_SUPPORTED = ("rizzstack.source-resolution/1",)
 
 
@@ -46,6 +50,40 @@ def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
 def _is_sha(value: Any, length: int = 40) -> bool:
     text = str(value or "")
     return len(text) == length and all(ch in "0123456789abcdef" for ch in text)
+
+
+def _declared_dependencies(packet: Mapping[str, Any]) -> list[str]:
+    """The dependency ids a packet declares, in declared order; empty for exact."""
+    policy = packet.get("source_policy") if isinstance(packet, Mapping) else None
+    dependencies = policy.get("dependencies") if isinstance(policy, Mapping) else None
+    if not isinstance(dependencies, list):
+        return []
+    return [str(dependency) for dependency in dependencies]
+
+
+def _schema_v2() -> dict[str, Any]:
+    """rizzstack.feature-packet/2: the /1 shape with the version constant and the
+    descendant dependency ceiling opened. Derived from the enforced /1 schema at
+    validation time so the two cannot drift; the schema file keeps the pinned /1
+    bytes the examples' workflow_ref must keep resolving (docs/25-feature-packet.md)."""
+    schema = _schema(SCHEMA_PATH)
+    properties = schema["properties"]
+    properties["packet_version"] = {"const": V2}
+    policy = properties["source_policy"]
+    policy["description"] = ("exact: the feature runs at an authorized revision and carries its frozen "
+                             "contract. descendant: the feature cannot name its revision at intake; it "
+                             "carries an unfrozen template, the authorized root, its declared "
+                             "dependencies and the enrolled policy id.")
+    descendant = next(branch for branch in policy["oneOf"]
+                      if branch.get("properties", {}).get("kind", {}).get("const") == "descendant")
+    dependencies = descendant["properties"]["dependencies"]
+    dependencies.pop("maxItems", None)
+    dependencies.pop("uniqueItems", None)
+    dependencies["description"] = ("The declared dependencies of the dependent feature. Every "
+                                   "dependency must be admitted and merged before the dependent "
+                                   "is admitted (tools/feature_packet.py:admit).")
+    schema["title"] = "Rizzstack feature packet (rizzstack.feature-packet/2)"
+    return schema
 
 
 def packet_digest(packet: Mapping[str, Any]) -> str:
@@ -115,8 +153,17 @@ def _contract_checks(contract: Mapping[str, Any], packet: Mapping[str, Any], *, 
 
 def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
              check_protocol_commit: bool = True) -> dict[str, Any]:
+    if not isinstance(packet, Mapping):
+        raise PacketError("packet_schema", "the packet is not a JSON object", "Fix the packet shape.")
+    version = packet.get("packet_version")
+    declared = _declared_dependencies(packet)
+    if version == V1 and len(declared) > 1:
+        raise PacketError("packet_schema",
+                          f"source_policy.dependencies declares {len(declared)} dependencies; {V1} allows "
+                          f"exactly one — multiple dependencies require {V2} (docs/25-feature-packet.md)",
+                          f"Re-issue the intent packet as {V2}.")
     try:
-        jsonschema.validate(packet, _schema(SCHEMA_PATH))
+        jsonschema.validate(packet, _schema_v2() if version == V2 else _schema(SCHEMA_PATH))
     except jsonschema.ValidationError as exc:
         path = ".".join(str(part) for part in exc.absolute_path)
         message = exc.message
@@ -129,8 +176,8 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
             named = [field for field in forbidden if field in packet]
             message = f"{', '.join(named) or 'this field'} is not allowed for a {kind or 'declared'} source_policy (see docs/25-feature-packet.md)"
         raise PacketError("packet_schema", f"{path or '<root>'}: {message}", "Fix the packet shape.") from exc
-    if packet.get("packet_version") not in SUPPORTED:
-        raise PacketError("packet_version_unsupported", f"{packet.get('packet_version')!r} is not implemented", "Upgrade the validator.")
+    if version not in SUPPORTED:
+        raise PacketError("packet_version_unsupported", f"{version!r} is not implemented", "Upgrade the validator.")
 
     workflow_ref = str(packet.get("workflow_ref") or "")
     if not _is_sha(workflow_ref):
@@ -169,8 +216,14 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
         if policy.get("revision") != contract.get("source_rev"):
             raise PacketError("source_policy_mismatch", "exact revision differs from contract.source_rev", "Pin the same revision.")
     elif kind == "descendant":
-        if len(policy.get("dependencies") or []) != 1:
-            raise PacketError("dependency_unsupported", "exactly one dependency is supported", "Split the feature.")
+        feature_id = str(packet.get("feature_id") or "")
+        if feature_id and feature_id in declared:
+            raise PacketError("dependency_self", f"the packet depends on itself ({feature_id})",
+                              "Remove the self-dependency.")
+        duplicates = sorted({dep for dep in declared if declared.count(dep) > 1})
+        if duplicates:
+            raise PacketError("dependency_duplicate", f"duplicate dependencies: {', '.join(duplicates)}",
+                              "List each dependency once.")
         if not policy.get("policy_id"):
             raise PacketError("policy_missing", "a descendant packet must name the enrolled policy id", "Reference it exactly.")
         template = packet.get("contract_template")
@@ -192,6 +245,28 @@ def validate(packet: Mapping[str, Any], *, workflow_repo: Path | None = None,
     if not packet.get("human_gates"):
         raise PacketError("gates_missing", "human gates were dropped", "Keep them.")
     return dict(packet)
+
+
+def admit(packet: Mapping[str, Any], *, accepted: Mapping[str, Any] | None = None,
+          workflow_repo: Path | None = None, check_protocol_commit: bool = True) -> dict[str, Any]:
+    """Validate a packet for queue admission.
+
+    A descendant packet is admitted only once every declared dependency is
+    admitted and merged: `accepted` maps each declared dependency's feature_id
+    to its accepted integration commit. The refusal names the first dependency
+    that is still missing, in declared order. An exact packet carries no
+    dependencies and is admitted on validation alone.
+    """
+    out = validate(packet, workflow_repo=workflow_repo, check_protocol_commit=check_protocol_commit)
+    policy = out.get("source_policy") or {}
+    if policy.get("kind") != "descendant":
+        return out
+    merged = accepted or {}
+    for dependency in _declared_dependencies(out):
+        if dependency not in merged:
+            raise PacketError("dependency_not_accepted", f"dependency {dependency!r} is not admitted or merged",
+                              "Admit and merge every declared dependency, then resolve the dependent.")
+    return out
 
 
 def _changed_fields(contract: Mapping[str, Any], template: Mapping[str, Any]) -> list[str]:

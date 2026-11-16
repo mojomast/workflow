@@ -22,12 +22,12 @@ Required content:
 
 | Field | Meaning |
 |---|---|
-| `packet_version` | `rizzstack.feature-packet/1` |
+| `packet_version` | `rizzstack.feature-packet/1`, or `/2` for multi-dependency packets (see §Packet versions) |
 | `feature_id`, `job_id` | stable queue and job identities |
 | `request.summary`, `request.provenance` | the human request and where it came from |
 | `repository.identity` | canonical `owner/name` |
 | `workflow_ref` | full commit SHA of the protocol used to validate this packet |
-| `source_policy` | `exact` revision, or `descendant` with root, one dependency and a `policy_id` |
+| `source_policy` | `exact` revision, or `descendant` with root, its declared dependencies and a `policy_id` |
 | `authorization` | reference, approver and time — never a packet-supplied grant |
 | `contract`, `contract_sha256` | the frozen `acdd/1` contract and its reviewed hash — **exact packets only** |
 | `contract_template` | the unfrozen `acdd/1` template at the authorized root — **descendant packets only** |
@@ -56,8 +56,10 @@ Required content:
 * acceptance IDs or approved tests that drift from the contract;
 * a write lease wider than the contract's assigned files;
 * an exact policy whose revision differs from `contract.source_rev`;
-* a descendant packet without a policy id, or with more than one dependency
-  (multi-dependency support is not claimed);
+* a descendant packet without a policy id, a dependency on itself
+  (`dependency_self`), or a duplicate dependency id (`dependency_duplicate`);
+* under `rizzstack.feature-packet/1`, a descendant packet with more than one
+  dependency — the refusal names `/2` as the upgrade (see §Packet versions);
 * a budget that exceeds a ceiling the authorization states, in any dimension it
   states (an omitted ceiling constrains nothing);
 * missing authorization provenance or dropped human gates.
@@ -72,13 +74,54 @@ review block (`resolution_scope_changed`, then `resolution_contract_changed`).
 A resolution is refused outright against an exact packet: there is nothing to
 derive.
 
+## Packet versions
+
+`rizzstack.feature-packet/1` is the original shape: a descendant packet declares
+exactly one dependency. `rizzstack.feature-packet/2` lifts that ceiling: a
+descendant packet declares one or more dependencies, with no ceiling, and an
+exact packet still carries none. Both versions are accepted by the same
+validator; every other rule — two-stage resolution, frozen contracts, gates,
+budget — is identical between them.
+
+* A `/1` packet that declares more than one dependency is refused as
+  `packet_schema` with a message naming `/2`: re-issue the intent packet under
+  the new version instead of widening the old one.
+* The `/2` shape is the `/1` schema with the version constant and the descendant
+  dependency ceiling opened. The validator derives it from the enforced `/1`
+  schema at validation time, so `schemas/feature-packet.schema.json` keeps its
+  exact bytes: the pinned examples below keep resolving byte for byte, and this
+  change triggers **no repin**. Any future change to the schema file follows the
+  standing sequence — land the schema and validator, repin the examples in a
+  later commit, then bump the consumer pins ([28 §L-13](28-agent-lessons.md)).
+* Version semantics are enforced by the validator, so a coordinator whose
+  validator predates `/2` refuses such a packet as `packet_version_unsupported`.
+  Nothing about a `/2` packet is silently accepted by an older validator.
+
+### Dependencies and admission
+
+A descendant packet names the features it builds on. The validator refuses a
+self-dependency and duplicate dependency ids. Admission is a separate gate:
+`feature_packet.admit(packet, accepted=...)` validates the packet and then
+refuses (`dependency_not_accepted`, naming the first dependency that is still
+missing, in declared order) unless **every** declared dependency is already
+admitted and merged — `accepted` maps each dependency's `feature_id` to its
+accepted integration commit. An exact packet carries no dependencies and is
+admitted on validation alone.
+
+The resolution record still binds one dependency: its `dependency_feature` must
+be one of the declared dependencies, and its `accepted_commit` is the merge that
+completes the set. Because admission waits for all of them, that record is
+always written against a baseline that already contains every declared
+dependency.
+
 ## Source-revision policy
 
 `exact` features run at the authorized revision. `descendant` features cannot name
 their revision at intake: the commit does not exist yet. They name the authorized
-root and exactly one dependency, plus the enrolled policy id. After the dependency
-is accepted, the coordinator resolves the exact commit and freezes the dependent
-contract against it. That derivation must prove repository identity, ancestry from
+root, the declared dependencies and the enrolled policy id. After every declared
+dependency is admitted and merged, the coordinator resolves the exact commit and
+freezes the dependent contract against it. That derivation must prove repository
+identity, ancestry from
 the root, equality with the dependency's accepted integration commit, unchanged
 scope and budget, and it must be recorded as a create-only, sealed derived
 authorization referencing the enrolled policy and its digest.
@@ -93,7 +136,7 @@ Stage 1 is the **intent packet**: `source_policy.kind = descendant`, an unfrozen
 `contract_template` whose `source_rev` is the authorized `root_revision`, and no
 `contract` or `contract_sha256`. Stage 2 is a **source-resolution record**
 (`schemas/source-resolution.schema.json`, `rizzstack.source-resolution/1`),
-created only after the dependency is accepted:
+created only after every declared dependency is admitted and merged:
 
 | Field | Meaning |
 |---|---|
@@ -127,11 +170,18 @@ fail with `validator_mismatch`, which is the intended alarm. The tests assert
 that the pin is a commit, an ancestor of `HEAD`, and byte-identical to the
 enforced schema for **both** schemas.
 
+The `/2` multi-dependency extension is validator-level: the schema file is
+unchanged, so these pins stay valid without a repin. The examples remain `/1`
+single-dependency packets; `/2` intent packets are covered by
+`tests/test_multi_dependency.py`.
+
 ## Coordinator conformance
 
 A conforming coordinator:
 
-1. validates the packet before admitting the job, using the pinned `workflow_ref`;
+1. validates the packet before admitting the job, using the pinned `workflow_ref`,
+   and admits a dependent packet only once every declared dependency is admitted
+   and merged (`feature_packet.admit`);
 2. records the packet digest and workflow revision in the job's sealed goal;
 3. refuses a resumed job whose protocol revision or packet digest changed;
 4. treats a legacy job without a packet as legacy — it never invents packet
