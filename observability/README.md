@@ -61,8 +61,14 @@ directory (job documents, the feature queue file, the live claim records,
 the recorded approval decisions, verify results, scheduler metrics) and from
 the fleet and pull-request sections the collector already reads — no new
 external data source. Every metric reads the record shapes the producers
-actually write, and a record that cannot yield a timing value degrades to
-null with a status marker, never to a fabricated zero.
+actually write: job documents are stored as HMAC envelopes
+(`{"body": {...}, "mac": ...}`, `job.py` `_seal`) and are unwrapped
+read-only and keylessly — the body is parsed as the document and the MAC is
+**not** verified here, because a read-only dashboard holds no state key; the
+reconciler, which holds the key, is the verifier of record. An envelope
+whose body is not an object counts as an unreadable job (an owner message),
+never a silent zero, and a record that cannot yield a timing value degrades
+to null with a status marker, never to a fabricated zero.
 
 Under the `rizzstack.observability/snapshot/1` discriminator the section,
 and the ci pull-request `created_at` field, are optional rather than
@@ -99,16 +105,22 @@ an age-based signal reads `oldest_item_age_s` directly. The verify stage
 carries the bees at work (`wip`) against the shared bee cap (`capacity`,
 with `capacity_source` of `bee_cap`).
 
-The `invariant` object mirrors the coordinator reconciler's invariant, not
-a parallel formula. `ready` counts only eligible queue items: status
+The `invariant` object mirrors the coordinator reconciler's invariant
+(`bundlebees_plugin/reconcile.py`), not a parallel formula, with one
+declared exception below. `ready` counts only eligible queue items: status
 `queued`, the feature itself not done, and every recorded dependency done —
 a dependency is done when its linked job is accepted, which the queue checks
 against the tasks' verify records and an accepted integration wave, never
-against status strings. `claimed` counts live claim records in the claim
-store (`queue/<feature_id>.json`, states claimed or running).
+against status strings. `claimed` counts job tasks in the `dispatching` and
+`dispatched` states, exactly the reconciler's source;
 `active_workers` counts job tasks in the `running` state, as the reconciler
 counts them; `awaiting_verify` counts `verifying` tasks, and
-`awaiting_integrate` counts `verified` and `integrating` tasks. Then
+`awaiting_integrate` counts `verified` and `integrating` tasks. Live claim
+records (`queue/<feature_id>.json`, states claimed or running) are reported
+separately as `active_claims` — the reconciler's `features.active_claims` —
+and are never added to the in-flight task they are the claim of: a running
+claim and its running task are one unit of work, and stale claim records
+left by finished work must not pin `available` to zero. Then
 `in_use` is claimed plus active workers plus awaiting verify, `available`
 is the work scheduler's max-active (4) minus `in_use` floored at zero — the
 scheduler's slot budget, not the shared bee cap — and the three numbers are
@@ -117,11 +129,19 @@ blocked items. A pending approval is a declared gate with no recorded
 decision file: a gate stays in the `waiting` state by design even after its
 decision is recorded (see the recovery protocol), so the recorded file is
 what counts and a job with a recorded grant counts zero pending approvals.
-Blocked items are blocked queue features, rejected, failed or superseded
-tasks, and records that could not be read; a blocked feature whose cause
-resolves to its job's already-counted task blocker or pending approval
-counts once, and one whose cause cannot be resolved still counts under
-`unresolved`, because the blocked status itself is recorded. The headline
+Blocked items are rejected, failed or superseded tasks, jobs whose
+integration wave is terminal, accepted jobs whose acceptance evidence is
+incomplete (the queue's own acceptance check, so a finished-looking job
+cannot pass silently), tasks in an unrecognized state, unreadable job
+documents, and an unreadable claim store — the store is refused whole, one
+message, exactly as `QueueStore.active()` refuses it. Blocked queue
+features are **not** owner messages: an approval- or task-caused block is
+already counted at its source, and a dependency-blocked feature advances
+when its dependency completes, exactly as the reconciler treats it. Two
+reconciler blocked-causes are outside this reader's sources and therefore
+absent here, declared rather than hidden: campaign-checkpoint blockers and
+an unreadable scheduler queue (`coordinator/work.json`); the reconciler's
+report remains the complete count. The headline
 `waiting_despite_capacity` is true exactly when the reconciler would expect
 advancement — `ready` > 0, `available` > 0, and `owner_messages` == 0 —
 false when the invariant genuinely does not hold, and null when any input

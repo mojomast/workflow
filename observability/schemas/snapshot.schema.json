@@ -926,7 +926,7 @@
       }
     },
     "bottleneck_invariant": {
-      "description": "The coordinator reconciler's invariant: advancement is expected exactly when eligible work is ready, scheduler capacity is available, and no owner messages (pending approvals plus blocked items) are outstanding. in_use is claimed plus active workers plus tasks awaiting verification; available is the work scheduler's max-active minus in_use, floored at zero. Each count comes from the real record of its kind (feature queue, claim store, job tasks, recorded approval decisions, pull requests) and is null, never a guessed zero, when that record cannot be read. The headline is decided only when every input it needs is known; otherwise it is null.",
+      "description": "The coordinator reconciler's invariant: advancement is expected exactly when eligible work is ready, scheduler capacity is available, and no owner messages (pending approvals plus blocked items) are outstanding. in_use is claimed plus active workers plus tasks awaiting verification; available is the work scheduler's max-active minus in_use, floored at zero. claimed counts job tasks in the dispatching/dispatched states and active_claims reports the claim store separately, matching the reconciler. Each count comes from the real record of its kind (feature queue, claim store, job tasks, recorded approval decisions, pull requests) and is null, never a guessed zero, when that record cannot be read. The headline is decided only when every input it needs is known; otherwise it is null.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -977,7 +977,11 @@
         },
         "claimed": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Live claim records in the feature claim store whose state is claimed or running; zero when no claim store exists, null when it cannot be read."
+          "description": "Job tasks in the dispatching or dispatched states, exactly the source the coordinator reconciler counts as claimed (reconcile.py); null when job documents are unreadable."
+        },
+        "active_claims": {
+          "$ref": "#/$defs/nullable_count",
+          "description": "Live claim records in the feature claim store whose state is claimed or running (QueueStore.active()), reported separately exactly as the reconciler reports features.active_claims: informational, never added to the in-flight task it is the claim of. Null when any record in the store cannot be read (the store is refused whole), and null when no claim store exists."
         },
         "active_workers": {
           "$ref": "#/$defs/nullable_count",

@@ -205,6 +205,11 @@ WORKER_COMPLETED_SUFFIX = "->verifying"
 SCHEDULER_MAX_ACTIVE = 4
 # Claim records the queue store treats as in flight (QueueStore.active()).
 ACTIVE_CLAIM_STATES = frozenset({"claimed", "running"})
+#: Task states the coordinator reconciler counts as claimed work
+#: (reconcile.py dispatching/dispatched); a running task is an active
+#: worker, not a claim, and the queue claim record for the same unit is
+#: reported separately, never added twice.
+CLAIMED_TASK_STATES = frozenset({"dispatching", "dispatched"})
 WORKING_FLEET_STATES = frozenset({"running", "working"})
 
 DEFAULT_THRESHOLDS = {
@@ -354,6 +359,27 @@ def read_json_dict(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError, ValueError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def unwrap_job_envelope(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Unwrap the on-disk job envelope shape job.py _seal writes.
+
+    Real job documents are stored as ``{"body": {...}, "mac": "..."}``
+    (docs/22-autonomy-architecture.md: jobs/<job_id>.json, HMAC). This is a
+    read-only, keyless collector: when the envelope shape is present the
+    body is used as the document and the MAC is NOT verified here - the
+    reconciler, which holds the state key, is the verifier of record. An
+    envelope whose body is not an object yields None (the caller counts the
+    file unreadable, an owner message, never a silent zero); a plain
+    document with neither key passes through so legacy shapes and RETURN
+    reports keep reading.
+    """
+    body = data.get("body")
+    if isinstance(body, dict):
+        return body
+    if "body" in data or "mac" in data:
+        return None
+    return data
 
 
 def file_age_s(path: Path, now: datetime) -> int | None:
@@ -1011,6 +1037,9 @@ class Collector:
             data = read_json_dict(path)
             if data is None:
                 continue
+            data = unwrap_job_envelope(data)
+            if data is None:
+                continue
             seen_files += 1
             job_id = id_token(data.get("job_id")) or id_token(path.stem) or "unknown"
             goal = data.get("goal") if isinstance(data.get("goal"), dict) else {}
@@ -1435,13 +1464,16 @@ class Collector:
     def _read_job_documents(self) -> tuple[list[dict[str, Any]], int]:
         """Read-only pass over the job documents for the bottlenecks section.
 
-        Reads the shapes the producers actually write: task attempts are a
-        list of attempt-id strings (reconcile.py appends ids), and the
-        recorded events are documents with at/task_id/transition/actor/
-        reason where transition is the ``from->to`` string (job.py
-        transition). An event record that cannot yield a transition still
-        counts as seen, so a half-readable history degrades to partial or
-        unknown instead of passing as complete.
+        Reads the shapes the producers actually write: the on-disk HMAC
+        envelope ({"body", "mac"}, job.py _seal) is unwrapped read-only and
+        keylessly, task attempts are a list of attempt-id strings
+        (reconcile.py appends ids), and the recorded events are documents
+        with at/task_id/transition/actor/reason where transition is the
+        ``from->to`` string (job.py transition). An event record that
+        cannot yield a transition still counts as seen, so a half-readable
+        history degrades to partial or unknown instead of passing as
+        complete. An envelope whose body is not an object counts as an
+        unreadable job.
 
         Returns (documents, unreadable_document_count).
         """
@@ -1456,6 +1488,10 @@ class Collector:
                 paths = []
         for path in paths:
             data = read_json_dict(path)
+            if data is None:
+                unreadable += 1
+                continue
+            data = unwrap_job_envelope(data)
             if data is None:
                 unreadable += 1
                 continue
@@ -1617,10 +1653,15 @@ class Collector:
 
     def _read_claim_store(self) -> tuple[int | None, int, bool]:
         """Live claim records, as QueueStore.active() counts them: readable
-        records under queue/ whose state is claimed or running. A record
-        that cannot be read may be an active claim, so it is counted as an
-        unreadable owner message rather than dropped. Returns (active
-        count or None, unreadable count, whether the store was seen)."""
+        records under queue/ whose state is claimed or running. QueueStore
+        refuses the whole store when any record cannot be read (an
+        unreadable record may be an active claim), so one unreadable record
+        makes the active count unknown rather than smaller; the caller
+        records the refusal as one owner message, the way the reconciler
+        records one queue:claims refusal. The count is informational: the
+        reconciler reports it as features.active_claims and never adds it
+        to the in-flight task it is the claim of. Returns (active count or
+        None, unreadable record count, whether the store was seen)."""
         claims_dir = self.state_dir / "queue" if self.state_dir else None
         if claims_dir is None or not claims_dir.is_dir():
             return 0, 0, False
@@ -1637,6 +1678,8 @@ class Collector:
                 continue
             if data.get("state") in ACTIVE_CLAIM_STATES:
                 active += 1
+        if unreadable:
+            return None, unreadable, True
         return active, unreadable, True
 
     def _approval_state(self, docs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -2066,32 +2109,6 @@ class Collector:
             target=target,
         )
 
-    def _blocked_reason(
-        self,
-        feature: Mapping[str, Any],
-        docs_by_id: Mapping[str, Mapping[str, Any]],
-        approval_state: Mapping[str, Any],
-        done: set[str],
-    ) -> tuple[str, str]:
-        """Resolve a blocked feature's cause from recorded causes. Returns
-        (kind, reason): the linked job's declared gate without a recorded
-        decision file (approval), its recorded task blockers (task), an
-        unmet dependency (dependency), or unresolved when only the blocked
-        status itself is recorded. The blocked status is always a recorded
-        cause, so the item still counts once."""
-        job_id = feature.get("job_id")
-        doc = docs_by_id.get(job_id) if isinstance(job_id, str) else None
-        if doc is not None:
-            if approval_state["per_doc"].get(doc["job_id"]):
-                return "approval", "approval_required"
-            blockers = [task["blocker"] for task in doc["tasks"] if task["blocker"]]
-            if blockers:
-                return "task", blockers[0]
-        deps = [dep for dep in as_list(feature.get("depends_on")) if isinstance(dep, str)]
-        if deps and not all(dep in done for dep in deps):
-            return "dependency", "dependency"
-        return "unresolved", "unresolved"
-
     def _done_features(
         self,
         features: Sequence[Mapping[str, Any]],
@@ -2175,19 +2192,31 @@ class Collector:
         report_by_attempt: Mapping[str, Mapping[str, Any]],
         approval_state: Mapping[str, Any],
     ) -> dict[str, Any]:
-        """The reconciliation invariant, identical to the coordinator
-        reconciler's: in_use is claimed plus active workers plus tasks
-        awaiting verification, available is the work scheduler's max-active
-        minus in_use, owner messages are pending approvals plus blocked
-        items, and advancement is expected when ready work, available
-        capacity and zero owner messages coincide. Every count comes from
-        the real record of its kind; a record the collector cannot read
-        leaves the headline unknown, never a guessed answer."""
+        """The coordinator reconciler's invariant (reconcile.py):
+        in_use is claimed plus active workers plus tasks awaiting
+        verification, available is the work scheduler's max-active minus
+        in_use, owner messages are pending approvals plus blocked items,
+        and advancement is expected when ready work, available capacity and
+        zero owner messages coincide. claimed counts tasks in the
+        dispatching/dispatched states exactly as the reconciler counts
+        them; live claim records are reported separately as active_claims
+        (the reconciler's features.active_claims), never added to the task
+        they are the claim of. The blocked set covers what the reconciler
+        blocks and this collector's own sources can show: terminal task
+        states, integration-terminal and evidence-incomplete jobs, unknown
+        task states, unreadable jobs, and the claim store refused whole.
+        Two reconciler causes are out of this reader's scope and declared
+        in the README: campaign-checkpoint blockers and an unreadable
+        scheduler queue. Dependency-blocked queue features are not owner
+        messages (they advance when their dependency completes). Every
+        count comes from the real record of its kind; a record the
+        collector cannot read leaves the headline unknown, never a guessed
+        answer."""
         docs_by_id = {doc["job_id"]: doc for doc in docs}
         tasks = [task for doc in docs for task in doc["tasks"]]
 
-        claimed, claims_unreadable, claims_dir_seen = self._read_claim_store()
-        claims_known = claimed is not None
+        active_claims, claims_unreadable, claims_dir_seen = self._read_claim_store()
+        claims_known = active_claims is not None
         done = self._done_features(features, docs_by_id, report_by_attempt) if queue_readable else set()
 
         ready = None
@@ -2197,6 +2226,12 @@ class Collector:
 
         def note_blocked(reason: str) -> None:
             blocked_reasons[reason] = blocked_reasons.get(reason, 0) + 1
+
+        if claims_unreadable:
+            # QueueStore.active() refuses the whole store when any record
+            # cannot be read; one refusal, the reconciler's queue:claims
+            # entry, not one message per unreadable record.
+            note_blocked("queue_claims_unreadable")
 
         if queue_readable:
             ready = 0
@@ -2213,17 +2248,10 @@ class Collector:
                 1 for f in features if f.get("status") in NON_TERMINAL_QUEUE_STATUSES
             )
             awaiting_review = sum(1 for f in features if f.get("status") == "ready_for_review")
-            for feature in features:
-                if feature.get("status") != "blocked":
-                    continue
-                kind, reason = self._blocked_reason(feature, docs_by_id, approval_state, done)
-                if kind in ("approval", "task"):
-                    # One underlying blocker, one owner message: an
-                    # approval-reason card is already counted in the pending
-                    # approvals, and a task-reason card is already counted
-                    # with the job's task blocker.
-                    continue
-                note_blocked(reason)
+            # A blocked queue feature is not an owner message: approval and
+            # task causes are already counted at their source, and a
+            # dependency-blocked feature advances when its dependency
+            # completes, exactly as the reconciler treats it.
         elif pipeline_readable:
             total_outstanding = sum(
                 1 for task in tasks if task["state"] in NON_TERMINAL_TASK_STATES
@@ -2233,19 +2261,27 @@ class Collector:
                 for task in doc["tasks"]:
                     if task["blocker"]:
                         note_blocked(task["blocker"])
+                    elif task["state"] is None:
+                        note_blocked("task_state_unknown")
+                integration = doc["integration"]
+                if integration.get("terminal"):
+                    note_blocked("integration_terminal")
+                elif doc["tasks"] and all(task["state"] == "accepted" for task in doc["tasks"]):
+                    if not self._job_acceptable(doc, report_by_attempt):
+                        note_blocked("job_evidence_incomplete")
         for _ in range(unreadable_jobs):
             note_blocked("job_unreadable")
-        for _ in range(claims_unreadable):
-            note_blocked("queue_claims_unreadable")
 
         awaiting_verify = awaiting_integrate = None
         active_workers = None
+        claimed = None
         if pipeline_readable:
             awaiting_verify = sum(1 for task in tasks if task["state"] == "verifying")
             awaiting_integrate = sum(
                 1 for task in tasks if task["state"] in INTEGRATE_QUEUE_STATES
             )
             active_workers = sum(1 for task in tasks if task["state"] == "running")
+            claimed = sum(1 for task in tasks if task["state"] in CLAIMED_TASK_STATES)
 
         awaiting_deploy = None
         if ci_readable:
@@ -2254,14 +2290,16 @@ class Collector:
             )
 
         blocked_known = queue_readable and pipeline_readable
-        owner_messages_known = approval_state["known"] and blocked_known and claims_known
+        # An unreadable claim store is itself a known one-message refusal,
+        # so it does not make the owner-message count unknown.
+        owner_messages_known = approval_state["known"] and blocked_known
         owner_messages = approval_state["pending"] + sum(blocked_reasons.values())
 
         in_use = None
         available = None
         waiting_despite = None
         waiting_count = None
-        if ready is not None and claims_known and pipeline_readable and owner_messages_known:
+        if ready is not None and pipeline_readable and owner_messages_known:
             in_use = (claimed or 0) + (active_workers or 0) + (awaiting_verify or 0)
             available = max(0, SCHEDULER_MAX_ACTIVE - in_use)
             advancement = ready > 0 and available > 0 and owner_messages == 0
@@ -2313,6 +2351,7 @@ class Collector:
             "ready_waiting_despite_capacity": waiting_count,
             "waiting_despite_capacity": waiting_despite,
             "claimed": claimed,
+            "active_claims": active_claims,
             "active_workers": active_workers,
             "awaiting_verify": awaiting_verify,
             "awaiting_review": awaiting_review,
