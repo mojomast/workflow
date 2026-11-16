@@ -71,20 +71,23 @@
     {
       "id": "M2-CANARY-RUN",
       "title": "M2 canary run: execute the owner-decided canary per the runbook (after F2 lands)",
-      "project": "workflow",
+      "project": "rizzstack-m2-canary",
       "lane": "features",
       "priority": 3,
       "brief": {
-        "objective": "Execute docs/m2-canary-runbook.md end-to-end exactly as written (the packet is plans/packets/M2-canary.md; the dedicated smoke project rizzstack-m2-canary; contract-required end-to-end via the F2 require-contract machinery; one bee; RED-first acceptance; verify; review; receiver decision). NOTE recorded honestly: provision tasks currently need a wired provisioner (settings gap, fix in flight) - if provisioning refuses, STOP and report the blocker, never fake the run. The receiver decision at the runbook end is owner-gated and must not be self-recorded. Lease note: the seeded assigned_files is the placeholder lease 'plans/backlog.json' covering only this slice's own durable record; finalize the real lease in the same change that resolves this slice's owner gate, before any dispatch.",
-        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+        "objective": "Execute Step 6 of docs/m2-canary-runbook.md: dispatch ONE bee on the canary project to implement contract M2-canary-wave-tally (contract_sha256 788be10f30ff487857f276dc1cd968c93bb258d35774947928dc5ef2fe5f11b4, frozen at the canary base revision) — a two-file event tally and its renderer proven by the four approved tests that exist and fail at the base revision. Branch canary/m2-wave-tally off main. The approved tests (tests/test_meter.py) are read-only for the bee; no push, no merge, no retry; 30 wall-clock minutes; the receiver decision after the run is the owner's (Step 12), never self-recorded. Dispatch is gated: the canary project must be registered first (Step 4b) and the coordinator fact m2-canary-runbook-step6-reached records that Steps 1-5 are complete.",
+        "source_rev": "3951ec15eac5db70f198d0ffc5ad3cdb6e6bd4e5",
         "assigned_files": [
-          "plans/backlog.json"
+          "canary/meter.py",
+          "canary/report.py"
         ],
         "acceptance": {
           "criteria": [
-            "every runbook step executed in order with its expected evidence captured",
-            "no production project registration touched",
-            "receiver decision LEFT TO THE OWNER"
+            "AC-001 record_events([\"dispatch\", \"verify\", \"dispatch\"]) -> {\"dispatch\": 2, \"verify\": 1} (tests/test_meter.py::MeterTests::test_record_events_counts_kinds)",
+            "AC-002 record_events([\"dispatch\", \"mystery\"]) raises UnknownEventKind (tests/test_meter.py::MeterTests::test_record_events_rejects_unknown_kind)",
+            "AC-003 record_events([]) -> {} (tests/test_meter.py::MeterTests::test_empty_events_yield_empty_tally)",
+            "AC-004 render_tally({\"verify\": 1, \"dispatch\": 2}) -> 'dispatch=2\\nverify=1' (tests/test_meter.py::ReportTests::test_render_tally_sorts_and_joins)",
+            "AC-005 the combined branch passes the full canary suite"
           ]
         }
       },
@@ -106,152 +109,6 @@
       "status": "planned",
       "transitions": [],
       "updated_at": "2026-11-16T18:30:00-05:00"
-    },
-    {
-      "id": "M1-AC4-AC7",
-      "title": "M1 acceptance criteria AC4-AC7 (blocked behind the rails-spec landing)",
-      "project": "workflow",
-      "lane": "features",
-      "priority": 3,
-      "brief": {
-        "objective": "M1 acceptance AC4-AC7 per docs/rizzstack-rails-spec.md (PR #40). Brief to be finalized from the spec text at unblock time; seeded now so the gate evidence is durable. Do not dispatch on a thin brief: if this slice ever auto-clears while its brief is still the seed placeholder, treat that as a coordinator defect and re-brief first. Lease note: the seeded assigned_files is the placeholder lease 'plans/backlog.json' covering only this slice's own durable record; finalize the real lease in the same change that resolves this slice's owner gate, before any dispatch.",
-        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
-        "assigned_files": [
-          "plans/backlog.json"
-        ],
-        "acceptance": {
-          "criteria": [
-            "AC4-AC7 of docs/rizzstack-rails-spec.md satisfied with recorded evidence"
-          ]
-        }
-      },
-      "gates": [
-        {
-          "type": "pr_merged",
-          "pr": 40
-        },
-        {
-          "type": "attempt_succeeded",
-          "fact": "m1-ac4-ac7-brief-finalized"
-        }
-      ],
-      "depends_on": [],
-      "status": "planned",
-      "transitions": [],
-      "updated_at": "2026-11-16T18:30:00-05:00"
-    },
-    {
-      "id": "F3-ECON-ALERTS",
-      "title": "F3 economics alerts (needs real token numbers; blocked on the hyvv deploy)",
-      "project": "hyvv",
-      "lane": "features",
-      "priority": 4,
-      "brief": {
-        "objective": "F3 economics alerts per the campaign record batch 7 item 3, starting from REAL usage-ledger numbers. The usage-ingest service is installed and running (0 records until the deployed launcher carries #22 usage payloads). Precondition: hyvv deploy to 47d25c2 (owner + idle window). Lease note: the seeded assigned_files is the placeholder lease 'plans/backlog.json' covering only this slice's own durable record; finalize the real lease in the same change that resolves this slice's owner gate, before any dispatch.",
-        "source_rev": "47d25c2cc670e479f16c9550afc10d514b06cf70",
-        "assigned_files": [
-          "plans/backlog.json"
-        ],
-        "acceptance": {
-          "criteria": [
-            "alerts computed from real ledger records, never placeholders",
-            "degrade-to-unknown when the ledger is empty, never a confident 0.0"
-          ]
-        }
-      },
-      "gates": [
-        {
-          "type": "owner_decision",
-          "question": "hyvv deploy to 47d25c2 (owner-gated + idle window) - also the token-numbers unblock: the ledger service is live and waiting for payload-bearing events."
-        }
-      ],
-      "depends_on": [],
-      "status": "planned",
-      "transitions": []
-    },
-    {
-      "id": "RAILS-R02PLUS",
-      "title": "Rails wave R02+ planning (owner HOLD until R00/R01 land)",
-      "project": "workflow",
-      "lane": "features",
-      "priority": 5,
-      "brief": {
-        "objective": "Plan the next rails wave from what R00/R01 teach (no pre-staging). Owner hold per the reliability record 13:05 batch 9 answer 2. Lease note: the seeded assigned_files is the placeholder lease 'plans/backlog.json' covering only this slice's own durable record; finalize the real lease in the same change that resolves this slice's owner gate, before any dispatch.",
-        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
-        "assigned_files": [
-          "plans/backlog.json"
-        ],
-        "acceptance": {
-          "criteria": [
-            "wave plan derived from R00/R01 outcomes recorded in the campaign/reliability records"
-          ]
-        }
-      },
-      "gates": [
-        {
-          "type": "owner_decision",
-          "question": "Rails wave R02+: hold until R00/R01 land - approve to lift the hold."
-        }
-      ],
-      "depends_on": [],
-      "status": "planned",
-      "transitions": []
-    },
-    {
-      "id": "REBRAND-EXEC",
-      "title": "Rebrand execution (owner-gated; plan at wf#47)",
-      "project": "workflow",
-      "lane": "features",
-      "priority": 5,
-      "brief": {
-        "objective": "Execute the rebrand per docs/rebrand-plan.md (wf#47). Owner-gated execution per the campaign record standing authority; the plan itself is the pre-written brief. Lease note: the seeded assigned_files is the placeholder lease 'plans/backlog.json' covering only this slice's own durable record; finalize the real lease in the same change that resolves this slice's owner gate, before any dispatch.",
-        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
-        "assigned_files": [
-          "plans/backlog.json"
-        ],
-        "acceptance": {
-          "criteria": [
-            "executed exactly per docs/rebrand-plan.md; every deviation disclosed"
-          ]
-        }
-      },
-      "gates": [
-        {
-          "type": "owner_decision",
-          "question": "Execute the rebrand plan? (wf#47 must merge first; execution is owner-gated per the campaign record.)"
-        }
-      ],
-      "depends_on": [],
-      "status": "planned",
-      "transitions": []
-    },
-    {
-      "id": "PACKETS-OPTION-A",
-      "title": "f15-f19 packets lane: owner re-authorization for further bee attempts (r4-r7 exhausted)",
-      "project": "workflow",
-      "lane": "features",
-      "priority": 5,
-      "brief": {
-        "objective": "Owner re-authorization for further bee attempts on the packets lane (option (a) of the recorded decision; option (b) - coordinator RED-first repair in wf-verify-p6 - is the DEFAULT and needs no authorization). Lease note: the seeded assigned_files is the placeholder lease 'plans/backlog.json' covering only this slice's own durable record; finalize the real lease in the same change that resolves this slice's owner gate, before any dispatch.",
-        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
-        "assigned_files": [
-          "plans/backlog.json"
-        ],
-        "acceptance": {
-          "criteria": [
-            "any further attempt carries the r6 jail-blocking diagnosis + the r4 proven jail-robust pattern"
-          ]
-        }
-      },
-      "gates": [
-        {
-          "type": "owner_decision",
-          "question": "Re-authorize bee attempts on the f15-f19 packets lane? (Budget exhausted r4-r7; default otherwise is the coordinator RED-first repair.)"
-        }
-      ],
-      "depends_on": [],
-      "status": "planned",
-      "transitions": []
     }
   ],
   "transitions": [
@@ -291,5 +148,5 @@
       "at": "2026-11-16T17:15:00-05:00"
     }
   ],
-  "seed_note": "Seeded 2026-11-16 ~14:25 EST by the campaign coordinator beat (fallback per the heartbeat duty: the gate-watcher bee att_56d09cdf3da74904 landed its CODE (bb#61, in review) but plans/backlog.json did not exist yet in this repo; seeded from the campaign record focused-improvement-2026-11-15.md sections 105-125 gate evaluations. V1 parallel-verify deliberately NOT seeded: the in-flight att_bd46d2356c484dbb feat/verify-workers-shadow lane appears to be that work - seeding it too would double-dispatch; resolve the identity before the watcher wiring goes live. Repair 2026-11-16 ~18:20 EST (coordinator companion, campaign §136 prescription): the two pr_merged pr=60 gate referents (F5, M2-CANARY-RUN) were unreachable - workflow PR 60 does not exist and bb#60 was closed superseded by bb#65. F5's landing is now expressed as the satisfiable attempt_succeeded probe of att_65b4cffc4bca4602 (which landed as bb#67 88d4bd4) with its historic planned->queued->dispatched transitions recorded; M2-CANARY-RUN's F2 trigger is now the satisfiable attempt_succeeded probe of att_a88f29defbfe4e85 (the F2 content attempt whose verified work landed as bb#65 e50bb11c) and the owner half is recorded in decisions from batch 12 decision 3. The same validation run proved the seeded file was UNLOADABLE by the real gate_watcher (load_backlog raises: six owner-gated slices carried empty assigned_files, violating the brief contract) - those briefs now carry the placeholder lease plans/backlog.json covering only the slice's own record, with the finalize-before-dispatch duty stated in each objective; the r1 review's non-blocking classification is thereby made loadable without inventing any future file set. Structural guard added in the same repair: M2-CANARY-RUN and M1-AC4-AC7 cleared their mechanical gates while their briefs are still placeholder-lease, so each now also carries an attempt_succeeded FACT gate (m2-canary-runbook-step6-reached resp. m1-ac4-ac7-brief-finalized) that the coordinator beat records from the campaign record when the brief is finalized / the runbook reaches its dispatch step. Without it a mechanical beat would auto-dispatch a placeholder lease; with it the slice waits, fail-closed, until the recorded fact exists. Reachable by construction - not a silent stall."
+  "seed_note": "Seeded 2026-11-16 ~14:25 EST by the campaign coordinator beat (fallback per the heartbeat duty: the gate-watcher bee att_56d09cdf3da74904 landed its CODE (bb#61, in review) but plans/backlog.json did not exist yet in this repo; seeded from the campaign record focused-improvement-2026-11-15.md sections 105-125 gate evaluations. V1 parallel-verify deliberately NOT seeded: the in-flight att_bd46d2356c484dbb feat/verify-workers-shadow lane appears to be that work - seeding it too would double-dispatch; resolve the identity before the watcher wiring goes live. Repair 2026-11-16 ~18:20 EST (coordinator companion, campaign §136 prescription): the two pr_merged pr=60 gate referents (F5, M2-CANARY-RUN) were unreachable - workflow PR 60 does not exist and bb#60 was closed superseded by bb#65. F5's landing is now expressed as the satisfiable attempt_succeeded probe of att_65b4cffc4bca4602 (which landed as bb#67 88d4bd4) with its historic planned->queued->dispatched transitions recorded; M2-CANARY-RUN's F2 trigger is now the satisfiable attempt_succeeded probe of att_a88f29defbfe4e85 (the F2 content attempt whose verified work landed as bb#65 e50bb11c) and the owner half is recorded in decisions from batch 12 decision 3. The same validation run proved the seeded file was UNLOADABLE by the real gate_watcher (load_backlog raises: six owner-gated slices carried empty assigned_files, violating the brief contract) - those briefs now carry the placeholder lease plans/backlog.json covering only the slice's own record, with the finalize-before-dispatch duty stated in each objective; the r1 review's non-blocking classification is thereby made loadable without inventing any future file set. Structural guard added in the same repair: M2-CANARY-RUN and M1-AC4-AC7 cleared their mechanical gates while their briefs are still placeholder-lease, so each now also carries an attempt_succeeded FACT gate (m2-canary-runbook-step6-reached resp. m1-ac4-ac7-brief-finalized) that the coordinator beat records from the campaign record when the brief is finalized / the runbook reaches its dispatch step. Without it a mechanical beat would auto-dispatch a placeholder lease; with it the slice waits, fail-closed, until the recorded fact exists. Reachable by construction - not a silent stall. R2 repair (review-wf-pr48-r2.md BLOCKING 1): the r2 child proved with the real run_beat that a recorded fact would queue AND dispatch a slice on the placeholder lease plans/backlog.json (project workflow) - the fact gate delayed the placeholder dispatch but did not prevent it, so the placeholder lease is removed as a design. M2-CANARY-RUN now carries its REAL runbook Step-6 brief (project rizzstack-m2-canary; lease exactly the contract's assigned files canary/meter.py + canary/report.py; source_rev = the canary BASE_SHA; contract id+sha in the objective) and its dispatch is structurally fail-closed: the launcher refuses an unregistered project, so the slice cannot dispatch until Step 4b registration exists, the fact m2-canary-runbook-step6-reached is recorded, and the batch-12 approval stands. The five slices whose briefs are genuinely unwritten (M1-AC4-AC7, F3-ECON-ALERTS, RAILS-R02PLUS, REBRAND-EXEC, PACKETS-OPTION-A) are removed from the mechanical backlog: their intents remain recorded in the campaign record (focused-improvement-2026-11-15.md) and their owner questions in its decision queue; each re-enters the backlog only in the same change that first writes its real brief. A brief the writer cannot yet state must not carry a dispatchable lease. R2 repair (review-wf-pr48-r2.md BLOCKING 1): the r2 child proved with the real run_beat that a recorded fact would queue AND dispatch a slice on the placeholder lease plans/backlog.json (project workflow) - the fact gate delayed the placeholder dispatch but did not prevent it, so the placeholder lease is removed as a design. M2-CANARY-RUN now carries its REAL runbook Step-6 brief (project rizzstack-m2-canary; lease exactly the contract's assigned files canary/meter.py + canary/report.py; source_rev = the canary BASE_SHA; contract id+sha in the objective) and its dispatch is structurally fail-closed: the launcher refuses an unregistered project, so the slice cannot dispatch until Step 4b registration exists, the fact m2-canary-runbook-step6-reached is recorded, and the batch-12 approval stands. The five slices whose briefs are genuinely unwritten (M1-AC4-AC7, F3-ECON-ALERTS, RAILS-R02PLUS, REBRAND-EXEC, PACKETS-OPTION-A) are removed from the mechanical backlog: their intents remain recorded in the campaign record (focused-improvement-2026-11-15.md) and their owner questions in its decision queue; each re-enters the backlog only in the same change that first writes its real brief. A brief the writer cannot yet state must not carry a dispatchable lease."
 }
