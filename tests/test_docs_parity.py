@@ -196,6 +196,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("hindsight-mechanism-report", "test_hindsight_mechanisms"),
     },
     {
+        # plans/gate-backlog-seed: the machine-readable gate-backlog (merged d952681).
+        "pr": 48,
+        "name": "gate-backlog seed (plans/backlog.json)",
+        "keywords": ("bundlebees.gate-backlog/1", "plans/backlog.json"),
+    },
+    {
         # docs/parity-audit-nov16: the parity audit + its own coverage guard (merged a0193ad).
         "pr": 55,
         "name": "docs parity audit + coverage registry",
@@ -203,17 +209,11 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
     },
 )
 
-#: The in-review wave: workflow PR #48 (the gate-backlog seed) open against main
-# as of the 2026-11-16 post-drain state; #41-#47 and #49-#54 merged in the drain
-# and moved to MERGED_WINDOW_ROWS. The changelog must represent open work in
-# the ``### In review`` subsection so the umbrella truth table and the next
-# docs-sync can be written from the changelog, not from memory.
+#: The in-review wave: no campaign PR is open as of the 2026-11-16 post-#48 state
+# (the drain landed #41-#47 and #49-#54; #55, #56, #62 and #48 followed). The changelog
+# must represent open work in the ``### In review`` subsection so the umbrella truth table
+# and the next docs-sync can be written from the changelog, not from memory.
 IN_REVIEW_ROWS: tuple[dict[str, object], ...] = (
-    {
-        "pr": 48,
-        "name": "gate-backlog seed (plans/backlog.json)",
-        "keywords": ("bundlebees.gate-backlog/1", "plans/backlog.json"),
-    },
 )
 
 #: The umbrella protocol-map rows, corrected to post-#40 reality. Each pair is

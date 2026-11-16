@@ -42,13 +42,12 @@
 
 - #55 (merged at `a0193ad`): the docs parity audit and its coverage guard (workflow #55): the per-repo documentation parity audit across the five rizzstack repos (docs/docs-parity-audit.md, audited at pinned heads with per-entry prescribed fixes) plus tests/test_docs_parity.py - the guard that pins changelog discoverability for every merged campaign PR in the audit window (a registry row with distinctive keywords, or an explicit exclusion reason), so a merged PR without changelog coverage fails CI instead of surfacing only in the next docs-sync. This entry and its registry row are that guard's own self-coverage, added as a docs-sync companion after the merge exposed the gap.
 
+- #48 (merged at `d952681`): the machine-readable gate-backlog (workflow #48): `plans/backlog.json` in the `bundlebees.gate-backlog/1` schema - the durable planned-work backlog the bundlebees gate-watcher evaluates beat by beat. The merged file carries two slices: F5 recorded as dispatched with its historic planned->queued->dispatched transitions (the corrected-brief dispatch of att_65b4cffc4bca4602, landed as bundlebees #67) and M2-CANARY-RUN planned behind three independent gates (the F2 content attempt, the runbook-progress fact, the recorded batch-12 owner approval) with its real runbook Step-6 brief (project rizzstack-m2-canary, lease exactly the frozen contract's assigned files). The seed_note records the two repair rounds the reviews forced: the unreachable pr_merged pr=60 referents replaced with satisfiable probes, and the placeholder-lease design removed after an independent run_beat proof showed a recorded fact would have dispatched a bee on a placeholder lease; five slices with genuinely unwritten briefs were moved back to the campaign record's decision queue with a documented re-entry condition (a real brief written first). Files landed: `plans/backlog.json`.
 
-### In review (open PRs — not on main; states as of 2026-11-16, the post-drain changelog update)
+### In review (open PRs — not on main; states as of 2026-11-16, the post-#48 update)
 
 Open work is recorded here with its real state so the changelog stays the source the umbrella
 truth table and the next docs-sync are written from. None of this is on `main`; nothing below
-links to an unmerged artifact, and each entry names the leased files the PR would land. The
-2026-11-16 merge drain moved #41–#47 and #49–#54 into the Added section above (each entry keeps
-its real merged-at sha); one PR remains open:
-
-- #48 (in review): the seed of `bundlebees.gate-backlog/1` at `plans/backlog.json` — the machine-readable backlog the bundlebees gate-watcher (bb#61, merged) evaluates, seeded from the campaign record's gate evaluations per the recorded heartbeat fallback duty, after a direct push to main was refused by repository rules. Leased: `plans/backlog.json`.
+links to an unmerged artifact. As of this update no campaign PR is open: the 2026-11-16 merge
+drain and the follow-up merges (#55, #56, #62, #48) have landed, and #48's gate-backlog seed
+is merged coverage above.
