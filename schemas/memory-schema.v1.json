@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/memory-schema.v1.json",
+  "title": "Memory contract (rizzstack.memory/1)",
+  "description": "The parsed frontmatter of one memory document in the rizzstack memory vault. A memory is a markdown file with YAML frontmatter; this record is what that frontmatter parses to. The vault is semantic memory distilled from work, never raw transcripts: sources name where every claim came from, the digest guards every write against concurrent editors, and the retention block states how the memory expires. The operation envelopes a vault service accepts (write, query, brief injection) live under $defs. This file is the workflow-repo mirror of the umbrella protocol row; see docs/memory-contract.md and docs/protocol.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "type",
+    "created",
+    "modified",
+    "retention",
+    "sources",
+    "sha"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.memory/1",
+      "description": "The contract version. Every memory carries it, so a reader can tell what it is looking at before reading anything else."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,79}$",
+      "description": "Stable lowercase kebab slug, unique across the whole vault. Renaming is refused; supersession replaces a memory instead."
+    },
+    "type": {
+      "enum": ["decision", "learning", "pitfall", "env-fact", "project-state", "reference"],
+      "description": "decision: a chosen direction and why. learning: a durable insight about how work behaves. pitfall: a confirmed trap and its fix. env-fact: a checked fact about a concrete thing in the environment (a host, a service, a repo, a tool). project-state: where a project stands and what is next. reference: stable external or distilled reference material with a re-verify deadline."
+    },
+    "created": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "description": "RFC 3339 instant the memory was created. Never after modified."
+    },
+    "modified": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "description": "RFC 3339 instant of the last accepted edit."
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "expires", "superseded_by"],
+      "properties": {
+        "policy": {
+          "enum": [
+            "decision-permanent",
+            "learning-until-superseded",
+            "pitfall-until-fixed",
+            "env-fact-until-fix",
+            "project-state-until-done",
+            "reference-refresh"
+          ],
+          "description": "The expiry policy. The policy names the duty: who sets expires or superseded_by, and when. It is fixed per type by the implications below."
+        },
+        "expires": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+          "description": "The deadline after which the memory stops being served, or null while the policy has not set one. A decision and a learning never set it; a reference must."
+        },
+        "superseded_by": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9][a-z0-9-]{0,79}$",
+          "description": "The id of the memory that replaced this one, or null. Setting it expires this memory and keeps the trail."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {
+            "enum": ["session-digest", "operator-note", "pull-request", "file", "tool-output", "external"],
+            "description": "What kind of evidence the claim came from. A session-digest is the distilled summary of a work session, never the raw transcript."
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Where the source lives: a vault-relative path, a pull-request id, a file path, or an external locator. Not the content itself."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Already-scrubbed free text about what this source contributed. No private URLs, hostnames, addresses or file contents."
+          }
+        }
+      },
+      "description": "Provenance: where every claim in the body came from. A memory with no source is refused; a raw transcript is never a source by itself, only a distilled digest of one is."
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Digest of this memory: sha256 over the canonical JSON of the frontmatter without the sha field itself (sorted keys, compact separators), then a newline, then the markdown body. A write whose expected digest is stale is refused with a re-read requirement."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "decision"}}},
+      "then": {"properties": {"retention": {"properties": {"policy": {"const": "decision-permanent"}, "expires": {"const": null}}}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "learning"}}},
+      "then": {"properties": {"retention": {"properties": {"policy": {"const": "learning-until-superseded"}, "expires": {"const": null}}}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "pitfall"}}},
+      "then": {"properties": {"retention": {"properties": {"policy": {"const": "pitfall-until-fixed"}}}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "env-fact"}}},
+      "then": {"properties": {"retention": {"properties": {"policy": {"const": "env-fact-until-fix"}}}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "project-state"}}},
+      "then": {"properties": {"retention": {"properties": {"policy": {"const": "project-state-until-done"}}}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "reference"}}},
+      "then": {"properties": {"retention": {"properties": {"policy": {"const": "reference-refresh"}, "expires": {"type": "string"}}}}}
+    }
+  ],
+  "$defs": {
+    "authority": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["grant_ref", "approved_by", "approved_at"],
+      "properties": {
+        "grant_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Locator of the durable approval record that authorized this write outside the writer's own subtree."
+        },
+        "approved_by": {
+          "type": "string",
+          "pattern": "^(?:human|orbit|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "description": "Who approved the grant, as a kind-prefixed id. Writers cannot approve their own grants; curated zones require a human approver."
+        },
+        "approved_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$",
+          "description": "When the grant was approved."
+        }
+      },
+      "description": "The explicit authorization a write carries when it targets anything outside the writer's own quarantine subtree. Null means the write must stay inside that subtree."
+    },
+    "write-op": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "writer", "path", "memory", "body", "expected_sha", "authority"],
+      "properties": {
+        "op": {"const": "write"},
+        "writer": {
+          "type": "string",
+          "pattern": "^(?:human|agent|bot|orbit|hyvv|bundlebees):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "description": "Who is writing, as a kind-prefixed id. It selects the writer's own quarantine subtree."
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.md$",
+          "description": "Vault-relative markdown target. No absolute paths and no dot segments; the vault service also resolves it inside the vault root."
+        },
+        "memory": {"$ref": "#"},
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000,
+          "description": "The markdown body, starting with the level-1 title line. The digest in memory.sha must match this body."
+        },
+        "expected_sha": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "The digest the writer last read, or null for a create. A mismatch with the stored digest is refused as sha_conflict with the current digest and a re-read requirement."
+        },
+        "authority": {"$ref": "#/$defs/authority"}
+      }
+    },
+    "write-result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted"],
+      "allOf": [
+        {
+          "if": {"properties": {"accepted": {"const": true}}},
+          "then": {
+            "properties": {"code": {"const": "none"}},
+            "required": ["id", "sha", "path", "log_seq"]
+          }
+        },
+        {
+          "if": {"properties": {"accepted": {"const": false}}},
+          "then": {
+            "properties": {
+              "code": {
+                "enum": ["schema_invalid", "policy_mismatch", "sha_mismatch", "sha_conflict", "write_quarantined", "write_bad_grant", "duplicate_id", "id_mismatch", "service_owned"]
+              }
+            },
+            "required": ["code", "message", "reread_required", "current_sha"]
+          }
+        },
+        {
+          "if": {"properties": {"code": {"const": "sha_conflict"}}},
+          "then": {"properties": {"reread_required": {"const": true}}}
+        }
+      ],
+      "properties": {
+        "accepted": {"type": "boolean"},
+        "code": {
+          "type": "string",
+          "description": "none when accepted; otherwise the named refusal rule."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "Human-readable refusal reason. Already-scrubbed."
+        },
+        "reread_required": {
+          "type": "boolean",
+          "description": "True exactly for sha_conflict: the writer must re-read the memory and reapply its edit on the current digest."
+        },
+        "current_sha": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "The stored digest at refusal time, when one exists, so the writer can re-read against it."
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,79}$",
+          "description": "The memory id, on acceptance."
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.md$",
+          "description": "The stored path, on acceptance."
+        },
+        "log_seq": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The receipt sequence in log.md, on acceptance."
+        }
+      },
+      "description": "What a write returns: an accepted receipt, or a refusal with a code, an optional current digest and the re-read requirement."
+    },
+    "query-op": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "q"],
+      "properties": {
+        "op": {"const": "query"},
+        "q": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "The natural-language or keyword query text."
+        },
+        "types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["decision", "learning", "pitfall", "env-fact", "project-state", "reference"]},
+          "description": "Optional filter by memory type."
+        },
+        "k": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 25,
+          "default": 8,
+          "description": "Maximum hits returned."
+        },
+        "mode": {
+          "enum": ["hybrid", "semantic", "keyword", "grep"],
+          "default": "hybrid",
+          "description": "Requested retrieval engine. When an engine is unavailable the vault falls down the chain: hybrid or semantic to keyword (the FTS5 index) to grep (ripgrep over the files plus the index and wikilinks). mode_used in the result says what actually ran."
+        },
+        "include_expired": {
+          "type": "boolean",
+          "default": false,
+          "description": "False hides expired memories; audit paths may opt in."
+        }
+      }
+    },
+    "query-result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "mode_used", "hits", "vault_rev"],
+      "properties": {
+        "op": {"const": "query-result"},
+        "mode_used": {
+          "enum": ["hybrid", "semantic", "keyword", "grep"],
+          "description": "The engine that actually ran. Hybrid fuses the keyword and embedding rankings with reciprocal rank fusion; it never runs silently degraded without saying so."
+        },
+        "vault_rev": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The vault generation or revision the result was computed against."
+        },
+        "hits": {
+          "type": "array",
+          "maxItems": 25,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "type", "path", "title", "sha", "score", "snippet"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"},
+              "type": {"enum": ["decision", "learning", "pitfall", "env-fact", "project-state", "reference"]},
+              "path": {
+                "type": "string",
+                "pattern": "^(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.md$",
+                "description": "Vault-relative path of the hit."
+              },
+              "title": {"type": "string", "minLength": 1, "maxLength": 200},
+              "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of the hit at result time; a consumer re-reading the file can detect drift."},
+              "score": {"type": "number", "description": "Retrieval score after fusion or fallback ranking."},
+              "snippet": {"type": "string", "maxLength": 240, "description": "A short verbatim excerpt for display."}
+            }
+          },
+          "description": "Ranked hits. Expired memories are hidden unless the query opted in."
+        }
+      }
+    },
+    "injection-item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "sha", "title", "path", "excerpt"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"},
+        "type": {"enum": ["decision", "learning", "pitfall", "env-fact", "project-state", "reference"]},
+        "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of the memory the excerpt was taken from, pinned at injection time."},
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "path": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.md$",
+          "description": "Vault-relative path, so a worker can pull the full memory when it needs more."
+        },
+        "excerpt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 480,
+          "description": "The size-capped excerpt carried into the brief."
+        }
+      }
+    },
+    "injection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "items", "caps", "vault_rev"],
+      "properties": {
+        "contract": {"const": "rizzstack.memory/1"},
+        "items": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {"$ref": "#/$defs/injection-item"},
+          "description": "Typed, digest-pinned, size-capped memory excerpts for one brief. Empty is honest: a brief with nothing relevant carries none."
+        },
+        "caps": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_items", "max_excerpt_chars", "max_total_chars"],
+          "properties": {
+            "max_items": {"type": "integer", "minimum": 1, "maximum": 8},
+            "max_excerpt_chars": {"type": "integer", "minimum": 1, "maximum": 480},
+            "max_total_chars": {"type": "integer", "minimum": 1, "maximum": 4000}
+          },
+          "description": "The caps actually applied. They must not exceed the contract defaults of 8 items, 480 characters per excerpt and 4000 characters in total."
+        },
+        "vault_rev": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The vault generation the excerpts were pinned against."
+        }
+      },
+      "description": "The memory-context block a dispatch brief carries in the lease payload. Built by the recall step before dispatch; never assembled by the worker itself."
+    }
+  }
+}

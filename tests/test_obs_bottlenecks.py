@@ -335,7 +335,9 @@ def fleet_runner(argv):
             }
         ]
     }
-    if any("op=attempts" in part for part in argv):
+    # argv-flip companion (bb CLI subcommands; wf#41): the fleet
+    # attempts call now invokes the bare subcommand instead of op=attempts.
+    if "attempts" in argv:
         return 0, json.dumps(attempts), ""
     return 0, json.dumps({"in_flight": 2, "bee_cap": 12}), ""
 

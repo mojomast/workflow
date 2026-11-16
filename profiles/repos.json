@@ -1,0 +1,80 @@
+{
+  "schema": "rizzstack.modularity.repos/1",
+  "description": "Registry of the four elements audited by docs/modularity.md. Pins are recorded evidence: every ref string appears verbatim in the cited source file in this checkout (enforced by tests/test_modularity_spec.py). Cross-repo module and endpoint names are cited from the workflow chapters that were written against those trees; the element repositories are not checked out in this workspace.",
+  "elements": ["workflow", "hyvv", "bundlebees", "orbitdesktop"],
+  "dependency_direction": "points down: workflow (protocol) <- bundlebees (execution) <- orbitdesktop (control surface); hyvv sits beside the executor as the worker host and is consumed by it",
+  "repos": {
+    "workflow": {
+      "url": "https://github.com/mojomast/workflow",
+      "role": "normative protocol: specifications, authority, handoffs, evidence, acceptance; schemas, validators, acdd-lint, project-state checker, reference demo, cold-start acceptance harness. No state, no execution.",
+      "depends_on": [],
+      "optional_integrations": ["bundlebees loads its validators from a pinned checkout of this repo", "acceptance harness clones bundlebees"],
+      "pins": [
+        {
+          "ref": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+          "what": "base revision audited by this modularity spec",
+          "source": "docs/modularity.md"
+        },
+        {
+          "ref": "070b6c10bdfa3e9d31b84cc83a2d9d701222082f",
+          "what": "feature-packet line (PR 33) pinned by bundlebees CI as WORKFLOW_SRC",
+          "source": "docs/23-autonomy-devplan.md"
+        }
+      ]
+    },
+    "hyvv": {
+      "url": "https://github.com/mojomast/hyvv",
+      "role": "worker host. Owns the versioned /v1 worker API (attempts) and governed provisioning; owns its host filesystem. Extracted from the PC launcher.",
+      "depends_on": [],
+      "optional_integrations": ["bundlebees dispatches attempts over its /v1 API", "parking-state refusal is a proposal in hyvv PR 1, not running code"],
+      "pins": [
+        {
+          "ref": "5bee1a870ffe32ee91c6a70b7be807eaa8400801",
+          "what": "feat/worker-provisioning branch (PR 4 open): governed provisioning endpoints",
+          "source": "docs/23-autonomy-devplan.md"
+        }
+      ]
+    },
+    "bundlebees": {
+      "url": "https://github.com/mojomast/bundlebees",
+      "role": "execution system (Hermes plugin): dispatch, strict briefs, HMAC file leases, sandboxed verify, integrate, durable job store, reconciler, queue, bounded recovery, RETURN packets, agent wake-up.",
+      "depends_on": ["workflow", "hyvv"],
+      "optional_integrations": ["orbitdesktop launcher front-end (orbit-loopback adapter is the default worker backend)", "opencode and codex backends are fail-closed stubs"],
+      "pins": [
+        {
+          "ref": "c10aa42eb90298460b8e2db1d7aba54e4688138f",
+          "what": "main: verifier hardening (PRs 3 and 4)",
+          "source": "docs/13-bundlebees-hardening.md"
+        },
+        {
+          "ref": "875025b",
+          "what": "main: autonomy milestones M1 through M4.3 (PRs 16-19)",
+          "source": "docs/22-autonomy-architecture.md"
+        }
+      ]
+    },
+    "orbitdesktop": {
+      "url": "https://github.com/mojomast/orbitdesktop",
+      "role": "coordination interface: collaboration boards, agent sessions (Grok Bots, Hermes, Pi, others), activity view, local-workers launcher adapter.",
+      "depends_on": [],
+      "optional_integrations": ["local-workers adapter turns board tasks into launcher attempts against bundlebees", "planned ACDD evidence view reads bundlebees artifacts"],
+      "pins": [
+        {
+          "ref": "d7cf47a",
+          "what": "Orbit commit pinned by the bundlebees orbit-roundtrip job",
+          "source": "docs/23-autonomy-devplan.md"
+        },
+        {
+          "ref": "60f0ca0",
+          "what": "Orbit commit pinned by the bundlebees orbit-roundtrip job",
+          "source": "docs/23-autonomy-devplan.md"
+        }
+      ]
+    }
+  },
+  "notes": [
+    "bundlebees main runs its mandatory suite only with both pinned checkouts present (REQUIRE_WORKFLOW and REQUIRE_HYVV fail closed); the offline acceptance harness can instead drive verify with a scripted worker backend.",
+    "The hyvv provisioning endpoints live on the pinned branch, not on a merged mainline, as of the audited revision.",
+    "orbitdesktop main was reconciled with the live tree on Nov 12 (PR 24); the runnable-by-anyone first-run path is in progress, not landed."
+  ]
+}
