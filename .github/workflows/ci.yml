@@ -152,12 +152,12 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install jsonschema
-        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Install jsonschema and pytest
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5" "pytest>=8,<9"
       - name: Feature packet protocol tests (required, jsonschema required, no skips)
         run: python3 -m unittest tests.test_feature_packet -v
       - name: Every module under tests/
-        run: python3 -m unittest discover -s tests -t . -q
+        run: python3 -m pytest -q tests/
 
   bee-landed:
     name: bee-landed protocol (required)
@@ -173,8 +173,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install jsonschema
-        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Install jsonschema and pytest
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5" "pytest>=8,<9"
       - name: Bee Landed protocol tests (required, jsonschema required, no skips)
         run: python3 -m unittest tests.test_bee_landed -v
       - name: Validate the Bee Landed examples when present
@@ -187,7 +187,7 @@ jobs:
             python3 tools/bee_landed.py "${files[@]}"
           fi
       - name: Every module under tests/
-        run: python3 -m unittest discover -s tests -t . -q
+        run: python3 -m pytest -q tests/
 
   campaign-report:
     name: campaign report protocol
@@ -226,14 +226,14 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install jsonschema
-        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Install jsonschema and pytest
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5" "pytest>=8,<9"
       - name: Return manifest protocol tests (required, jsonschema required, no skips)
         run: python3 -m unittest tests.test_return_manifest -v
       - name: Validate the two examples with the CLI
         run: python3 tools/return_manifest.py schemas/examples/return-exact.json schemas/examples/return-dependent.json
       - name: Every module under tests/
-        run: python3 -m unittest discover -s tests -t . -q
+        run: python3 -m pytest -q tests/
 
   recovery-protocol:
     name: recovery protocol (required)
@@ -253,8 +253,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install jsonschema
-        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Install jsonschema and pytest
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5" "pytest>=8,<9"
       - name: Recovery protocol tests (required, jsonschema required, no skips)
         run: python3 -m unittest tests.test_recovery_protocol -v
       - name: Runtime conformance tests (required, jsonschema required, no skips)
@@ -269,7 +269,7 @@ jobs:
           python3 tools/recovery.py decision schemas/examples/recovery-decision.json \
             --request schemas/examples/recovery-request.json --attempts-used 1
       - name: Every module under tests/
-        run: python3 -m unittest discover -s tests -t . -q
+        run: python3 -m pytest -q tests/
 
   # Required-context gates. The main-branch ruleset requires these three
   # contexts by name, so each gate carries the exact required name and depends
