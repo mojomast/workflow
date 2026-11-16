@@ -602,27 +602,33 @@ class TestBottlenecksComputed:
         assert row["throughput_status"] == "unknown"
         assert row["capacity_source"] is None
 
-    def test_invariant_matches_the_reconciler_on_the_fixture(self, section: dict) -> None:
-        # The reconciler-consistent result on this fixture: the blocked
-        # feature with the unmet dependency and the job whose gate decision
-        # was never recorded are owner messages, so the reconciler does not
-        # expect advancement. The earlier true/1 reading was a false
-        # positive.
+    def test_invariant_pins_the_reconciler_formula_on_the_fixture(self, section: dict) -> None:
+        # The reconciler's arithmetic on this fixture (reconcile.py):
+        # claimed counts tasks in the dispatching/dispatched states, so the
+        # running claim record for feat_gamma is NOT a claimed task - the
+        # running task itself is the active worker and the claim record is
+        # reported separately as active_claims. A dependency-blocked queue
+        # feature is not an owner message (it advances when its dependency
+        # completes), so the only owner message is job_r2's unrecorded
+        # merge-gate decision. The earlier expectation here (in_use 3,
+        # blocked dependency 1) enshrined the double count the r2 review
+        # rejected.
         invariant = section["invariant"]
         assert invariant["status"] == "known"
         assert invariant["total_outstanding"] == 4
         assert invariant["ready"] == 1
-        assert invariant["claimed"] == 1
+        assert invariant["claimed"] == 0
         assert invariant["active_workers"] == 1
         assert invariant["awaiting_verify"] == 1
         assert invariant["awaiting_review"] == 1
         assert invariant["awaiting_integrate"] == 2
         assert invariant["awaiting_deploy"] == 1
-        assert invariant["capacity"] == {"max_active": 4, "in_use": 3, "available": 1}
+        assert invariant["active_claims"] == 1
+        assert invariant["capacity"] == {"max_active": 4, "in_use": 2, "available": 2}
         assert invariant["waiting_despite_capacity"] is False
         assert invariant["ready_waiting_despite_capacity"] == 0
-        assert invariant["blocked_with_reason"] == 1
-        assert invariant["blocked_reasons"] == {"dependency": 1}
+        assert invariant["blocked_with_reason"] == 0
+        assert invariant["blocked_reasons"] == {}
         assert invariant["human_approvals_required"] == 1
 
     def test_invariant_progression_and_handoff_latency(self, section: dict) -> None:
@@ -979,6 +985,369 @@ class TestBottlenecksDegradation:
         # an owner message, never a silently dropped item.
         assert invariant["blocked_reasons"]["queue_claims_unreadable"] == 1
         assert invariant["waiting_despite_capacity"] is False
+
+
+# --------------------------------------------------- sealed-envelope fixtures
+
+
+def seal_document(doc: dict) -> dict:
+    """The on-disk job envelope shape job.py _seal writes: {"body", "mac"}.
+
+    The mac here is a synthetic digest, not a verified HMAC: the collector
+    is a read-only, keyless reader and does not verify seals (the
+    reconciler, which holds the state key, is the verifier). The shape is
+    what the fixture pins.
+    """
+    canonical = json.dumps(doc, sort_keys=True, separators=(",", ":"))
+    return {"body": doc, "mac": hashlib.sha256(canonical.encode("utf-8")).hexdigest()}
+
+
+def write_sealed_job_document(state: Path, doc: dict) -> None:
+    (state / "jobs" / f"{doc['job_id']}.json").write_text(
+        json.dumps(seal_document(doc)), encoding="utf-8"
+    )
+
+
+class TestBottlenecksSealedEnvelope:
+    """Real bundlebees job documents are written as HMAC envelopes
+    ({"body": {...}, "mac": ...}, job.py _seal, docs/22-autonomy-architecture.md
+    "Job (tasks, gates, events) | jobs/<job_id>.json | HMAC"). A collector
+    that asks the envelope itself for tasks/events reads confident zeros on
+    every real job; the suite must fail on that shape, never pass on it."""
+
+    def test_sealed_job_document_is_unwrapped_for_bottlenecks(self, tmp_path: Path) -> None:
+        state = tmp_path / "state"
+        for subdir in ("jobs", "metrics", "verify-results", "queue", "approvals"):
+            (state / subdir).mkdir(parents=True, exist_ok=True)
+        write_sealed_job_document(
+            state,
+            job_document(
+                "job_sealed",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "running", attempts=("a1",))],
+                events=[event_row("T1", "dispatching->running", at(30))],
+            ),
+        )
+        write_queue(
+            state,
+            {"feat_s": {"repo": "mojomast/workflow", "job_id": "", "title": "s", "depends_on": [], "status": "queued"}},
+        )
+        pin_mtimes(tmp_path)
+        snap = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+            stale_after_s=1800,
+        ).build_snapshot()
+        validated(snap)
+        body = bottlenecks_of(snap)
+        assert body["status"] == "live", body.get("error")
+        invariant = body["invariant"]
+        # The sealed body is parsed: one active worker, one recorded
+        # automatic progression - not a confident zero.
+        assert invariant["active_workers"] == 1
+        assert invariant["total_outstanding"] == 1
+        assert invariant["last_auto_progress_at"] == at(30)
+
+    def test_sealed_job_document_is_unwrapped_for_the_pipeline_section(self, tmp_path: Path) -> None:
+        state = tmp_path / "state"
+        (state / "jobs").mkdir(parents=True)
+        write_sealed_job_document(
+            state,
+            job_document(
+                "job_sealed_p",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "running", attempts=("a1",))],
+                events=[],
+            ),
+        )
+        pin_mtimes(tmp_path)
+        body, _rows = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+        ).pipeline_section()
+        # The pre-existing pipeline reader sees through the same envelope.
+        assert body["status"] == "live", body.get("error")
+        assert body["counts"] == {"running": 1}
+        assert body["jobs"][0]["task_count"] == 1
+
+    def test_envelope_with_an_unusable_body_is_an_unreadable_job(self, tmp_path: Path) -> None:
+        state = tmp_path / "state"
+        for subdir in ("jobs", "metrics", "verify-results", "queue", "approvals"):
+            (state / subdir).mkdir(parents=True, exist_ok=True)
+        broken = {"body": ["not", "an", "object"], "mac": "ab" * 32}
+        (state / "jobs" / "job_broken.json").write_text(json.dumps(broken), encoding="utf-8")
+        write_queue(
+            state,
+            {"feat_b": {"repo": "mojomast/workflow", "job_id": "", "title": "b", "depends_on": [], "status": "queued"}},
+        )
+        pin_mtimes(tmp_path)
+        snap = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+        ).build_snapshot()
+        validated(snap)
+        invariant = bottlenecks_of(snap)["invariant"]
+        # An envelope whose body cannot be a job document is an unreadable
+        # job: an owner message, never a silent confident zero.
+        assert invariant["blocked_reasons"]["job_unreadable"] == 1
+
+
+# --------------------------------------------------- reconciler alignment
+
+
+class TestBottlenecksReconcilerAlignment:
+    """The invariant's inputs are the coordinator reconciler's
+    (bundlebees_plugin/reconcile.py): claimed counts tasks in the
+    dispatching/dispatched states (reconcile.py:1739-1740), active_workers
+    counts running tasks (:1742), awaiting verification counts verifying
+    tasks (:1746), and live claim records are reported separately as
+    features.active_claims (:1849-1860) - never added to the task they are
+    the claim of. The blocked set counts what requires the owner: approval
+    gates without a recorded decision, terminal task states,
+    integration-terminal and evidence-incomplete jobs, unknown task states,
+    and unreadable job or claim records (the claim store is refused whole,
+    one message, as QueueStore.active() refuses it)."""
+
+    @staticmethod
+    def _bare_state(tmp_path: Path) -> Path:
+        state = tmp_path / "state"
+        for subdir in ("jobs", "metrics", "verify-results", "queue", "approvals"):
+            (state / subdir).mkdir(parents=True, exist_ok=True)
+        return state
+
+    @staticmethod
+    def _snapshot(state: Path, tmp_path: Path) -> dict:
+        pin_mtimes(tmp_path)
+        snap = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+            stale_after_s=1800,
+        ).build_snapshot()
+        validated(snap)
+        return bottlenecks_of(snap)["invariant"]
+
+    def test_a_running_claim_and_its_running_task_count_once(self, tmp_path: Path) -> None:
+        # The reviewer's probe: one task running under a running claim is
+        # ONE unit of work, so in_use is 1, not 2.
+        state = self._bare_state(tmp_path)
+        write_job_document(
+            state,
+            job_document(
+                "job_run",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "running", attempts=("a1",))],
+                events=[],
+            ),
+        )
+        write_queue(
+            state,
+            {"feat_r": {"repo": "mojomast/workflow", "job_id": "job_run", "title": "r", "depends_on": [], "status": "claimed"}},
+        )
+        write_claim(state, "feat_r", "job_run", at(0))
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["claimed"] == 0
+        assert invariant["active_workers"] == 1
+        assert invariant["active_claims"] == 1
+        assert invariant["capacity"] == {"max_active": 4, "in_use": 1, "available": 3}
+
+    def test_a_dispatched_task_with_no_claim_counts_as_claimed(self, tmp_path: Path) -> None:
+        # The reviewer's probe: the job-CLI path dispatches a task without a
+        # queue claim; the reconciler counts it (dispatching/dispatched), so
+        # in_use is 1, not 0.
+        state = self._bare_state(tmp_path)
+        write_job_document(
+            state,
+            job_document(
+                "job_disp",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "dispatched", attempts=("a1",))],
+                events=[],
+            ),
+        )
+        write_queue(
+            state,
+            {"feat_d": {"repo": "mojomast/workflow", "job_id": "", "title": "d", "depends_on": [], "status": "queued"}},
+        )
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["claimed"] == 1
+        assert invariant["active_workers"] == 0
+        assert invariant["active_claims"] == 0
+        assert invariant["capacity"] == {"max_active": 4, "in_use": 1, "available": 3}
+
+    def test_stale_running_claims_do_not_pin_capacity(self, tmp_path: Path) -> None:
+        # The reviewer's deployed-state evidence: claim records left in
+        # state running by finished work must not pin available to 0. Claim
+        # records are reported as active_claims; only in-flight task states
+        # consume scheduler slots.
+        state = make_state(tmp_path)
+        for index in range(12):
+            record = {
+                "feature_id": f"stale_{index}",
+                "state": "running",
+                "job_id": "",
+                "claimed_at": at(0),
+                "pid": 1111,
+            }
+            (state / "queue" / f"stale_{index}.json").write_text(json.dumps(record), encoding="utf-8")
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["active_claims"] == 13
+        assert invariant["claimed"] == 0
+        assert invariant["capacity"] == {"max_active": 4, "in_use": 2, "available": 2}
+
+    def test_integration_terminal_job_is_an_owner_message(self, tmp_path: Path) -> None:
+        state = self._bare_state(tmp_path)
+        write_job_document(
+            state,
+            job_document(
+                "job_term",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "accepted", attempts=("a1",))],
+                events=[event_row("T1", "integrating->accepted", at(10))],
+                integration={
+                    "wave": "w1",
+                    "state": "stopped",
+                    "terminal": True,
+                    "evidence": "conflict unresolved",
+                    "last_commit": HEX_C,
+                },
+            ),
+        )
+        write_verify_record(state, verify_record_commit_local("a1", at(5)))
+        write_queue(
+            state,
+            {"feat_t": {"repo": "mojomast/workflow", "job_id": "job_term", "title": "t", "depends_on": [], "status": "ready_for_review"}},
+        )
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["blocked_reasons"]["integration_terminal"] == 1
+        assert invariant["waiting_despite_capacity"] is False
+
+    def test_evidence_incomplete_job_is_an_owner_message(self, tmp_path: Path) -> None:
+        state = self._bare_state(tmp_path)
+        # Every task accepted, a passing verify record for the last attempt,
+        # but no accepted integration wave: the queue's own acceptance check
+        # refuses it, so the job cannot be treated as finished silently.
+        write_job_document(
+            state,
+            job_document(
+                "job_ev",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "accepted", attempts=("a1",))],
+                events=[event_row("T1", "integrating->accepted", at(10))],
+            ),
+        )
+        write_verify_record(state, verify_record_commit_local("a1", at(5)))
+        write_grant(state, "job_ev", "merge", at(11))
+        write_queue(
+            state,
+            {"feat_e": {"repo": "mojomast/workflow", "job_id": "job_ev", "title": "e", "depends_on": [], "status": "ready_for_review"}},
+        )
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["blocked_reasons"]["job_evidence_incomplete"] == 1
+
+    def test_unknown_task_state_is_an_owner_message(self, tmp_path: Path) -> None:
+        state = self._bare_state(tmp_path)
+        write_job_document(
+            state,
+            job_document(
+                "job_odd",
+                "mojomast/workflow",
+                tasks=[task_row("T1", "teleported", attempts=("a1",))],
+                events=[],
+            ),
+        )
+        write_queue(
+            state,
+            {"feat_o": {"repo": "mojomast/workflow", "job_id": "", "title": "o", "depends_on": [], "status": "queued"}},
+        )
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["blocked_reasons"]["task_state_unknown"] == 1
+
+    def test_unreadable_claim_store_is_one_owner_message(self, tmp_path: Path) -> None:
+        # QueueStore.active() refuses the whole store when any record cannot
+        # be read; the reconciler records one queue:claims refusal. The
+        # collector must not turn two unreadable records into two messages,
+        # and the active-claim count is unknown, not zero.
+        state = make_state(tmp_path)
+        (state / "queue" / "broken_a.json").write_text("{not json", encoding="utf-8")
+        (state / "queue" / "broken_b.json").write_text("{also not", encoding="utf-8")
+        invariant = self._snapshot(state, tmp_path)
+        assert invariant["blocked_reasons"]["queue_claims_unreadable"] == 1
+        assert invariant["active_claims"] is None
+        assert invariant["waiting_despite_capacity"] is False
+
+    def test_invariant_agrees_with_the_reconcilers_own_report(self, tmp_path: Path) -> None:
+        source = os.environ.get("BUNDLEBEES_PLUGIN_SRC")
+        if not source:
+            pytest.skip(
+                "bundlebees_plugin source not provided (BUNDLEBEES_PLUGIN_SRC unset); "
+                "CI pins the formula above and the coordinator runs this live "
+                "cross-check at verify time"
+            )
+        if source not in sys.path:
+            sys.path.insert(0, source)
+        from bundlebees_plugin import job as bb_jobs  # reconcile.py imports it as jobs
+        from bundlebees_plugin import reconcile as bb_reconcile
+        from bundlebees_plugin.leases import _ensure_key
+
+        state = tmp_path / "xstate"
+        for subdir in ("jobs", "queue", "approvals"):
+            (state / subdir).mkdir(parents=True)
+        key = _ensure_key(state)
+        body = job_document(
+            "job_x",
+            "mojomast/workflow",
+            tasks=[
+                task_row("T1", "running", attempts=("a1",)),
+                task_row("T2", "verifying", attempts=("a2",)),
+            ],
+            events=[],
+        )
+        envelope = {"body": body, "mac": bb_jobs._sign(body, key)}
+        (state / "jobs" / "job_x.json").write_text(json.dumps(envelope), encoding="utf-8")
+        write_queue(
+            state,
+            {"feat_x": {"repo": "mojomast/workflow", "job_id": "", "title": "x", "depends_on": [], "status": "queued"}},
+        )
+        write_claim(state, "feat_x", "job_x", at(0))
+        for index in range(2):
+            record = {
+                "feature_id": f"stale_{index}",
+                "state": "running",
+                "job_id": "",
+                "claimed_at": at(0),
+                "pid": 2222,
+            }
+            (state / "queue" / f"stale_{index}.json").write_text(json.dumps(record), encoding="utf-8")
+        pin_mtimes(tmp_path)
+        snap = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+            stale_after_s=1800,
+        ).build_snapshot()
+        validated(snap)
+        invariant = bottlenecks_of(snap)["invariant"]
+        report = bb_reconcile.reconciliation_report(state, now=FIXED_EPOCH)  # the reconciler's clock is epoch/ISO/callable
+        # Same logical state, two readers - the sealed fixture proves the
+        # collector's numbers come from the same sources as the reconciler's
+        # report, including the stale claims that must not count twice.
+        assert report["capacity"]["in_use"] == invariant["capacity"]["in_use"] == 2
+        assert report["outstanding"]["claimed"] == invariant["claimed"] == 0
+        assert report["outstanding"]["active_workers"] == invariant["active_workers"] == 1
+        assert report["awaiting"]["verification"] == invariant["awaiting_verify"] == 1
+        assert report["features"]["active_claims"] == invariant["active_claims"] == 3
+        assert report["invariant"]["owner_messages_required"] == (
+            invariant["human_approvals_required"] + invariant["blocked_with_reason"]
+        ) == 1
 
 
 # ------------------------------------------------------------------ read-only
