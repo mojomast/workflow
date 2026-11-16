@@ -39,9 +39,13 @@ This file is the r3 regeneration, authored from the current worker after exhaust
 - Original dispatch time: 2026-11-16 16:39:01 EST (coordinator dispatch record; authoritative).
 - Result: the attempt's turn ended (state succeeded), but the coordinator's verify REFUSED the patch -
   scope_violation, nothing applied, sha null (verify-results/att_ef6953fe272341f9.json: ok:false; recorded
-  23:15:00Z). The patch's full out-of-lease file list (11 files incl. vendor-manifest.json and
-  vendor_rails.py) is recorded verbatim in the campaign record (§136). The workspace was destroyed by the
-  18:02:25 EST restart-idle before any corrected-lease decision existed.
+  23:15:00Z). The patch touched 11 files, of which 9 were OUT OF LEASE - the recorded out-of-lease list,
+  verbatim in the campaign record (§136): contrib/rizzstack-rails/provenance/{LICENSE, README.md,
+  vibeline-provenance.json} + contrib/rizzstack-rails/source_fixtures/{README.md, one filename redacted in
+  the record, hermes-session-shape.json, native-worker-trace.jsonl, orbit-serving-layer.json,
+  source-matrix.json}. The two assigned files (docs/rails-r00-readiness.md, tests/test_rails_r00.py) were
+  in scope; vendor-manifest.json and vendor_rails.py belong to R01's refusal, not R00's. The workspace was
+  destroyed by the 18:02:25 EST restart-idle before any corrected-lease decision existed.
 - Destruction evidence: see §4. No surviving workspace, ref, stash, reflog entry, dangling object, pack
   or stray artifact from this attempt exists anywhere on this worker.
 - Remedy path (owner decision pending): corrected-lease re-dispatch re-applying the recorded R00 packet, or
