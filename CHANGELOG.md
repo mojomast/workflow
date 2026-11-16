@@ -42,6 +42,7 @@
 
 - #55 (merged at `a0193ad`): the docs parity audit and its coverage guard (workflow #55): the per-repo documentation parity audit across the five rizzstack repos (docs/docs-parity-audit.md, audited at pinned heads with per-entry prescribed fixes) plus tests/test_docs_parity.py - the guard that pins changelog discoverability for every merged campaign PR in the audit window (a registry row with distinctive keywords, or an explicit exclusion reason), so a merged PR without changelog coverage fails CI instead of surfacing only in the next docs-sync. This entry and its registry row are that guard's own self-coverage, added as a docs-sync companion after the merge exposed the gap.
 
+- #56 (merged at `d9c1c03`): the docs-sync companion for merged #55 - the duplicate #55 Unreleased entry the r1 review caught (two byte-identical copies; one deleted, the survivor byte-verified at review) plus the coverage-registry row for #55 that un-reds the four required protocol jobs the parity guard turned red on main. This entry and its registry row are the companion's own self-coverage; future separate docs-sync companions self-exclude as non-feature merges so the registry treadmill stops at the first bookkeeping PR.
 
 ### In review (open PRs — not on main; states as of 2026-11-16, the post-drain changelog update)
 

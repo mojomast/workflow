@@ -50,6 +50,13 @@ EXCLUDED_PRS: dict[int, str] = {
         "docs/obs-snapshot-docs — the changelog/README companion PR itself; the "
         "#36 Unreleased entry it landed is the coverage for that merge"
     ),
+    60: (
+        "docs-sync/pr56-coverage — the companion PR itself, non-feature "
+        "(changelog + coverage-registry bookkeeping only); the #56 Unreleased "
+        "entry it lands is the coverage for the #56 merge. Standing convention "
+        "recorded here: each future separate docs-sync companion carries its own "
+        "exclusion so bookkeeping merges cannot re-red main."
+    ),
 }
 
 #: The merge numbers verified against main's first-parent history (755d6c4 #35,
@@ -191,6 +198,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 55,
         "name": "docs parity audit + coverage registry",
         "keywords": ("docs-parity-audit", "test_docs_parity"),
+    },
+    {
+        # docs-sync/pr55-coverage: the #55 companion itself - the deduplicated
+        # #55 Unreleased entry plus the pr=55 registry row that un-reds main.
+        "pr": 56,
+        "name": "docs-sync companion for the parity-audit merge",
+        "keywords": ("docs-sync companion", "byte-identical"),
     },
 )
 
