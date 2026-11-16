@@ -5,8 +5,8 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
 
 - plugin local state (``jobs/*.json``, ``verify-results/*.json``,
   ``metrics/*.jsonl``, ``queue.json`` under ``--state-dir``),
-- the Hermes bundlebees CLI (``<bin> bundlebees attempt op=attempts`` and
-  ``op=status``, both read-only) for the live fleet,
+- the Hermes bundlebees CLI (``<bin> bundlebees attempts`` and
+  ``<bin> bundlebees status``, both read-only) for the live fleet,
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
@@ -69,6 +69,7 @@ FLEET_STATE_ALIASES = {
     "accepted_by_worker": "starting",
     "verify": "working",
     "verifying": "working",
+    "verified": "working",
     "integrated": "accepted",
     "complete": "succeeded",
     "completed": "succeeded",
@@ -379,7 +380,23 @@ def section(
 
 
 def default_fleet_argv(bundlebees_bin: str, op: str) -> list[str]:
-    return [bundlebees_bin, "bundlebees", "attempt", f"op={op}"]
+    """Read-only bundlebees subcommands: ``<bin> bundlebees attempts|status``."""
+    return [bundlebees_bin, "bundlebees", op]
+
+
+FLEET_ERROR_CLI_MISSING = "fleet_cli_missing"
+FLEET_ERROR_CLI_TIMEOUT = "fleet_cli_timeout"
+FLEET_ERROR_COMMAND_FAILED = "fleet_command_failed"
+FLEET_ERROR_OUTPUT_UNPARSEABLE = "fleet_output_unparseable"
+
+
+def fleet_exit_error(code: int) -> str:
+    """Generic cause for a fleet CLI that did not answer; never a path or stderr."""
+    if code == 127:
+        return FLEET_ERROR_CLI_MISSING
+    if code == 124:
+        return FLEET_ERROR_CLI_TIMEOUT
+    return FLEET_ERROR_COMMAND_FAILED
 
 
 def subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, str, str]:
@@ -392,8 +409,10 @@ def subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, str, 
             check=False,
         )
         return proc.returncode, proc.stdout or "", ""
-    except (OSError, subprocess.TimeoutExpired):
+    except subprocess.TimeoutExpired:
         return 124, "", ""
+    except OSError:
+        return 127, "", ""
 
 
 Runner = Callable[[Sequence[str]], tuple[int, str, str]]
@@ -450,51 +469,53 @@ class Collector:
         bee_cap: int | None = None
         status = "live"
         error: str | None = None
+        rows: list[Any] | None = None
 
         code, out, _ = self._run(
             self._fleet_runner,
             default_fleet_argv(self.bundlebees_bin, "attempts"),
         )
         payload = extract_json(out) if code == 0 else None
-        if payload is None:
-            status, error = "unavailable", "fleet_command_failed"
+        if code != 0:
+            status, error = "unavailable", fleet_exit_error(code)
+        elif payload is None:
+            status, error = "unavailable", FLEET_ERROR_OUTPUT_UNPARSEABLE
         else:
-            rows = as_list(payload, "attempts")
-            if not rows and isinstance(payload, dict):
-                for value in payload.values():
-                    if isinstance(value, list) and value and isinstance(value[0], dict):
-                        rows = value
-                        break
-            for raw in rows:
-                if not isinstance(raw, dict):
-                    continue
-                attempts.append(self._fleet_row(raw, generated))
-            code2, out2, _ = self._run(
-                self._fleet_runner,
-                default_fleet_argv(self.bundlebees_bin, "status"),
-            )
-            if code2 == 0:
-                summary = extract_json(out2)
-                if isinstance(summary, dict):
-                    summary_body = summary.get("summary")
-                    body = summary_body if isinstance(summary_body, dict) else summary
-                    cap = first_number(body, ("bee_cap", "cap"))
-                    if cap is not None and cap >= 1:
-                        bee_cap = int(cap)
-                    if in_flight is None:
+            rows = self._attempts_rows_of(payload)
+            if rows is None:
+                status, error = "unavailable", FLEET_ERROR_OUTPUT_UNPARSEABLE
+            else:
+                for raw in rows:
+                    if not isinstance(raw, dict):
+                        continue
+                    attempts.append(self._fleet_row(raw, generated))
+                code2, out2, _ = self._run(
+                    self._fleet_runner,
+                    default_fleet_argv(self.bundlebees_bin, "status"),
+                )
+                if code2 == 0:
+                    summary = extract_json(out2)
+                    if isinstance(summary, dict):
+                        summary_body = summary.get("summary")
+                        body = summary_body if isinstance(summary_body, dict) else summary
+                        cap = first_number(body, ("bee_cap", "cap"))
+                        if cap is not None and cap >= 1:
+                            bee_cap = int(cap)
                         inflight = first_number(body, ("in_flight", "bees_in_flight"))
                         if inflight is not None and inflight >= 0:
                             in_flight = int(inflight)
-            if in_flight is None:
-                in_flight = sum(
-                    1 for row in attempts if row["state"] in ACTIVE_FLEET_STATES
+                if in_flight is None:
+                    # Derived from rows the CLI actually reported; when the
+                    # attempts output never parsed, in_flight stays null.
+                    in_flight = sum(
+                        1 for row in attempts if row["state"] in ACTIVE_FLEET_STATES
+                    )
+                newest = max(
+                    (parse_ts(row["updated_at"]) for row in attempts if row["updated_at"]),
+                    default=None,
                 )
-            newest = max(
-                (parse_ts(row["updated_at"]) for row in attempts if row["updated_at"]),
-                default=None,
-            )
-            if attempts and newest and (now - newest) > timedelta(seconds=self.stale_after_s):
-                status, error = "stale", "fleet_state_older_than_threshold"
+                if attempts and newest and (now - newest) > timedelta(seconds=self.stale_after_s):
+                    status, error = "stale", "fleet_state_older_than_threshold"
         return (
             section(
                 now,
@@ -507,6 +528,18 @@ class Collector:
             in_flight,
             bee_cap,
         )
+
+    def _attempts_rows_of(self, payload: Any) -> list[Any] | None:
+        """The attempts list of the CLI output; None when the shape mismatches."""
+        if isinstance(payload, list):
+            return payload
+        if isinstance(payload, dict):
+            if isinstance(payload.get("attempts"), list):
+                return payload["attempts"]
+            for value in payload.values():
+                if isinstance(value, list) and value and isinstance(value[0], dict):
+                    return value
+        return None
 
     def _fleet_row(self, raw: Mapping[str, Any], generated: str) -> dict[str, Any]:
         attempt_id = id_token(first_str(raw, ("attempt_id", "id", "attempt")))
