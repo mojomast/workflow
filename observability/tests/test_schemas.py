@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -61,6 +63,7 @@ class ExamplesValidateTests(unittest.TestCase):
                 "common.schema.json",
                 "failure.schema.json",
                 "lifecycle.schema.json",
+                "owner-decision.schema.json",
                 "resource-snapshot.schema.json",
                 "snapshot.schema.json",
                 "vcs-snapshot.schema.json",
@@ -361,6 +364,255 @@ class AlertThresholdTests(unittest.TestCase):
             _load_example("alerts.override.json"),
             "alert-thresholds-override.schema.json",
         )
+
+
+def _canonical(value) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _digest(body: dict) -> str:
+    return hashlib.sha256(_canonical(body).encode("utf-8")).hexdigest()
+
+
+def _unavailable_section(collected_at: str) -> dict:
+    return {"status": "unavailable", "error": "source_missing", "collected_at": collected_at}
+
+
+def _unavailable_snapshot(generated_at: str) -> dict:
+    """The smallest snapshot a collector with no readable source may emit."""
+    collected = generated_at
+    return {
+        "schema": "rizzstack.observability/snapshot/1",
+        "generated_at": generated_at,
+        "collector": {"name": "test-suite"},
+        "degraded": [],
+        "fleet": dict(
+            _unavailable_section(collected),
+            attempts=[],
+            in_flight=None,
+            bee_cap=None,
+        ),
+        "usage": dict(
+            _unavailable_section(collected),
+            source={
+                "schema": "rizzstack.observability/snapshot/1",
+                "generated_at": generated_at,
+                "record_count": None,
+                "parse_errors": None,
+                "usage_status": "unavailable",
+            },
+            totals={
+                "schema": "rizzstack.observability/snapshot/1",
+                "generated_at": generated_at,
+                "requests": None,
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_tokens": None,
+                "cost_usd": None,
+                "tokens_status": "unavailable",
+                "cost_status": "unavailable",
+                "unknown_cost_records": None,
+                "http_429_count": None,
+                "fallback_count": None,
+            },
+            by_model=[],
+            by_repo=[],
+        ),
+        "pipeline": dict(
+            _unavailable_section(collected),
+            jobs=[],
+            counts={},
+            escalations=[],
+            blockers=[],
+        ),
+        "backlog": dict(_unavailable_section(collected), features=[], counts={}),
+        "ci": dict(_unavailable_section(collected), repos=[], prs=[]),
+        "failures": dict(_unavailable_section(collected), failures=[], counts={}),
+        "health": dict(
+            _unavailable_section(collected),
+            scheduler={
+                "schema": "rizzstack.observability/snapshot/1",
+                "generated_at": generated_at,
+                "liveness": "unavailable",
+                "alive": None,
+                "last_event_at": None,
+                "last_event_age_s": None,
+                "source": "none",
+            },
+            quota=[],
+            bees_in_flight=None,
+            bee_cap=None,
+        ),
+        "alerts": dict(_unavailable_section(collected), active=[]),
+    }
+
+
+class OwnerDecisionRecordTests(unittest.TestCase):
+    """The owner-decision queue record contract (rizzstack.owner-decision/1)."""
+
+    def setUp(self) -> None:
+        self.validator = Validator(SCHEMAS)
+
+    @staticmethod
+    def _nonce() -> str:
+        return secrets.token_hex(16)
+
+    def _request(self) -> dict:
+        body = {
+            "schema": "rizzstack.owner-decision/1",
+            "record": "request",
+            "request_id": "odq_release_gate_1",
+            "kind": "gate",
+            "subject": "release-gate",
+            "question": "Resolve the release gate for job odj_release_1?",
+            "evidence": [{"kind": "record", "reference": "jobs/odj_release_1.json"}],
+            "raised_by": "decision_queue",
+            "raised_at": "2026-11-16T09:00:00Z",
+            "decision_nonce": self._nonce(),
+        }
+        body["request_digest"] = _digest(body)
+        return body
+
+    def _decision(self, request: dict, outcome: str = "approve") -> dict:
+        body = {
+            "schema": "rizzstack.owner-decision/1",
+            "record": "decision",
+            "request_id": request["request_id"],
+            "request_digest": request["request_digest"],
+            "decision_nonce": request["decision_nonce"],
+            "decided_by": "owner",
+            "decided_at": "2026-11-16T10:00:00Z",
+            "outcome": outcome,
+            "approval_receipt_ref": "approvals/odj_release_1.release-gate.json",
+            "rationale": "The gate criteria are met and the evidence references check out.",
+        }
+        if outcome != "approve":
+            body["approval_receipt_ref"] = None
+        body["decision_digest"] = _digest(body)
+        return body
+
+    def test_request_document_validates(self) -> None:
+        self.validator.validate_file(self._request(), "owner-decision.schema.json")
+
+    def test_decision_document_validates(self) -> None:
+        request = self._request()
+        self.validator.validate_file(request, "owner-decision.schema.json")
+        self.validator.validate_file(self._decision(request), "owner-decision.schema.json")
+
+    def test_missing_required_field_is_rejected(self) -> None:
+        body = self._request()
+        del body["question"]
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(body, "owner-decision.schema.json")
+
+    def test_unexpected_property_is_rejected(self) -> None:
+        body = self._request()
+        body["widen_budget"] = True
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(body, "owner-decision.schema.json")
+
+    def test_unknown_kind_is_rejected(self) -> None:
+        body = self._request()
+        body["kind"] = "merge"
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(body, "owner-decision.schema.json")
+
+    def test_unknown_outcome_is_rejected(self) -> None:
+        request = self._request()
+        body = self._decision(request)
+        body["outcome"] = "maybe"
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(body, "owner-decision.schema.json")
+
+    def test_deferral_may_omit_the_receipt(self) -> None:
+        request = self._request()
+        self.validator.validate_file(
+            self._decision(request, outcome="defer"), "owner-decision.schema.json"
+        )
+
+    def test_malformed_discriminator_is_rejected(self) -> None:
+        body = self._request()
+        body["schema"] = "owner-decision/v1"
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(body, "owner-decision.schema.json")
+
+
+class SnapshotDecisionsExtensionTests(unittest.TestCase):
+    """The optional decisions section is a backward-compatible extension."""
+
+    def setUp(self) -> None:
+        self.validator = Validator(SCHEMAS)
+        self.schema = self.validator.load("snapshot.schema.json")
+
+    @staticmethod
+    def _row(request_id: str, state: str, kind: str = "gate") -> dict:
+        return {
+            "schema": "rizzstack.observability/snapshot/1",
+            "generated_at": "2026-11-16T09:30:00Z",
+            "request_id": request_id,
+            "kind": kind,
+            "subject": "release-gate",
+            "state": state,
+            "outcome": None,
+            "question": "Resolve the release gate for job odj_release_1?",
+            "raised_at": "2026-11-16T09:00:00Z",
+            "decided_at": None,
+            "applied_at": None,
+        }
+
+    def _section(self, rows: list) -> dict:
+        return {
+            "status": "live",
+            "error": None,
+            "collected_at": "2026-11-16T09:30:00Z",
+            "requests": rows,
+        }
+
+    def test_section_is_optional_and_absent_by_default(self) -> None:
+        self.assertIn("decisions", self.schema["properties"])
+        self.assertNotIn("decisions", self.schema["required"])
+        self.validator.validate_file(
+            _unavailable_snapshot("2026-11-16T09:30:00Z"), "snapshot.schema.json"
+        )
+
+    def test_snapshot_with_decisions_section_validates(self) -> None:
+        doc = _unavailable_snapshot("2026-11-16T09:30:00Z")
+        doc["decisions"] = self._section(
+            [
+                self._row("odq_release_gate_1", "pending"),
+                self._row("odq_budget_top_up_1", "applied"),
+            ]
+        )
+        self.validator.validate_file(doc, "snapshot.schema.json")
+
+    def test_extension_kind_label_is_accepted(self) -> None:
+        doc = _unavailable_snapshot("2026-11-16T09:30:00Z")
+        doc["decisions"] = self._section(
+            [self._row("odq_vendor_signoff_1", "pending", kind="vendor_signoff")]
+        )
+        self.validator.validate_file(doc, "snapshot.schema.json")
+
+    def test_unknown_row_property_is_rejected(self) -> None:
+        doc = _unavailable_snapshot("2026-11-16T09:30:00Z")
+        row = self._row("odq_release_gate_1", "pending")
+        row["decided_by"] = "owner"
+        doc["decisions"] = self._section([row])
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(doc, "snapshot.schema.json")
+
+    def test_row_must_carry_the_snapshot_envelope(self) -> None:
+        doc = _unavailable_snapshot("2026-11-16T09:30:00Z")
+        row = self._row("odq_release_gate_1", "pending")
+        row["schema"] = "rizzstack.owner-decision/1"
+        doc["decisions"] = self._section([row])
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(doc, "snapshot.schema.json")
+
+    def test_unknown_state_is_rejected(self) -> None:
+        doc = _unavailable_snapshot("2026-11-16T09:30:00Z")
+        doc["decisions"] = self._section([self._row("odq_release_gate_1", "approved")])
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(doc, "snapshot.schema.json")
 
 
 if __name__ == "__main__":
