@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    84: (
+        "docs-sync companion (the PR 82 + PR 83 coverage rows, their merged-window bullets and "
+        "the RAILS-R01 backlog adoption) - same class: a registry bookkeeping change whose only "
+        "content is this exclusion plus the #82/#83 registry rows, bullets and the R01 adoption; it "
+        "carries its own exclusion so merging it leaves main green"
+    ),
     81: (
         "docs-sync companion (the PR 80 coverage row + its merged-window bullet) - same "
         "class: a registry bookkeeping change whose only content is this exclusion plus "
@@ -315,6 +321,23 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 80,
         "name": "rails R00 feasibility slice",
         "keywords": ("RAILS-R00", "rails-feasibility", "source-matrix", "UNRESOLVED"),
+    },
+    {
+        # docs/hindsight-trial-harness: trial-harness PART 1 (fixtures +
+        # evaluator + tests) - the F1 per-file-commit remedy delivery,
+        # coordinator-reconciled after the staleness window; PART 2 follows
+        # against the same branch.
+        "pr": 82,
+        "name": "trial harness PART 1 fixtures + evaluator + tests",
+        "keywords": ("trial-harness", "test_trial_harness", "att_e1f3fb747b354685", "PART 1"),
+    },
+    {
+        # rails/r01-contract: the RAILS-R01 contract layer (schemas + hash
+        # vectors + RED-first contract tests) - the F1-remedy attempt 2,
+        # coordinator-reconciled after the staleness window.
+        "pr": 83,
+        "name": "rails R01 contract layer",
+        "keywords": ("RAILS-R01", "test_rails_contract", "att_e0cff87d85a644e5", "hash-vectors"),
     },
 )
 

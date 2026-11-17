@@ -188,8 +188,23 @@
    "depends_on": [
     "RAILS-R00"
    ],
-   "status": "planned",
-   "transitions": []
+   "status": "dispatched",
+   "transitions": [
+    {
+     "from": "planned",
+     "to": "dispatched",
+     "at": "2026-11-17T06:55:00Z",
+     "reason": "out-of-band landing adopted: r1 att_fa13d94 was the F1 zero-commit loss (verify refused, degenerate empty envelope, preserved); r2 att_e0cff87d with the anti-F1 turn discipline succeeded with 5/5 checks, was coordinator-reconciled after the staleness window, verified clean at 5288abb9 (firejail suite + house secret scan) and PR #83 merged at c7b5ab3",
+     "evidence": {
+      "attempt": "att_e0cff87d85a644e5",
+      "pr": 83,
+      "merge_commit": "c7b5ab3aeca0bc47f7150c7d05c5388f1bb37f5c",
+      "verified_head": "5288abb90b4c1130fbd0b622d5a099da898387cf"
+     }
+    }
+   ],
+   "attempt_id": "att_e0cff87d85a644e5",
+   "updated_at": "2026-11-17T06:55:00Z"
   },
   {
    "id": "RAILS-R02",
@@ -911,6 +926,17 @@
    "evidence": {
     "attempt": "att_a3c2bb45b386442c",
     "pr": 80
+   }
+  },
+  {
+   "slice": "RAILS-R01",
+   "from": "planned",
+   "to": "dispatched",
+   "at": "2026-11-17T06:55:00Z",
+   "reason": "out-of-band landing adopted (att_fa13d94 F1 zero-commit loss; att_e0cff87d verified 5288abb9; PR #83 merged c7b5ab3)",
+   "evidence": {
+    "attempt": "att_e0cff87d85a644e5",
+    "pr": 83
    }
   }
  ],
