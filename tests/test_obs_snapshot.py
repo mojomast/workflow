@@ -148,6 +148,12 @@ def validated(doc) -> None:
     VALIDATOR.validate(doc, VALIDATOR.load(SNAPSHOT_SCHEMA))
 
 
+def empty_fleet_runner(argv: list[str]) -> tuple[int, str, str]:
+    if "attempts" in argv[1:]:
+        return 0, json.dumps({"attempts": []}), ""
+    return 0, json.dumps({"in_flight": 0}), ""
+
+
 # --------------------------------------------------------------------- schema
 
 
@@ -186,14 +192,22 @@ class TestSnapshotSchema:
 
         assert_envelope(schema)
 
-    def test_all_unavailable_snapshot_validates(self, tmp_path: Path) -> None:
-        snap = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
+    def test_all_unavailable_snapshot_validates(self) -> None:
+        snap = collector.Collector(
+            fleet_runner=empty_fleet_runner,
+            now_fn=lambda: FIXED_NOW,
+        ).build_snapshot()
         validated(snap)
-        assert snap["degraded"] == list(collector.SECTION_NAMES)
+        assert snap["degraded"] == ["usage", "pipeline", "backlog", "ci", "failures"]
+        self_healing = ("fleet", "health", "alerts", "bottlenecks")
         for name in collector.SECTION_NAMES:
             body = snap[name]
-            assert body["status"] == "unavailable"
-            assert body["error"]
+            if name in self_healing:
+                assert body["status"] == "live", (name, body["error"])
+                assert "error" in body
+            else:
+                assert body["status"] == "unavailable"
+                assert body["error"]
 
     def test_unrecognized_section_or_row_is_rejected(self) -> None:
         base = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
@@ -340,10 +354,11 @@ class TestDegradation:
         snap = collector.Collector(
             state_dir=empty,
             usage_path=tmp_path / "nope.jsonl",
+            fleet_runner=empty_fleet_runner,
             now_fn=lambda: FIXED_NOW,
         ).build_snapshot()
         validated(snap)
-        assert set(snap["degraded"]) == set(collector.SECTION_NAMES)
+        assert set(snap["degraded"]) == {"usage", "pipeline", "backlog", "ci", "failures"}
         assert snap["pipeline"]["error"] == "source_missing"
         assert snap["pipeline"]["jobs"] == []
         assert snap["failures"]["error"] == "source_missing"
