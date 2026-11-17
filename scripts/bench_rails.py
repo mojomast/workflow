@@ -2,7 +2,6 @@
 """Offline §8 benchmark; see docs/rails-performance.md for the workload and commands."""
 import argparse
 import contextlib
-import hashlib
 import json
 import math
 import multiprocessing as mp
@@ -119,7 +118,7 @@ def seed(path, total):
     blocks = [json.loads((path.parent / f'lane-{i}.json').read_text()) for i in range(LANES)]
     if sorted(s for lane in blocks for s in lane) != list(range(1,total+1,BATCH)):
         raise ValueError('seed receipt coverage failed')
-    with sqlite3.connect(path) as db:
+    with contextlib.closing(sqlite3.connect(path)) as db:
         if db.execute('SELECT COUNT(*), COUNT(DISTINCT event_id) FROM event_rows').fetchone() != (total,total):
             raise ValueError('seed count or uniqueness failed')
     return blocks, dict(elapsed_ms=ms(start), db_bytes=path.stat().st_size, writer_pids=[p.pid for p in jobs],
@@ -226,6 +225,7 @@ def soak(path, duration, overview, args, save):
         send(js,dict(orbit=str(ORBIT),modules=str(args.node_modules),chrome=str(args.chromium),
                      port=port,cred=str(cred),overview=overview))
         out = {'browser':get_message(js), 'cycles':[], 'windows':[], 'reader_start_kib':rss(reader.pid)}
+        save(out)
         writer = RailsLedger(path); cleanup.callback(writer.close)
         start = time.monotonic(); previous = None; n = 0
         for window, planned in schedule(duration):
@@ -241,7 +241,7 @@ def soak(path, duration, overview, args, save):
                 if get_message(js) != 'armed': raise ValueError('browser did not arm')
                 t = time.monotonic()
                 receipt = writer.append(**candidate(0,n,live=window))
-                if receipt['duplicate']: raise ValueError('duplicate append')
+                if receipt['duplicated']: raise ValueError('duplicate append')
                 n += 1
                 send(js,receipt['event_id'])
                 reply = get_message(js)
@@ -289,6 +289,7 @@ def main():
     p.add_argument('--chromium',type=Path,help='existing offline Chromium executable')
     p.add_argument('--temp-parent',type=Path,default=Path('/var/tmp'))
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--tuple',type=Path,help='verify the four full commit IDs against this external JSON object')
     args = p.parse_args()
     if not sys.platform.startswith('linux') or not args.temp_parent.is_dir(): p.error('requires local Linux temp volume')
     if args.soak_seconds:
@@ -297,8 +298,10 @@ def main():
         args.chromium, args.node_modules = args.chromium.resolve(), args.node_modules.resolve()
     if shutil.disk_usage(args.temp_parent).free < 128*1024**2 + 8704*args.events: p.error('insufficient free space')
     if args.output.exists() or args.output.with_suffix(args.output.suffix+'.tmp').exists(): p.error('choose a fresh report path')
+    pins = revisions()
+    if args.tuple and json.loads(args.tuple.read_bytes()) != pins: p.error('detached revisions differ from expected tuple')
     get = lambda *cmd: subprocess.check_output(cmd,text=True).strip()
-    doc = dict(schema='rails-offline-bench/2',status='running',started_utc=utc(),tuple=revisions(),
+    doc = dict(schema='rails-offline-bench/2',status='running',started_utc=utc(),tuple=pins,
                hardware=dict(kernel=platform.release(),machine=platform.machine(),cpu=next(s.split(':')[-1].strip() for s in
                     Path('/proc/cpuinfo').read_text().splitlines() if s.startswith(('model name','Hardware'))),
                     affinity_cpus=len(os.sched_getaffinity(0)),ram_bytes=os.sysconf('SC_PHYS_PAGES')*os.sysconf('SC_PAGE_SIZE'),
