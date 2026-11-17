@@ -27,7 +27,7 @@ export RAILS_R18_BROWSER_DIST="$scratch/dist" ORBIT_RAILS_TEST_DIST="$scratch/di
   python3 -B contrib/core-review/test_rails_working_trees.py
 ```
 
-The package runner exits nonzero for failed checks or skipped R18 cases. Remove the private scratch directory after examining the result. See [R18 rollout](../../specs/rails-rollout.md) for the browser/CLI identity assertion. For Orbit's separate **full** `npm run check`, use the [offline container recipe](orbit-check/README.md).
+The package runner exits nonzero for failed checks or skipped Python packet cases. For release qualification, run [`scripts/rails_tuple.py`](../../scripts/rails_tuple.py) against four fresh checkouts and an external JSON object containing their four full Git SHAs. It provisions the browser build and records required test names, JUnit counts, tool versions, handoffs and checksums. See [R18 rollout](../../specs/rails-rollout.md) for the browser/CLI identity assertion. For Orbit's separate **full** `npm run check`, use the [offline container recipe](orbit-check/README.md).
 
 ## Known results and open gates
 

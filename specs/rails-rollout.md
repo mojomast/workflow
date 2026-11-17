@@ -1,5 +1,7 @@
 # R18 local Rails acceptance and rollout gates
 
+**Current qualification:** [Workflow #92](https://github.com/mojomast/workflow/pull/92) retains the exact input tuple, the original rejected native report, and a corrected, receiver-validated report from a later tuple. The records below describe earlier runs. For a current candidate use [`scripts/rails_tuple.py`](../scripts/rails_tuple.py) with fresh checkouts of the four explicit SHAs, and retain its summary, JUnit and checksum manifest. See the [performance workload](../docs/rails-performance.md) and the [Windows operator handoff](../evidence/rails-rc/windows-canary.md). A focused native RETURN success does not clear either of those gates.
+
 **R18 has two local paths: a transport/read fixture and an offline coding campaign. Product M1 and activation remain pending.** Both use new loopback listeners, a fresh browser profile and disposable ledgers. The [scenario](../schemas/rails/fixtures/m1-scenario.json) supplies launcher journal input and, separately, code and an applicable test for a temporary Git repository. The candidate patch and launcher records are fixture inputs. The pytest outcomes, commits, receipts, verifier/reviewer records, rail IDs and inspector selections are generated during the run. Compare [R00's native-trace finding](rails-feasibility.md) and the [milestone definitions](rizzstack-rails-spec.md#8-ux-and-acceptance-milestones).
 
 ## Reproduce
