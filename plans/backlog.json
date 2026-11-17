@@ -237,8 +237,25 @@
       "depends_on": [
         "RAILS-R01"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "dispatched",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T08:05:00Z",
+          "reason": "out-of-band landing adopted: attempt att_f67c7573c44241fc (RAILS-R02 r3, bundlebees rails/r02-ledger at seed pin b2db04b8) succeeded in-sandbox 02:44 EST after two F1 zero-delivery losses (r1 att_7021e06e, r2 att_2e8118ca - owner item 24); the landing cascade verified the 7-file payload (acceptance suite tests/test_rails_ledger.py 35/35 green, secret scanner clean, vendor --check pins green) and applied it as bb PR #70 head 2f8ba100; review child att_87b7215d796c41c7 APPROVED (8/8 checks, no blocking; its sole observation - CI still in_progress at review time - was re-checked SUCCESS at the same head before merge); CI 4/4 SUCCESS at the exact head; MERGED as 9287d91 2026-11-17T07:58:34Z; bb docs-sync companion 2b6289c added the merged-window coverage rows for the unregistered PRs [68, 69, 70] (the bb registry invariant had been RED on bb main since #68 merged - disclosed in the campaign record)",
+          "evidence": {
+            "attempt": "att_f67c7573c44241fc",
+            "pr": 70,
+            "pr_repo": "bundlebees",
+            "verified_head": "2f8ba1004931cdc2cb1c5a873d58177dbe36ea64",
+            "merge_commit": "9287d91578fd8e0cce29b120bd1dfed2650f9569",
+            "merge_status": "merged - bb PR #70 merged as 9287d91; bb main companion 2b6289c"
+          }
+        }
+      ],
+      "attempt_id": "att_f67c7573c44241fc",
+      "updated_at": "2026-11-17T08:05:00Z"
     },
     {
       "id": "RAILS-R03",
@@ -967,6 +984,21 @@
         "pr_repo": "orbitdesktop",
         "verified_head": "ca2411a85fcecba2b31201d2e0b58df5354dbdb4",
         "merge_status": "pending - od PR #43 held on the proven-inherited bundle-parity red (owner item 23 class); od#42 rebuild in flight"
+      }
+    },
+    {
+      "slice": "RAILS-R02",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T08:05:00Z",
+      "reason": "out-of-band landing adopted: attempt att_f67c7573c44241fc (RAILS-R02 r3, bundlebees rails/r02-ledger at seed pin b2db04b8) succeeded in-sandbox 02:44 EST after two F1 zero-delivery losses (r1 att_7021e06e, r2 att_2e8118ca - owner item 24); the landing cascade verified the 7-file payload (acceptance suite tests/test_rails_ledger.py 35/35 green, secret scanner clean, vendor --check pins green) and applied it as bb PR #70 head 2f8ba100; review child att_87b7215d796c41c7 APPROVED (8/8 checks, no blocking; its sole observation - CI still in_progress at review time - was re-checked SUCCESS at the same head before merge); CI 4/4 SUCCESS at the exact head; MERGED as 9287d91 2026-11-17T07:58:34Z; bb docs-sync companion 2b6289c added the merged-window coverage rows for the unregistered PRs [68, 69, 70] (the bb registry invariant had been RED on bb main since #68 merged - disclosed in the campaign record)",
+      "evidence": {
+        "attempt": "att_f67c7573c44241fc",
+        "pr": 70,
+        "pr_repo": "bundlebees",
+        "verified_head": "2f8ba1004931cdc2cb1c5a873d58177dbe36ea64",
+        "merge_commit": "9287d91578fd8e0cce29b120bd1dfed2650f9569",
+        "merge_status": "merged - bb PR #70 merged as 9287d91; bb main companion 2b6289c"
       }
     }
   ],
