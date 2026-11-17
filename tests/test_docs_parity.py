@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    77: (
+        "docs-sync companion (the PR 75 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #75 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     73: (
         "docs-sync companion (the PR 69 coverage row + its Unreleased bullet) - same "
         "class: a registry bookkeeping change whose only content is this exclusion plus "
@@ -259,6 +265,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 69,
         "name": "observability fleet delta port",
         "keywords": ("lease-store fallback", "clock-type normalization", "empty-state contract"),
+    },
+    {
+        # contrib/rizzstack-observability: /obs-snapshot alias for deploy parity
+        # (merged a9e1ffd).
+        "pr": 75,
+        "name": "collector obs-snapshot alias",
+        "keywords": ("obs-snapshot", "alias", "deploy parity", "auth bypass"),
     },
 )
 
