@@ -63,7 +63,7 @@ jobs:
           package-manager-cache: false
       - name: Install Python prerequisites and the checksummed patch scanner
         run: |
-          python -m pip install 'jsonschema==4.23.0' 'pytest==8.4.2' 'PyYAML==6.0.2'
+          python -m pip install 'jsonschema==4.23.0' 'pytest==8.4.2' 'PyYAML==6.0.2' 'setuptools==78.1.1' 'hatchling==1.33.0'
           cd "$RUNNER_TEMP"
           mkdir scanner
           curl -fsSL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz

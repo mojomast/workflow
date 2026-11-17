@@ -4,7 +4,8 @@ Place *clean checkouts* named workflow, bundlebees, hyvv, orbitdesktop under one
 parent. Supply an external JSON object with those four keys and full expected
 commit IDs. Nothing in a candidate predicts its own SHA. Have Git, OpenSSH,
 gitleaks 8.21.2, Node 22.12+ (ABI 127), npm and Python with pytest/jsonschema
-on the runner. Keep scratch outside the checkouts. Do not run unreviewed code
+on the runner. Preinstall setuptools and hatchling for offline wheel builds.
+Keep scratch outside the checkouts. Do not run unreviewed code
 on an owner host. For offline use, provision the lock-matched orbit-check kit
 (contrib/core-review/orbit-check/README.md) plus a local CHROMIUM_EXECUTABLE:
 
@@ -153,6 +154,20 @@ def run(args, out, work, summary):
     execute('build', 'orbitdesktop', ['node','scripts/isolated_build.mjs','--dest',str(work/'dist')])
     execute('inventory','workflow',[sys.executable,'contrib/core-review/check_rails_delivery.py'])
     execute('vendor','bundlebees',[sys.executable,'scripts/vendor_rails.py','--check'])
+    # Build the installed artifacts from the checked-out commits. Keep backend
+    # output out of the checkouts and never resolve dependencies from the network.
+    wheels = work / 'wheels'; wheels.mkdir()
+    versions['wheel_builders'] = output([sys.executable, '-I', '-c',
+        'from importlib.metadata import version; print(version("setuptools"),version("hatchling"))'])
+    for repo, variable in [('bundlebees','BB_WHEEL'), ('hyvv','HYVV_WHEEL')]:
+        source = work / ('build-' + repo)
+        shutil.copytree(ROOT/repo, source, ignore=shutil.ignore_patterns('.git'))
+        subprocess.run([sys.executable, '-I', '-m', 'pip', '--isolated', 'wheel', '--no-index', '--no-deps',
+                        '--no-build-isolation', '-w', str(wheels), str(source)], cwd=work,
+                       env={**env, 'SOURCE_DATE_EPOCH':'1710000000'}, timeout=180, check=True)
+        wheel, = wheels.glob(repo + '-*.whl')
+        env[variable] = str(wheel)
+        versions[repo + '_wheel_sha256'] = digest(wheel)
     # Discover all Rails modules in each repo, including producer/owner regressions.
     for repo in REPOS:
         suites = sorted(str(p.relative_to(ROOT/repo)) for p in (ROOT/repo/'tests').glob('test_rails_*.py'))
