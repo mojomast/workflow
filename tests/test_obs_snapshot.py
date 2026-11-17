@@ -92,11 +92,14 @@ def fixture_collector(tmp_path: Path, **overrides):
     status_payload = {"in_flight": 2, "bee_cap": 12}
 
     def fleet_runner(argv):
-        assert argv[1:] == ["bundlebees", "attempts"] or argv[1:] == [
-            "bundlebees",
-            "status",
-        ], argv
-        if "attempts" in argv[1:]:
+        # The collector's ported CLI contract: the two read-only packet-1
+        # subcommands, each scoped by exactly the state directory the
+        # collector was given. A runner that would see a subcommand other
+        # than these - or a state directory the collector was never handed -
+        # must refuse, so a wrong invocation shape still fails the suite.
+        assert argv[1] == "bundlebees" and argv[2] in ("attempts", "status"), argv
+        assert argv[-2:] == ["--state-dir", str(state)], argv
+        if argv[2] == "attempts":
             return 0, json.dumps(fleet_payload), ""
         return 0, json.dumps(status_payload), ""
 
@@ -155,17 +158,22 @@ class TestSnapshotSchema:
     def test_schema_contract_loads_and_ids_correctly(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
         assert schema["properties"]["schema"]["const"] == "rizzstack.observability/snapshot/1"
-        for section in (
-            "fleet",
-            "usage",
-            "pipeline",
-            "backlog",
-            "ci",
-            "failures",
-            "health",
-            "alerts",
-        ):
-            assert section in schema["properties"], section
+        # The live contract is the collector's own section list: nine
+        # sections, read dynamically so a section added to the collector
+        # must reach the schema (and this test) in the same change - a
+        # hardcoded tuple drifted the moment bottlenecks shipped.
+        assert len(collector.SECTION_NAMES) == 9
+        for name in collector.SECTION_NAMES:
+            assert name in schema["properties"], name
+        # The schema requires exactly the live nine minus bottlenecks:
+        # bottlenecks is always emitted by this collector but stays optional
+        # in the schema for documents emitted before it existed (as does the
+        # decisions extension, which is not a collector section at all).
+        required = set(schema["required"]) - {"schema", "generated_at", "collector", "degraded"}
+        assert required <= set(collector.SECTION_NAMES), required - set(collector.SECTION_NAMES)
+        optional = set(collector.SECTION_NAMES) - required
+        assert optional == {"bottlenecks"}, optional
+        assert all(name in schema["properties"] for name in optional)
 
     def test_every_record_carries_schema_and_generated_at(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
@@ -190,10 +198,16 @@ class TestSnapshotSchema:
         snap = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
         validated(snap)
         assert snap["degraded"] == list(collector.SECTION_NAMES)
+        emitted = set(snap) - {"schema", "generated_at", "collector", "degraded"}
+        assert emitted == set(collector.SECTION_NAMES)
         for name in collector.SECTION_NAMES:
             body = snap[name]
-            assert body["status"] == "unavailable"
-            assert body["error"]
+            # The strict never-live-with-empty invariant: a section with no
+            # source is unavailable with a non-empty error - never live,
+            # never silently empty.
+            assert body["status"] == "unavailable", (name, body)
+            assert body["error"], (name, body)
+        assert all(snap[name]["status"] != "live" for name in collector.SECTION_NAMES)
 
     def test_unrecognized_section_or_row_is_rejected(self) -> None:
         base = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
@@ -231,8 +245,14 @@ class TestFixtureSnapshot:
         # An unrecognized CLI label normalizes to unknown and keeps its label.
         assert by_id["att_9"]["state"] == "unknown"
         assert by_id["att_9"]["detail"] == "warp-drive"
-        assert snapshot["fleet"]["in_flight"] == 2
-        assert snapshot["fleet"]["bee_cap"] == 12
+        # In-flight is the collector's own count over the rows it read:
+        # att_1 is the only active row (att_9 is unknown), so the CLI
+        # status tally of 2 is never parroted over rows that contradict it.
+        assert snapshot["fleet"]["in_flight"] == 1
+        # The CLI status bee_cap is launcher configuration, not an observed
+        # fleet fact: the fleet section never surfaces it, even though the
+        # status payload reported 12 this run.
+        assert snapshot["fleet"]["bee_cap"] is None
 
     def test_pipeline_reflects_task_states_and_reasons(self, snapshot: dict) -> None:
         counts = snapshot["pipeline"]["counts"]
@@ -282,7 +302,9 @@ class TestFixtureSnapshot:
         go = next(r for r in snapshot["health"]["quota"] if r["kind"] == "go_allowance")
         assert go["value"] == 82.0
         assert go["status"] == "low"
-        assert snapshot["health"]["bees_in_flight"] == 2
+        # Health keeps deriving from the row-derived fleet count and from
+        # the CLI status bee_cap the fleet section itself never surfaces.
+        assert snapshot["health"]["bees_in_flight"] == 1
         assert snapshot["health"]["bee_cap"] == 12
 
     def test_usage_aggregates_and_preserves_unknowns(self, snapshot: dict) -> None:
@@ -449,9 +471,120 @@ class TestFleetCli:
         validated(snap)
         assert snap["fleet"]["status"] == "live"
         assert snap["fleet"]["in_flight"] == 1
-        assert snap["fleet"]["bee_cap"] == 12
+        # The real status payload reported bee_cap 12; the fleet section
+        # never surfaces launcher configuration. The value still feeds the
+        # health quota row (asserted in the fixture-snapshot tests).
+        assert snap["fleet"]["bee_cap"] is None
         # verifying normalizes into the lifecycle-aligned working state
         assert snap["fleet"]["attempts"][0]["state"] == "working"
+
+
+# ------------------------------------------------------------- injected clocks
+
+
+class TestInjectedClock:
+    """A non-datetime injected clock must never crash the build.
+
+    The HTTP surface answers 500 when ``build_snapshot`` raises, and the
+    pre-fix failure was real: an int epoch hit ``utc_now_string``'s
+    ``astimezone`` as an ``AttributeError`` and the int-datetime mismatch
+    raised ``TypeError`` at the ``_fleet_row`` staleness arithmetic. The
+    collector normalizes the clock once instead (``as_utc_moment``): epoch
+    seconds, naive and aware datetimes all become an aware UTC moment, and a
+    value that is not a clock at all falls back to the real UTC clock.
+    """
+
+    @staticmethod
+    def row_payload() -> dict:
+        return {
+            "attempts": [
+                {
+                    "attempt_id": "att_clock",
+                    "state": "running",
+                    "updated_at": "2026-11-16T09:00:00Z",
+                }
+            ]
+        }
+
+    def test_epoch_seconds_clock_builds_a_validating_snapshot(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_EPOCH,
+        ).build_snapshot()
+        validated(snap)
+        assert snap["generated_at"] == "2026-11-16T09:30:00Z"
+        # Staleness ran against the normalized clock: the 30-minute-old row
+        # is exactly at the threshold, so it stays running and live.
+        assert snap["fleet"]["status"] == "live"
+        assert snap["fleet"]["attempts"][0]["state"] == "running"
+
+    def test_naive_datetime_clock_is_read_as_utc(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW.replace(tzinfo=None),
+        ).build_snapshot()
+        validated(snap)
+        assert snap["generated_at"] == "2026-11-16T09:30:00Z"
+        assert snap["fleet"]["status"] == "live"
+
+    def test_aware_non_utc_clock_is_normalized_to_utc(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        shifted = FIXED_NOW.astimezone(timezone(timedelta(hours=2)))
+        assert shifted.utcoffset() == timedelta(hours=2)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: shifted,
+        ).build_snapshot()
+        validated(snap)
+        assert snap["generated_at"] == "2026-11-16T09:30:00Z"
+
+    def test_non_clock_value_falls_back_to_the_real_utc_clock(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        before = datetime.now(timezone.utc)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: "not-a-clock",
+        ).build_snapshot()
+        after = datetime.now(timezone.utc)
+        validated(snap)
+        generated = collector.parse_ts(snap["generated_at"])
+        assert generated is not None
+        assert before - timedelta(seconds=1) <= generated <= after + timedelta(seconds=1)
+
+    def test_fleet_row_boundary_normalizes_the_clock(self) -> None:
+        c = collector.Collector(now_fn=lambda: FIXED_NOW)
+        raw = {
+            "attempt_id": "att_clock",
+            "state": "running",
+            "updated_at": "2026-11-16T07:00:00Z",
+        }
+        # Epoch seconds and a naive datetime each reach the staleness
+        # arithmetic through the boundary normalization: both demote the
+        # 2.5-hour-old active row exactly as the aware clock does, instead
+        # of raising TypeError on the subtraction.
+        for moment in (FIXED_EPOCH, FIXED_NOW.replace(tzinfo=None)):
+            row = c._fleet_row(raw, "2026-11-16T09:30:00Z", moment)
+            assert row["state"] == "unknown", moment
+            assert row["detail"] == "running", moment
+        fresh = c._fleet_row(
+            dict(raw, updated_at="2026-11-16T09:29:00Z"), "2026-11-16T09:30:00Z", FIXED_EPOCH
+        )
+        assert fresh["state"] == "running"
+        assert fresh["detail"] is None
 
 
 # ---------------------------------------------------------------------- ci/gh
