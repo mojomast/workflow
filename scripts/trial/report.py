@@ -13,18 +13,21 @@ and prints:
 - the H4 pairing note (memory spend compares the two MEMORY arms, b vs c - the
   no-memory arm has nothing to spend, so comparing it would be meaningless).
 
-Hypothesis pairing (stated here because §3.3 does not pair A/B/C by name):
+Hypothesis pairing (pre-registered, docs/hindsight-synthesis.md:441-443):
 
-- H1 (reconstruction cost), H2 (pitfall recall) and H3 (conformance gate) are
-  evaluated on arm-a (no memory, baseline) vs arm-c (hybrid, treatment);
-- H4 (memory-layer token spend) is evaluated on arm-b (contract vault,
-  baseline) vs arm-c (hybrid, treatment) - the only pair where both arms have
-  a memory layer whose spend can be compared.
+- the trial is between arm-b (contract-only, the baseline fixed by the brief
+  at :413 and named at :277) and arm-c (hybrid, treatment), with arm-a
+  (no memory) as the secondary control - not part of any H1-H4 comparison;
+- every hypothesis is therefore evaluated on that one pre-registered pair:
+  H1 (reconstruction cost), H2 (pitfall recall) and H3 (conformance gate)
+  compare arm-b vs arm-c, and H4 (memory-layer token spend) compares the
+  same two arms - the only pair where both arms have a memory layer whose
+  spend can be compared.
 
-To keep the pair-1 evaluator call from dividing by arm-a's zero memory spend,
-the report mirrors arm-c's M8 value into the arm-a record it passes in; the
-H4 verdict of that call is therefore UNINFORMATIVE by construction and is
-DISCARDED - the H4 verdict printed here always comes from the b-vs-c pair.
+One evaluator call over the pre-registered pair keeps every gate verdict in
+the report: the call's H3 covers BOTH trial arms, so an M5-M7 violation in
+arm-b or arm-c fails the report (§3.4: adopt nothing if either arm fails a
+gate) instead of being silently discarded alongside an unused H4 verdict.
 
 Exit codes (documented contract, asserted in tests):
 
@@ -37,7 +40,6 @@ Stdlib only; no network, no clock, no filesystem writes.
 
 from __future__ import annotations
 
-import copy
 import sys
 
 from scripts.trial import arms, evaluator, fixtures
@@ -46,17 +48,10 @@ EXIT_ALL_PASS = 0
 EXIT_ANY_FAIL = 1
 EXIT_INCONCLUSIVE = 2
 
-H123_BASELINE = arms.ARM_A
+H123_BASELINE = arms.ARM_B
 H123_TREATMENT = arms.ARM_C
 H4_BASELINE = arms.ARM_B
 H4_TREATMENT = arms.ARM_C
-
-
-def _with_mirrored_m8(record: dict, tokens: float) -> dict:
-    """Copy ``record`` with M8 set to ``tokens`` (see the module docstring)."""
-    mirrored = copy.deepcopy(record)
-    mirrored.setdefault("metrics", {})["M8"] = {"memory_layer_tokens": tokens}
-    return mirrored
 
 
 def _score_absolute_checks(metrics: dict) -> dict:
@@ -89,20 +84,14 @@ def build_report(metrics: dict | None = None) -> dict:
     metrics = metrics if metrics is not None else arms.replay_all()
     baseline = metrics[H123_BASELINE]
     treatment = metrics[H123_TREATMENT]
-    h4_baseline = metrics[H4_BASELINE]
-    h4_treatment = metrics[H4_TREATMENT]
 
-    mirrored = _with_mirrored_m8(
-        baseline, treatment["metrics"]["M8"]["memory_layer_tokens"]
-    )
-    pair1 = evaluator.evaluate_trial(mirrored, treatment)
-    pair2 = evaluator.evaluate_trial(h4_baseline, h4_treatment)
+    trial = evaluator.evaluate_trial(baseline, treatment)
 
     hypotheses = {
-        "H1": pair1["hypotheses"]["H1"],
-        "H2": pair1["hypotheses"]["H2"],
-        "H3": pair1["hypotheses"]["H3"],
-        "H4": pair2["hypotheses"]["H4"],
+        "H1": trial["hypotheses"]["H1"],
+        "H2": trial["hypotheses"]["H2"],
+        "H3": trial["hypotheses"]["H3"],
+        "H4": trial["hypotheses"]["H4"],
     }
     verdicts = {name: entry["verdict"] for name, entry in hypotheses.items()}
 
@@ -123,14 +112,18 @@ def build_report(metrics: dict | None = None) -> dict:
             "H1_H2_H3": [H123_BASELINE, H123_TREATMENT],
             "H4": [H4_BASELINE, H4_TREATMENT],
             "note": (
-                "H4 compares the two memory arms; the no-memory arm has no "
-                "memory-layer spend to compare. The pair-1 call's H4 verdict "
-                "is UNINFORMATIVE by construction and discarded."
+                "Pre-registered pairing (docs/hindsight-synthesis.md:441-443): "
+                "arm-b (baseline) vs arm-c (treatment) for every hypothesis; "
+                "arm-a is the secondary control and is not part of any H1-H4 "
+                "comparison. H4 is stated on the same pair - the two memory "
+                "arms are the only ones whose memory-layer spend can be "
+                "compared. The single evaluator call keeps its H3 gate "
+                "verdict, which covers both trial arms, in the report."
             ),
         },
-        "thresholds": pair1["thresholds"],
-        "verdict_precedence": pair1["verdict_precedence"],
-        "conformance": pair1["conformance"],
+        "thresholds": trial["thresholds"],
+        "verdict_precedence": trial["verdict_precedence"],
+        "conformance": trial["conformance"],
         "arm_metrics": metrics,
         "absolute_checks": _score_absolute_checks(metrics),
         "hypotheses": hypotheses,
