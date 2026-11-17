@@ -154,12 +154,20 @@ validated, with a sha256 MANIFEST.sha256 over every evidence file.
 
 The corrected outbox contents STRENGTHEN the audit: the plugin-side outbox contains exactly
 8 bee-landed events, ALL timestamped Nov 14 19:32-19:55 (the first job-CLI dogfood wave).
-No event has been emitted since - from ANY path, CLI or tool. The report's original framing
-("CLI-path emits, tool-path doesn't") underclaimed: the entire emission path has been dark
-since Nov 14. Whether later events were emitted elsewhere (e.g. worker-side), consumed and
-deleted by a collector, or never written is an open audit question - the worker host is
-reachable only through a forced-command gateway (status/list-projects/.../logs/apply-update),
-so its filesystem is not directly inspectable from here.
+No event has been emitted to THIS persistent state dir since Nov 14.
+CORRECTION 3 (21:45 EST, outbox forensics completed - supersedes the sentence above it):
+"the entire emission path has been dark" OVERCLAIMED the evidence. The supported statement:
+the outbox is CREATE-ONLY by design (bee_events.py: events persist; delivery writes
+subscriber INBOX records; no subscriber was ever registered - no inbox directory exists on
+this host). The 8 Nov-14 events are the only ones ever written to the PERSISTENT plugin
+state dir; the Nov 15-16 job-path waves ran against DISPOSABLE state dirs (verify worktrees
+/ temp dirs) whose outboxes no longer exist here (find-verified: only this packaged outbox
+and an unrelated bot_relay outbox remain on the host). Tool-path dispatches never wrote
+events at all (record_tool_completion has zero production call sites - grep-verified at
+bundlebees main). The persistent-dir snapshot therefore proves: tool-path emission never
+existed, and no consumer ever drained the persistent outbox. It does NOT prove job-path
+emission stopped; whether worker-side emission exists remains unverifiable through the
+forced-command gateway (status/list-projects/.../logs/apply-update only).
 
 
 ## CORRECTION 2 (after the independent audit, 20:40 EST)
