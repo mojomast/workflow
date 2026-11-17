@@ -1,0 +1,844 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/rails/source.schema.json",
+  "title": "Rizzstack Rails source adapter contract \u2014 rizzstack.rails-source/1",
+  "$comment": "R01 freeze candidate. This file bundles the wire objects of the source adapter interface (spec section 5). Validate an instance against the anyOf branch whose properties.schema const matches the instance's schema tag; the root object is a document, not an instance schema. read_batch never updates the source or the ledger: the importer commits records and acknowledges its cursor in one transaction. Malformed complete rows produce a source.error event with an opaque record identifier and digest, never raw text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.rails-source/1"
+    }
+  },
+  "caps": {
+    "max_limit": 500,
+    "batch_max_bytes": 1048576,
+    "record_max_bytes": 65536,
+    "cursor_max_bytes": 1024,
+    "$comment": "Default caps from spec section 5: limit <= 500; batch <= 1 MiB; record <= 64 KiB. Adjustment needs a recorded rationale and updated fixtures (spec D6)."
+  },
+    "anyOf": [
+        {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "rizzstack.rails-source/1"
+                }
+            }
+        },
+        {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "adapter_id",
+        "version",
+        "source_instance",
+        "capabilities",
+        "supported_formats"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-describe/1"
+        },
+        "adapter_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "source_instance": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "supported_formats": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "enum": [
+              "jsonl",
+              "sqlite-ro",
+              "http-export"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "cursor",
+        "limit",
+        "byte_limit"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-read-batch/1"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "byte_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "records",
+        "next_cursor",
+        "has_more",
+        "source_head",
+        "diagnostics"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-read-batch-result/1"
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$comment": "each record must satisfy rizzstack.rails-candidate/1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "dedupe_key",
+              "source",
+              "kind",
+              "scope",
+              "lane_id",
+              "parent_lane_id",
+              "parent_event_id",
+              "occurred_at",
+              "duration_ms",
+              "timing_quality",
+              "authority",
+              "payload",
+              "redaction_policy"
+            ],
+            "properties": {
+              "schema": {
+                "const": "rizzstack.rails-candidate/1"
+              },
+              "dedupe_key": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              },
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "adapter",
+                  "instance",
+                  "record_id",
+                  "revision"
+                ],
+                "properties": {
+                  "adapter": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  },
+                  "instance": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  },
+                  "record_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  }
+                }
+              },
+              "kind": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              },
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "repo",
+                  "campaign_id",
+                  "job_id",
+                  "task_id",
+                  "attempt_id",
+                  "session_id",
+                  "action_id",
+                  "contract_sha256",
+                  "code_rev"
+                ],
+                "properties": {
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "campaign_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "job_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "task_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "attempt_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "action_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contract_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "code_rev": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "anyOf": [
+                  {
+                    "properties": {
+                      "campaign_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "campaign_id"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "job_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "job_id"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "task_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "task_id"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "attempt_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "attempt_id"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "session_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "session_id"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "action_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "action_id"
+                    ]
+                  }
+                ]
+              },
+              "lane_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              },
+              "parent_lane_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "parent_event_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "occurred_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "duration_ms": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timing_quality": {
+                "enum": [
+                  "measured",
+                  "estimated",
+                  "unknown"
+                ]
+              },
+              "authority": {
+                "enum": [
+                  "worker_report",
+                  "coordinator_record",
+                  "verifier_record",
+                  "reviewer_record",
+                  "owner_record",
+                  "imported_observation"
+                ]
+              },
+              "payload": {
+                "type": "object"
+              },
+              "redaction_policy": {
+                "const": "rails-safe/1"
+              }
+            }
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "source_head": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "state",
+        "last_success",
+        "error_code"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-source-health/1"
+        },
+        "state": {
+          "enum": [
+            "live",
+            "stale",
+            "unavailable"
+          ]
+        },
+        "last_success": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9_:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$comment": "A candidate is a validated envelope WITHOUT ledger-assigned chain/event/seq/hash/recorded_at fields: the ledger writer assigns chain identity, sequence, prev linkage, origin hash and recorded_at. additionalProperties false is what refuses those fields here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "dedupe_key",
+        "source",
+        "kind",
+        "scope",
+        "lane_id",
+        "parent_lane_id",
+        "parent_event_id",
+        "occurred_at",
+        "duration_ms",
+        "timing_quality",
+        "authority",
+        "payload",
+        "redaction_policy"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-candidate/1"
+        },
+        "dedupe_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adapter",
+            "instance",
+            "record_id",
+            "revision"
+          ],
+          "properties": {
+            "adapter": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "instance": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "record_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            }
+          }
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "campaign_id",
+            "job_id",
+            "task_id",
+            "attempt_id",
+            "session_id",
+            "action_id",
+            "contract_sha256",
+            "code_rev"
+          ],
+          "properties": {
+            "repo": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "campaign_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "job_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "task_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "attempt_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "session_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "action_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "contract_sha256": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "code_rev": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "anyOf": [
+            {
+              "properties": {
+                "campaign_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            {
+              "properties": {
+                "job_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "job_id"
+              ]
+            },
+            {
+              "properties": {
+                "task_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "task_id"
+              ]
+            },
+            {
+              "properties": {
+                "attempt_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attempt_id"
+              ]
+            },
+            {
+              "properties": {
+                "session_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "session_id"
+              ]
+            },
+            {
+              "properties": {
+                "action_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action_id"
+              ]
+            }
+          ]
+        },
+        "lane_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "parent_lane_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_event_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "occurred_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timing_quality": {
+          "enum": [
+            "measured",
+            "estimated",
+            "unknown"
+          ]
+        },
+        "authority": {
+          "enum": [
+            "worker_report",
+            "coordinator_record",
+            "verifier_record",
+            "reviewer_record",
+            "owner_record",
+            "imported_observation"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        },
+        "redaction_policy": {
+          "const": "rails-safe/1"
+        }
+      }
+    }
+  ]
+}
