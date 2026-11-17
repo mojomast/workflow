@@ -46,6 +46,13 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    89: (
+        "docs-sync companion (the workflow #88 coverage row + its Unreleased bullet: the "
+        "trial-harness arms/report landing with the att_f9e680d217bb458b repair and the "
+        "att_b9ad60999d524dbd round-2 APPROVE evidence) - same class as 84/85/86/87: a "
+        "registry bookkeeping change whose only content is this exclusion plus the #88 "
+        "coverage row; it carries its own exclusion so merging it leaves main green"
+    ),
     87: (
         "docs-sync companion (the rails landing batch adoption: R03-done completion, R13 "
         "two-PR lane, R04/R10/R08 dispatch transitions with the recorded zero-delivery loss "
@@ -357,6 +364,17 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 83,
         "name": "rails R01 contract layer",
         "keywords": ("RAILS-R01", "test_rails_contract", "att_e0cff87d85a644e5", "hash-vectors"),
+    },
+    {
+        # docs/hindsight-trial-harness-arms: the Hindsight trial harness PART 2
+        # (three deterministic arms + the report layer) landed after one RED-first
+        # worker repair (att_f9e680d217bb458b: B1 baseline pairing restored to
+        # ARM_B, B2 single evaluator call, M8-mirror hack removed) and an
+        # independent round-2 re-review (att_b9ad60999d524dbd, APPROVE zero
+        # blocking; CI 14/14 at the repaired head).
+        "pr": 88,
+        "name": "trial harness PART 2 arms + report",
+        "keywords": ("arms.py", "evaluate_trial", "H123_BASELINE", "exit 0/1/2"),
     },
 )
 
