@@ -247,6 +247,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "coordinator failure report 2026-11-16",
         "keywords": ("coordinator-failure-report-2026-11-16", "failure-evidence-2026-11-16"),
     },
+    {
+        # contrib/obs-fleet-delta: the observability fleet delta ported onto the
+        # main collector (merged 77f98cb).
+        "pr": 69,
+        "name": "observability fleet delta port",
+        "keywords": ("lease-store fallback", "clock-type normalization", "empty-state contract"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
