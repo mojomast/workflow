@@ -3061,7 +3061,7 @@ def make_server(
             if not ok:
                 self._deny(401, "unauthorized", {"WWW-Authenticate": "Bearer"})
                 return
-            if self.path not in ("/", "/snapshot"):
+            if self.path not in ("/", "/snapshot", "/obs-snapshot"):
                 self._deny(404, "not found")
                 return
             try:
