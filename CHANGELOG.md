@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Rails wave-2 backlog seed (plans/backlog.json): the 22 packages R00-R18 (incl. R17A-D integration leases) from the frozen spec at 9850efa, each with its exact file lease, dependency gates as slice_merged gates, RED-first acceptance command, and the <=8 wave-2 pacing cap.
+
 - Collector: serve the deployed `/obs-snapshot` path as an alias of `/snapshot` (the Observatory app and the same-origin 9443 proxy fetch `/obs-snapshot`; the merged collector only served `/snapshot`, a deploy-vs-main drift found by the deploy-parity audit). No behavior change on `/` or `/snapshot`.
 
 - [Coordinator failure report 2026-11-16](docs/coordinator-failure-report-2026-11-16.md) (eight failure classes from the Nov 16 evening session with detection, resolution, and unresolved remainder, plus the packaged launcher logs, leases, and envelopes under docs/failure-evidence-2026-11-16/).
