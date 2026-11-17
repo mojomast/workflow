@@ -115,10 +115,10 @@
    "title": "Rails R00 (S): M0; all source authors + integrator",
    "project": "workflow",
    "lane": "rails",
-   "priority": 10,
+   "priority": 0,
    "brief": {
     "objective": "Rails R00 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Pin real source versions, record sanitized native trace and session shape, locate proxy/auth/queue hooks, resolve uncertainties Q1\u2013Q4. Missing fixture/version/attachment makes the feasibility test RED. python -m unittest discover -s tests -p test_rails_feasibility.py; review rejects guessed hooks.",
-    "source_rev": "PENDING",
+    "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
     "assigned_files": [
      "specs/rails-feasibility.md",
      "schemas/rails/fixtures/source-matrix.json",
@@ -143,10 +143,10 @@
    "title": "Rails R01 (M): M0; every producer + consumer",
    "project": "workflow",
    "lane": "rails",
-   "priority": 11,
+   "priority": 1,
    "brief": {
     "objective": "Rails R01 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Bad hashes/duplicate keys/kind payloads/PASS without evidence fail; legacy vector matches upstream; freeze digest. python -m unittest discover -s tests -p test_rails_contract.py",
-    "source_rev": "PENDING",
+    "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
     "assigned_files": [
      "schemas/rails/event.schema.json",
      "schemas/rails/source.schema.json",
@@ -169,12 +169,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R00"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R00"
    ],
@@ -186,10 +181,10 @@
    "title": "Rails R02 (M): M1a; hyvv + Orbit + Bundlebees",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 12,
+   "priority": 2,
    "brief": {
     "objective": "Rails R02 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Concurrent 10 writers, identical/conflicting retry, crash around commit, mutation/hash detection, full disk, backup restore, readonly missing DB refusal and planted sensitive data. python -m unittest discover -s tests -p test_rails_ledger.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "contrib/rizzstack_rails/__init__.py",
      "contrib/rizzstack_rails/ledger.py",
@@ -208,12 +203,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01"
    ],
@@ -225,10 +215,10 @@
    "title": "Rails R03 (S): M0; UI + compatibility reviewer",
    "project": "orbitdesktop",
    "lane": "rails",
-   "priority": 13,
+   "priority": 3,
    "brief": {
     "objective": "Rails R03 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Exact pristine pin + license/digests; no startup hooks executed; node-independent assets inspectable. python -m unittest discover -s tests -p test_rails_vendor.py",
-    "source_rev": "PENDING",
+    "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
     "assigned_files": [
      "contrib/vibeline/README.md",
      "contrib/vibeline/LICENSE",
@@ -253,12 +243,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01"
    ],
@@ -270,10 +255,10 @@
    "title": "Rails R04 (S): M1a; local sources + remote import",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 14,
+   "priority": 4,
    "brief": {
     "objective": "Rails R04 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Append+cursor atomic, restart replay, fork/gap handling, truncated lines and byte caps; reads cannot commit. python -m unittest discover -s tests -p test_rails_importer.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "contrib/rizzstack_rails/source.py",
      "contrib/rizzstack_rails/importer.py",
@@ -288,12 +273,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R02"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R02"
    ],
@@ -305,10 +285,10 @@
    "title": "Rails R05 (S): M1; query + audit",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 15,
+   "priority": 5,
    "brief": {
     "objective": "Rails R05 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Committed verify/review/merge records map correctly; unsigned worker PASS stays claim; snapshots do not invent transitions. python -m unittest discover -s tests -p test_rails_bundlebees_source.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "bundlebees_plugin/rails_bundlebees_source.py",
      "tests/test_rails_bundlebees_source.py"
@@ -322,16 +302,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R04"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01",
     "R04"
@@ -344,10 +315,10 @@
    "title": "Rails R06 (S): M1; campaign + rail",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 16,
+   "priority": 6,
    "brief": {
     "objective": "Rails R06 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Replayed landing dedupes; contradictory digest fails; terminal is not accepted. python -m unittest discover -s tests -p test_rails_outbox_source.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "bundlebees_plugin/rails_outbox_source.py",
      "tests/test_rails_outbox_source.py"
@@ -361,16 +332,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R04"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01",
     "R04"
@@ -383,10 +345,10 @@
    "title": "Rails R07 (M): M1; coordinator self-view + review rails",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 17,
+   "priority": 7,
    "brief": {
     "objective": "Rails R07 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Allowlisted sessions, nested reviewer topology, edits/ghosts, missing result, unsupported schema; source DB bytes unchanged. python -m unittest discover -s tests -p test_rails_hermes_source.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "contrib/vibeline/LICENSE",
      "contrib/vibeline/paths.py",
@@ -406,20 +368,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R00"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R04"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R00",
     "R01",
@@ -433,10 +382,10 @@
    "title": "Rails R08 (M): M1a; worker debug + coordinator",
    "project": "hyvv",
    "lane": "rails",
-   "priority": 18,
+   "priority": 8,
    "brief": {
     "objective": "Rails R08 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Windows JSONL Unicode/rotation/partial rows, native/backfill dedupe, real local HTTP export fork/disconnect, observed usage unknowns. python -m unittest discover -s tests -p test_rails_emission.py",
-    "source_rev": "PENDING",
+    "source_rev": "316bd975e212973837daeefc271a491471ea882c",
     "assigned_files": [
      "rails_emitter.py",
      "rails_log_source.py",
@@ -452,20 +401,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R00"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R02"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R00",
     "R01",
@@ -479,10 +415,10 @@
    "title": "Rails R09 (S): M1a; peer view + forensics",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 19,
+   "priority": 9,
    "brief": {
     "objective": "Rails R09 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: No redirects/arbitrary URL, preserved origin bytes, loss after commit replay, export gap, stale host. python -m unittest discover -s tests -p test_rails_remote_source.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "bundlebees_plugin/rails_remote_source.py",
      "tests/test_rails_remote_source.py"
@@ -496,16 +432,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R04"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R08"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R04",
     "R08"
@@ -518,10 +445,10 @@
    "title": "Rails R10 (M): M1a; Orbit + CLI + agents",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 20,
+   "priority": 9,
    "brief": {
     "objective": "Rails R10 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Scoped bounded pages, cross-contract PASS rejection, latest failure, orphan/cycle, timing baselines, usage no double count, markdown injection. python -m unittest discover -s tests -p test_rails_query.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "contrib/rizzstack_rails/query.py",
      "contrib/rizzstack_rails/projection.py",
@@ -539,16 +466,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R02"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01",
     "R02"
@@ -561,10 +479,10 @@
    "title": "Rails R11 (S): M1; quality report + intervention export",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 21,
+   "priority": 9,
    "brief": {
     "objective": "Rails R11 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Retry duplicate, stale edit, target missing, clearing preserves history, intervention count distinct, CSV formula injection. python -m unittest discover -s tests -p test_rails_feedback.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "contrib/rizzstack_rails/feedback.py",
      "contrib/rizzstack_rails/export.py",
@@ -579,16 +497,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R02"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R10"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R02",
     "R10"
@@ -601,10 +510,10 @@
    "title": "Rails R12 (M): M1a; proxy + machine query",
    "project": "orbitdesktop",
    "lane": "rails",
-   "priority": 22,
+   "priority": 9,
    "brief": {
     "objective": "Rails R12 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Real HTTP unauthenticated loopback refused; size/Host checks, readonly GET, SSE reconnect/auth expiry/cap, no browser append. python -m unittest discover -s tests -p test_rails_http.py",
-    "source_rev": "PENDING",
+    "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
     "assigned_files": [
      "contrib/rails_server/__init__.py",
      "contrib/rails_server/__main__.py",
@@ -621,20 +530,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R04"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R10"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R11"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R04",
     "R10",
@@ -648,10 +544,10 @@
    "title": "Rails R13 (M): M1a; Observatory + standalone catalog pane",
    "project": "orbitdesktop",
    "lane": "rails",
-   "priority": 23,
+   "priority": 9,
    "brief": {
     "objective": "Rails R13 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Parent/child rails, zoom/pan, ghost/failure/RED distinct, unknown values, keyboard/reduced motion, bounded marks, XSS-safe rendering. node --test tests/rails-ui.test.mjs",
-    "source_rev": "PENDING",
+    "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
     "assigned_files": [
      "apps/rizzstack-rails/index.html",
      "apps/rizzstack-rails/app.js",
@@ -669,16 +565,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R03"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01",
     "R03"
@@ -691,10 +578,10 @@
    "title": "Rails R14 (S): M1a; Hermes + reference coordinator",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 24,
+   "priority": 9,
    "brief": {
     "objective": "Rails R14 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Real shared query returns identical IDs via tool/CLI/reference consumer; no arbitrary path or raw prompt fields, caps and typed errors. python -m unittest discover -s tests -p test_rails_consumers.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "bundlebees_plugin/rails_tool.py",
      "bundlebees_plugin/rails_cli.py",
@@ -710,12 +597,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R10"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R10"
    ],
@@ -727,10 +609,10 @@
    "title": "Rails R15 (M): M2; owner retry + recovery",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 25,
+   "priority": 9,
    "brief": {
     "objective": "Rails R15 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Existing real queue seam: stale fence, duplicate click, revoked authority, crash after accepted request, non-idempotent unknown state held; ghost only after success. python -m unittest discover -s tests -p test_rails_actions.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "bundlebees_plugin/rails_actions.py",
      "bundlebees_plugin/rails_queue_source.py",
@@ -745,20 +627,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R00"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R05"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R11"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R00",
     "R05",
@@ -772,10 +641,10 @@
    "title": "Rails R16 (S): M2; feedback + retry",
    "project": "orbitdesktop",
    "lane": "rails",
-   "priority": 26,
+   "priority": 9,
    "brief": {
     "objective": "Rails R16 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Trusted owner dialog; no pane credential leakage; read vs write scope; CSRF, expired session, SSE buffering/reconnect and rollback of optimistic state. node --test tests/rails-proxy.test.mjs tests/rails-feedback.test.mjs",
-    "source_rev": "PENDING",
+    "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
     "assigned_files": [
      "server/rails-proxy.mjs",
      "tests/rails-proxy.test.mjs",
@@ -791,20 +660,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R00"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R12"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R15"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R00",
     "R12",
@@ -818,10 +674,10 @@
    "title": "Rails R17A (S): M1a; operators + RETURN",
    "project": "workflow",
    "lane": "rails",
-   "priority": 27,
+   "priority": 9,
    "brief": {
     "objective": "Rails R17A per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Missing or wrong interface/evidence links fail contract checks. python -m unittest discover -s tests -p test_rails_contract.py",
-    "source_rev": "PENDING",
+    "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
     "assigned_files": [
      "contrib/rizzstack-observability/README.md",
      "docs/31-campaign-continuity.md"
@@ -835,16 +691,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R01"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R10"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R01",
     "R10"
@@ -857,10 +704,10 @@
    "title": "Rails R17B (M): M1a/M2; Hermes + reference operator",
    "project": "bundlebees",
    "lane": "rails",
-   "priority": 27,
+   "priority": 9,
    "brief": {
     "objective": "Rails R17B per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Registered CLI/tool/doctor use real configured query; source cursors survive restart. python -m unittest discover -s tests -p test_rails_registered.py",
-    "source_rev": "PENDING",
+    "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
     "assigned_files": [
      "bundlebees_plugin/tools.py",
      "bundlebees_plugin/cli.py",
@@ -879,26 +726,13 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R05"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R10"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R14"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R15"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R05",
+    "R06",
+    "R07",
+    "R08",
+    "R09",
     "R10",
     "R14",
     "R15"
@@ -911,10 +745,10 @@
    "title": "Rails R17C (S): M1a; worker + coordinator",
    "project": "hyvv",
    "lane": "rails",
-   "priority": 27,
+   "priority": 9,
    "brief": {
     "objective": "Rails R17C per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Actual launcher records/exports fixture tool sequence on Windows without another service. python -m unittest discover -s tests -p test_rails_native.py",
-    "source_rev": "PENDING",
+    "source_rev": "316bd975e212973837daeefc271a491471ea882c",
     "assigned_files": [
      "launcher.py",
      "contrib/rizzstack_rails/__init__.py",
@@ -933,16 +767,7 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R02"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R08"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R02",
     "R08"
@@ -955,17 +780,30 @@
    "title": "Rails R17D (M): M1a/M2; operator + Observatory",
    "project": "orbitdesktop",
    "lane": "rails",
-   "priority": 27,
+   "priority": 9,
    "brief": {
     "objective": "Rails R17D per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Real owner-authenticated proxy -> pane -> selected mark; browser denies unauthorized feedback. python tests/rails-live.browser.py; npm run check",
-    "source_rev": "PENDING",
+    "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
     "assigned_files": [
      "server/index.mjs",
      "apps/rizzstack-observatory/app.js",
      "extensions/rizzstack-observatory/README.md",
      "extensions/rizzstack-rails/README.md",
      "tests/rails-live.browser.py",
-     "contrib/rails_server/rails.service"
+     "contrib/rails_server/rails.service",
+     "contrib/rizzstack_rails/__init__.py",
+     "contrib/rizzstack_rails/ledger.py",
+     "contrib/rizzstack_rails/contracts.py",
+     "contrib/rizzstack_rails/privacy.py",
+     "contrib/rizzstack_rails/source.py",
+     "contrib/rizzstack_rails/importer.py",
+     "contrib/rizzstack_rails/query.py",
+     "contrib/rizzstack_rails/projection.py",
+     "contrib/rizzstack_rails/markdown.py",
+     "contrib/rizzstack_rails/shell_labels.py",
+     "contrib/rizzstack_rails/feedback.py",
+     "contrib/rizzstack_rails/export.py",
+     "contrib/rizzstack_rails/vendor-manifest.json"
     ],
     "tests": [],
     "acceptance": {
@@ -974,35 +812,12 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R03"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R10"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R13"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R16"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R17B"
-    },
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R17C"
-    }
-   ],
+   "gates": [],
    "depends_on": [
     "R03",
     "R10",
+    "R11",
+    "R12",
     "R13",
     "R16",
     "R17B",
@@ -1016,10 +831,10 @@
    "title": "Rails R18 (S): M1/M2; independent reviewer + RETURN",
    "project": "workflow",
    "lane": "rails",
-   "priority": 28,
+   "priority": 9,
    "brief": {
     "objective": "Rails R18 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Exercise cross-repo real servers and shared queries, restart/disconnect, feedback, wrong-head evidence; report actual limits. python -m unittest discover -s tests -p test_rails_acceptance.py",
-    "source_rev": "PENDING",
+    "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
     "assigned_files": [
      "tests/test_rails_acceptance.py",
      "schemas/rails/fixtures/m1-scenario.json",
@@ -1034,14 +849,12 @@
      ]
     }
    },
-   "gates": [
-    {
-     "type": "slice_merged",
-     "slice": "RAILS-R17"
-    }
-   ],
+   "gates": [],
    "depends_on": [
-    "R17"
+    "R17A",
+    "R17B",
+    "R17C",
+    "R17D"
    ],
    "status": "planned",
    "transitions": []
