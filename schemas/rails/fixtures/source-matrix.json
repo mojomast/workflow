@@ -1,0 +1,1001 @@
+{
+  "schema": "rizzstack.rails-source-matrix/1",
+  "purpose": "R00 pinned source matrix: real source versions, sanitized native trace and session shape descriptors, and the proxy/auth/queue hook citations the rails plan attaches to. Values that could act as credentials are withheld; all fixture records are synthetic.",
+  "spec": {
+    "path": "specs/rizzstack-rails-spec.md",
+    "sections_used": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "7",
+      "9",
+      "10"
+    ],
+    "read_note": "Spec text read at the local working head that carries it (branch rails/r00-feasibility, base c31de3b68dc4dbd20a3394ac471114778fabe8f7). The spec pins each source revision itself; those pins are re-verified below against live checkouts, per the spec section 2 recheck-at-admission rule."
+  },
+  "generated_at": "2026-11-17T00:00:00Z",
+  "sanitization": {
+    "policy": "No credential material of any kind is recorded: header and credential values are described as withheld; record bodies are synthetic with neutral placeholders; file paths, host names and real identifiers are replaced with fixture tokens. Name-value credential shapes never appear in this file.",
+    "trace_records": "synthetic - shape mirrors hyvv launcher.py at the pin; no real attempt id, run id, host, path or upstream text",
+    "session_shape": "schema-level descriptor only; no session content",
+    "checked_at": "2026-11-17T00:00:00Z"
+  },
+  "absence_checks": [
+    {
+      "repo": "orbitdesktop",
+      "pattern": "obs-snapshot",
+      "result": "0 matching files in the whole pinned tree (git grep at the pin)",
+      "conclusion": "The deployed /obs-snapshot proxy is not part of the inspected main tree at this pin; the actual serving layer is recorded under Q1."
+    },
+    {
+      "repo": "bundlebees",
+      "pattern": "fencing (case-insensitive) across bundlebees_plugin/*.py",
+      "result": "0 matches",
+      "conclusion": "No fencing-epoch or fenced-operation module exists at this pin; see Q2."
+    }
+  ],
+  "sources": [
+    {
+      "repo": "workflow",
+      "role": "Owning repo: contracts, specs, observability snapshot/1 schema; local baseline for R00/R01",
+      "origin": "https://github.com/mojomast/workflow",
+      "pinned_commit": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+      "project_version": "commit-pinned (no package version); local working head c31de3b68dc4dbd20a3394ac471114778fabe8f7 carries the frozen spec",
+      "version_source": "git revision table in specs/rizzstack-rails-spec.md section 2",
+      "verified_at": "2026-11-17",
+      "verify_method": "clone of the origin repository checked out at the exact pinned commit; pinned-tree files re-read at citation time; citations below resolve against this working tree",
+      "hooks": [
+        {
+          "file": "observability/schemas/snapshot.schema.json",
+          "line": 3,
+          "anchor": "\"https://github.com/mojomast/workflow/observability/schemas/snapshot.schema.json\",",
+          "line_digest": "9964643f69291e43620d43854aa4106aedbf991a5de88291758d9513d7b71b6d",
+          "note": "snapshot/1 identity - the closed schema Observatory drill-down opens rails from"
+        },
+        {
+          "file": "observability/schemas/snapshot.schema.json",
+          "line": 7,
+          "anchor": "\"additionalProperties\": false,",
+          "line_digest": "caf6261bd51214e3f0e1f79bb4be170af948f47d47080f04b366668a8b5af3bd",
+          "note": "closed schema: no field may be added for rails links (spec section 8 sends rails through attempt_id/job_id only)"
+        },
+        {
+          "file": "docs/06-rules-and-lessons.md",
+          "line": 15,
+          "anchor": "Never print or commit tokens or keys",
+          "line_digest": "fb60ee595534e9af462cb7703bcc1642ac1033a479efbc96fec58ee205941fd8",
+          "note": "repo rule: credential material and private hosts stay out of Git; this matrix obeys it"
+        },
+        {
+          "file": "schemas/rails/event.schema.json",
+          "line": 3,
+          "anchor": "\"https://github.com/mojomast/workflow/schemas/rails/event.schema.json\",",
+          "line_digest": "fb7438956dddd51d56e8af613eb74e7a3e9a06d768583d22d66ddd40e336498d",
+          "note": "draft rails envelope already in tree; R01 completes the closed schemas"
+        }
+      ]
+    },
+    {
+      "repo": "bundlebees",
+      "role": "Coordinator records + job/verification authority; candidate action-queue seam (Q2)",
+      "origin": "https://github.com/mojomast/bundlebees",
+      "pinned_commit": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+      "project_version": "0.1.1",
+      "version_source": "pyproject.toml version field",
+      "verified_at": "2026-11-17",
+      "verify_method": "fresh clone checked out at the exact pinned commit; anchors verified line-by-line at checkout",
+      "hooks": [
+        {
+          "file": "bundlebees_plugin/queue.py",
+          "line": 1,
+          "anchor": "\"\"\"Feature queue: intake, durable claim, and one-pass consumption.",
+          "line_digest": "b824726211ab600f410108f67a82e23fd17f4d7608cde50dabff01115ba51b6c",
+          "note": "queue.py is a feature queue over the job store, not a fenced intervention queue"
+        },
+        {
+          "file": "bundlebees_plugin/queue.py",
+          "line": 29,
+          "anchor": "STATES = (\"queued\", \"claimed\", \"running\", \"ready_for_review\", \"blocked\", \"failed\", \"needs_approval\")",
+          "line_digest": "e72813ea998cc46bf97b5a9080bc8bcf2d58a10338232aa8c4f46501a2309caa",
+          "note": "queue item lifecycle states"
+        },
+        {
+          "file": "bundlebees_plugin/queue.py",
+          "line": 95,
+          "anchor": "def set_status(self, feature_id: str, status: str, evidence: Mapping[str, Any] | None = None) -> None: ...",
+          "line_digest": "5bf3294876498c211f48105b608e5f95b3cb1352e58b44a0fcf154d48948aee2",
+          "note": "QueueAdapter mutation seam - the closest existing status-transition hook"
+        },
+        {
+          "file": "bundlebees_plugin/queue.py",
+          "line": 99,
+          "anchor": "\"\"\"File-backed queue for tests and for hosts without a Kanban bridge.\"\"\"",
+          "line_digest": "a17b27580aea68bcf0279ebd608530bfb580d1dc76c029b7db88f18a9ca00d78",
+          "note": "durable file-backed queue implementation"
+        },
+        {
+          "file": "bundlebees_plugin/work_scheduler.py",
+          "line": 3,
+          "anchor": "The coordinator keeps one durable queue at ``<state>/coordinator/work.json``.",
+          "line_digest": "ca9f449496119d32cfe99fd27a89fc52b3d64317c5668ddb7f4fb2f892be8a6b",
+          "note": "coordinator scheduler queue location"
+        },
+        {
+          "file": "bundlebees_plugin/work_scheduler.py",
+          "line": 614,
+          "anchor": "def claim(",
+          "line_digest": "ee2114bc4eb8b3d3bd21a8a5158fcb31feadc0ff185e72a33cd7a9d16dcab48e",
+          "note": "claim with one-active-item-per-owner rule - existing concurrency model, no fencing epoch"
+        },
+        {
+          "file": "bundlebees_plugin/work_scheduler.py",
+          "line": 303,
+          "anchor": "os.replace(tmp, path)",
+          "line_digest": "758cd46195dda91b648e68fb29ecd6fac67d60e1cbd9d217429147e87cfab83f",
+          "note": "durable atomic replace pattern the queue already uses"
+        },
+        {
+          "file": "bundlebees_plugin/launcher_adapter.py",
+          "line": 58,
+          "anchor": "#: No server-enforced idempotency exists yet; never claim exactly-once.",
+          "line_digest": "060d526fb075e4ba3ce4396b673c11cd2e5235f1ad5625e856a7498414457e2b",
+          "note": "existing adapter honestly records the missing idempotency guarantee"
+        },
+        {
+          "file": "bundlebees_plugin/reconcile.py",
+          "line": 1297,
+          "anchor": "\"idempotency_key\": hashlib.sha256(f\"{job_id}:{task_id}:{attempt_no}\".encode()).hexdigest()[:32],",
+          "line_digest": "5b65b0f98b04696977f8001fb8e6e11e73268d3065c9778ce26ef3f036d11842",
+          "note": "existing stable idempotency key derived from job, task and attempt - reusable basis for rails dedupe keys"
+        },
+        {
+          "file": "bundlebees_plugin/metrics.py",
+          "line": 38,
+          "anchor": "EVENTS = (\"dispatch\", \"verify\", \"integrate\", \"intervention\", \"recovery\")",
+          "line_digest": "d78244660863cdb16da8243e61b959f58f750fb37e848235c00b0b8d3e77df24",
+          "note": "append-only outcome log already records intervention events"
+        },
+        {
+          "file": "bundlebees_plugin/hermes_adapter.py",
+          "line": 582,
+          "anchor": "``~/.hermes`` \u2014 config, ``.env``, sessions, coordinator state \u2014 is not",
+          "line_digest": "0192e2ea2c12f6ab72bc8e3c1dbab53cb086c948b729eea993f1a3673884b76d",
+          "note": "Hermes home (config, sessions state) is deliberately not exposed to sandboxes - rails read paths must keep this boundary"
+        }
+      ]
+    },
+    {
+      "repo": "hyvv",
+      "role": "Windows worker launcher: native event stream, authenticated HTTP, landing outbox (Q3)",
+      "origin": "https://github.com/mojomast/hyvv",
+      "pinned_commit": "316bd975e212973837daeefc271a491471ea882c",
+      "project_version": "0.1.17",
+      "version_source": "launcher.py VERSION constant",
+      "verified_at": "2026-11-17",
+      "verify_method": "fresh clone checked out at the exact pinned commit; anchors verified line-by-line at checkout",
+      "native_trace": {
+        "source_file": "attempts/<attempt_id>.events.jsonl under the launcher data dir",
+        "observed_shape": [
+          "lseq - monotonic per-attempt integer assigned by the launcher on every append",
+          "ts - epoch seconds float captured at append time",
+          "kind - one of: state, heartbeat, worker:<upstream kind>",
+          "state records carry state and detail (launcher.py:1631)",
+          "heartbeat records carry idle_s (launcher.py:1718)",
+          "worker records carry the upstream passthrough fields line, text and stop_reason after launcher-side redaction (launcher.py:1713, 174)"
+        ],
+        "upstream_kinds_observed": [
+          "turn_started",
+          "message",
+          "turn_ended",
+          "error",
+          "exited"
+        ],
+        "no_tool_level_events": true,
+        "no_tool_level_events_note": "The deployed stream records attempt-level and turn-level events only; there are no tool start/finish records, so tool.start/tool.finish rails events cannot be paired from the native log (finding for R08).",
+        "wire_shape": {
+          "existing_route": "GET /v1/attempts/<attempt_id>/events",
+          "response_fields": [
+            "events (records with the shape above)",
+            "state (current attempt state)",
+            "cursor (current lseq)"
+          ],
+          "cursor_semantics": "exclusive lseq offset; polling resumes after the last delivered record",
+          "auth": "the request must present the launcher owner credential in its credential header field; value withheld by sanitizer (launcher.py:2200)",
+          "route_line": "launcher.py:2273"
+        },
+        "final_receipt": {
+          "event_type": "rizzstack.bee.landed.v1 CloudEvent written to the durable outbox under the data dir events directory (launcher.py:181, 339)",
+          "crash_replay": "recover_landed_events re-emits missed terminal receipts at startup (launcher.py:1615)",
+          "export": "durable integer export positions persisted in an export index; GET /v1/landing/events pages them (landing_export.py:9, 159, 462; launcher.py:2253)"
+        },
+        "rotation": "none observed at this pin: exactly one append-only events file per attempt; restarts replay terminal state instead of rotating (launcher.py:1615)",
+        "records": [
+          {
+            "lseq": 1,
+            "ts": 1763300000.0,
+            "kind": "state",
+            "state": "starting",
+            "detail": "worker slot claimed"
+          },
+          {
+            "lseq": 2,
+            "ts": 1763300001.25,
+            "kind": "state",
+            "state": "running",
+            "detail": "opencode run started"
+          },
+          {
+            "lseq": 3,
+            "ts": 1763300004.5,
+            "kind": "worker:turn_started",
+            "stop_reason": null,
+            "line": ""
+          },
+          {
+            "lseq": 4,
+            "ts": 1763300009.75,
+            "kind": "worker:message",
+            "stop_reason": null,
+            "line": "",
+            "text": "[redacted]"
+          },
+          {
+            "lseq": 5,
+            "ts": 1763300015.0,
+            "kind": "heartbeat",
+            "idle_s": 6
+          },
+          {
+            "lseq": 6,
+            "ts": 1763300021.5,
+            "kind": "worker:turn_ended",
+            "stop_reason": "end_turn",
+            "line": "",
+            "text": "[redacted]"
+          },
+          {
+            "lseq": 7,
+            "ts": 1763300022.0,
+            "kind": "state",
+            "state": "succeeded",
+            "detail": "run finished"
+          }
+        ],
+        "sanitization_note": "Records are synthetic: timestamps are fabricated, text and line payloads are neutral placeholders, and no real attempt id, run id, model, host, path or credential appears."
+      },
+      "hooks": [
+        {
+          "file": "launcher.py",
+          "line": 37,
+          "anchor": "VERSION = \"0.1.17\"",
+          "line_digest": "4bd82289296170c4fd5ef880423c98b9b5c0da11fb7693c26ddb79f6e8b6ba95",
+          "note": "launcher version constant recorded in the pin"
+        },
+        {
+          "file": "launcher.py",
+          "line": 174,
+          "anchor": "return SECRETISH.sub(\"<redacted>\", s) if isinstance(s, str) else s",
+          "line_digest": "d5b89fa43544886d32b4d2a80fdcbadb49f56ee3aa5c304796cfc1d0dc4a22bb",
+          "note": "launcher already redacts credential-shaped content before events are stored - the upstream scrub rails relies on"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1462,
+          "anchor": "self._ev_lock = threading.Lock(); self._ev_idx = {}  # events_since offset index",
+          "line_digest": "179ea5e83767ba8abaf4fc2d2aaa8096ea585c2bff32e238dca09bc739fc011d",
+          "note": "offset index enabling incremental events_since reads"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1474,
+          "anchor": "with open(self.dir / \"attempts\" / f\"{a['attempt_id']}.events.jsonl\", \"a\", encoding=\"utf-8\") as f:",
+          "line_digest": "1c352a504001a4726360d5573caeebe546245c77e61d4cbf4d6a0f84fd1498a4",
+          "note": "append-only native event log per attempt - the launcher-log adapter source"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1482,
+          "anchor": "def events_since(self, aid, cursor):",
+          "line_digest": "f7db0930073e7f47a99885a491ffeb00eff14729be7d0d808d6686ab6808306d",
+          "note": "incremental read path (backfill and live polling share it)"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1631,
+          "anchor": "e = {\"lseq\": a[\"lseq\"], \"ts\": a[\"updated_at\"], \"kind\": \"state\", \"state\": state, \"detail\": detail}",
+          "line_digest": "6e71dc8aa831a8171099b463cafe2131648819f2fed2a47bc20c33e2f59eaa35",
+          "note": "state record shape"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1713,
+          "anchor": "a[\"lseq\"] += 1; out.append(dict(e, lseq=a[\"lseq\"], kind=\"worker:\" + e[\"kind\"], ts=e.get(\"ts\") or time.time()))",
+          "line_digest": "f1a9053bd830aad8162593aab7ff5b0b0daf513dd3f0ea843dc15a80b4451f49",
+          "note": "worker passthrough records: upstream kind prefixed with worker:, launcher assigns lseq and ts"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1718,
+          "anchor": "a[\"lseq\"] += 1; self._append_events(a, [{\"lseq\": a[\"lseq\"], \"ts\": time.time(), \"kind\": \"heartbeat\", \"idle_s\": round(time.time() - last_ev)}])",
+          "line_digest": "f5bed385624414a5d75b037dac890d1f01e5dc0e12059c03f7e1c97c28004102",
+          "note": "heartbeat record shape"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1068,
+          "anchor": "page = await (await self._run(a)).events(cursor, 200)",
+          "line_digest": "93537333f3a6d3e7a4dc3f6e5652141596e846ad8959e2f9e3001d11e44d736d",
+          "note": "upstream worker events are paged 200 at a time; kinds arrive from the worker runtime"
+        },
+        {
+          "file": "launcher.py",
+          "line": 2200,
+          "anchor": "hmac.compare_digest(h[7:].encode(), token.encode())",
+          "line_digest": "bc7c8e42b2f1c511833a8e963eae3c9b94792f83d52ea63fd886fd1e6e3abe83",
+          "note": "existing authenticated launcher transport: constant-time credential check on every request"
+        },
+        {
+          "file": "launcher.py",
+          "line": 2273,
+          "anchor": "if p[3] == \"events\": return self._send(200, {\"events\": L.events_since(p[2], int(q.get(\"cursor\", 0))), \"state\": a[\"state\"], \"cursor\": a[\"lseq\"]})",
+          "line_digest": "ea3a3d38a56bf8248db3514c099337202c3fdcb0ffb7ca03d2344816545d7f8a",
+          "note": "existing per-attempt events export route - the D5 authenticated pull basis"
+        },
+        {
+          "file": "launcher.py",
+          "line": 2253,
+          "anchor": "if p == [\"v1\", \"landing\", \"events\"]:  # authenticated export of the durable canonical outbox",
+          "line_digest": "2141d0ce0dd20c4bc76785ee35151db2791f920a891356b259e6d1d02c80d187",
+          "note": "existing authenticated landing export route"
+        },
+        {
+          "file": "launcher.py",
+          "line": 181,
+          "anchor": "LANDED_EVENT_TYPE = \"rizzstack.bee.landed.v1\"",
+          "line_digest": "7464e46e6217afd841db0f2901e471e45fb8d602a034ee52d14031a5b9411980",
+          "note": "terminal receipt CloudEvent type"
+        },
+        {
+          "file": "launcher.py",
+          "line": 339,
+          "anchor": "def build_landed_event(a, cfg=None, result_path=None):",
+          "line_digest": "65c297dea0d545c821195e2c78c66f7fae6d476d758b3a07bb55d7d3a95315c8",
+          "note": "final receipt construction"
+        },
+        {
+          "file": "launcher.py",
+          "line": 1615,
+          "anchor": "\"\"\"Emit events missed by a crash after the terminal journal write; never crashes startup.\"\"\"",
+          "line_digest": "8aac692f3eafa0ce82251381f612b9d8f53effa7d7ebb35abe1ce0d141a2e9a5",
+          "note": "crash replay for terminal receipts - no loss between journal and outbox"
+        },
+        {
+          "file": "landing_export.py",
+          "line": 9,
+          "anchor": "The cursor is a durable, monotonically increasing integer *export position*,",
+          "line_digest": "e83514d38d053f1f92e5ca8f5db99c79853ab008289a48afe1db36d4fa2227b9",
+          "note": "landing export cursor semantics"
+        },
+        {
+          "file": "landing_export.py",
+          "line": 159,
+          "anchor": "def export_index_path(source) -> Path:",
+          "line_digest": "e5b9d9a907891a4c5c1cafa414244129f238e708ad7647f27b190c58fe994a5d",
+          "note": "durable export index location"
+        },
+        {
+          "file": "landing_export.py",
+          "line": 462,
+          "anchor": "def export_events(source, after=None, limit=None):",
+          "line_digest": "7c1a6781c6cca57290f2b9ae0187d50a4e98a20ce88d60dc05fe613e5756f3c6",
+          "note": "export entrypoint used by the route"
+        }
+      ]
+    },
+    {
+      "repo": "orbitdesktop",
+      "role": "Owner desktop host: catalog apps, owner-authenticated API routes; proxy attachment seam (Q1)",
+      "origin": "https://github.com/mojomast/orbitdesktop",
+      "pinned_commit": "8530a14be7ce480ef35dd11890e72de4c89bed09",
+      "project_version": "0.3.1",
+      "version_source": "package.json version field",
+      "verified_at": "2026-11-17",
+      "verify_method": "fresh clone checked out at the exact pinned commit; anchors verified line-by-line at checkout",
+      "hooks": [
+        {
+          "file": "server/index.mjs",
+          "line": 59,
+          "anchor": "process.env.ORBIT_TOKEN || randomBytes(32).toString(\"base64url\")",
+          "line_digest": "204abfd10d3c8f7ff9860e324160ef6c0520581b14f4fa1b04573eaa07906d55",
+          "note": "owner credential: taken from configuration or generated at boot; never logged"
+        },
+        {
+          "file": "server/index.mjs",
+          "line": 100,
+          "anchor": "renameSync(temporary,path.join(runtimeRoot,'session-token'));",
+          "line_digest": "e3cc972cfb56e8cde0eb80ffc2be190f90b2168fcafdc02ab6e4abecad566343",
+          "note": "generated owner credential persisted only to a private runtime file with owner-only mode, atomically"
+        },
+        {
+          "file": "server/index.mjs",
+          "line": 322,
+          "anchor": "if (!allowedHosts.has(req.headers.host))",
+          "line_digest": "ebae19f2453303479f779b36203aebf704cec92940dc06ed8a3f06fca727c813",
+          "note": "unexpected Host refused before any routing"
+        },
+        {
+          "file": "server/index.mjs",
+          "line": 326,
+          "anchor": "if(Object.hasOwn(technologyHandlers,url.pathname))return technologyHandlers[url.pathname](req,res);",
+          "line_digest": "3f7ead4516b556396fc862b69e87d4d0e1bd5324c265abdf9fbf7903495cf6a4",
+          "note": "owner JSON routes are registered explicitly and dispatched by exact path"
+        },
+        {
+          "file": "server/index.mjs",
+          "line": 359,
+          "anchor": "if (url.pathname.startsWith(\"/apps/\")) return workspaceService.serveApp(req, res, url.pathname);",
+          "line_digest": "03fe5b0723c8119fe22dca003a7e38be0c4b7ee84add1d2a226ab693fd368f65",
+          "note": "static catalog apps are served under /apps/ - the serving layer for Observatory-style panes"
+        },
+        {
+          "file": "server/index.mjs",
+          "line": 372,
+          "anchor": "if (url.pathname === '/api/acdd-evidence') return acddEvidence.handle(req, res, url);",
+          "line_digest": "b496e84ebf982b91bceb5e8190557c6d5b66843fc6dc535f179393bc3b3fba17",
+          "note": "existing owner evidence route wired with an explicit authorize callback"
+        },
+        {
+          "file": "server/index.mjs",
+          "line": 144,
+          "anchor": "authorize: req => allowedRequest(req, port, devOrigins) && tokenMatches(String(req.headers.authorization || '')",
+          "line_digest": "b5830fccecc10c17f9b2f2b64a4ef4c74dfb0639180c8197eb021419afdc2d42",
+          "note": "the authorize callback pattern reused by owner routes"
+        },
+        {
+          "file": "server/technology-owner-route.mjs",
+          "line": 9,
+          "anchor": "const auth=req.headers.authorization;",
+          "line_digest": "e37472a33d5196c4364beb838034389925b71d0ca1f6f4c1479fb537a6c9b761",
+          "note": "owner boundary reads the credential header only - never the URL"
+        },
+        {
+          "file": "server/technology-owner-route.mjs",
+          "line": 10,
+          "anchor": "!tokenMatches(auth.slice(7),token))return reply(res,403,{ok:false,code:'permission_denied'})",
+          "line_digest": "ce4ddc775b2eabbbba88651d45dfaa7c8ba81de82d4e97ecdec803a396291c97",
+          "note": "host/origin gate plus constant-time credential match; anything else is 403 permission_denied"
+        },
+        {
+          "file": "server/workbench-owner-route.mjs",
+          "line": 11,
+          "anchor": "!tokenMatches(auth.slice(7),token))return reply(res,403,{ok:false,code:'permission_denied'});",
+          "line_digest": "a73ea3bdf8e4f79cae67273b2201c07a1250584aa8c0e1fba67ced41b43252a3",
+          "note": "the same owner boundary guards workbench dispatch routes"
+        },
+        {
+          "file": "server/security.mjs",
+          "line": 4,
+          "anchor": "export function tokenMatches(value, expected) {",
+          "line_digest": "fe1766a38361f38cd6feba569cf6bc19e87e25e6aef0a3c570dc4945951eaa00",
+          "note": "constant-time, length-bounded credential comparison helper"
+        },
+        {
+          "file": "server/workspace.mjs",
+          "line": 192,
+          "anchor": "async function serveApp(req, res, pathname) {",
+          "line_digest": "25ac56d7853cda6ffe788a985214ba02614594aa4bc533cc5f15c82635f781bf",
+          "note": "static app serving layer - the actual serving surface for catalog apps at this pin"
+        },
+        {
+          "file": "server/workspace.mjs",
+          "line": 197,
+          "anchor": "const base = fs.realpathSync(path.join(root, 'apps', slug));",
+          "line_digest": "9c27a0f950cde683aa1c406a087cc29741916565ed99534cac61c6a39a16ffe1",
+          "note": "serving resolves strictly under the repo apps root; traversal refused"
+        },
+        {
+          "file": "AGENTS.md",
+          "line": 9,
+          "anchor": "real browser tests",
+          "line_digest": "424ed7d6c840459f9ed6e31714637292288a31ea8778ed9f1bfa5e6f0dd348c3",
+          "note": "repo requires real browser validation and bundle parity when served code changes (binding for R17D)"
+        }
+      ]
+    },
+    {
+      "repo": "vibeline",
+      "role": "Upstream reuse source: ledger compatibility, rails concepts, Hermes session read contract (Q4)",
+      "origin": "https://github.com/listeningpost/vibeline",
+      "pinned_commit": "d5d0f425a64906ae1a50c1222314a5420da404d5",
+      "project_version": "0.2.0",
+      "version_source": "plugin.yaml version field",
+      "verified_at": "2026-11-17",
+      "verify_method": "fresh clone whose default branch head equals the pinned commit; anchors verified line-by-line",
+      "session_shape": {
+        "db_path": "the Hermes home state.db, resolved by the upstream paths helper (sessions.py:22-23)",
+        "access": "sqlite URI opened strictly read-only (sessions.py:27); rails must keep mode=ro plus query_only per spec section 4",
+        "tables": {
+          "sessions": [
+            "id (primary key)",
+            "source (children carry source='subagent')",
+            "model",
+            "parent_session_id (subagent parent link)",
+            "started_at",
+            "ended_at",
+            "end_reason",
+            "title",
+            "cwd",
+            "git_branch",
+            "api_call_count",
+            "tool_call_count",
+            "input_tokens",
+            "output_tokens",
+            "cache_read_tokens",
+            "reasoning_tokens"
+          ],
+          "messages": [
+            "id (monotonic within the db)",
+            "session_id",
+            "role (user, assistant, tool)",
+            "content",
+            "tool_call_id (set on tool-role rows)",
+            "tool_calls (JSON array of call objects with id or call_id and function name and arguments, on assistant rows)",
+            "tool_name",
+            "timestamp",
+            "display_kind",
+            "active (present on current installs; absent on older Hermes)"
+          ]
+        },
+        "tool_pairing": "a tool result row pairs with its call by equal tool_call_id within the same session (sessions.py:119); calls are parsed from the tool_calls JSON (sessions.py:61-70)",
+        "active_flag_note": "the active column is optional: the reader probes the table first and falls back when missing (sessions.py:216-218); a rewound message row has active=0 and renders as a ghost (sessions.py:126)",
+        "topology": "parent lanes exclude source='subagent' (sessions.py:221); children are resolved by parent_session_id with source='subagent' (sessions.py:237)",
+        "version_vector": "MAX(messages.id) plus session count, closed count, token sum and a 60-second bucket (sessions.py:38-45)",
+        "rails_adaptation": "bounded incremental reads keyed by message id, allowlisted sessions only, scrubbed summaries, no full-content export (spec section 2, sessions.py row)",
+        "fixture_basis": "upstream tests build the same schema in-memory (tests/test_features.py:24, tests/test_rails.py:129)",
+        "residual": "the installed Hermes application is not one of the five pinned repos; the installed schema must be rechecked at R07 admission and unsupported tables or columns must map to unsupported_source_version"
+      },
+      "hooks": [
+        {
+          "file": "ledger.py",
+          "line": 40,
+          "anchor": "cx = sqlite3.connect(str(db), timeout=10)",
+          "line_digest": "1680ab856dba216067cf18378649615dc90e7b0eda2dfdbcc4a6ab29482ad18e",
+          "note": "upstream connect() is writable despite read-only intent - rails reads must use read-only mode plus query_only"
+        },
+        {
+          "file": "ledger.py",
+          "line": 75,
+          "anchor": "_CHAIN_KEYS = (",
+          "line_digest": "f8543970cee194ae1ea370c87c3d3af437fd50f92313f9ed5cc5d15a8eb7c046",
+          "note": "legacy chain field set the compatibility VIEW must store"
+        },
+        {
+          "file": "ledger.py",
+          "line": 90,
+          "anchor": "canon = json.dumps({k: r.get(k) for k in _CHAIN_KEYS}, sort_keys=True, default=str).encode()",
+          "line_digest": "7d82bd3558af9c36f08d1f8d5e634486605dde0a00609d876ec9119f512858fe",
+          "note": "legacy canonical bytes - the exact algorithm rails compatibility must match"
+        },
+        {
+          "file": "ledger.py",
+          "line": 91,
+          "anchor": "if r[\"prev_hash\"] != prev or hashlib.sha256(prev.encode() + canon).hexdigest() != r[\"hash\"]:",
+          "line_digest": "3281c23241883244a7b5479b34993011ebc17025e23aca8bbd0347797486e1c2",
+          "note": "legacy hash = sha256(prev + canonical bytes), genesis start"
+        },
+        {
+          "file": "ledger.py",
+          "line": 15,
+          "anchor": "EXAMPLE_DB,  # bundled sample so a fresh install renders something",
+          "line_digest": "bda7be2b441d5b1439b0aba8fb0addbec1138453b330566117c3284bca4c7933",
+          "note": "bundled example data fallback - production rails must never fall back to it"
+        },
+        {
+          "file": "ledger.py",
+          "line": 72,
+          "anchor": "return (why or \"\").lstrip().startswith(\"RED:\")",
+          "line_digest": "b8ddc2a3a893febca5506806c3373160ebe3beeac9fcf2b2e4cc0d24a9370bc7",
+          "note": "expected-red detection today is a prose prefix; rails requires frozen test intent instead"
+        },
+        {
+          "file": "sessions.py",
+          "line": 23,
+          "anchor": "return hermes_home() / \"state.db\"",
+          "line_digest": "5de0dc63597228cff9ddc82d60beeab201c0f083a773d5dea58e05c3409b590b",
+          "note": "session db location"
+        },
+        {
+          "file": "sessions.py",
+          "line": 27,
+          "anchor": "cx = sqlite3.connect(f\"file:{db}?mode=ro\", uri=True, timeout=5)",
+          "line_digest": "d800d3b5ffd75bef8975e4613c551b9fff9f9a48f52904f5bf6e92b8e025feb1",
+          "note": "read-only session access pattern to reuse"
+        },
+        {
+          "file": "sessions.py",
+          "line": 38,
+          "anchor": "def version(db: Path) -> str:",
+          "line_digest": "07013949cb5a37355724c38e343e080118038ea34b6e3ae9128bd2b0eac77e92",
+          "note": "change-detection version vector"
+        },
+        {
+          "file": "sessions.py",
+          "line": 61,
+          "anchor": "def _calls(raw: str | None) -> list[dict[str, str]]:",
+          "line_digest": "95383406a23f51154da7264df63114bf4877051ac157ff397b332c65c1437698",
+          "note": "tool_calls JSON parse shape"
+        },
+        {
+          "file": "sessions.py",
+          "line": 119,
+          "anchor": "results = {m[\"tool_call_id\"]: m for m in msgs if m[\"role\"] == \"tool\" and m[\"tool_call_id\"]}",
+          "line_digest": "88a5c7e82b57b97760521a8a51601303620c3e1f99d1ddbffd8d5df765a2533b",
+          "note": "tool pairing index - the only real start/finish correlation available at the pins"
+        },
+        {
+          "file": "sessions.py",
+          "line": 126,
+          "anchor": "ghost = not m[\"active\"]",
+          "line_digest": "fd879dd61c937a2e2e2b4e0f0db23baff62fdf97899162ceb28c893187265d1a",
+          "note": "ghost rows come from the active flag"
+        },
+        {
+          "file": "sessions.py",
+          "line": 216,
+          "anchor": "# Rewound messages stay in state.db with active=0; older Hermes has no such column.",
+          "line_digest": "d557c96006bf972e43324a054b2314ca546fdc3d31cea3bc5811d6d520b377ff",
+          "note": "active column is version-dependent - fixture must cover both shapes"
+        },
+        {
+          "file": "sessions.py",
+          "line": 227,
+          "anchor": "f\"SELECT id, role, content, tool_call_id, tool_calls, tool_name, timestamp, display_kind, {active} FROM messages WHERE session_id=? ORDER BY id\",",
+          "line_digest": "10c8850813925453ba5089bc542bf706d42a427ca638b2257682f84560ad0cd0",
+          "note": "message read columns"
+        },
+        {
+          "file": "sessions.py",
+          "line": 237,
+          "anchor": "\"SELECT * FROM sessions WHERE parent_session_id=? AND source='subagent' ORDER BY started_at\", (s[\"id\"],)",
+          "line_digest": "1037c3cf6e6294b1550664f71b19ad2d7b2160760c4c7311451e709099d20be2",
+          "note": "subagent children resolved by parent_session_id"
+        },
+        {
+          "file": "web.py",
+          "line": 113,
+          "anchor": "rows = load_all(db)",
+          "line_digest": "571ce3410603f4f0d2d4170f557726eaad6db8383fe62c9ccd21a80ef15c162b",
+          "note": "unbounded full-ledger load - rails must page instead"
+        },
+        {
+          "file": "web.py",
+          "line": 286,
+          "anchor": "\"\"\"Loopback callers addressing a loopback Host are trusted; anyone else must present the token.\"\"\"",
+          "line_digest": "8f725ffffe080f455209627879f94d97fcdb8eb4ffa80adb091384be627eceb6",
+          "note": "upstream loopback trust bypass - rails must require the owner credential on every route"
+        },
+        {
+          "file": "web.py",
+          "line": 292,
+          "anchor": "given = auth[7:] if auth.startswith(\"Bearer \") else self._query().get(\"token\", \"\")",
+          "line_digest": "b5faecd989c6558a687c18a759bd7618cd7a76f99b08f0e37a944a15d84b79d4",
+          "note": "upstream accepts the credential from the query string - rails must refuse that"
+        },
+        {
+          "file": "web.py",
+          "line": 315,
+          "anchor": "if path not in (\"/api/spawn\", \"/api/rewind\", \"/api/feedback\", \"/api/feedback/tool\"):",
+          "line_digest": "09c6dd298ce1e79c52ce589aaaaf40b32b89ae02762b3c00bc6b8f9021bf9cea",
+          "note": "upstream mutation routes that rails must not register"
+        },
+        {
+          "file": "plugin.yaml",
+          "line": 2,
+          "anchor": "version: 0.2.0",
+          "line_digest": "d7327f290f04bd9c48311011dcc1eb0c4fe86b6048961bc292ba25ab7f7644a0",
+          "note": "upstream version at the pin"
+        },
+        {
+          "file": "plugin.yaml",
+          "line": 7,
+          "anchor": "requires_hermes: \">=0.22.0\"",
+          "line_digest": "815b543a52c6e04cfeb1e1e7ad6262aebb1f4766cf5c2bfcbc05efd42fe7197e",
+          "note": "upstream declares the Hermes version floor it was built against"
+        },
+        {
+          "file": "tests/test_features.py",
+          "line": 24,
+          "anchor": "CREATE TABLE sessions (id TEXT PRIMARY KEY, source TEXT, model TEXT, parent_session_id TEXT, started_at REAL,",
+          "line_digest": "952c0b86a6f356578927bf9f72bc4f2be7109171e3ac489c2e6029da5204c2e2",
+          "note": "upstream in-memory fixture schema - the basis for the R07 read-only fixture"
+        }
+      ]
+    }
+  ],
+  "uncertainties": [
+    {
+      "id": "Q1",
+      "question": "Where is the deployed /obs-snapshot proxy layer, and what is the safe extension seam for the rails same-origin routes?",
+      "repo": "orbitdesktop",
+      "verdict": "resolved",
+      "citations": [
+        {
+          "repo": "orbitdesktop",
+          "file": "server/index.mjs",
+          "line": 359,
+          "anchor": "if (url.pathname.startsWith(\"/apps/\")) return workspaceService.serveApp(req, res, url.pathname);",
+          "note": "static catalog apps are served here",
+          "line_digest": "03fe5b0723c8119fe22dca003a7e38be0c4b7ee84add1d2a226ab693fd368f65"
+        },
+        {
+          "repo": "orbitdesktop",
+          "file": "server/workspace.mjs",
+          "line": 192,
+          "anchor": "async function serveApp(req, res, pathname) {",
+          "note": "the actual static serving layer",
+          "line_digest": "25ac56d7853cda6ffe788a985214ba02614594aa4bc533cc5f15c82635f781bf"
+        },
+        {
+          "repo": "orbitdesktop",
+          "file": "server/technology-owner-route.mjs",
+          "line": 10,
+          "anchor": "!tokenMatches(auth.slice(7),token))return reply(res,403,{ok:false,code:'permission_denied'})",
+          "note": "the shared owner boundary any rails API route must pass through",
+          "line_digest": "ce4ddc775b2eabbbba88651d45dfaa7c8ba81de82d4e97ecdec803a396291c97"
+        },
+        {
+          "repo": "orbitdesktop",
+          "file": "server/index.mjs",
+          "line": 322,
+          "anchor": "if (!allowedHosts.has(req.headers.host))",
+          "note": "host gate ahead of all routing",
+          "line_digest": "ebae19f2453303479f779b36203aebf704cec92940dc06ed8a3f06fca727c813"
+        },
+        {
+          "repo": "orbitdesktop",
+          "file": "server/index.mjs",
+          "line": 326,
+          "anchor": "if(Object.hasOwn(technologyHandlers,url.pathname))return technologyHandlers[url.pathname](req,res);",
+          "note": "exact-path registration pattern for adding /api/rizzstack/rails/*",
+          "line_digest": "3f7ead4516b556396fc862b69e87d4d0e1bd5324c265abdf9fbf7903495cf6a4"
+        }
+      ],
+      "finding": "The /obs-snapshot path does not exist anywhere in the pinned tree (absence check: 0 matches). Catalog apps are served as static bundles from apps/<slug> through workspaceService.serveApp, and every owner JSON API passes the shared owner-route boundary (host and origin gate, credential header only, constant-time match). Existing same-shaped precedents are /api/acdd-evidence and the /api/run-traces owner route.",
+      "extension_seam": "R16/R17 attach /api/rizzstack/rails/* as a new owner-route module registered by exact path in server/index.mjs (following the technologyOwnerRoute pattern); GET routes stay read-only behind the owner boundary, mutations only through the trusted owner principal, and the catalog pane stays read-only unless owner mutation capability is proven (spec section 7 default: trusted shell dialog).",
+      "residual": "The deployed host's own router or reverse-proxy configuration is deployment-side and not in any repo; it must be rechecked at R17 admission before production registration."
+    },
+    {
+      "id": "Q2",
+      "question": "Does the bundlebees action queue expose a stable committed operation identity with fencing, idempotency and replayable transition history?",
+      "repo": "bundlebees",
+      "verdict": "unresolved",
+      "reason": "The fenced action-queue interface the spec requires does not exist in the pinned bundlebees tree. queue.py is a feature-queue pointer over the job store (intake, durable claim, one-pass consumption) with no operation identity, no fencing epoch and no authority revalidation; work_scheduler.py is a coordinator claim queue serialized by a lock file with atomic replaces, again with no fencing semantics; the launcher adapter explicitly records that no server-enforced idempotency exists yet; and a case-insensitive search for fencing across the plugin package returns zero matches. The queue the spec calls user-reported in flight is not in this tree, so its eventual operation identity, idempotency and reconciliation semantics cannot be cited from evidence and are not guessed here.",
+      "citations": [
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/queue.py",
+          "line": 1,
+          "anchor": "\"\"\"Feature queue: intake, durable claim, and one-pass consumption.",
+          "note": "what the existing queue actually is",
+          "line_digest": "b824726211ab600f410108f67a82e23fd17f4d7608cde50dabff01115ba51b6c"
+        },
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/queue.py",
+          "line": 95,
+          "anchor": "def set_status(self, feature_id: str, status: str, evidence: Mapping[str, Any] | None = None) -> None: ...",
+          "note": "closest existing transition seam",
+          "line_digest": "5bf3294876498c211f48105b608e5f95b3cb1352e58b44a0fcf154d48948aee2"
+        },
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/work_scheduler.py",
+          "line": 614,
+          "anchor": "def claim(",
+          "note": "claim serialization exists, fencing does not",
+          "line_digest": "ee2114bc4eb8b3d3bd21a8a5158fcb31feadc0ff185e72a33cd7a9d16dcab48e"
+        },
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/work_scheduler.py",
+          "line": 303,
+          "anchor": "os.replace(tmp, path)",
+          "note": "existing durability pattern",
+          "line_digest": "758cd46195dda91b648e68fb29ecd6fac67d60e1cbd9d217429147e87cfab83f"
+        },
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/launcher_adapter.py",
+          "line": 58,
+          "anchor": "#: No server-enforced idempotency exists yet; never claim exactly-once.",
+          "note": "idempotency explicitly absent",
+          "line_digest": "060d526fb075e4ba3ce4396b673c11cd2e5235f1ad5625e856a7498414457e2b"
+        },
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/reconcile.py",
+          "line": 1297,
+          "anchor": "\"idempotency_key\": hashlib.sha256(f\"{job_id}:{task_id}:{attempt_no}\".encode()).hexdigest()[:32],",
+          "note": "existing stable key basis reusable for rails dedupe and operation keys",
+          "line_digest": "5b65b0f98b04696977f8001fb8e6e11e73268d3065c9778ce26ef3f036d11842"
+        },
+        {
+          "repo": "bundlebees",
+          "file": "bundlebees_plugin/metrics.py",
+          "line": 38,
+          "anchor": "EVENTS = (\"dispatch\", \"verify\", \"integrate\", \"intervention\", \"recovery\")",
+          "note": "intervention records already exist in the append-only outcome log",
+          "line_digest": "d78244660863cdb16da8243e61b959f58f750fb37e848235c00b0b8d3e77df24"
+        }
+      ],
+      "downstream_rule": "Until the real queue interface exists, R15 must implement the spec section 7 fallback: mutation returns capability_unavailable and the task is blocked; read-only rails still ships. The queue.transition/lease rails kinds record what rails observes, never what rails authorized."
+    },
+    {
+      "id": "Q3",
+      "question": "What does the currently deployed native worker stream actually contain, and can tool start/finish pairs, rotation and final receipt identity be sourced from it?",
+      "repo": "hyvv",
+      "verdict": "resolved",
+      "citations": [
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 1474,
+          "anchor": "with open(self.dir / \"attempts\" / f\"{a['attempt_id']}.events.jsonl\", \"a\", encoding=\"utf-8\") as f:",
+          "note": "append-only per-attempt event log",
+          "line_digest": "1c352a504001a4726360d5573caeebe546245c77e61d4cbf4d6a0f84fd1498a4"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 1482,
+          "anchor": "def events_since(self, aid, cursor):",
+          "note": "incremental read path shared by live polling and backfill",
+          "line_digest": "f7db0930073e7f47a99885a491ffeb00eff14729be7d0d808d6686ab6808306d"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 1713,
+          "anchor": "a[\"lseq\"] += 1; out.append(dict(e, lseq=a[\"lseq\"], kind=\"worker:\" + e[\"kind\"], ts=e.get(\"ts\") or time.time()))",
+          "note": "upstream kinds pass through prefixed with worker:",
+          "line_digest": "f1a9053bd830aad8162593aab7ff5b0b0daf513dd3f0ea843dc15a80b4451f49"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 1631,
+          "anchor": "e = {\"lseq\": a[\"lseq\"], \"ts\": a[\"updated_at\"], \"kind\": \"state\", \"state\": state, \"detail\": detail}",
+          "note": "launcher state records",
+          "line_digest": "6e71dc8aa831a8171099b463cafe2131648819f2fed2a47bc20c33e2f59eaa35"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 1718,
+          "anchor": "a[\"lseq\"] += 1; self._append_events(a, [{\"lseq\": a[\"lseq\"], \"ts\": time.time(), \"kind\": \"heartbeat\", \"idle_s\": round(time.time() - last_ev)}])",
+          "note": "heartbeat records",
+          "line_digest": "f5bed385624414a5d75b037dac890d1f01e5dc0e12059c03f7e1c97c28004102"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 174,
+          "anchor": "return SECRETISH.sub(\"<redacted>\", s) if isinstance(s, str) else s",
+          "note": "upstream redaction runs before storage",
+          "line_digest": "d5b89fa43544886d32b4d2a80fdcbadb49f56ee3aa5c304796cfc1d0dc4a22bb"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 2200,
+          "anchor": "hmac.compare_digest(h[7:].encode(), token.encode())",
+          "note": "existing authenticated transport for the rails pull",
+          "line_digest": "bc7c8e42b2f1c511833a8e963eae3c9b94792f83d52ea63fd886fd1e6e3abe83"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 2273,
+          "anchor": "if p[3] == \"events\": return self._send(200, {\"events\": L.events_since(p[2], int(q.get(\"cursor\", 0))), \"state\": a[\"state\"], \"cursor\": a[\"lseq\"]})",
+          "note": "existing events export route",
+          "line_digest": "ea3a3d38a56bf8248db3514c099337202c3fdcb0ffb7ca03d2344816545d7f8a"
+        },
+        {
+          "repo": "hyvv",
+          "file": "launcher.py",
+          "line": 1615,
+          "anchor": "\"\"\"Emit events missed by a crash after the terminal journal write; never crashes startup.\"\"\"",
+          "note": "terminal receipt crash replay",
+          "line_digest": "8aac692f3eafa0ce82251381f612b9d8f53effa7d7ebb35abe1ce0d141a2e9a5"
+        },
+        {
+          "repo": "hyvv",
+          "file": "landing_export.py",
+          "line": 9,
+          "anchor": "The cursor is a durable, monotonically increasing integer *export position*,",
+          "note": "durable export positions for the landing outbox",
+          "line_digest": "e83514d38d053f1f92e5ca8f5db99c79853ab008289a48afe1db36d4fa2227b9"
+        }
+      ],
+      "finding": "The deployed stream is attempt-level: state records, heartbeat records, and worker-prefixed passthrough records whose upstream kinds are turn_started, message, turn_ended, error and exited. It contains no tool-level start or finish records, so tool.start/tool.finish rails events cannot be paired from the native log; tool-call granularity exists only in the Hermes message stream (vibeline sessions pairing by tool_call_id). No rotation was observed: one append-only file per attempt, with restart replay of terminal receipts and durable outbox export positions providing the final receipt identity. The sanitized trace fixture in this matrix mirrors exactly this shape.",
+      "downstream_rule": "R08's launcher-log adapter must emit attempt-level lane events with worker-prefixed kinds normalized through fixture-versioned parsers, dedupe native and backfilled records on (attempt_id, lseq), and never fabricate tool pairs or durations; tool-level timing comes from the Hermes-session source where present.",
+      "residual": "Upstream worker kinds arrive from the worker runtime and may evolve; the fixture-versioned parser must be rechecked at R08 admission per the spec section 2 recheck rule."
+    },
+    {
+      "id": "Q4",
+      "question": "What is the installed Hermes session schema that the read-only fixture must cover, and which columns and flags does the read path depend on?",
+      "repo": "vibeline",
+      "verdict": "resolved",
+      "citations": [
+        {
+          "repo": "vibeline",
+          "file": "sessions.py",
+          "line": 27,
+          "anchor": "cx = sqlite3.connect(f\"file:{db}?mode=ro\", uri=True, timeout=5)",
+          "note": "read-only access pattern to reuse",
+          "line_digest": "d800d3b5ffd75bef8975e4613c551b9fff9f9a48f52904f5bf6e92b8e025feb1"
+        },
+        {
+          "repo": "vibeline",
+          "file": "sessions.py",
+          "line": 119,
+          "anchor": "results = {m[\"tool_call_id\"]: m for m in msgs if m[\"role\"] == \"tool\" and m[\"tool_call_id\"]}",
+          "note": "tool pairing by tool_call_id",
+          "line_digest": "88a5c7e82b57b97760521a8a51601303620c3e1f99d1ddbffd8d5df765a2533b"
+        },
+        {
+          "repo": "vibeline",
+          "file": "sessions.py",
+          "line": 216,
+          "anchor": "# Rewound messages stay in state.db with active=0; older Hermes has no such column.",
+          "note": "active flag is version-dependent",
+          "line_digest": "d557c96006bf972e43324a054b2314ca546fdc3d31cea3bc5811d6d520b377ff"
+        },
+        {
+          "repo": "vibeline",
+          "file": "sessions.py",
+          "line": 227,
+          "anchor": "f\"SELECT id, role, content, tool_call_id, tool_calls, tool_name, timestamp, display_kind, {active} FROM messages WHERE session_id=? ORDER BY id\",",
+          "note": "the columns the read path consumes",
+          "line_digest": "10c8850813925453ba5089bc542bf706d42a427ca638b2257682f84560ad0cd0"
+        },
+        {
+          "repo": "vibeline",
+          "file": "sessions.py",
+          "line": 237,
+          "anchor": "\"SELECT * FROM sessions WHERE parent_session_id=? AND source='subagent' ORDER BY started_at\", (s[\"id\"],)",
+          "note": "parent/child topology via parent_session_id",
+          "line_digest": "1037c3cf6e6294b1550664f71b19ad2d7b2160760c4c7311451e709099d20be2"
+        },
+        {
+          "repo": "vibeline",
+          "file": "sessions.py",
+          "line": 38,
+          "anchor": "def version(db: Path) -> str:",
+          "note": "change-detection vector",
+          "line_digest": "07013949cb5a37355724c38e343e080118038ea34b6e3ae9128bd2b0eac77e92"
+        },
+        {
+          "repo": "vibeline",
+          "file": "tests/test_features.py",
+          "line": 24,
+          "anchor": "CREATE TABLE sessions (id TEXT PRIMARY KEY, source TEXT, model TEXT, parent_session_id TEXT, started_at REAL,",
+          "note": "upstream fixture schema for the R07 fixture basis",
+          "line_digest": "952c0b86a6f356578927bf9f72bc4f2be7109171e3ac489c2e6029da5204c2e2"
+        },
+        {
+          "repo": "vibeline",
+          "file": "plugin.yaml",
+          "line": 7,
+          "anchor": "requires_hermes: \">=0.22.0\"",
+          "note": "declared Hermes version floor",
+          "line_digest": "815b543a52c6e04cfeb1e1e7ad6262aebb1f4766cf5c2bfcbc05efd42fe7197e"
+        }
+      ],
+      "finding": "The read path consumes the sessions and messages tables as described in this matrix's session_shape descriptor: sessions keyed by id with parent_session_id linking subagents, messages with role, tool_call_id, tool_calls JSON and an optional active flag (absent on older installs, where the reader falls back). The fixture must cover both the active and no-active shapes, tool-call pairing by tool_call_id, and the parent/subagent topology.",
+      "downstream_rule": "R07 builds its read-only fixture from this descriptor; ingestion stays allowlisted per session, never all-session ingest; missing tables or columns must map to unsupported_source_version (spec section 5).",
+      "residual": "The installed Hermes application itself is not one of the five pinned repos, so the live installed schema (including WAL usage) must be rechecked at R07 admission; this descriptor fixes the consumed contract, not the application's own schema version."
+    }
+  ]
+}
