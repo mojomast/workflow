@@ -247,8 +247,9 @@ def soak(path, duration, overview, args, save):
                 reply = get_message(js)
                 if reply != 'http': raise ValueError('browser HTTP result missing')
                 http_ms = ms(t)
-                ack = get_message(js)
+                if get_message(js) != 'visible': raise ValueError('browser visibility check failed')
                 visible_ms = ms(t)
+                ack = get_message(js)
                 if ack['id'] != receipt['event_id'] or ack['count'] != n:
                     raise ValueError('incorrect visible receipt')
                 cycle[mode] = dict(**ack,http_body_ms=http_ms,browser_visible_ms=visible_ms)

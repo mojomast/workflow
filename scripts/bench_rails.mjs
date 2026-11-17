@@ -18,7 +18,13 @@ const esbuild = require(join(cfg.modules,'esbuild'));
 const {chromium} = await import(pathToFileURL(join(cfg.modules,'playwright-core/index.mjs')));
 const {createRailsProxy} = await import(pathToFileURL(join(cfg.orbit,'server/rails-proxy.mjs')));
 const bundle = await esbuild.build({entryPoints:[join(cfg.orbit,'src/rails-shell.ts')],bundle:true,
-  format:'esm',platform:'browser',write:false,logLevel:'silent'});
+  format:'esm',platform:'browser',write:false,logLevel:'silent',
+  // The unexercised write-only review UI imports the entire Orbit workspace.
+  // Resolve it to an explicit refusal; only the tuple's read paths are loaded.
+  plugins:[{name:'read-only-benchmark',setup(build){
+    build.onResolve({filter:/^\.\/rails-feedback-review$/},()=>({path:'feedback',namespace:'disabled'}));
+    build.onLoad({filter:/.*/,namespace:'disabled'},()=>({contents:'export function offerSignedReview(){throw Error("write UI disabled in read benchmark")}'}));
+  }}]});
 esbuild.stop();
 const owner = randomBytes(32).toString('hex');
 const files = new Map([['/', ['text/html',`<!doctype html><body><script type="module">
@@ -116,6 +122,7 @@ try {
     assert.deepEqual(await ids(),expected);await missing();
     assert.ok(stream&&!stream.destroyed);assert.equal(connects,before+Number(replay));
     if(replay) assert.equal(lastHeader,previous);
+    ack('visible');
     ack({id,count:expected.length,view_bytes:body.length,resumed:replay,chromium_pss_kib:await memory()});
   }
 } finally { await browser.close();host.closeAllConnections();host.close();process.stdin.destroy(); }
