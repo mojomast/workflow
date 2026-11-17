@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Collector: serve the deployed `/obs-snapshot` path as an alias of `/snapshot` (the Observatory app and the same-origin 9443 proxy fetch `/obs-snapshot`; the merged collector only served `/snapshot`, a deploy-vs-main drift found by the deploy-parity audit). No behavior change on `/` or `/snapshot`.
+
 - [Coordinator failure report 2026-11-16](docs/coordinator-failure-report-2026-11-16.md) (eight failure classes from the Nov 16 evening session with detection, resolution, and unresolved remainder, plus the packaged launcher logs, leases, and envelopes under docs/failure-evidence-2026-11-16/).
 
 - [Hindsight synthesis](docs/hindsight-synthesis.md) (workflow #57, Phase 3 of the Hindsight research brief): a capability gap analysis mapping the twelve capabilities the memory architecture needs - from the campaign's six observed failure classes - against Hindsight at the pinned upstream revision, four adoption options (none, contract-only baseline, hybrid trial treatment, full), a controlled trial design whose success/failure thresholds are declared before any run with an uninformative-result rule, and an implementation plan decomposed into gated work packages WP-0..WP-8 with AC-NNN -> proven-by acceptance gates. Plan-only: no implementation, no deployment, no change to the active memory provider.
