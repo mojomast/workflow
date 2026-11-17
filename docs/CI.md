@@ -15,7 +15,7 @@ coverage or duplicate the work.
 
 | Required context | Gate job ID | Depends on | Substantive coverage behind the gate |
 | --- | --- | --- | --- |
-| `bee-ci/reference` | `bee-ci-reference` | `reference` | ACDD + TDD and legacy reference demos, schema/example/demo evidence checks with jsonschema, reference tests, `acdd-lint` tests, lint of the build evidence and demo output, and the dogfood stale-record check. |
+| `bee-ci/reference` | `bee-ci-reference` | `reference`, `feature-packet` | Reference demos, schema/evidence/`acdd-lint` checks, feature-packet checks and the single full `pytest -q tests/` sweep. Both jobs must succeed. |
 | `bee-ci/project-state` | `bee-ci-project-state` | `project-state` (matrix: `ubuntu-24.04`, `windows-latest`) | Project-state schema tests with jsonschema required. The gate consumes the matrix job's aggregate result, so a failure in either matrix leg fails the required context. |
 | `bee-ci/secret-scan` | `bee-ci-secret-scan` | `secret-scan` | Checksum-verified gitleaks 8.21.2 full-history scan (`fetch-depth: 0`). |
 
@@ -44,5 +44,5 @@ aggregate over the matrix legs, so a failed or cancelled leg fails
 - Repository rulesets and branch protection are not configured or modified by
   the workflow.
 - The required context names are not changed.
-- Every pre-existing job, matrix leg, step, and check name is preserved; the
-  gates are additive and contain no test or scan logic of their own.
+- Named jobs and matrix legs are preserved. The gates only check results;
+  they do not re-run tests or scans.

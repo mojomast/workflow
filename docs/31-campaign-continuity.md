@@ -254,3 +254,103 @@ run. Those are separate approvals.
 | `mojomast/orbitdesktop` | `feat/campaign-closeout-boundary` | docs: Orbit's ACDD evidence view is per-job evidence, not a campaign closeout |
 
 Nothing is merged, tagged, released, deployed or published by this change.
+
+## 31.9 Rails RETURN contract
+
+A campaign that ships rails evidence attaches one companion document to its
+RETURN. The companion is `rizzstack.rails-evidence/1`, frozen in
+[`schemas/rails/evidence.schema.json`](../schemas/rails/evidence.schema.json)
+and summarized in [`schemas/rails/README.md`](../schemas/rails/README.md); the
+event family it describes is `rizzstack.rails/1`. The package is the operator
+read path documented in
+[`contrib/rizzstack-observability/README.md`](../contrib/rizzstack-observability/README.md),
+and the requirement comes from
+[`specs/rizzstack-rails-spec.md`](../specs/rizzstack-rails-spec.md) section 8:
+RETURN gains a `rails-evidence.json` sidecar referenced through the existing
+RETURN evidence mechanism.
+
+### What the RETURN manifest must carry
+
+A RETURN manifest is `rizzstack.return-manifest/1` as frozen in
+[`schemas/return-manifest.schema.json`](../schemas/return-manifest.schema.json),
+and its rails companion describes the `rizzstack.rails/1` event family;
+the human document follows [`templates/RETURN.md`](../templates/RETURN.md). The
+manifest has no rails block. The rails sidecar is referenced from the existing
+`acceptance` array: the rails-backed criterion names the sidecar path or
+reference in its `evidence` list, exactly as that schema describes ("paths or
+references to the recorded check"). The sidecar itself
+(`rizzstack.rails-evidence/1`) must carry:
+
+- `schema` — the literal `rizzstack.rails-evidence/1`, so an unrecognized
+  version is refused rather than widened;
+- `generated_at` — one UTC timestamp in the fixed microsecond format;
+- `machines` — public `alias` plus `role` (`worker`, `coordinator`, `reviewer`,
+  `owner`, `other`), never a hostname;
+- `ledgers` — `machine` to `ledger_uuid`, never a filesystem path;
+- `origin_heads` — each chain's `chain_id`, `seq` and `hash`: the anchor the
+  produced range is checked against;
+- `imported_checkpoints` — `chain_id`, `seq`, `hash` and `source` for every
+  imported stream the consumer relied on;
+- `source_coverage` — per adapter `status` (`covered`, `partial`, `gap`,
+  `unavailable`) and its explicit `gaps`, each with a `code` and optional
+  `source_id`, `range_start`, `range_end`;
+- `selected_event_ids` — the exact ledger event ids shown as evidence;
+- `code_rev` and `contract_sha256` — the code revision and contract hash the
+  evidence is bound to;
+- `redaction_policy` — the frozen literal `rails-safe/1`;
+- `intervention_count` — the owner-intervention count for the campaign;
+- `verification_links` — the `event_id` and `ac_id` pairs that tie a
+  verification event to an acceptance criterion (with the optional `verdict`);
+- `receiver_decision` — always `pending` (see below);
+- `limitations` — optional plain strings for what the evidence does not cover.
+
+A `PASS` in `verification_links` still needs nonempty evidence on the event
+itself. Worker claims and transport completions never become a verified state
+because they appear in this file.
+
+### Evidence links required
+
+Every reference in the sidecar and in the RETURN evidence column must resolve,
+and must resolve to something a receiver can actually open:
+
+- the sidecar path is named in `acceptance[].evidence` for the rails-backed
+  criterion, and the same location is written in the RETURN **Evidence** table;
+- `selected_event_ids` and `verification_links` use the same immutable
+  `event_id` form the ledger uses, so a bounded query and the RETURN agree on
+  identity;
+- `origin_heads` and `imported_checkpoints` name chain, sequence and hash, so
+  the receiver can re-check the exported range against its own copy;
+- `source_coverage` names every gap; a gap is missing evidence, never an empty
+  success, and it stays visible in the receiver's decision;
+- the contract is named by id and file, not by prose: `rizzstack.rails/1` from
+  [`schemas/rails/event.schema.json`](../schemas/rails/event.schema.json) and
+  the companion from
+  [`schemas/rails/evidence.schema.json`](../schemas/rails/evidence.schema.json).
+
+A reference that does not resolve is a broken handoff, not a minor formatting
+issue: the receiver cannot verify a claim whose evidence it cannot open.
+[`tests/test_rails_contract.py`](../tests/test_rails_contract.py) checks this
+chapter's links and required sections, so a missing or invented interface fails
+the contract suite.
+
+### Receiver decision stays pending
+
+The sidecar's `receiver_decision` is the constant `pending`, and the RETURN
+manifest's own `receiver_decision` is likewise `pending` for the producer.
+Rails evidence cannot record a human decision: the decision lives in the RETURN
+document and the existing owner review, never in the ledger and never in this
+sidecar. A non-pending value is refused by the manifest validator; the producer
+says `pending` and stops there.
+
+### Limits of rails evidence
+
+- Hashes prove integrity relative to a stated anchor; they never prove
+  completion, correctness or that a producer was honest.
+- An unanchored suffix, a deleted suffix without a known head, a compromised
+  producer or one principal rewriting every copy of the ledger remains an
+  openly stated limit.
+- A partial or stale source keeps `partial` coverage plus explicit gaps; the
+  receiver should treat that as incomplete evidence, not as a failed build.
+- The sidecar reports what the read path observed. It does not execute, retry,
+  approve or accept anything, and it does not turn an observation into
+  authorization.
