@@ -457,10 +457,42 @@ class ArmReplayTests(unittest.TestCase):
 class ReportTests(unittest.TestCase):
     """PART 2: the report renders, and its exit codes follow the documented rule."""
 
-    def test_default_report_passes_every_hypothesis_with_exit_zero(self):
+    def test_report_pairs_h1_h2_h3_on_the_preregistered_baseline(self):
+        # docs/hindsight-synthesis.md:441-443 pre-registers the trial as
+        # "between B (baseline) and C (treatment), with A as the secondary
+        # control"; :413 fixes the baseline ("Baseline (fixed by the brief):
+        # Option B") and :277 names it ("Option B - contract-only (the
+        # trial's baseline)"). The a-vs-c pairing contradicts that
+        # pre-registration and flips H1 from FAIL to PASS for the stub arms.
+        self.assertIs(report_mod.H123_BASELINE, arms.ARM_B)
+        self.assertIs(report_mod.H123_TREATMENT, arms.ARM_C)
         report = report_mod.build_report()
-        self.assertEqual(report["verdicts"], {"H1": "PASS", "H2": "PASS", "H3": "PASS", "H4": "PASS"})
-        self.assertEqual(report["exit_code"], report_mod.EXIT_ALL_PASS)
+        self.assertEqual(report["pairing"]["H1_H2_H3"], [arms.ARM_B, arms.ARM_C])
+
+    def test_arm_b_conformance_violation_fails_the_report_with_exit_one(self):
+        # docs/hindsight-synthesis.md:523 - any M5-M7 violation fails the arm
+        # outright; :540 - "Adopt nothing (A) if either arm fails a gate
+        # (M5-M7)". An arm-b violation must surface (H3 FAIL, exit 1), not
+        # hide behind a pairing that leaves arm-b's gate out of the report.
+        metrics = arms.replay_all()
+        metrics[arms.ARM_B] = json.loads(json.dumps(metrics[arms.ARM_B]))
+        metrics[arms.ARM_B]["metrics"]["M5"] = {"violations": 1}
+        report = report_mod.build_report(metrics)
+        self.assertEqual(report["verdicts"]["H3"], "FAIL")
+        self.assertIn("M5", report["hypotheses"]["H3"]["reason"])
+        self.assertEqual(report["exit_code"], report_mod.EXIT_ANY_FAIL)
+
+    def test_default_report_reports_pre_registered_h1_fail_with_exit_one(self):
+        # Honest-default consequence of the pre-registered pairing: the stub
+        # arms' H1 reduction is (548 - 292) / 548 ~= 46.7%, below the 0.5
+        # threshold, so the default report must show H1 FAIL and exit 1 - not
+        # the all-PASS/exit-0 the a-vs-c pairing produced.
+        report = report_mod.build_report()
+        self.assertEqual(
+            report["verdicts"],
+            {"H1": "FAIL", "H2": "PASS", "H3": "PASS", "H4": "PASS"},
+        )
+        self.assertEqual(report["exit_code"], report_mod.EXIT_ANY_FAIL)
 
     def test_render_prints_thresholds_arms_and_verdicts(self):
         import io
@@ -468,7 +500,7 @@ class ReportTests(unittest.TestCase):
         buffer = io.StringIO()
         report_mod.render(report_mod.build_report(), stream=buffer)
         text = buffer.getvalue()
-        for needle in ("H1_MIN_REDUCTION_FRACTION", "arm-a", "arm-b", "arm-c", "H1: PASS", "exit_code: 0"):
+        for needle in ("H1_MIN_REDUCTION_FRACTION", "arm-a", "arm-b", "arm-c", "H1: FAIL", "exit_code: 1"):
             self.assertIn(needle, text)
 
     def test_conformance_violation_in_treatment_fails_the_report(self):
@@ -490,7 +522,7 @@ class ReportTests(unittest.TestCase):
 
     def test_indistinguishable_arms_are_uninformative_not_pass(self):
         metrics = arms.replay_all()
-        baseline = metrics[arms.ARM_A]
+        baseline = metrics[arms.ARM_B]
         metrics[arms.ARM_C] = json.loads(json.dumps(baseline))
         metrics[arms.ARM_C]["arm_id"] = arms.ARM_C
         report = report_mod.build_report(metrics)
