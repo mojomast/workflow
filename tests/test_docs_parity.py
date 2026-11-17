@@ -212,6 +212,24 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "docs parity audit + coverage registry",
         "keywords": ("docs-parity-audit", "test_docs_parity"),
     },
+    {
+        # docs/hindsight-synthesis: Phase 3 gap analysis + trial design + gated plan.
+        "pr": 57,
+        "name": "hindsight synthesis (Phase 3: trial design + gated plan)",
+        "keywords": ("hindsight-synthesis", "controlled trial", "WP-0"),
+    },
+    {
+        # docs/rebrand-execution-runbook: recovery path + same-place mapping + parallel operation.
+        "pr": 58,
+        "name": "rebrand execution runbook",
+        "keywords": ("rebrand-execution-runbook", "same-place mapping", "parallel operation"),
+    },
+    {
+        # docs/rails-w2-conversions-r3: R00/R01 destruction evidence + re-dispatch remedy.
+        "pr": 59,
+        "name": "rails R00/R01 conversion r3",
+        "keywords": ("rails-w2-conversions", "re-dispatch remedy", "destruction evidence"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
