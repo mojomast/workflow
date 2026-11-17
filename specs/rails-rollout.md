@@ -1,18 +1,28 @@
 # R18 local Rails acceptance and rollout gates
 
-**The local transport and read slice works on the tested dirty trees. Product M1 and activation remain pending.** This exercise boots new loopback listeners and uses two disposable SQLite ledgers. No jobs, providers or live workspaces are contacted. The input [scenario](../schemas/rails/fixtures/m1-scenario.json) is a synthetic launcher JSONL fixture, not a recording from a deployed Windows worker. Compare [R00's native-trace finding](rails-feasibility.md) and the [milestone definitions](rizzstack-rails-spec.md#8-ux-and-acceptance-milestones).
+**R18 has two local paths: a transport/read fixture and an offline coding campaign. Product M1 and activation remain pending.** Both use new loopback listeners, a fresh browser profile and disposable ledgers. The [scenario](../schemas/rails/fixtures/m1-scenario.json) supplies launcher journal input and, separately, code and an applicable test for a temporary Git repository. The candidate patch and launcher records are fixture inputs. The pytest outcomes, commits, receipts, verifier/reviewer records, rail IDs and inspector selections are generated during the run. Compare [R00's native-trace finding](rails-feasibility.md) and the [milestone definitions](rizzstack-rails-spec.md#8-ux-and-acceptance-milestones).
 
 ## Reproduce
 
-Run from `workflow` on Linux, with Python 3.10+, Git, Node >=22.12 on PATH and Orbit's already-installed native dependencies matching that Node ABI. By default the other three repositories are sibling checkouts named `hyvv`, `bundlebees`, `orbitdesktop`. `RAILS_R18_ROOT` can point at another local parent. No API base URLs are test settings. Missing sibling artifacts are named as skips in standalone Workflow CI; use required mode for a release check:
+Run from `workflow` on Linux, with Git, Python 3.11+ in an environment containing `pytest` and `jsonschema` **outside user-site**, Node >=22.12 on PATH, and Orbit's lockfile dependencies installed for that Node ABI. The sibling directories are `hyvv`, `bundlebees`, `orbitdesktop`; `RAILS_R18_ROOT` can select another local parent. Use fresh directories on a filesystem with room for the isolated build. With local dependencies already provisioned, no download is needed:
 
 ```sh
-RAILS_R18_REQUIRED=1 python3 -m unittest discover -s tests -p test_rails_acceptance.py -v
+set -eu
+scratch=$(mktemp -d /var/tmp/r18.XXXXXX)
+export TMPDIR="$scratch" RAILS_R18_REQUIRED=1
+export RAILS_R18_BROWSER_DIST="$scratch/dist"
+(cd ../orbitdesktop && ORBIT_BUILD_SCRATCH="$scratch" node scripts/isolated_build.mjs --dest "$RAILS_R18_BROWSER_DIST")
+# Use an actual local binary. The second branch found Chromium on the test host.
+export CHROMIUM_EXECUTABLE="$(command -v chromium || find "$HOME/.cache/hyperframes/chrome" \
+  -type f -name chrome-headless-shell -executable -print -quit)"
+test -x "$CHROMIUM_EXECUTABLE" && "$CHROMIUM_EXECUTABLE" --version
+export RAILS_R18_EVIDENCE_DIR="$scratch/trace" RAILS_R18_CAMPAIGN_DIR="$scratch/campaign"
+python -m pytest -q tests/test_rails_acceptance.py --junitxml="$scratch/rails.xml"
 ```
 
-For the browser check, set `RAILS_R18_BROWSER_DIST` to an isolated Orbit build from the same frontend source (use the destination reported by `npm run build` in Orbit) and `CHROMIUM_EXECUTABLE` to a local Chromium executable or `PLAYWRIGHT_BROWSERS_PATH` to an existing compatible installation. R18 runs the real owner shell from a temporary server root, unlocks it with an ephemeral credential, opens **Rizzstack Rails** in the command palette and selects the imported finish ID in the sandboxed inspector. It also checks that the parent shell acknowledges that selection. No browser download or request to another origin is needed. Without a build, `test_browser_inspector_and_cli_identity` explicitly skips; that run does not attest browser visibility.
+To use Playwright's existing compatible browser cache, leave `CHROMIUM_EXECUTABLE` **unset** and set `PLAYWRIGHT_BROWSERS_PATH` to the cache. To run just the new path use `python -m unittest tests.test_rails_acceptance.LocalSlice.test_offline_coding_campaign -v` with the same settings and a new output directory. Without the build, the two browser cases are named skips in optional mode and failures in required mode. [The manual four-tree CI job](../.github/workflows/rails-acceptance.yml) installs Python and locked Node dependencies, provisions the matching Chromium headless shell on the runner, typechecks/builds outside the checkout, and discovers the entire test file. A skip fails the job. The workflow was not dispatched during development.
 
-Set `RAILS_R18_EVIDENCE_DIR` to a **new** directory under a private local scratch directory to keep the handoff; by default it is deleted with the test workspace. The run refuses to overwrite a previous handoff. Credentials and private server state are never included. Compare the four base heads **and** selected working-file digests in `run-provenance.json`; base commits alone do not identify these binaries. Workflow history records R00 #80, R01 #83, and the early adoption batch #87. Orbit #43–45 and BundleBees #70 are component history, not this integration result.
+Each retained handoff requires a **new** directory; when unset it is deleted with the test workspace. Credentials and private server state are excluded. Compare the four base heads, selected working-file digests in `run-provenance.json`, and the built index digest in `browser-selection.json`; base commits alone do not identify dirty inputs.
 
 ## What the check observes
 
@@ -24,9 +34,25 @@ Set `RAILS_R18_EVIDENCE_DIR` to a **new** directory under a private local scratc
 
 The generated `RETURN.md` links `rails-evidence.json` in its evidence table. A real authorized campaign must also put the relative sidecar path in the appropriate `rizzstack.return/1` `acceptance[].evidence` and preserve its pending decision object (see [§31.9](../docs/31-campaign-continuity.md#319-rails-return-contract)). The fixture does not invent the packet, approval, verification suite or transport receipt necessary to issue that manifest.
 
+## Offline coding campaign
+
+| Handoff | What the test actually checks |
+|---|---|
+| Intent → RED | BundleBees admits an exact local feature packet for `AC-001` with a frozen contract, an attempt lease and a real baseline commit. Pytest executes `test_score.py::test_empty_score`: `score([])` returns 1 instead of 0. The named assertion fails (exit 1); the signed RED and its test fingerprint are recorded before the worker import. Admission and the test-intent identity are synthetic. |
+| Arrival → patch → GREEN | The authenticated launcher range arrives over two pulls spanning a disconnect. A separate candidate worktree produces patch bytes; the coordinator outbox records that SHA-256, lease and base. Replay produces no second landing. `verify_and_commit` checks the expected patch digest, runs the applicable checks in a disposable worktree and makes a local verification commit. The exact detached verification revision passes with the same test fingerprint. A succeeded landing remains a worker report. |
+| Reviewer → integration | An automated reviewer checks the diff scope, unchanged test and result on the verified SHA. The sealed record is shown as coordinator-recorded, `independent=false`, `UNVERIFIED` in the read projection. The real integrator merges the verified commit on its fixture integration ref and runs the suite; the integration check is also recorded on that distinct descendant. No remote dispatch or real child tool execution took place; the local runner executes only the known synthetic code. |
+| Rails → owner → CLI | The BundleBees state adapter imports durable records. Sequence assertions place the RED before the remote receipts and the landing before GREEN. Proxy and CLI resolve each result to the same event and hash. Chromium clicks the worker finish, baseline RED and integration mark; the owner dialog confirms authority and, for verifier marks, the exact code revision and contract. The unsigned worker GREEN stays `UNVERIFIED`; wrong contracts, bases, test fingerprints, heads and mixed-revision selections are refused. |
+| RETURN | `bundlebees_plugin.return_report.build` and `.verify` use the production `rails_return` attachment. The issuer's state-relative `jobs/r18-coding/rails-evidence.json#sha256=…` reference appears in `return.json` and `RETURN.md`. Comparing with the native report *before* attachment proves the AC's PASS came from the executed native check. The worker is bound by its lease to the **baseline**, so the only verification link in that sidecar is **EXPECTED_RED**. Later GREEN and integration remain separately addressable evidence, not a PASS attributed to the worker event. Both receiver decisions are pending. |
+
+`RAILS_R18_CAMPAIGN_DIR` retains the two origin chains and anchors, packet, native evidence files, patch, cloneable fixture Git bundle, projection/selection and production RETURN bytes. Inspect `handoff-scope.json` alongside the report: the synthetic authorization path's native `authority: human` label is not evidence of a human action. The Rails sidecar and event/payload schemas validate. The **enclosing native RETURN is not yet a conforming Workflow RETURN**: the observed authorization, RED/GREEN references, suite/scan, integration wave and attempt fields differ from Workflow's frozen manifest schema. The test records validator paths rather than rewriting the producer's report. A raw commit-local record without a contract hash also surfaces as a source gap; the signed, contract-bound TDD records supply the verifier events. No secret scan, transport publication, external anchor, operator approval or independent reviewer is inferred.
+
 ## Recorded evidence and limits
 
-Local run on 2026-11-17, Python 3.13.5 / Node 22.19.0 / Chromium 152.0.7977.30 on Linux, against bases Workflow `58aa969`, hyvv `9bed649`, BundleBees `07cdc17`, Orbit `9cb894b` **plus working-tree edits**. All four R18 tests passed, no skips (22.882 s). Preserved scratch handoff `r18-inspected-local`:
+Extended five-case run: **5 passed, 0 skipped in 59.66 s** (2026-11-17, Linux, Python 3.13.5, Node 22.19.0, Chromium 152.0.7977.30). JUnit and both handoffs were retained under `/var/tmp/r18-four-tree.M78Jve/`. The campaign provenance records base revisions Workflow `7e2fdf4`, hyvv `cd8cce9`, BundleBees `b138be1` and Orbit `161d748` while work continued in those trees. The isolated shell build was `/var/tmp/r18-local-build.kERSwJ/dist`; this run used `/tmp/opencode/bbvenv/bin/python` and the executable discovered under `$HOME/.cache/hyperframes/chrome/chrome-headless-shell/linux-152.0.7977.30/`.
+
+For this campaign, `AC-001` ran under contract `61a7cba5abec09206cbb28d1145f6b54827692ff3fb654eef823ccf7c6b4cde9`. The baseline was `b59ac82`, verified patch `e022c24`, integrated head `9fb1b71`. Of 13 coordinator rows, RED was seq 1, the remote receipts seq 3–4, the landing seq 5, GREEN seq 7, recorded review seq 8, unsigned claim seq 9, merge seq 10 and integration verifier seq 11. The latter was selected in Chromium as `m-163201740d56-245f06fb-ce20-4a3a-a1b2-64e576cf7d88:11`. The four worker and 13 coordinator rows and their payloads validated against the Rails schemas. The baseline worker finish and RED mark, both also inspected, are the two immutable IDs selected by the production sidecar. The sidecar SHA-256 in the native evidence table was `d481aea9308ac7587b7dbf12494e418d4d468f53c2657ff7bce53e05f478db54`.
+
+Earlier transport-only run on 2026-11-17, Python 3.13.5 / Node 22.19.0 / Chromium 152.0.7977.30 on Linux, against bases Workflow `58aa969`, hyvv `9bed649`, BundleBees `07cdc17`, Orbit `9cb894b` **plus working-tree edits**. The then-current four tests passed, no skips (22.882 s). Preserved scratch handoff `r18-inspected-local`:
 
 | Observation | Recorded result |
 |---|---|
@@ -40,7 +66,7 @@ The two other worker rows are source checkpoints. These are observed values, not
 
 **Why transport and schema checks are separate:** an earlier run (`r18-first-local`) transported R02 bytes intact, but those bytes had `lane` instead of the R01 lane fields, no envelope `dedupe_key`, sparse scope and a structured redaction policy. The producer/vendor change made during integration resolved the mismatch for the scenario above. Older ledgers and untested event kinds do not inherit this result. R18 now fails on an envelope or payload mismatch instead of re-authoring the imported bytes. During browser integration one run also timed out opening the command palette; the test now waits for the async unlock dialog to close before the shortcut.
 
-**Unmeasured:** Windows journal locking/native installed version, a real bounded campaign, independent verifier/reviewer records, human feedback, owner action authorization, off-machine anchors, and M2 latency/soak targets. Component checks and fixture timing do not establish those properties.
+**Remaining gates:** an authorized bounded campaign with genuine dispatch and child execution on the intended deployment; independent current-head review; human feedback and a real receiver decision; compatible producer/consumer RETURN and installed-version parity. Windows locking, owner action authorization, off-machine anchors and M2 latency/soak remain unmeasured. The synthetic integration wave's local `accepted` flag passes a coordinator check; it is not owner acceptance, promotion or activation.
 
 ## Promotion and rollback
 

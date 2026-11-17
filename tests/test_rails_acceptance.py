@@ -451,7 +451,9 @@ try {
         for name in ('CHROMIUM_EXECUTABLE', 'PLAYWRIGHT_BROWSERS_PATH'):
             if name in os.environ:
                 browser_env[name] = os.environ[name]
-        marks = [dict(kind='attempt', id=self.aid, event=self.tool_ids[-1], authority='worker_report')]
+        # The worker signs no coordinator authority: the reader exposes a transported
+        # worker_report as an imported_observation on this read-only deployment.
+        marks = [dict(kind='attempt', id=self.aid, event=self.tool_ids[-1], authority='imported_observation')]
         if by_event:
             for phase in ('red', 'integration'):
                 eid = self.phases[phase]['event_id']
