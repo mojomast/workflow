@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: workflow
-          ref: '8f9f283f98beb01aa2d0b722085eefdc24ce0b37'
+          ref: 'badc5591d7e5d4985fe829c3a1e39b2ee0e4c0f6'
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -65,17 +65,27 @@ jobs:
           echo "$RUNNER_TEMP/scanner" >> "$GITHUB_PATH"
       - name: Check exact clean tuple, install locked Orbit, build and run all Rails cases
         env:
-          WORKFLOW_SHA: '8f9f283f98beb01aa2d0b722085eefdc24ce0b37'
+          WORKFLOW_SHA: 'badc5591d7e5d4985fe829c3a1e39b2ee0e4c0f6'
           BUNDLEBEES_SHA: '83ffa37811225deb8f06518b2ef997a021b63bd2'
           HYVV_SHA: '35a4d0cf9473b3d30a2b8eb0b71ab9d10b6509a8'
           ORBIT_SHA: '43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e'
         run: |
           jq -n '{workflow:env.WORKFLOW_SHA,bundlebees:env.BUNDLEBEES_SHA,hyvv:env.HYVV_SHA,orbitdesktop:env.ORBIT_SHA}' > "$RUNNER_TEMP/tuple.json"
           python -B workflow/scripts/rails_tuple.py --ci-install --tuple "$RUNNER_TEMP/tuple.json" --out "$RUNNER_TEMP/rails-evidence"
+      - name: Archive the original fixture filenames and bytes
+        if: always()
+        run: |
+          if test -d "$RUNNER_TEMP/rails-evidence"; then
+            tar -czf "$RUNNER_TEMP/rails-evidence.tar.gz" -C "$RUNNER_TEMP" rails-evidence
+            (cd "$RUNNER_TEMP" && sha256sum rails-evidence.tar.gz > rails-evidence.tar.gz.sha256)
+          fi
       - name: Retain JUnit, digests and disposable fixture handoffs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: rails-tuple-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/rails-evidence/
+          path: |
+            ${{ runner.temp }}/rails-evidence.tar.gz
+            ${{ runner.temp }}/rails-evidence.tar.gz.sha256
+          if-no-files-found: error
           retention-days: 7
