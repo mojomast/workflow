@@ -235,6 +235,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "rails R00/R01 conversion r3",
         "keywords": ("rails-w2-conversions", "re-dispatch remedy", "destruction evidence"),
     },
+    {
+        # docs/coordinator-failure-report-2026-11-16: the failure report + packaged
+        # evidence (merged e356b3d).
+        "pr": 68,
+        "name": "coordinator failure report 2026-11-16",
+        "keywords": ("coordinator-failure-report-2026-11-16", "failure-evidence-2026-11-16"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
