@@ -1,3 +1,4 @@
+3ddccb673efffab08ddaee6e367a6846af077fe7556c54130c64b7f36fd6053f  ./DECISION.md
 d64d14d6723a74df2fbe11bacc651b1be249d7948126382406f07ed73e76800c  ./SHA256SUMS
 f8f30322c37f4179bd70f0726704f33df38320e276b83193c889845c526cfba1  ./bundlebees.xml
 c88b7f7c2d1f1dcfd4bfbec769d6fe92bff4baec442b7b195dc48a5c0708eff1  ./campaign/authorizations/r18-coding.json
@@ -17,6 +18,7 @@ cbfb7ab00a5c5cd5f0d46eddf9fccc9999cc20c5a88d26d809015abcab690041  ./campaign/exp
 8c6f2cc9a95e9347e2ada080d0ad07595d6f5ce7b961f3a1fe2812c299a68ea5  ./campaign/verify-results/att_0000000000000018.json
 b940201c3c2ebe79b2b4a0bef2973be42f0c948f3ac407842c51c803a5dba8ad  ./campaign/waves/r18-coding.w1.json
 308c34420635baf603baa6305988c3e2a76bd6cb55f4fe1ec3eb4e7df8dff708  ./ci.json
+8dec9f7b658f5632ab750bb5fa118d449fe4a3f691fd9a804fb1a4fc703fdb36  ./component-job-counts.json
 ac3c4a3b23c997d9fbfddec4717bb95fc644168c0d6615bf51627e89c554667e  ./copied-synthetic-wave.json
 b2c4b15e7ea525450306d734a5e8c3bb518bc36dfa2310935cc933e7e2c2771d  ./hyvv.xml
 ba5830d6ecff8e30008013104f97ce145e69eccf7cb3ec24f33f4e0c34626725  ./inventory.json
@@ -28,4 +30,5 @@ ba5830d6ecff8e30008013104f97ce145e69eccf7cb3ec24f33f4e0c34626725  ./inventory.js
 3cb6e6dd8446229a62d1de30ed9c2cb1fc4c4a7513f456080b927ff570cc9afa  ./receiver-pins.json
 7e311d6a8a1218a03626e73a10e297e94642bcf3705eaf1ea662891bbe1375e4  ./recovery-last.md
 1338a4e381343b39b89c0d01086a1e598cbcc9e7bc413bd890161df29a519efd  ./summary.json
+8f48dc8a589e26ce47e9663826dbcbb1cf170d941aec21f13f3f39f5233168b5  ./vendor-parity.json
 9acfcc114c3b70ba16e91df991e1025f77410389d4557ba530d8eb178fbeaf72  ./workflow.xml

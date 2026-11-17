@@ -1,6 +1,6 @@
 # Rails qualification record
 
-**Release decision: HOLD.** The original RETURN mismatch was reproduced, repaired and independently observed. A second qualification exposed a receipt-provenance defect; the third passed using a separately retained verifier commitment. See the exact tuples below.
+**Release decision: HOLD.** Start with the [executive decision, gap matrix and reproduction instructions](release/DECISION.md), the [four full release SHAs](release.json) and the [exact-tuple result](release/summary.json). The native RETURN was repaired and independently verified. The required four-checkout software gate passed 665 cases with zero skips. The live Windows, production attribution and human decision gates remain open.
 
 | Capture | Observation |
 |---|---|
@@ -12,16 +12,18 @@
 | [`qualification-3/`](qualification-3/) | 483 cases, zero failures or skips. Both wheels were built from the named revisions and tested in both import orders. A receiver used the [separately retained verifier and dispatch pins](qualification-3/receiver-pins.json) to verify the synthetic packet and [re-execute its approved test](qualification-3/offline-replay.json). Later changes to the tick, notifier and proof classifier still require final-tuple qualification. |
 | [`qualification-4/`](qualification-4/) | Expanded exact-tuple gate: **664 passed, zero skipped**. Signed GREEN, exact commit, case membership and sealed wave were checked. Independent review then identified a distinct issue in pre-candidate progress reports and the factory's interrupted first-ref publication. |
 | [`qualification-5/`](qualification-5/) | Requiring a verified candidate closed the provisional progress-report gap and invalidated one positive native test fixture. The local gate stopped at that fixture (474 passed, one failed, no skips, remaining suites not run). Hosted BundleBees also failed that case; the other three component PRs passed. See the [recovery review](qualification-5/ref-publication-review.md) for the separate direct-replay correction. |
+| [`qualification-6/`](qualification-6/) | 665 passed locally and in the hosted test step. The [hosted artifact upload failed](https://github.com/mojomast/workflow/actions/runs/44190916964/job/134419754691) because an original ledger-event filename contained `:`. The fix packs the unchanged fixture bytes and names into one checksummed archive. |
+| [`release/`](release/) | Fresh exact heads after the CI packaging fix. Component CI, local JUnit, the issued native report and the independent receiver replay are retained. The disposition remains HOLD. |
 
 For the complete starting review, see the [findings ledger](findings.md); [coordination](coordination.md) gives owners, package budgets, merge sequencing and rollback. The [Windows handoff](https://github.com/mojomast/workflow/blob/c61ff1c122ba649ea59ff7807cc8e671ed080b33/evidence/rails-rc/windows-canary.md) records exactly why no live run took place and what the operator needs to supply.
 
 ## Reproduce the public handoff independently
 
-Use fresh clean clones of the evidence branch and the Workflow SHA in `qualification-1/summary.json`. On Linux, supply Git and Python with pytest and jsonschema installed. No environment credentials are needed. From the evidence checkout:
+Use fresh clean clones of the evidence branch and the Workflow SHA in `release.json`. On Linux, supply Git and Python with pytest and jsonschema installed. No environment credentials are needed. From the evidence checkout:
 
 ```sh
 python3 -B evidence/rails-rc/verify_fixture.py \
-  evidence/rails-rc/qualification-1 /path/to/clean-pinned-workflow
+  evidence/rails-rc/release /path/to/clean-pinned-workflow
 ```
 
 The check verifies the captured Git bundle hash, uses Workflow's commit-pinned receiver, compares exact test and source bytes against the frozen synthetic scenario, and re-executes the approved test on three revisions. `receiver-pins.json` is the coordinator's capture for this disposable run, not a live signed external anchor. Full `SHA256SUMS` includes private-run scratch logs not needed by this replay.
