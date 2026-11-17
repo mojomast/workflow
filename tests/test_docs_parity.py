@@ -358,6 +358,17 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "rails R01 contract layer",
         "keywords": ("RAILS-R01", "test_rails_contract", "att_e0cff87d85a644e5", "hash-vectors"),
     },
+    {
+        # docs/hindsight-trial-harness-arms: the Hindsight trial harness PART 2
+        # (three deterministic arms + the report layer) landed after one RED-first
+        # worker repair (att_f9e680d217bb458b: B1 baseline pairing restored to
+        # ARM_B, B2 single evaluator call, M8-mirror hack removed) and an
+        # independent round-2 re-review (att_b9ad60999d524dbd, APPROVE zero
+        # blocking; CI 14/14 at the repaired head).
+        "pr": 88,
+        "name": "trial harness PART 2 arms + report",
+        "keywords": ("arms.py", "evaluate_trial", "H123_BASELINE", "exit 0/1/2"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
