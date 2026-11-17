@@ -599,11 +599,15 @@ try {
             self.assertEqual(RailsOutboxSource(self.state, ledger=db).replay()['duplicates'], 1)
         scanner = shutil.which('gitleaks')
         self.assertIsNotNone(scanner, 'offline campaign requires real gitleaks on PATH')
+        # Private verifier-to-receiver channel in this same-process fixture.
+        # Only the successful native write can emit a pin, before handoff assembly.
+        written = []
         rec = verify_local.verify_and_commit(self.state, self.repo, self.aid, patch=self.patch_file.read_text(),
             declared_files=[c['implementation']], expected_patch_sha256=self.patch_hash,
             base_rev=self.base, tests=[c['test_id']], suite_command=self.suite, gitleaks=scanner, cacheable=False,
             contract_declared=True, acdd_preflight=lambda files: acdd_cli.verify_preflight(self.lease, self.state, files),
-            runner=self.phase_check)
+            runner=self.phase_check, reuse_record=False, on_receipt_written=written.append)
+        self.receipt_pin, = written
         self.assertTrue(rec['ok']); self.assertEqual((rec['red']['exit_code'], rec['suite']['exit_code']), (1, 0))
         self.assertEqual(rec['gitleaks']['exit_code'], 0)
         self.assertEqual(rec['patch_sha256'], self.landing['data']['result']['artifact_sha256'])
@@ -783,18 +787,24 @@ try {
             (out / (name + '.json')).write_text(json.dumps(value, indent=2, sort_keys=True) + '\n')
 
         # Pinned inputs are read independently of the producer's RETURN and sidecar.
-        def receive(root):
-            return self.receive_campaign(root, receiver, cfg, hashlib.sha256(canonical(self.packet)).hexdigest())
+        def receive(root, receipt_pin=self.receipt_pin):
+            return self.receive_campaign(root, receiver, cfg, hashlib.sha256(canonical(self.packet)).hexdigest(),
+                                         receipt_pin)
 
         receive(out)
         self.refuse_substitutions(out, receive, claim['event_id'])
+        # An authentic byte commitment is inapplicable if any scope field differs.
+        for field, other in (('job_id', 'other-job'), ('task_id', 'other-task'), ('contract_sha256', 'a'*64),
+                             ('attempt_id', 'att_1212121212121212'), ('base_rev', 'b'*40), ('commit', 'c'*40)):
+            with self.subTest(foreign_pin=field), self.assertRaisesRegex(AssertionError, 'foreign verifier pin'):
+                receive(out, self.receipt_pin._replace(**{field: other}))
         receive(out)  # the real delivery is still intact and pending
         (out / 'handoff-scope.json').write_text(json.dumps(dict(
             scope='offline coding fixture; test-only operator dispatch binding, synthetic admission and launcher journal; automated reviewer only',
             pending_approvals=manifest['pending_approvals'], native_manifest_schema_error_paths=[],
             native_return_reverified=True, receiver_decision='pending'), indent=2) + '\n')
 
-    def receive_campaign(self, root, git_mirror, pins, packet_digest):
+    def receive_campaign(self, root, git_mirror, pins, packet_digest, receipt_pin):
         """Read only the delivered files, fixture Git objects and separately captured pins. No issuer DB/key."""
         from jsonschema import Draft202012Validator
         from tools import return_manifest
@@ -830,7 +840,18 @@ try {
         self.assertEqual((row['id'], row['tests'], row['status']), (criterion['id'], criterion['tests'], 'PASS'),
                          'substituted approved tests')
         verify, wave = manifest['verification'], manifest['integration']
-        verification = load_json(resolve(verify['record_path']))
+        # Byte identity comes from the verifier's independent write-time pin.
+        # A source.error about this file intentionally carries no fingerprint.
+        self.assertEqual((receipt_pin.job_id, receipt_pin.task_id, receipt_pin.contract_sha256,
+                          receipt_pin.attempt_id, receipt_pin.base_rev, receipt_pin.commit),
+                         (job, pins['task_id'], pins['contract_sha256'], self.lease['attempt_id'],
+                          pins['code_rev'], verify['commit']), 'foreign verifier pin')
+        self.assertEqual(verify['record_path'], f'verify-results/{receipt_pin.attempt_id}.json')
+        receipt_bytes = resolve(verify['record_path']).read_bytes()
+        self.assertTrue(secrets.compare_digest(sha(receipt_bytes), receipt_pin.sha256),
+                        'substituted verification receipt bytes')
+        verification = json.loads(receipt_bytes)
+        self.assertEqual(verification['attempt_id'], receipt_pin.attempt_id)
         self.assertEqual((verification['sha'], verification['base_rev'], verification['tests']),
                          (verify['commit'], pins['code_rev'], criterion['tests']))
         self.assertEqual((verify['suite']['result'], verify['gitleaks']['result']), ('PASS', 'PASS'))
@@ -844,8 +865,10 @@ try {
         worker = load_json(resolve('exported-origin.json')); local = load_json(resolve('coordinator-origin.json'))
         verify_origin(worker, pins['workers'][0]); verify_origin(local, pins['coordinator'])
         events = {e['event_id']:e for e in [*worker, *local]}
-        for ref in [verify['record_path'], wave['evidence']]:
-            self.assertIn(sha(resolve(ref).read_bytes()), [e['source']['revision'] for e in local])
+        merge, = [e for e in local if e['kind'] == 'merge.result' and e['authority'] == 'coordinator_record'
+                  and e['source']['adapter'] == 'bundlebees' and e['scope']['task_id'] == wave['wave']]
+        self.assertEqual((merge['payload']['status'], merge['scope']['code_rev'], merge['source']['revision']),
+                         ('merged', wave['commit'], sha(resolve(wave['evidence']).read_bytes())))
         refs = manifest['red_green']
         side_ref, = [ref for ref in row['evidence'] if '#sha256=' in ref]
         self.assertCountEqual(row['evidence'], [refs['green']['record_path'], verify['record_path'], side_ref])
@@ -897,7 +920,7 @@ try {
     def refuse_substitutions(self, out, receive, worker_claim_id):
         from tools import return_manifest
         # Re-seal edited *copies*: failure must be the replacement, not stale manifest integrity.
-        for change in ('test', 'evidence', 'authority', 'decision'):
+        for change in ('test', 'evidence', 'receipt', 'authority', 'decision'):
             with self.subTest(change=change):
                 scratch = shutil.copytree(out, self.root / f'substitution-{change}')
                 path, = scratch.glob('jobs/*/return.json'); doc = load_json(path); row, = doc['acceptance']
@@ -908,6 +931,16 @@ try {
                     files = doc['red_green']
                     shutil.copyfile(scratch/files['red']['record_path'], scratch/files['green']['record_path'])
                     refusal = self.assertRaisesRegex(AssertionError, 'substituted evidence bytes')
+                elif change == 'receipt':
+                    # Semantically identical receipt (same attempt, head, checks,
+                    # etc.). Neither manifest resealing nor a replacement digest
+                    # in the delivered anchors can bless different native bytes.
+                    receipt = scratch / doc['verification']['record_path']
+                    receipt.write_bytes(receipt.read_bytes() + b'\n')
+                    anchors = scratch / 'anchors.json'
+                    anchors.write_bytes(canonical(dict(load_json(anchors),
+                        receipt_sha256=hashlib.sha256(receipt.read_bytes()).hexdigest())))
+                    refusal = self.assertRaisesRegex(AssertionError, 'substituted verification receipt bytes')
                 elif change == 'authority':
                     side_path = path.with_name('rails-evidence.json'); side = load_json(side_path)
                     side['verification_links'][0]['event_id'] = worker_claim_id
