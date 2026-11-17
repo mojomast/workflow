@@ -5,9 +5,6 @@
 - Rails R00/R01 conversion record (docs/rails-w2-conversions.md, workflow #59): the destruction evidence for the wave-1 attempt workspaces lost to the worker restart, the precise re-dispatch remedy from the frozen spec, and the re-dispatch readiness assessment.
 
 
-
-- [Rebrand execution runbook](docs/rebrand-execution-runbook.md) (workflow #58, staged execution planning for the approved rebrand): per-rename recovery commands for every mutable name surface, a complete before/after name map with GitHub redirect semantics and every caller that breaks under redirect, parallel-operation sequencing that keeps the factory working during the rename window, and the ordered execution checklist with gates. Executes nothing until the plan's decision checklist is approved in the owner's own words.
-
 - Rails R00/R01 conversion record (docs/rails-w2-conversions.md, workflow #59): the destruction evidence for the wave-1 attempt workspaces lost to the worker restart, the precise re-dispatch remedy from the frozen spec, and the re-dispatch readiness assessment.
 
  Unreleased
