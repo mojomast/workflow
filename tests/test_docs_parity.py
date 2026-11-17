@@ -46,6 +46,37 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    87: (
+        "docs-sync companion (the rails landing batch adoption: R03-done completion, R13 "
+        "two-PR lane, R04/R10/R08 dispatch transitions with the recorded zero-delivery loss "
+        "and base-deviation disclosures) - same class as 84/85/86: a registry bookkeeping "
+        "change whose only content is this exclusion plus the adoption transitions; it "
+        "carries its own exclusion so merging it leaves main green"
+    ),
+    86: (
+        "docs-sync companion (the RAILS-R02 backlog adoption: planned->dispatched with the "
+        "att_f67c7573 / bb PR 70 merged-as-9287d91 evidence chain) - same class as 81/84/85: a "
+        "registry bookkeeping change whose only content is this exclusion plus the adoption "
+        "transition; it carries its own exclusion so merging it leaves main green"
+    ),
+    85: (
+        "docs-sync companion (the RAILS-R03 backlog adoption: planned->dispatched with the "
+        "att_4be4db64 / od PR 43 coordinator-apply evidence chain) - same class as 81/84: a "
+        "registry bookkeeping change whose only content is this exclusion plus the adoption "
+        "transition; it carries its own exclusion so merging it leaves main green"
+    ),
+    84: (
+        "docs-sync companion (the PR 82 + PR 83 coverage rows, their merged-window bullets and "
+        "the RAILS-R01 backlog adoption) - same class: a registry bookkeeping change whose only "
+        "content is this exclusion plus the #82/#83 registry rows, bullets and the R01 adoption; it "
+        "carries its own exclusion so merging it leaves main green"
+    ),
+    81: (
+        "docs-sync companion (the PR 80 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #80 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     79: (
         "docs-sync companion (the PR 74 coverage row + its merged-window bullet) - same "
         "class: a registry bookkeeping change whose only content is this exclusion plus "
@@ -301,6 +332,31 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 74,
         "name": "rails wave-2 backlog seed",
         "keywords": ("RAILS-R00", "depends_on", "load_backlog", "vendor-manifest.json"),
+    },
+    {
+        # rails R00 feasibility: pinned source matrix + sanitized trace/shape
+        # descriptors + file+line hook citations (Q2 explicitly UNRESOLVED),
+        # RED-first suite 15/15; review mutation-proved the RED property.
+        "pr": 80,
+        "name": "rails R00 feasibility slice",
+        "keywords": ("RAILS-R00", "rails-feasibility", "source-matrix", "UNRESOLVED"),
+    },
+    {
+        # docs/hindsight-trial-harness: trial-harness PART 1 (fixtures +
+        # evaluator + tests) - the F1 per-file-commit remedy delivery,
+        # coordinator-reconciled after the staleness window; PART 2 follows
+        # against the same branch.
+        "pr": 82,
+        "name": "trial harness PART 1 fixtures + evaluator + tests",
+        "keywords": ("trial-harness", "test_trial_harness", "att_e1f3fb747b354685", "PART 1"),
+    },
+    {
+        # rails/r01-contract: the RAILS-R01 contract layer (schemas + hash
+        # vectors + RED-first contract tests) - the F1-remedy attempt 2,
+        # coordinator-reconciled after the staleness window.
+        "pr": 83,
+        "name": "rails R01 contract layer",
+        "keywords": ("RAILS-R01", "test_rails_contract", "att_e0cff87d85a644e5", "hash-vectors"),
     },
 )
 

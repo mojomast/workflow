@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/rails/evidence.schema.json",
+  "title": "Rizzstack Rails evidence \u2014 rizzstack.rails-evidence/1",
+  "$comment": "R01 freeze candidate. Companion evidence file for the M1 RETURN handoff (spec section 8): machine aliases and ledger UUIDs (never hostnames), origin head ranges and hashes, imported checkpoints, source coverage and explicit gaps, selected event ids, code and contract revisions, redaction-policy version, intervention count and actual verification links. Hashes prove integrity relative to anchors; they never prove completion by themselves. receiver_decision stays pending until an owner records a decision through the existing RETURN mechanism.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at",
+    "machines",
+    "ledgers",
+    "origin_heads",
+    "imported_checkpoints",
+    "source_coverage",
+    "selected_event_ids",
+    "code_rev",
+    "contract_sha256",
+    "redaction_policy",
+    "intervention_count",
+    "verification_links",
+    "receiver_decision"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.rails-evidence/1"
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+    },
+    "machines": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "alias",
+          "role"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "role": {
+            "enum": [
+              "worker",
+              "coordinator",
+              "reviewer",
+              "owner",
+              "other"
+            ]
+          }
+        }
+      }
+    },
+    "ledgers": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "machine",
+          "ledger_uuid"
+        ],
+        "properties": {
+          "machine": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "ledger_uuid": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      }
+    },
+    "origin_heads": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain_id",
+          "seq",
+          "hash"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "imported_checkpoints": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain_id",
+          "seq",
+          "hash",
+          "source"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          }
+        }
+      }
+    },
+    "source_coverage": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "adapter",
+          "status",
+          "gaps"
+        ],
+        "properties": {
+          "adapter": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "status": {
+            "enum": [
+              "covered",
+              "partial",
+              "gap",
+              "unavailable"
+            ]
+          },
+          "gaps": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "source_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "range_start": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "range_end": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "code": {
+                  "type": "string",
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_:-]{1,80}$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "selected_event_ids": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+      }
+    },
+    "code_rev": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "contract_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "redaction_policy": {
+      "const": "rails-safe/1"
+    },
+    "intervention_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "verification_links": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "ac_id"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "ac_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_RUN",
+              "BLOCKED",
+              "UNVERIFIED",
+              "EXPECTED_RED"
+            ]
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 500
+      }
+    },
+    "receiver_decision": {
+      "const": "pending"
+    }
+  }
+}

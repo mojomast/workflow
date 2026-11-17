@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mojomast/workflow/schemas/rails/event.schema.json",
-  "title": "Rizzstack Rails event — DRAFT freeze candidate",
-  "$comment": "Specification-only draft. R01 must freeze kind-specific required fields and golden vectors before consumers ship. Schema validation alone does not establish privacy, authorization, identity, chaining or source completeness.",
+  "title": "Rizzstack Rails event — R01 freeze candidate",
+  "$comment": "R01 freeze candidate for the rizzstack.rails/1 envelope. Kind payloads are closed by payload.schema.json (rizzstack.rails-payload/1), the source adapter wire objects by source.schema.json, query/result by query.schema.json, the presentation projection by view.schema.json, the HTTP surface by http.schema.json and the RETURN companion by evidence.schema.json; hash vectors live in fixtures/hash-vectors.json and the recorded freeze digest in README.md. A consumer that does not recognize a version refuses it; no silent widening of /1. Schema validation alone does not establish privacy, authorization, identity, chaining or source completeness.",
   "type": "object",
   "additionalProperties": false,
   "required": [
