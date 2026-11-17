@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    79: (
+        "docs-sync companion (the PR 74 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #74 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     78: (
         "docs-sync companion (the PR 70 coverage row + its merged-window bullet) - same "
         "class: a registry bookkeeping change whose only content is this exclusion plus "
@@ -287,6 +293,14 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 70,
         "name": "coordination-reliability research doc",
         "keywords": ("coordination-reliability", "FC-1", "seed commit", "5bee1a87"),
+    },
+    {
+        # docs/rails-wave2-backlog: the 22-slice RAILS wave-2 seed - the real
+        # loader accepts it (24 slices, budget lanes:7/bees:8) and dependency
+        # gating rides exact RAILS-* depends_on edges (r3 canonicalization).
+        "pr": 74,
+        "name": "rails wave-2 backlog seed",
+        "keywords": ("RAILS-R00", "depends_on", "load_backlog", "vendor-manifest.json"),
     },
 )
 
