@@ -1,7 +1,7 @@
 {
   "schema": "rails-offline-bench/1",
   "started_utc": "2026-11-17T20:02:53+00:00",
-  "status": "running",
+  "status": "completed",
   "hardware": {
     "kernel": "6.12.113+deb13-cloud-amd64",
     "architecture": "x86_64",
@@ -1428,8 +1428,588 @@
         "resume_mark_ms": 18.381,
         "VmRSS": 22508,
         "VmHWM": 29332
+      },
+      {
+        "t_s": 1013.809,
+        "notify_ms": 1003.938,
+        "mark_ms": 1006.805,
+        "resume_mark_ms": 5.723,
+        "VmRSS": 22064,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1024.828,
+        "notify_ms": 1002.22,
+        "mark_ms": 1004.109,
+        "resume_mark_ms": 4.091,
+        "VmRSS": 22088,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1035.877,
+        "notify_ms": 1000.316,
+        "mark_ms": 1022.281,
+        "resume_mark_ms": 14.741,
+        "VmRSS": 22148,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1046.89,
+        "notify_ms": 1001.378,
+        "mark_ms": 1003.282,
+        "resume_mark_ms": 4.106,
+        "VmRSS": 22196,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1057.909,
+        "notify_ms": 1001.298,
+        "mark_ms": 1003.549,
+        "resume_mark_ms": 5.627,
+        "VmRSS": 22252,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1068.923,
+        "notify_ms": 1001.629,
+        "mark_ms": 1004.033,
+        "resume_mark_ms": 4.132,
+        "VmRSS": 22296,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1079.937,
+        "notify_ms": 1001.459,
+        "mark_ms": 1003.706,
+        "resume_mark_ms": 4.035,
+        "VmRSS": 22316,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1090.953,
+        "notify_ms": 1001.102,
+        "mark_ms": 1003.546,
+        "resume_mark_ms": 4.571,
+        "VmRSS": 22348,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1101.973,
+        "notify_ms": 1001.595,
+        "mark_ms": 1004.831,
+        "resume_mark_ms": 7.101,
+        "VmRSS": 22420,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1112.988,
+        "notify_ms": 1001.554,
+        "mark_ms": 1003.389,
+        "resume_mark_ms": 3.463,
+        "VmRSS": 22464,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1124.018,
+        "notify_ms": 1005.475,
+        "mark_ms": 1011.283,
+        "resume_mark_ms": 13.124,
+        "VmRSS": 24472,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1135.031,
+        "notify_ms": 1001.293,
+        "mark_ms": 1003.658,
+        "resume_mark_ms": 3.817,
+        "VmRSS": 24428,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1146.07,
+        "notify_ms": 1009.298,
+        "mark_ms": 1016.746,
+        "resume_mark_ms": 11.495,
+        "VmRSS": 24476,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1157.083,
+        "notify_ms": 1001.271,
+        "mark_ms": 1003.326,
+        "resume_mark_ms": 4.525,
+        "VmRSS": 24516,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1167.152,
+        "notify_ms": 50.139,
+        "mark_ms": 52.291,
+        "resume_mark_ms": 11.069,
+        "VmRSS": 25208,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1178.167,
+        "notify_ms": 1001.154,
+        "mark_ms": 1003.028,
+        "resume_mark_ms": 3.713,
+        "VmRSS": 25252,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1189.18,
+        "notify_ms": 1001.728,
+        "mark_ms": 1003.974,
+        "resume_mark_ms": 4.701,
+        "VmRSS": 25296,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1200.197,
+        "notify_ms": 1001.29,
+        "mark_ms": 1004.289,
+        "resume_mark_ms": 4.431,
+        "VmRSS": 25340,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1211.211,
+        "notify_ms": 1001.528,
+        "mark_ms": 1003.931,
+        "resume_mark_ms": 3.997,
+        "VmRSS": 25384,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1222.226,
+        "notify_ms": 1001.524,
+        "mark_ms": 1004.173,
+        "resume_mark_ms": 4.119,
+        "VmRSS": 25428,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1233.246,
+        "notify_ms": 1000.664,
+        "mark_ms": 1005.285,
+        "resume_mark_ms": 4.151,
+        "VmRSS": 25472,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1244.262,
+        "notify_ms": 1001.311,
+        "mark_ms": 1003.108,
+        "resume_mark_ms": 5.913,
+        "VmRSS": 25516,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1255.274,
+        "notify_ms": 1001.324,
+        "mark_ms": 1003.266,
+        "resume_mark_ms": 3.552,
+        "VmRSS": 25560,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1266.286,
+        "notify_ms": 1001.286,
+        "mark_ms": 1003.124,
+        "resume_mark_ms": 3.759,
+        "VmRSS": 25600,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1277.302,
+        "notify_ms": 1002.234,
+        "mark_ms": 1005.517,
+        "resume_mark_ms": 3.67,
+        "VmRSS": 25556,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1288.32,
+        "notify_ms": 1001.113,
+        "mark_ms": 1003.779,
+        "resume_mark_ms": 3.774,
+        "VmRSS": 25600,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1299.333,
+        "notify_ms": 1001.973,
+        "mark_ms": 1003.993,
+        "resume_mark_ms": 3.976,
+        "VmRSS": 25644,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1310.351,
+        "notify_ms": 1000.904,
+        "mark_ms": 1003.436,
+        "resume_mark_ms": 6.201,
+        "VmRSS": 25120,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1321.363,
+        "notify_ms": 1001.214,
+        "mark_ms": 1003.307,
+        "resume_mark_ms": 3.488,
+        "VmRSS": 25152,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1332.379,
+        "notify_ms": 1002.294,
+        "mark_ms": 1005.245,
+        "resume_mark_ms": 4.361,
+        "VmRSS": 25208,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1343.392,
+        "notify_ms": 1001.512,
+        "mark_ms": 1004.641,
+        "resume_mark_ms": 4.366,
+        "VmRSS": 25276,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1354.405,
+        "notify_ms": 1000.446,
+        "mark_ms": 1002.989,
+        "resume_mark_ms": 3.856,
+        "VmRSS": 25340,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1365.424,
+        "notify_ms": 1001.012,
+        "mark_ms": 1004.907,
+        "resume_mark_ms": 5.772,
+        "VmRSS": 25396,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1376.437,
+        "notify_ms": 1001.529,
+        "mark_ms": 1003.64,
+        "resume_mark_ms": 4.282,
+        "VmRSS": 25440,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1387.456,
+        "notify_ms": 1004.329,
+        "mark_ms": 1007.211,
+        "resume_mark_ms": 4.895,
+        "VmRSS": 25488,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1398.47,
+        "notify_ms": 1001.183,
+        "mark_ms": 1003.865,
+        "resume_mark_ms": 3.964,
+        "VmRSS": 25528,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1409.485,
+        "notify_ms": 1002.055,
+        "mark_ms": 1004.756,
+        "resume_mark_ms": 4.723,
+        "VmRSS": 25568,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1420.499,
+        "notify_ms": 1001.685,
+        "mark_ms": 1004.346,
+        "resume_mark_ms": 4.662,
+        "VmRSS": 25620,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1431.518,
+        "notify_ms": 1001.653,
+        "mark_ms": 1005.556,
+        "resume_mark_ms": 5.869,
+        "VmRSS": 25664,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1442.532,
+        "notify_ms": 1001.63,
+        "mark_ms": 1003.803,
+        "resume_mark_ms": 4.051,
+        "VmRSS": 25708,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1453.551,
+        "notify_ms": 1002.81,
+        "mark_ms": 1005.027,
+        "resume_mark_ms": 4.116,
+        "VmRSS": 25756,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1464.565,
+        "notify_ms": 1001.541,
+        "mark_ms": 1004.356,
+        "resume_mark_ms": 3.3,
+        "VmRSS": 25224,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1475.581,
+        "notify_ms": 1002.966,
+        "mark_ms": 1006.371,
+        "resume_mark_ms": 4.606,
+        "VmRSS": 25268,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1486.596,
+        "notify_ms": 1001.308,
+        "mark_ms": 1003.715,
+        "resume_mark_ms": 3.944,
+        "VmRSS": 25312,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1497.612,
+        "notify_ms": 1001.25,
+        "mark_ms": 1004.854,
+        "resume_mark_ms": 3.815,
+        "VmRSS": 25356,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1508.626,
+        "notify_ms": 1001.271,
+        "mark_ms": 1003.966,
+        "resume_mark_ms": 4.149,
+        "VmRSS": 25400,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1519.64,
+        "notify_ms": 1001.667,
+        "mark_ms": 1004.419,
+        "resume_mark_ms": 4.216,
+        "VmRSS": 25444,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1530.656,
+        "notify_ms": 1001.19,
+        "mark_ms": 1003.986,
+        "resume_mark_ms": 5.551,
+        "VmRSS": 25492,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1541.669,
+        "notify_ms": 1001.452,
+        "mark_ms": 1003.35,
+        "resume_mark_ms": 3.529,
+        "VmRSS": 25532,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1552.682,
+        "notify_ms": 1001.555,
+        "mark_ms": 1003.877,
+        "resume_mark_ms": 3.831,
+        "VmRSS": 25576,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1563.696,
+        "notify_ms": 1001.657,
+        "mark_ms": 1004.635,
+        "resume_mark_ms": 3.802,
+        "VmRSS": 25620,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1574.709,
+        "notify_ms": 1001.542,
+        "mark_ms": 1003.838,
+        "resume_mark_ms": 3.988,
+        "VmRSS": 25664,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1585.723,
+        "notify_ms": 1001.395,
+        "mark_ms": 1003.537,
+        "resume_mark_ms": 4.167,
+        "VmRSS": 25708,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1596.737,
+        "notify_ms": 1001.983,
+        "mark_ms": 1003.955,
+        "resume_mark_ms": 3.358,
+        "VmRSS": 25760,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1607.751,
+        "notify_ms": 1002.09,
+        "mark_ms": 1004.111,
+        "resume_mark_ms": 4.648,
+        "VmRSS": 25276,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1618.763,
+        "notify_ms": 1001.908,
+        "mark_ms": 1003.935,
+        "resume_mark_ms": 3.475,
+        "VmRSS": 25296,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1629.778,
+        "notify_ms": 1002.421,
+        "mark_ms": 1004.658,
+        "resume_mark_ms": 3.904,
+        "VmRSS": 25340,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1640.79,
+        "notify_ms": 1001.555,
+        "mark_ms": 1003.569,
+        "resume_mark_ms": 3.89,
+        "VmRSS": 25384,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1651.804,
+        "notify_ms": 1002.145,
+        "mark_ms": 1004.161,
+        "resume_mark_ms": 3.866,
+        "VmRSS": 25428,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1662.816,
+        "notify_ms": 1002.494,
+        "mark_ms": 1004.595,
+        "resume_mark_ms": 3.598,
+        "VmRSS": 25472,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1673.829,
+        "notify_ms": 1002.126,
+        "mark_ms": 1004.15,
+        "resume_mark_ms": 3.713,
+        "VmRSS": 25516,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1684.845,
+        "notify_ms": 1002.351,
+        "mark_ms": 1004.187,
+        "resume_mark_ms": 3.758,
+        "VmRSS": 25560,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1695.859,
+        "notify_ms": 1001.225,
+        "mark_ms": 1003.535,
+        "resume_mark_ms": 3.916,
+        "VmRSS": 25604,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1706.872,
+        "notify_ms": 1001.903,
+        "mark_ms": 1004.245,
+        "resume_mark_ms": 3.682,
+        "VmRSS": 25648,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1717.887,
+        "notify_ms": 1001.682,
+        "mark_ms": 1005.025,
+        "resume_mark_ms": 4.024,
+        "VmRSS": 25692,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1728.902,
+        "notify_ms": 1002.59,
+        "mark_ms": 1004.758,
+        "resume_mark_ms": 3.74,
+        "VmRSS": 25736,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1739.916,
+        "notify_ms": 1001.551,
+        "mark_ms": 1003.651,
+        "resume_mark_ms": 3.597,
+        "VmRSS": 25780,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1750.931,
+        "notify_ms": 1002.259,
+        "mark_ms": 1004.113,
+        "resume_mark_ms": 3.399,
+        "VmRSS": 25824,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1761.946,
+        "notify_ms": 1001.593,
+        "mark_ms": 1004.865,
+        "resume_mark_ms": 6.143,
+        "VmRSS": 25304,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1772.959,
+        "notify_ms": 1001.707,
+        "mark_ms": 1003.754,
+        "resume_mark_ms": 3.587,
+        "VmRSS": 25352,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1783.971,
+        "notify_ms": 1002.068,
+        "mark_ms": 1004.086,
+        "resume_mark_ms": 3.329,
+        "VmRSS": 25396,
+        "VmHWM": 29332
+      },
+      {
+        "t_s": 1794.984,
+        "notify_ms": 1002.077,
+        "mark_ms": 1003.99,
+        "resume_mark_ms": 3.416,
+        "VmRSS": 25440,
+        "VmHWM": 29332
       }
     ],
-    "elapsed_s": 1002.79
-  }
+    "elapsed_s": 1800.001,
+    "p95_notify_ms": 1009.298,
+    "p95_mark_ms": 1017.344,
+    "p95_resume_mark_ms": 20.737
+  },
+  "finished_utc": "2026-11-17T20:36:35+00:00"
 }
