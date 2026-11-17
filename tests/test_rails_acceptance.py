@@ -315,7 +315,7 @@ class LocalSlice(unittest.TestCase):
         sys.path.insert(0, str(BB))
         self.addCleanup(sys.path.remove, str(BB))
         with patch.dict(os.environ, {**self.env, **{k: os.environ[k] for k in
-                ('RAILS_R18_REQUIRED', 'RAILS_R18_BROWSER_DIST', 'RAILS_R18_CAMPAIGN_DIR',
+                ('RAILS_R18_REQUIRED', 'RAILS_R18_BROWSER_DIST', 'RAILS_R18_CAMPAIGN_DIR', 'RAILS_R18_RECEIVER_CAPTURE',
                  'CHROMIUM_EXECUTABLE', 'PLAYWRIGHT_BROWSERS_PATH') if k in os.environ},
                 'WORKFLOW_SRC': str(ROOT), 'GIT_CONFIG_NOSYSTEM': '1',
                 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1'}, clear=True):
@@ -787,6 +787,20 @@ try {
             (out / (name + '.json')).write_text(json.dumps(value, indent=2, sort_keys=True) + '\n')
 
         # Pinned inputs are read independently of the producer's RETURN and sidecar.
+        # Only the synthetic fixture exposes an optional external receiver capture.
+        # Never reconstruct these fields from the handoff that they must authenticate.
+        capture = os.environ.get('RAILS_R18_RECEIVER_CAPTURE')
+        if capture:
+            target = Path(capture).resolve()
+            self.assertFalse(target.is_relative_to(out.resolve()))
+            dispatch = {k:self.lease[k] for k in ('attempt_id','dispatch_chain_id','source_rev')}
+            dispatch['brief'] = {k:self.lease['brief'][k] for k in ('job_id','task_id','contract_sha256')}
+            with target.open('x', encoding='utf8') as stream:
+                json.dump(dict(workflow=heads[ROOT.name], anchors=cfg, packet_digest=hashlib.sha256(canonical(self.packet)).hexdigest(),
+                               dispatch=dispatch, receipt=self.receipt_pin._asdict(),
+                               fixture_bundle_sha256=hashlib.sha256((out/'fixture.bundle').read_bytes()).hexdigest()),
+                          stream, indent=2, sort_keys=True)
+                stream.write('\n')
         def receive(root, receipt_pin=self.receipt_pin):
             return self.receive_campaign(root, receiver, cfg, hashlib.sha256(canonical(self.packet)).hexdigest(),
                                          receipt_pin)

@@ -110,7 +110,8 @@ def run(args, out, work, summary):
                PYTHONDONTWRITEBYTECODE='1', PYTEST_DISABLE_PLUGIN_AUTOLOAD='1', GIT_CONFIG_NOSYSTEM='1',
                GIT_TERMINAL_PROMPT='0', ORBIT_AGENT_DISCOVERY='off', ONNXRUNTIME_NODE_INSTALL='skip',
                RAILS_R18_REQUIRED='1', RAILS_R18_ROOT=str(ROOT), WORKFLOW_SRC=str(WORKFLOW),
-               RAILS_R18_EVIDENCE_DIR=str(out/'trace'), RAILS_R18_CAMPAIGN_DIR=str(out/'campaign'))
+                RAILS_R18_EVIDENCE_DIR=str(out/'trace'), RAILS_R18_CAMPAIGN_DIR=str(out/'campaign'),
+                RAILS_R18_RECEIVER_CAPTURE=str(out/'receiver-pins.json'))
     checkouts(pins, env, pristine=True)
     orbit = ROOT / 'orbitdesktop'
     def output(argv, cwd=orbit):
