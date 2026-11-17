@@ -1,0 +1,2040 @@
+{
+  "attempts": [
+    {
+      "attempt_id": "att_115e00dd66e24b7d",
+      "branch": "feat/bee-ci-manifest",
+      "created_at": "2026-11-12T23:47:36Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-12T23:47:36Z"
+    },
+    {
+      "attempt_id": "att_5dbe147be9ec4948",
+      "branch": "feat/bee-ci-poller",
+      "created_at": "2026-11-12T23:47:47Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-12T23:47:47Z"
+    },
+    {
+      "attempt_id": "att_4b7e3a15de4d443c",
+      "branch": "feat/bee-ci-compare",
+      "created_at": "2026-11-12T23:47:48Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-12T23:47:48Z"
+    },
+    {
+      "attempt_id": "att_d9186f5699f84814",
+      "branch": "feat/bee-ci-status",
+      "created_at": "2026-11-12T23:47:48Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-12T23:47:48Z"
+    },
+    {
+      "attempt_id": "att_7be7fcf5334e4fca",
+      "branch": "feat/bee-ci-windows",
+      "created_at": "2026-11-13T00:01:08Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:01:08Z"
+    },
+    {
+      "attempt_id": "att_9aacecd589244e53",
+      "branch": "feat/bee-ci-manifest",
+      "created_at": "2026-11-13T00:25:22Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:25:22Z"
+    },
+    {
+      "attempt_id": "att_84754388bb3f40ae",
+      "branch": "feat/bee-ci-poller",
+      "created_at": "2026-11-13T00:27:33Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:27:33Z"
+    },
+    {
+      "attempt_id": "att_f10e9b854f5640a0",
+      "branch": "feat/bee-ci-status",
+      "created_at": "2026-11-13T00:27:33Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:27:33Z"
+    },
+    {
+      "attempt_id": "att_8e225260bfda419a",
+      "branch": "feat/bee-ci-compare",
+      "created_at": "2026-11-13T00:27:34Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:27:34Z"
+    },
+    {
+      "attempt_id": "att_62e5fb292cc24289",
+      "branch": "feat/bee-ci-windows",
+      "created_at": "2026-11-13T00:27:40Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:27:40Z"
+    },
+    {
+      "attempt_id": "att_99780fadc690442a",
+      "branch": "feat/bee-ci-manifest",
+      "created_at": "2026-11-13T00:41:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:41:50Z"
+    },
+    {
+      "attempt_id": "att_da0f903a0b78488f",
+      "branch": "feat/bee-ci-poller",
+      "created_at": "2026-11-13T00:41:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:41:50Z"
+    },
+    {
+      "attempt_id": "att_a2dc962af4a44734",
+      "branch": "feat/bee-ci-status",
+      "created_at": "2026-11-13T00:41:51Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:41:51Z"
+    },
+    {
+      "attempt_id": "att_33b3ada24c394f19",
+      "branch": "feat/bee-ci-compare",
+      "created_at": "2026-11-13T00:41:59Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:41:59Z"
+    },
+    {
+      "attempt_id": "att_93d62a8c10b54764",
+      "branch": "feat/bee-ci-windows",
+      "created_at": "2026-11-13T00:42:00Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:42:00Z"
+    },
+    {
+      "attempt_id": "att_0692723afdce4183",
+      "branch": "feat/bee-ci-dispatch",
+      "created_at": "2026-11-13T00:48:07Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:48:07Z"
+    },
+    {
+      "attempt_id": "att_ef0d693ee0d04a69",
+      "branch": "feat/bee-ci-linux",
+      "created_at": "2026-11-13T00:48:08Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:48:08Z"
+    },
+    {
+      "attempt_id": "att_21e1257c669a411d",
+      "branch": "feat/bee-ci-evidence",
+      "created_at": "2026-11-13T00:50:52Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:50:52Z"
+    },
+    {
+      "attempt_id": "att_9287b18743614a8d",
+      "branch": "feat/bee-ci-report",
+      "created_at": "2026-11-13T00:50:53Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:50:53Z"
+    },
+    {
+      "attempt_id": "att_48a67ad229f04a32",
+      "branch": "feat/bee-ci-conformance",
+      "created_at": "2026-11-13T00:55:58Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:55:58Z"
+    },
+    {
+      "attempt_id": "att_fbd81e763ebd404e",
+      "branch": "fix/launcher-cgnat-policy",
+      "created_at": "2026-11-13T00:55:58Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T00:55:58Z"
+    },
+    {
+      "attempt_id": "att_a95cbee395cb4159",
+      "branch": "feat/bee-ci-manifest",
+      "created_at": "2026-11-13T01:00:16Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:00:16Z"
+    },
+    {
+      "attempt_id": "att_969d63e3a8f745b9",
+      "branch": "feat/bee-ci-status",
+      "created_at": "2026-11-13T01:00:17Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:00:17Z"
+    },
+    {
+      "attempt_id": "att_bcac9f017869492c",
+      "branch": "feat/bee-ci-poller",
+      "created_at": "2026-11-13T01:00:17Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:00:17Z"
+    },
+    {
+      "attempt_id": "att_5a2242b3128843bd",
+      "branch": "feat/bee-ci-windows",
+      "created_at": "2026-11-13T01:13:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:13:50Z"
+    },
+    {
+      "attempt_id": "att_9bc1ec99341b41dc",
+      "branch": "feat/bee-ci-compare",
+      "created_at": "2026-11-13T01:13:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:13:50Z"
+    },
+    {
+      "attempt_id": "att_b947378847db408b",
+      "branch": "feat/bee-ci-linux",
+      "created_at": "2026-11-13T01:13:51Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:13:51Z"
+    },
+    {
+      "attempt_id": "att_e9b489fa8c564c94",
+      "branch": "feat/bee-ci-dispatch",
+      "created_at": "2026-11-13T01:13:52Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:13:52Z"
+    },
+    {
+      "attempt_id": "att_85107cae818a4106",
+      "branch": "feat/bee-ci-evidence",
+      "created_at": "2026-11-13T01:14:00Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:14:00Z"
+    },
+    {
+      "attempt_id": "att_2e0fe9cb55214162",
+      "branch": "feat/bee-ci-report",
+      "created_at": "2026-11-13T01:14:01Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:14:01Z"
+    },
+    {
+      "attempt_id": "att_5fd0a3cd9c85477f",
+      "branch": "feat/bee-ci-conformance",
+      "created_at": "2026-11-13T01:14:02Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:14:02Z"
+    },
+    {
+      "attempt_id": "att_e510ad5a0a244be9",
+      "branch": "feat/bee-ci-pipeline",
+      "created_at": "2026-11-13T01:17:28Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:17:28Z"
+    },
+    {
+      "attempt_id": "att_9b16785867aa4a41",
+      "branch": "feat/bee-ci-record",
+      "created_at": "2026-11-13T01:17:29Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:17:29Z"
+    },
+    {
+      "attempt_id": "att_fd12c28df1894ed6",
+      "branch": "feat/bee-ci-docs",
+      "created_at": "2026-11-13T01:17:29Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:17:29Z"
+    },
+    {
+      "attempt_id": "att_60e5870b6b124f91",
+      "branch": "feat/bee-ci-pipeline",
+      "created_at": "2026-11-13T01:31:21Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:31:21Z"
+    },
+    {
+      "attempt_id": "att_81678dce7eec428b",
+      "branch": "feat/bee-ci-record",
+      "created_at": "2026-11-13T01:31:21Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:31:21Z"
+    },
+    {
+      "attempt_id": "att_10aaa2e623154739",
+      "branch": "feat/bee-ci-docs",
+      "created_at": "2026-11-13T01:31:22Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:31:22Z"
+    },
+    {
+      "attempt_id": "att_f6f25474e8d14f90",
+      "branch": "feat/bee-ci-shadow-cli",
+      "created_at": "2026-11-13T01:36:07Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:36:07Z"
+    },
+    {
+      "attempt_id": "att_d31db210295e42d0",
+      "branch": "feat/bee-ci-shadow-cli",
+      "created_at": "2026-11-13T01:46:21Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:46:21Z"
+    },
+    {
+      "attempt_id": "att_6f0612730acd4df5",
+      "branch": "feat/bee-ci-shadow-api-fix",
+      "created_at": "2026-11-13T01:49:24Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T01:49:24Z"
+    },
+    {
+      "attempt_id": "att_95738ec5db6441cb",
+      "branch": "feat/acdd-review-c1-c6-port",
+      "created_at": "2026-11-13T02:09:06Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T02:09:06Z"
+    },
+    {
+      "attempt_id": "att_7f44e06a764043ec",
+      "branch": "feat/bee-ci-job-commands",
+      "created_at": "2026-11-13T02:33:53Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T02:33:53Z"
+    },
+    {
+      "attempt_id": "att_4f6ddb155190475f",
+      "branch": "chore/bump-version-0-1-16",
+      "created_at": "2026-11-13T03:07:26Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T03:07:26Z"
+    },
+    {
+      "attempt_id": "att_707ebf461f704d79",
+      "branch": "feat/bee-ci-workflow-jobs",
+      "created_at": "2026-11-13T03:17:57Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T03:17:57Z"
+    },
+    {
+      "attempt_id": "att_8ecb01d8ef0a48f3",
+      "branch": "feat/bee-ci-real-dispatch",
+      "created_at": "2026-11-13T03:18:43Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T03:18:43Z"
+    },
+    {
+      "attempt_id": "att_769b06c6f7054776",
+      "branch": "feat/oa3-client-artifact",
+      "created_at": "2026-11-13T04:03:29Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T04:03:29Z"
+    },
+    {
+      "attempt_id": "att_c1435643c0c24c97",
+      "branch": "feat/acdd-check-revision-drift",
+      "created_at": "2026-11-13T04:17:37Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T04:17:37Z"
+    },
+    {
+      "attempt_id": "att_d7a4b333ec4d46c3",
+      "branch": "feat/acdd-check-duplicate-ac",
+      "created_at": "2026-11-13T04:17:37Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T04:17:37Z"
+    },
+    {
+      "attempt_id": "att_0a6f08b5e90c4097",
+      "branch": "feat/acdd-check-report-totals",
+      "created_at": "2026-11-13T04:17:38Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-13T04:17:38Z"
+    },
+    {
+      "attempt_id": "att_d1368ff77cba4de3",
+      "branch": null,
+      "created_at": "2026-11-13T05:23:17Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-13T05:46:26Z"
+    },
+    {
+      "attempt_id": "att_3ed3152199ef4195",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T17:09:17Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T17:09:17Z"
+    },
+    {
+      "attempt_id": "att_733ced1fbd6e4026",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T17:09:18Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T17:09:18Z"
+    },
+    {
+      "attempt_id": "att_bd0ffb15429b477a",
+      "branch": "feat/bee-landed-events",
+      "created_at": "2026-11-14T17:09:18Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T17:09:18Z"
+    },
+    {
+      "attempt_id": "att_423e26f6431747d0",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T17:13:25Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T17:13:25Z"
+    },
+    {
+      "attempt_id": "att_fe38da0b22e1495c",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T17:13:25Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T17:13:25Z"
+    },
+    {
+      "attempt_id": "att_940a68bd151e42af",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T18:28:52Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T18:28:52Z"
+    },
+    {
+      "attempt_id": "att_2f742fbb86a24297",
+      "branch": "feat/feature-packet",
+      "created_at": "2026-11-14T18:28:53Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T18:28:53Z"
+    },
+    {
+      "attempt_id": "att_97b37309d105423e",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T18:28:53Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T18:28:53Z"
+    },
+    {
+      "attempt_id": "att_5858716867334861",
+      "branch": "feat/bee-landed",
+      "created_at": "2026-11-14T18:58:01Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T18:58:01Z"
+    },
+    {
+      "attempt_id": "att_0bb3601de6714090",
+      "branch": "feat/bee-landed-events",
+      "created_at": "2026-11-14T19:20:55Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T19:20:55Z"
+    },
+    {
+      "attempt_id": "att_8c1ebd21ee984ca4",
+      "branch": "feat/bee-landed-events",
+      "created_at": "2026-11-14T19:20:55Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T19:20:55Z"
+    },
+    {
+      "attempt_id": "att_079bf17fd8ed48e3",
+      "branch": "feat/m5-bee-events",
+      "created_at": "2026-11-14T19:20:56Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T19:20:56Z"
+    },
+    {
+      "attempt_id": "att_7d148a8dea5e4131",
+      "branch": "feat/bee-landed-events",
+      "created_at": "2026-11-14T19:51:43Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-14T19:51:43Z"
+    },
+    {
+      "attempt_id": "att_bcf04b9a916943c9",
+      "branch": "feat/project-planner",
+      "created_at": "2026-11-14T20:42:31Z",
+      "model": null,
+      "project": null,
+      "state": "failed",
+      "updated_at": "2026-11-14T20:46:18Z"
+    },
+    {
+      "attempt_id": "att_4a32e0d26895421b",
+      "branch": "feat/pilot-store",
+      "created_at": "2026-11-14T20:42:32Z",
+      "model": null,
+      "project": null,
+      "state": "failed",
+      "updated_at": "2026-11-14T20:45:47Z"
+    },
+    {
+      "attempt_id": "att_4c31dea960464b85",
+      "branch": "feat/pilot-http",
+      "created_at": "2026-11-14T20:42:32Z",
+      "model": null,
+      "project": null,
+      "state": "dispatched",
+      "updated_at": "2026-11-14T20:42:32Z"
+    },
+    {
+      "attempt_id": "att_88d3a2bf45ab4cec",
+      "branch": "feat/pilot-ui",
+      "created_at": "2026-11-14T20:42:33Z",
+      "model": null,
+      "project": null,
+      "state": "dispatched",
+      "updated_at": "2026-11-14T20:42:33Z"
+    },
+    {
+      "attempt_id": "att_ee018a5abaf942f2",
+      "branch": "feat/pilot-store",
+      "created_at": "2026-11-14T20:48:39Z",
+      "model": null,
+      "project": null,
+      "state": "failed",
+      "updated_at": "2026-11-14T20:51:23Z"
+    },
+    {
+      "attempt_id": "att_85f6fab67d78443d",
+      "branch": "feat/pilot-store2",
+      "created_at": "2026-11-14T20:51:45Z",
+      "model": null,
+      "project": null,
+      "state": "failed",
+      "updated_at": "2026-11-14T20:53:26Z"
+    },
+    {
+      "attempt_id": "att_d968f5c8c97841b8",
+      "branch": "feat/pilot-store3",
+      "created_at": "2026-11-14T20:53:42Z",
+      "model": null,
+      "project": null,
+      "state": "failed",
+      "updated_at": "2026-11-14T20:55:22Z"
+    },
+    {
+      "attempt_id": "att_6752b3d0a2bd4167",
+      "branch": null,
+      "created_at": "2026-11-15T00:30:31Z",
+      "model": null,
+      "project": "rizzstack-smoke",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:30:31Z"
+    },
+    {
+      "attempt_id": "att_baf4b1557796408d",
+      "branch": null,
+      "created_at": "2026-11-15T00:32:33Z",
+      "model": null,
+      "project": "rizzstack-smoke-dde2",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:32:33Z"
+    },
+    {
+      "attempt_id": "att_c3d1fdc1a72a4f2f",
+      "branch": null,
+      "created_at": "2026-11-15T00:34:09Z",
+      "model": null,
+      "project": "rizzstack-smoke-notdd",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:34:09Z"
+    },
+    {
+      "attempt_id": "att_0fa2bca5cb114685",
+      "branch": null,
+      "created_at": "2026-11-15T00:35:28Z",
+      "model": null,
+      "project": "rizzstack-smoke-notdd2",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:35:28Z"
+    },
+    {
+      "attempt_id": "att_7595978abe7647e6",
+      "branch": null,
+      "created_at": "2026-11-15T00:38:41Z",
+      "model": null,
+      "project": "rizzstack-smoke-notdd3",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:38:41Z"
+    },
+    {
+      "attempt_id": "att_bbdfce7879ac4638",
+      "branch": null,
+      "created_at": "2026-11-15T00:46:58Z",
+      "model": null,
+      "project": "smoke-firejail",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:46:58Z"
+    },
+    {
+      "attempt_id": "att_f109fb3e77bd4970",
+      "branch": null,
+      "created_at": "2026-11-15T00:48:17Z",
+      "model": null,
+      "project": "smoke-firejail2",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T00:48:17Z"
+    },
+    {
+      "attempt_id": "att_1c51dad7eb474fe0",
+      "branch": null,
+      "created_at": "2026-11-15T00:52:59Z",
+      "model": null,
+      "project": "smoke-firejail4",
+      "state": "accepted",
+      "updated_at": "2026-11-15T00:53:37Z"
+    },
+    {
+      "attempt_id": "att_61fb9e20901446e6",
+      "branch": null,
+      "created_at": "2026-11-15T00:55:05Z",
+      "model": null,
+      "project": "smoke-firejail5",
+      "state": "accepted",
+      "updated_at": "2026-11-15T00:55:39Z"
+    },
+    {
+      "attempt_id": "att_1556db3dd6d9452f",
+      "branch": "feat/t002-contracts",
+      "created_at": "2026-11-15T01:05:15Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:05:15Z"
+    },
+    {
+      "attempt_id": "att_124a3eb1ede54a9d",
+      "branch": "feat/t010-slot-core",
+      "created_at": "2026-11-15T01:08:31Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:31Z"
+    },
+    {
+      "attempt_id": "att_974cd595a1144614",
+      "branch": "feat/t014-shop",
+      "created_at": "2026-11-15T01:08:32Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:32Z"
+    },
+    {
+      "attempt_id": "att_b30d73a91c2547ef",
+      "branch": "feat/t011-wirings",
+      "created_at": "2026-11-15T01:08:32Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:32Z"
+    },
+    {
+      "attempt_id": "att_21f8992cce124679",
+      "branch": "feat/t030-content",
+      "created_at": "2026-11-15T01:08:33Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:33Z"
+    },
+    {
+      "attempt_id": "att_52e7b24c9e854eae",
+      "branch": "feat/t060-audio",
+      "created_at": "2026-11-15T01:08:33Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:33Z"
+    },
+    {
+      "attempt_id": "att_878196a67ac7464e",
+      "branch": "feat/t070-ui-shell",
+      "created_at": "2026-11-15T01:08:49Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:49Z"
+    },
+    {
+      "attempt_id": "att_b1d79a8176d44681",
+      "branch": "feat/t071-board-render",
+      "created_at": "2026-11-15T01:08:51Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:51Z"
+    },
+    {
+      "attempt_id": "att_b2aaeea78dcb4bea",
+      "branch": "feat/t040-assets",
+      "created_at": "2026-11-15T01:08:53Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:08:53Z"
+    },
+    {
+      "attempt_id": "att_f6639bd0dee24dfb",
+      "branch": "feat/t012-run-save",
+      "created_at": "2026-11-15T01:17:59Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:17:59Z"
+    },
+    {
+      "attempt_id": "att_eaef37a9156b472f",
+      "branch": "feat/t013-effects-items",
+      "created_at": "2026-11-15T01:18:00Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:18:00Z"
+    },
+    {
+      "attempt_id": "att_ae2f53c8698c4a0c",
+      "branch": "feat/t052-anim-wiring",
+      "created_at": "2026-11-15T01:19:03Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:19:03Z"
+    },
+    {
+      "attempt_id": "att_38838af42c9445c0",
+      "branch": "feat/t015-bosses",
+      "created_at": "2026-11-15T01:27:27Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:27:27Z"
+    },
+    {
+      "attempt_id": "att_4710fcdd35434db9",
+      "branch": "feat/t015-bosses",
+      "created_at": "2026-11-15T01:27:50Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:27:50Z"
+    },
+    {
+      "attempt_id": "att_974271ffc21f4d28",
+      "branch": "feat/t080-gamecore",
+      "created_at": "2026-11-15T01:34:35Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:34:35Z"
+    },
+    {
+      "attempt_id": "att_8467001f24634d2d",
+      "branch": "feat/t081-sim",
+      "created_at": "2026-11-15T01:48:44Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:48:44Z"
+    },
+    {
+      "attempt_id": "att_56aaa0a291d94f1a",
+      "branch": "feat/t072-table",
+      "created_at": "2026-11-15T01:49:37Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:49:37Z"
+    },
+    {
+      "attempt_id": "att_c746f062fe264402",
+      "branch": "feat/t073-meta",
+      "created_at": "2026-11-15T01:49:38Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T01:49:38Z"
+    },
+    {
+      "attempt_id": "att_c0c48cf1b2e2493a",
+      "branch": "feat/t082-balance",
+      "created_at": "2026-11-15T02:13:51Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T02:13:51Z"
+    },
+    {
+      "attempt_id": "att_1c89bf21f20b4fe3",
+      "branch": "feat/t091-hardening",
+      "created_at": "2026-11-15T02:13:52Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T02:13:52Z"
+    },
+    {
+      "attempt_id": "att_47c7f4cfb5d14347",
+      "branch": "feat/t090-e2e",
+      "created_at": "2026-11-15T02:53:54Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T02:53:54Z"
+    },
+    {
+      "attempt_id": "att_0b1097b6594d42db",
+      "branch": "feat/t092-docs",
+      "created_at": "2026-11-15T02:53:57Z",
+      "model": null,
+      "project": "jackpotsyndicate",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T02:53:57Z"
+    },
+    {
+      "attempt_id": "att_2fb26a8d8d354cb3",
+      "branch": "smoke/zoo-glm53-doc",
+      "created_at": "2026-11-15T18:25:36Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-15T19:28:25Z"
+    },
+    {
+      "attempt_id": "att_809acc2fa11c4b1e",
+      "branch": "smoke/zoo-default-routing",
+      "created_at": "2026-11-15T21:10:28Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T21:10:28Z"
+    },
+    {
+      "attempt_id": "att_d211a1f4c8be483a",
+      "branch": "smoke/zoo-routing-proof",
+      "created_at": "2026-11-15T21:10:57Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T21:10:57Z"
+    },
+    {
+      "attempt_id": "att_67ee58f546c94c73",
+      "branch": "smoke/zoo-unnamed-proof",
+      "created_at": "2026-11-15T21:41:33Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T21:41:33Z"
+    },
+    {
+      "attempt_id": "att_8853b5e00a5a4b57",
+      "branch": "smoke/zoo-unnamed-proof",
+      "created_at": "2026-11-15T21:42:18Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T21:42:18Z"
+    },
+    {
+      "attempt_id": "att_42801aadbc6d49ce",
+      "branch": "feat/version-source",
+      "created_at": "2026-11-15T21:52:18Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-15T22:02:37Z"
+    },
+    {
+      "attempt_id": "att_6b63472c049048a9",
+      "branch": "feat/route-preview",
+      "created_at": "2026-11-15T21:52:18Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-15T22:02:25Z"
+    },
+    {
+      "attempt_id": "att_0aeec831a2a6479b",
+      "branch": "feat/route-preview",
+      "created_at": "2026-11-15T22:02:46Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-15T22:07:46Z"
+    },
+    {
+      "attempt_id": "att_53995680e5024c3d",
+      "branch": "feat/version-source",
+      "created_at": "2026-11-15T22:02:55Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-15T22:08:49Z"
+    },
+    {
+      "attempt_id": "att_40708538d8694892",
+      "branch": "feat/route-preview",
+      "created_at": "2026-11-15T22:09:46Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-15T22:19:26Z"
+    },
+    {
+      "attempt_id": "att_0ba5a6e05f2b4072",
+      "branch": "smoke/deploy-cbf2d8e",
+      "created_at": "2026-11-15T22:45:47Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-15T22:45:47Z"
+    },
+    {
+      "attempt_id": "att_3cee2d90f5f04001",
+      "branch": "feat/route-preview-op",
+      "created_at": "2026-11-15T23:11:10Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-15T23:50:55Z"
+    },
+    {
+      "attempt_id": "att_9238325656a44709",
+      "branch": "fix/tiktoken-cache-jail",
+      "created_at": "2026-11-15T23:11:11Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-15T23:50:49Z"
+    },
+    {
+      "attempt_id": "att_07079536e35d4fa0",
+      "branch": "feat/route-preview-op",
+      "created_at": "2026-11-15T23:51:03Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T00:21:24Z"
+    },
+    {
+      "attempt_id": "att_b6392762fef24498",
+      "branch": "docs/contract-precedence",
+      "created_at": "2026-11-16T00:03:05Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T00:03:05Z"
+    },
+    {
+      "attempt_id": "att_b7c67060d5ea4661",
+      "branch": "fix/recovery-envelope-refusals",
+      "created_at": "2026-11-16T00:03:05Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T00:03:05Z"
+    },
+    {
+      "attempt_id": "att_c70820b797cc4b86",
+      "branch": "docs/sandbox-comment-and-home-test",
+      "created_at": "2026-11-16T00:03:06Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T00:23:04Z"
+    },
+    {
+      "attempt_id": "att_cf75521ab96b4b6f",
+      "branch": "feat/route-preview-op",
+      "created_at": "2026-11-16T00:22:24Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T00:51:32Z"
+    },
+    {
+      "attempt_id": "att_0282c3a5ecf14fba",
+      "branch": "smoke/deploy-e9236b6",
+      "created_at": "2026-11-16T00:22:26Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T00:22:26Z"
+    },
+    {
+      "attempt_id": "att_5aea9a2705e74758",
+      "branch": "docs/sandbox-comment-and-home-test",
+      "created_at": "2026-11-16T00:23:43Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T00:37:20Z"
+    },
+    {
+      "attempt_id": "att_90f12180fce14be3",
+      "branch": "docs/contract-precedence",
+      "created_at": "2026-11-16T00:23:48Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T00:37:29Z"
+    },
+    {
+      "attempt_id": "att_dc82c4d387c94bae",
+      "branch": "fix/gatec-import-time-env",
+      "created_at": "2026-11-16T00:23:56Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T00:53:40Z"
+    },
+    {
+      "attempt_id": "att_3d2abe6461e04adf",
+      "branch": "feat/project-model-and-hot-config",
+      "created_at": "2026-11-16T00:36:11Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T00:56:26Z"
+    },
+    {
+      "attempt_id": "att_597c6861d18544c5",
+      "branch": "feat/pinned-sources-setup",
+      "created_at": "2026-11-16T00:36:11Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T00:54:56Z"
+    },
+    {
+      "attempt_id": "att_c2af7816de2547b8",
+      "branch": "feat/route-preview-op",
+      "created_at": "2026-11-16T00:52:27Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T02:02:58Z"
+    },
+    {
+      "attempt_id": "att_606cfb3fb1b3493f",
+      "branch": "smoke/deploy-e48328fe",
+      "created_at": "2026-11-16T01:20:26Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T01:20:26Z"
+    },
+    {
+      "attempt_id": "att_641b8119a39a426d",
+      "branch": "feat/route-preview-op",
+      "created_at": "2026-11-16T01:20:59Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T02:11:10Z"
+    },
+    {
+      "attempt_id": "att_364656bbf2c444fb",
+      "branch": "smoke/deploy-e48328fe-unnamed",
+      "created_at": "2026-11-16T01:21:00Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T01:21:00Z"
+    },
+    {
+      "attempt_id": "att_df1d91d92f0349d7",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T02:27:32Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T02:27:32Z"
+    },
+    {
+      "attempt_id": "att_65662220a0e24f07",
+      "branch": "docs/fifth-tool-discovery",
+      "created_at": "2026-11-16T02:27:33Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T02:39:31Z"
+    },
+    {
+      "attempt_id": "att_5498bd05b86e4f88",
+      "branch": "feat/authorize-recovery-flags",
+      "created_at": "2026-11-16T02:41:58Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T03:07:06Z"
+    },
+    {
+      "attempt_id": "att_fdb50899666f4d5d",
+      "branch": "feat/authorize-recovery-flags",
+      "created_at": "2026-11-16T03:09:18Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T03:09:18Z"
+    },
+    {
+      "attempt_id": "att_a65a4c76d7e64ce0",
+      "branch": "feat/authorize-recovery-flags",
+      "created_at": "2026-11-16T03:24:41Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T03:24:41Z"
+    },
+    {
+      "attempt_id": "att_033d71bb719b4024",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T03:24:51Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T03:24:51Z"
+    },
+    {
+      "attempt_id": "att_32c07494c31c4e3b",
+      "branch": "smoke/docker-recovery-proof",
+      "created_at": "2026-11-16T04:03:30Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T04:03:30Z"
+    },
+    {
+      "attempt_id": "att_4c678adff0954a42",
+      "branch": "feat/authorize-recovery-flags",
+      "created_at": "2026-11-16T04:08:12Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T04:22:04Z"
+    },
+    {
+      "attempt_id": "att_6c50c323e2b3470c",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T04:08:13Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T04:25:07Z"
+    },
+    {
+      "attempt_id": "att_c6047d1539e34988",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T04:28:37Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T04:43:52Z"
+    },
+    {
+      "attempt_id": "att_99300d3827cd44f3",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T04:52:38Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T05:00:38Z"
+    },
+    {
+      "attempt_id": "att_d281ae17051e4c50",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T05:07:42Z",
+      "model": null,
+      "project": null,
+      "state": "dispatched",
+      "updated_at": "2026-11-16T05:07:42Z"
+    },
+    {
+      "attempt_id": "att_8e2c3a240448491d",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T05:08:28Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T05:27:01Z"
+    },
+    {
+      "attempt_id": "att_6884907dc73a443d",
+      "branch": "fix/tiktoken-cache-validation",
+      "created_at": "2026-11-16T05:30:32Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T05:42:39Z"
+    },
+    {
+      "attempt_id": "att_1d1182514f36418e",
+      "branch": null,
+      "created_at": "2026-11-16T06:06:48Z",
+      "model": null,
+      "project": "rizzstack-smoke",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T06:06:48Z"
+    },
+    {
+      "attempt_id": "att_9c523a85e06c483f",
+      "branch": null,
+      "created_at": "2026-11-16T06:10:21Z",
+      "model": null,
+      "project": "rizzstack-smoke",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T06:10:21Z"
+    },
+    {
+      "attempt_id": "att_22d6db21e1274e90",
+      "branch": null,
+      "created_at": "2026-11-16T06:11:44Z",
+      "model": null,
+      "project": "rizzstack-smoke",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T06:11:44Z"
+    },
+    {
+      "attempt_id": "att_79959a97d1874753",
+      "branch": "feat/authorize-recovery-flags",
+      "created_at": "2026-11-16T06:29:12Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T06:53:19Z"
+    },
+    {
+      "attempt_id": "att_88f0e8130a694b98",
+      "branch": "fix/provision-reconcile-repost",
+      "created_at": "2026-11-16T06:35:39Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T06:42:30Z"
+    },
+    {
+      "attempt_id": "att_8e0dc4aa6cc24312",
+      "branch": null,
+      "created_at": "2026-11-16T08:23:49Z",
+      "model": null,
+      "project": "rizzstack-smoke",
+      "state": "accepted",
+      "updated_at": "2026-11-16T08:24:54Z"
+    },
+    {
+      "attempt_id": "att_a26db3aa8ee54eea",
+      "branch": "feat/regression-attribution",
+      "created_at": "2026-11-16T08:29:04Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T09:22:01Z"
+    },
+    {
+      "attempt_id": "att_348fb48294b7412e",
+      "branch": "feat/git-pr-observer",
+      "created_at": "2026-11-16T08:29:10Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T08:44:25Z"
+    },
+    {
+      "attempt_id": "att_b45f065efac34794",
+      "branch": "fix/queue-refusal-reporting",
+      "created_at": "2026-11-16T08:29:16Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T09:04:09Z"
+    },
+    {
+      "attempt_id": "att_376ec1db3b284193",
+      "branch": "feat/obs-snapshot-collector",
+      "created_at": "2026-11-16T08:32:11Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T08:49:26Z"
+    },
+    {
+      "attempt_id": "att_e73d55dc7b1c4b37",
+      "branch": "feat/rizzstack-observatory",
+      "created_at": "2026-11-16T08:32:29Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "failed",
+      "updated_at": "2026-11-16T09:16:40Z"
+    },
+    {
+      "attempt_id": "att_96fe0fc880a04bdb",
+      "branch": "fix/otlp-strict-read-and-compact-unknown",
+      "created_at": "2026-11-16T08:36:37Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T09:16:33Z"
+    },
+    {
+      "attempt_id": "att_ce8e8628328d4a66",
+      "branch": "feat/git-pr-observer",
+      "created_at": "2026-11-16T08:47:35Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T09:02:39Z"
+    },
+    {
+      "attempt_id": "att_aa0a7b0057a24cc0",
+      "branch": "feat/obs-snapshot-collector",
+      "created_at": "2026-11-16T08:50:00Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T09:04:15Z"
+    },
+    {
+      "attempt_id": "att_59420861af414bbd",
+      "branch": "docs/changelog-43-44",
+      "created_at": "2026-11-16T08:55:28Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T09:03:52Z"
+    },
+    {
+      "attempt_id": "att_d79b1be743dd4ebe",
+      "branch": "feat/obs-snapshot-collector",
+      "created_at": "2026-11-16T09:05:06Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T09:21:24Z"
+    },
+    {
+      "attempt_id": "att_4ef1b6db207c47ef",
+      "branch": "feat/git-pr-observer",
+      "created_at": "2026-11-16T09:08:02Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T09:08:02Z"
+    },
+    {
+      "attempt_id": "att_a1c960ed1cf64128",
+      "branch": "fix/workbench-browser-reds",
+      "created_at": "2026-11-16T09:23:08Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T09:23:08Z"
+    },
+    {
+      "attempt_id": "att_cb4b07b96bc74d79",
+      "branch": "feat/rizzstack-observatory",
+      "created_at": "2026-11-16T09:46:02Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T10:05:42Z"
+    },
+    {
+      "attempt_id": "att_a9e0a3dde24a43dd",
+      "branch": "docs/obs-snapshot-docs",
+      "created_at": "2026-11-16T09:48:17Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T09:57:28Z"
+    },
+    {
+      "attempt_id": "att_5390c82080d64730",
+      "branch": "feat/rizzstack-observatory",
+      "created_at": "2026-11-16T10:09:36Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "failed",
+      "updated_at": "2026-11-16T10:27:35Z"
+    },
+    {
+      "attempt_id": "att_34bd17398fe148cb",
+      "branch": "feat/rizzstack-observatory",
+      "created_at": "2026-11-16T10:28:42Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T10:28:42Z"
+    },
+    {
+      "attempt_id": "att_02b6b830325046df",
+      "branch": "docs/w6-completion-design",
+      "created_at": "2026-11-16T11:08:21Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T11:16:06Z"
+    },
+    {
+      "attempt_id": "att_7813289de8fb4151",
+      "branch": "fix/budget-timeout-enforcement",
+      "created_at": "2026-11-16T11:17:16Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T11:35:16Z"
+    },
+    {
+      "attempt_id": "att_8638698eb8794820",
+      "branch": "fix/queue-position-toctou",
+      "created_at": "2026-11-16T12:02:06Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T12:09:48Z"
+    },
+    {
+      "attempt_id": "att_6d7af71dc5454d7f",
+      "branch": "feat/multi-dependency-packets",
+      "created_at": "2026-11-16T12:12:07Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T12:34:08Z"
+    },
+    {
+      "attempt_id": "att_e71a6f34eade44c3",
+      "branch": "docs/wave4-packets",
+      "created_at": "2026-11-16T12:12:11Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T12:27:40Z"
+    },
+    {
+      "attempt_id": "att_aaac412500054de8",
+      "branch": "feat/native-completion-events",
+      "created_at": "2026-11-16T12:12:23Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-16T12:53:12Z"
+    },
+    {
+      "attempt_id": "att_5cf0f5ee6fc04340",
+      "branch": "revive/job-approval-and-trial-harness",
+      "created_at": "2026-11-16T12:14:43Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T12:14:43Z"
+    },
+    {
+      "attempt_id": "att_b38c71ab6d084d9b",
+      "branch": "feat/usage-ledger-production",
+      "created_at": "2026-11-16T12:14:56Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "failed",
+      "updated_at": "2026-11-16T12:53:12Z"
+    },
+    {
+      "attempt_id": "att_0ab66f7a82b54783",
+      "branch": "fix/scanner-auth-bearing-overmatch",
+      "created_at": "2026-11-16T12:16:31Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T13:13:43Z"
+    },
+    {
+      "attempt_id": "att_af5ec6e2eebd450d",
+      "branch": "fix/zoo-coordinator-classification",
+      "created_at": "2026-11-16T12:16:37Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T12:27:28Z"
+    },
+    {
+      "attempt_id": "att_74c47b83662a4cba",
+      "branch": "docs/bee-ci-acceptance-recheck",
+      "created_at": "2026-11-16T12:16:43Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T12:16:43Z"
+    },
+    {
+      "attempt_id": "att_123dbd0d7a644743",
+      "branch": "fix/budget-followups-f1-f2-t1",
+      "created_at": "2026-11-16T12:18:49Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T12:51:08Z"
+    },
+    {
+      "attempt_id": "att_71d5f595acef4226",
+      "branch": "revive/job-approval-and-trial-harness",
+      "created_at": "2026-11-16T12:29:57Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T12:39:25Z"
+    },
+    {
+      "attempt_id": "att_ba4ae5e2b77b4ac5",
+      "branch": "docs/changelog-post46",
+      "created_at": "2026-11-16T12:32:48Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T13:14:26Z"
+    },
+    {
+      "attempt_id": "att_e5a7ee58188043e5",
+      "branch": "fix/integrated-not-pr-merged-detection",
+      "created_at": "2026-11-16T12:36:40Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T13:51:54Z"
+    },
+    {
+      "attempt_id": "att_536c46981d8c4ade",
+      "branch": "feat/obs-snapshot-same-origin-proxy",
+      "created_at": "2026-11-16T12:51:39Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "failed",
+      "updated_at": "2026-11-16T13:51:51Z"
+    },
+    {
+      "attempt_id": "att_6c88cc620eb940db",
+      "branch": "feat/trial-harness",
+      "created_at": "2026-11-16T12:52:42Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T13:12:23Z"
+    },
+    {
+      "attempt_id": "att_888e91fa90a24f7b",
+      "branch": "feat/usage-ledger-production",
+      "created_at": "2026-11-16T12:55:32Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T13:12:42Z"
+    },
+    {
+      "attempt_id": "att_5e33edfbde664971",
+      "branch": "docs/f15-f19-packets",
+      "created_at": "2026-11-16T12:56:51Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T13:51:51Z"
+    },
+    {
+      "attempt_id": "att_9557242ecc8a41ea",
+      "branch": "fix/budget-stop-residuals",
+      "created_at": "2026-11-16T13:03:10Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T13:49:27Z"
+    },
+    {
+      "attempt_id": "att_b04bcdc083b44b01",
+      "branch": "feat/cli-attempts-status",
+      "created_at": "2026-11-16T13:04:03Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T13:49:08Z"
+    },
+    {
+      "attempt_id": "att_6854bad4baf6489c",
+      "branch": "fix/obs-fleet-health-wiring",
+      "created_at": "2026-11-16T13:04:12Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T13:49:11Z"
+    },
+    {
+      "attempt_id": "att_76b452e6bfaa4f13",
+      "branch": "feat/rizzstack-doctor",
+      "created_at": "2026-11-16T13:20:07Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T14:14:20Z"
+    },
+    {
+      "attempt_id": "att_cea60b99bbc240a8",
+      "branch": "feat/coordinator-action-queue",
+      "created_at": "2026-11-16T13:40:20Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T14:03:08Z"
+    },
+    {
+      "attempt_id": "att_35928bff403647ab",
+      "branch": "feat/cli-attempts-status",
+      "created_at": "2026-11-16T13:52:08Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:20:45Z"
+    },
+    {
+      "attempt_id": "att_d30c1a3e1aad4267",
+      "branch": "fix/obs-fleet-health-wiring",
+      "created_at": "2026-11-16T13:52:22Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T14:03:03Z"
+    },
+    {
+      "attempt_id": "att_088a3e566b1b4385",
+      "branch": "docs/f15-f19-packets",
+      "created_at": "2026-11-16T13:54:11Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T14:03:08Z"
+    },
+    {
+      "attempt_id": "att_a60450a14e7d4014",
+      "branch": "feat/usage-rollup",
+      "created_at": "2026-11-16T13:57:52Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T13:57:52Z"
+    },
+    {
+      "attempt_id": "att_411c9bda00594bb5",
+      "branch": "feat/usage-rollup",
+      "created_at": "2026-11-16T14:02:55Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:24:29Z"
+    },
+    {
+      "attempt_id": "att_d0c249683091418f",
+      "branch": "docs/f15-f19-packets",
+      "created_at": "2026-11-16T14:03:57Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T14:23:05Z"
+    },
+    {
+      "attempt_id": "att_be494d2d27334a08",
+      "branch": "feat/coordinator-action-queue",
+      "created_at": "2026-11-16T14:04:04Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:56:04Z"
+    },
+    {
+      "attempt_id": "att_ce55095e6c1446bc",
+      "branch": "fix/obs-fleet-health-wiring",
+      "created_at": "2026-11-16T14:04:12Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T14:22:42Z"
+    },
+    {
+      "attempt_id": "att_cd0ed25a20cd4e8f",
+      "branch": "feat/usage-ingest-outbox-source",
+      "created_at": "2026-11-16T14:13:00Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:31:02Z"
+    },
+    {
+      "attempt_id": "att_abfa6e2bc18445bb",
+      "branch": "feat/rizzstack-doctor",
+      "created_at": "2026-11-16T14:18:37Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:55:45Z"
+    },
+    {
+      "attempt_id": "att_785a40978c7545ea",
+      "branch": "docs/f15-f19-packets",
+      "created_at": "2026-11-16T14:24:13Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:55:51Z"
+    },
+    {
+      "attempt_id": "att_5fa35a44e65243c7",
+      "branch": "docs/r4-run-command-design",
+      "created_at": "2026-11-16T14:25:47Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:54:18Z"
+    },
+    {
+      "attempt_id": "att_82bb8801ed0a4170",
+      "branch": "feat/observatory-v2-design",
+      "created_at": "2026-11-16T14:27:19Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:54:37Z"
+    },
+    {
+      "attempt_id": "att_fe6d657c07cc4fc6",
+      "branch": "fix/obs-fleet-health-wiring",
+      "created_at": "2026-11-16T14:32:58Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T14:56:10Z"
+    },
+    {
+      "attempt_id": "att_c1d8858e55b94d34",
+      "branch": "feat/lease-payload-pinned-sources",
+      "created_at": "2026-11-16T14:43:12Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:43:21Z"
+    },
+    {
+      "attempt_id": "att_7263de3aca6a4770",
+      "branch": "feat/bee-landed-usage-payload",
+      "created_at": "2026-11-16T14:43:18Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:07:41Z"
+    },
+    {
+      "attempt_id": "att_9404423f3bf54d8c",
+      "branch": "feat/event-consumer-actions",
+      "created_at": "2026-11-16T14:43:25Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:43:14Z"
+    },
+    {
+      "attempt_id": "att_65bd1e1eb2694db8",
+      "branch": "feat/obs-bottlenecks-section",
+      "created_at": "2026-11-16T14:44:22Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:07:10Z"
+    },
+    {
+      "attempt_id": "att_95a8e2d490f542fa",
+      "branch": "feat/owner-decision-queue",
+      "created_at": "2026-11-16T14:51:16Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:43:10Z"
+    },
+    {
+      "attempt_id": "att_787a5df7b13743d4",
+      "branch": "feat/usage-ingest-outbox-source",
+      "created_at": "2026-11-16T14:55:18Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T15:09:19Z"
+    },
+    {
+      "attempt_id": "att_c058e873d6fd4e93",
+      "branch": "feat/usage-rollup",
+      "created_at": "2026-11-16T14:55:26Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T15:06:49Z"
+    },
+    {
+      "attempt_id": "att_e048da0acaed44d7",
+      "branch": "docs/f15-f19-packets",
+      "created_at": "2026-11-16T15:01:25Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:43:06Z"
+    },
+    {
+      "attempt_id": "att_2555b5594e804882",
+      "branch": "feat/bee-landed-usage-payload",
+      "created_at": "2026-11-16T15:11:41Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T15:36:32Z"
+    },
+    {
+      "attempt_id": "att_2fcb6d2336f047e7",
+      "branch": "feat/obs-bottlenecks-section",
+      "created_at": "2026-11-16T15:11:41Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T15:36:26Z"
+    },
+    {
+      "attempt_id": "att_1f4e2ed6b7ac47b8",
+      "branch": "feat/coordinator-action-queue",
+      "created_at": "2026-11-16T15:14:00Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T15:36:55Z"
+    },
+    {
+      "attempt_id": "att_52083998812942de",
+      "branch": "fix/obs-fleet-health-wiring",
+      "created_at": "2026-11-16T15:14:01Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T15:36:22Z"
+    },
+    {
+      "attempt_id": "att_840cf2fa38da4139",
+      "branch": "feat/obs-bottlenecks-section",
+      "created_at": "2026-11-16T15:38:53Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:03:39Z"
+    },
+    {
+      "attempt_id": "att_47c71b5632cf4b16",
+      "branch": "feat/coordinator-action-queue",
+      "created_at": "2026-11-16T15:42:02Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T15:42:02Z"
+    },
+    {
+      "attempt_id": "att_bad126e5831047a0",
+      "branch": "feat/doctor-launcher-identity",
+      "created_at": "2026-11-16T15:42:09Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:16:04Z"
+    },
+    {
+      "attempt_id": "att_5b260cddf29e4216",
+      "branch": "feat/event-consumer-actions",
+      "created_at": "2026-11-16T15:44:36Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:21:07Z"
+    },
+    {
+      "attempt_id": "att_9804c3618ade4912",
+      "branch": "feat/lease-payload-pinned-sources",
+      "created_at": "2026-11-16T15:44:42Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:21:16Z"
+    },
+    {
+      "attempt_id": "att_03e81b957d7442b2",
+      "branch": "feat/owner-decision-queue",
+      "created_at": "2026-11-16T15:44:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:08:10Z"
+    },
+    {
+      "attempt_id": "att_37470c9bf5b9420b",
+      "branch": "docs/f15-f19-packets-r6",
+      "created_at": "2026-11-16T15:45:03Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:05:59Z"
+    },
+    {
+      "attempt_id": "att_7e05f51fc7da42da",
+      "branch": "feat/coordinator-action-queue",
+      "created_at": "2026-11-16T15:52:45Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:31:03Z"
+    },
+    {
+      "attempt_id": "att_7223f3a5294141ca",
+      "branch": "feat/observatory-v2-design",
+      "created_at": "2026-11-16T15:55:09Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:15:54Z"
+    },
+    {
+      "attempt_id": "att_b059426c672c4b9e",
+      "branch": "docs/r4-run-command-design",
+      "created_at": "2026-11-16T15:55:09Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:08:13Z"
+    },
+    {
+      "attempt_id": "att_063d41b1291e4f3f",
+      "branch": "fix/cli-attempt-scrub-bypass-and-probe-docs",
+      "created_at": "2026-11-16T15:55:54Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T15:55:54Z"
+    },
+    {
+      "attempt_id": "att_3228da112c834d01",
+      "branch": "feat/bee-landed-usage-payload",
+      "created_at": "2026-11-16T15:57:13Z",
