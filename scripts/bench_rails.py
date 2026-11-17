@@ -102,8 +102,14 @@ def producer(path, lane, count, barrier):
         db.close()
 
 
-def seed(path, total):
-    RailsLedger(path).close()
+def seed(path, total, *, attempt_index=False):
+    with contextlib.closing(RailsLedger(path)) as first:
+        ledger_uuid = first.ledger_uuid
+    if attempt_index:
+        installer = ROOT / 'bundlebees/scripts/rails_attempt_index.py'
+        result = subprocess.check_output([sys.executable, '-B', str(installer), str(path),
+                                          '--ledger-uuid', ledger_uuid], text=True, timeout=20).strip()
+        if result != 'installed': raise ValueError('index was not installed on a fresh benchmark ledger')
     ctx = mp.get_context('spawn')
     barrier = ctx.Barrier(LANES)
     jobs = [ctx.Process(target=producer, args=(path,i,total//LANES,barrier)) for i in range(LANES)]
@@ -286,6 +292,7 @@ def main():
     p.add_argument('--samples',type=int,default=100,choices=range(1,101),metavar='1..100')
     p.add_argument('--soak-seconds',type=int,default=1800,choices=range(0,1801),metavar='0..1800')
     p.add_argument('--node-modules',type=Path,help='existing offline Orbit node_modules (esbuild + playwright-core)')
+    p.add_argument('--attempt-index', action='store_true', help='install the fixed local-attempt index before the ten writers start')
     p.add_argument('--chromium',type=Path,help='existing offline Chromium executable')
     p.add_argument('--temp-parent',type=Path,default=Path('/var/tmp'))
     p.add_argument('--output',type=Path,required=True)
@@ -307,14 +314,14 @@ def main():
                     affinity_cpus=len(os.sched_getaffinity(0)),ram_bytes=os.sysconf('SC_PHYS_PAGES')*os.sysconf('SC_PAGE_SIZE'),
                     filesystem=get('findmnt','-no','SOURCE,FSTYPE','-T',str(args.temp_parent)),physical_backing='unknown'),
                python=platform.python_version(),sqlite=sqlite3.sqlite_version,
-               config=dict(events=args.events,samples_per_surface=args.samples,soak_seconds=args.soak_seconds,lanes=LANES,
+                config=dict(events=args.events,samples_per_surface=args.samples,soak_seconds=args.soak_seconds,lanes=LANES,attempt_index=args.attempt_index,
                            logical_rows=PAGE,wire_bytes=query.MAX_BYTES,warmups_per_surface=LANES,p95='nearest rank'))
     def update(key,value): doc[key]=value; snapshot(args.output,doc)
     snapshot(args.output,doc)
     try:
         with tempfile.TemporaryDirectory(dir=args.temp_parent.resolve(),prefix='rails-offline-bench-') as tmp:
             path = Path(tmp)/'synthetic.sqlite'
-            blocks, stats = seed(path,args.events); update('seed',stats)
+            blocks, stats = seed(path,args.events,attempt_index=args.attempt_index); update('seed',stats)
             data, overview = reads(path,args.samples,blocks,lambda d:update('reads',d)); update('reads',data)
             if args.soak_seconds:
                 update('stream',soak(path,args.soak_seconds,overview,args,lambda d:update('stream',d)))

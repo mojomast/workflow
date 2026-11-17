@@ -11,6 +11,8 @@ python3 -B workflow/scripts/bench_rails.py \
 
 For a smoke test use `--events 5000 --samples 1 --soak-seconds 60` and a fresh output path. `--soak-seconds 0` skips all browser and stream checks. A report marked `completed` means the workload and identity assertions finished; inspect the numbers separately to decide whether latency targets were met. A failure leaves partial JSON and a nonzero exit. The old v1 [before/after reports](../evidence/rails-bench-linux.md) represent a different workload.
 
+To measure the opt-in indexed configuration, add `--attempt-index`. The harness invokes the pinned BundleBees offline index installer on its new private ledger **before** starting any writers. Thus indexing is included in the write workload. Reports record the option under `config.attempt_index`; measurements on default ledgers and indexed ledgers are not interchangeable. `reads` measures the shared query API, not multi-request HTTP pagination.
+
 ## What the report measures
 
 - **Dataset.** Ten producer processes own separate ledger connections. They rendezvous before each 50-event transaction; SQLite serializes those writes. All appends use the canonical locked hash/dedupe path. Each writer's receipt ranges are checked against the local sequence, distinct-event count and projection results. The 100,000 initial records include ten attempts in one job. Every 500th record in each lane is a declared `source.gap` for `offline-worker`. Soak probes are additional records and do not alter the read benchmark.
