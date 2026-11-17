@@ -135,8 +135,23 @@
    },
    "gates": [],
    "depends_on": [],
-   "status": "planned",
-   "transitions": []
+   "status": "dispatched",
+   "transitions": [
+    {
+     "from": "planned",
+     "to": "dispatched",
+     "at": "2026-11-17T06:10:00Z",
+     "reason": "out-of-band landing adopted: actor-claimed attempt att_57791826 succeeded but its payload was refused at the coordinator verify secret scan; re-dispatch att_a3c2bb45 verified clean at cd1e6870 (firejail suite + house secret scan) and PR #80 merged at b0cd15a",
+     "evidence": {
+      "attempt": "att_a3c2bb45b386442c",
+      "pr": 80,
+      "merge_commit": "b0cd15aa0118e256f102711feac373809d722483",
+      "verified_head": "cd1e687009a4a18cc8eea760f1f564745c34257a"
+     }
+    }
+   ],
+   "attempt_id": "att_a3c2bb45b386442c",
+   "updated_at": "2026-11-17T06:10:00Z"
   },
   {
    "id": "RAILS-R01",
@@ -885,6 +900,17 @@
     "attempt": "att_65b4cffc4bca4602",
     "state": "succeeded",
     "landing": "bundlebees#67 merged 88d4bd4 (contract-enforcement followups)"
+   }
+  },
+  {
+   "slice": "RAILS-R00",
+   "from": "planned",
+   "to": "dispatched",
+   "at": "2026-11-17T06:10:00Z",
+   "reason": "out-of-band landing adopted (att_57791826 scan-refused; att_a3c2bb45 verified cd1e6870; PR #80 merged b0cd15a)",
+   "evidence": {
+    "attempt": "att_a3c2bb45b386442c",
+    "pr": 80
    }
   }
  ],
