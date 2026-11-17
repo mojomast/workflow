@@ -1,6 +1,6 @@
 # Rails qualification record
 
-**Release decision: HOLD.** The original RETURN mismatch was reproduced, repaired and independently observed. A later qualification stopped at a different evidence check. Keep the passing and failing tuples distinct.
+**Release decision: HOLD.** The original RETURN mismatch was reproduced, repaired and independently observed. A second qualification exposed a receipt-provenance defect; the third passed using a separately retained verifier commitment. See the exact tuples below.
 
 | Capture | Observation |
 |---|---|
@@ -9,6 +9,7 @@
 | [`qualification-1/summary.json`](qualification-1/summary.json) | Local, clean four-checkout run: 458 JUnit test cases, zero failed, zero skipped. Separate Chromium owner-proxy check passed. Exact tuple, tool versions and checksums retained. This run predates subsequent authority corrections. |
 | [`qualification-1/offline-replay.json`](qualification-1/offline-replay.json) | From the delivered fixture and a separate capture of its expected pins, a new receiver independently got RED on baseline and GREEN on both the verified and the integrated revision. No access to the worker, issuer database or signing key. |
 | [`qualification-2/`](qualification-2/) | A later clean run failed 1/156 Workflow cases before the remaining suites. Removing a private fingerprint from error diagnostics exposed the lack of a proper coordinator verification-receipt commitment. Accepting any digest occurrence in an origin chain was insufficient. This failure must not be fixed by restoring the private diagnostic digest. |
+| [`qualification-3/`](qualification-3/) | 483 cases, zero failures or skips. Both wheels were built from the named revisions and tested in both import orders. A receiver used the [separately retained verifier and dispatch pins](qualification-3/receiver-pins.json) to verify the synthetic packet and [re-execute its approved test](qualification-3/offline-replay.json). Later changes to the tick, notifier and proof classifier still require final-tuple qualification. |
 
 For the complete starting review, see the [findings ledger](findings.md); [coordination](coordination.md) gives owners, package budgets, merge sequencing and rollback. The [Windows handoff](https://github.com/mojomast/workflow/blob/c61ff1c122ba649ea59ff7807cc8e671ed080b33/evidence/rails-rc/windows-canary.md) records exactly why no live run took place and what the operator needs to supply.
 
