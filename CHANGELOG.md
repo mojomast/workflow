@@ -6,7 +6,6 @@
 
 - Rails R00/R01 conversion record (docs/rails-w2-conversions.md, workflow #59): the destruction evidence for the wave-1 attempt workspaces lost to the worker restart, the precise re-dispatch remedy from the frozen spec, and the re-dispatch readiness assessment.
 
- Unreleased
 
 - [Hindsight synthesis](docs/hindsight-synthesis.md) (workflow #57, Phase 3 of the Hindsight research brief): a capability gap analysis mapping the twelve capabilities the memory architecture needs - from the campaign's six observed failure classes - against Hindsight at the pinned upstream revision, four adoption options (none, contract-only baseline, hybrid trial treatment, full), a controlled trial design whose success/failure thresholds are declared before any run with an uninformative-result rule, and an implementation plan decomposed into gated work packages WP-0..WP-8 with AC-NNN -> proven-by acceptance gates. Plan-only: no implementation, no deployment, no change to the active memory provider.
 
