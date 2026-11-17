@@ -1,0 +1,761 @@
+{
+  "status": "completed",
+  "head": 100106,
+  "orbit": "43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e",
+  "health": {
+    "ok": true,
+    "schema": "rizzstack.rails-http/1",
+    "ledger_uuid": "43814f61-8a09-496d-ab56-ffcaa1b65190",
+    "ingest_head": 100106,
+    "runtime_manifest_sha256": "8efe1b5d0ab914ba77c135b588b464946b29aa5a51deb32c731a32fbfe762b58",
+    "runtime_revision": "adf8b3d77f5f657188b4be14c39ebc1d5c5007f0",
+    "contract_sha256": "a82b9489a78e7b578ac6f43fe7a66d383e7ee4be437725db42a1eaa362e48bc6",
+    "last_import": null,
+    "source_status": "unknown",
+    "integrity": {
+      "status": "unchecked",
+      "checked_through": null
+    },
+    "warnings": [
+      "source_freshness_unknown",
+      "clock_skew_unknown",
+      "coverage_unknown"
+    ]
+  },
+  "plan": [
+    [
+      6,
+      0,
+      0,
+      "SEARCH event_rows USING INTEGER PRIMARY KEY (rowid>? AND rowid<?)"
+    ]
+  ],
+  "series": {
+    "events": [
+      {
+        "lane": 0,
+        "logical_ms": 1248.173,
+        "calls": [
+          139.828,
+          155.722,
+          145.018,
+          144.129,
+          128.222,
+          121.589,
+          111.431,
+          106.732,
+          97.811,
+          93.907
+        ],
+        "wire_digest": "b2024f46519dad431b674a0c53e649cf540ca46ca4e12026dffe1ae663792d4f",
+        "profile": {
+          "_scan": [
+            19,
+            876.924
+          ],
+          "_envelopes": [
+            10,
+            195.28
+          ],
+          "project_events": [
+            10,
+            104.976
+          ],
+          "validate_topology": [
+            10,
+            0.471
+          ],
+          "wire_json": [
+            175,
+            33.358
+          ]
+        }
+      },
+      {
+        "lane": 1,
+        "logical_ms": 1259.805,
+        "calls": [
+          139.59,
+          151.942,
+          150.211,
+          137.388,
+          129.584,
+          120.458,
+          112.678,
+          110.949,
+          100.245,
+          103.085
+        ],
+        "wire_digest": "f282862ebce0b5a2c2ff5715e261f48b98fa86382333126e358bd744f4169f8b",
+        "profile": {
+          "_scan": [
+            19,
+            886.76
+          ],
+          "_envelopes": [
+            10,
+            196.984
+          ],
+          "project_events": [
+            10,
+            107.618
+          ],
+          "validate_topology": [
+            10,
+            0.445
+          ],
+          "wire_json": [
+            175,
+            32.393
+          ]
+        }
+      },
+      {
+        "lane": 2,
+        "logical_ms": 1290.046,
+        "calls": [
+          193.219,
+          149.697,
+          144.289,
+          136.196,
+          127.621,
+          123.364,
+          114.001,
+          105.629,
+          99.671,
+          92.022
+        ],
+        "wire_digest": "505fa226b689ca6d179fc4346e14e2b8a71432965e126a8b8d5f476b91525115",
+        "profile": {
+          "_scan": [
+            19,
+            913.23
+          ],
+          "_envelopes": [
+            10,
+            197.808
+          ],
+          "project_events": [
+            10,
+            106.733
+          ],
+          "validate_topology": [
+            10,
+            0.481
+          ],
+          "wire_json": [
+            175,
+            32.352
+          ]
+        }
+      },
+      {
+        "lane": 3,
+        "logical_ms": 1265.084,
+        "calls": [
+          149.619,
+          152.752,
+          152.576,
+          137.761,
+          129.287,
+          121.635,
+          111.793,
+          106.221,
+          102.029,
+          97.342
+        ],
+        "wire_digest": "11279468c7095c48b04c0c5d908e54576b22a347b030c15f1a13dbeb78a67f88",
+        "profile": {
+          "_scan": [
+            19,
+            884.987
+          ],
+          "_envelopes": [
+            10,
+            197.683
+          ],
+          "project_events": [
+            10,
+            112.518
+          ],
+          "validate_topology": [
+            10,
+            0.489
+          ],
+          "wire_json": [
+            175,
+            31.958
+          ]
+        }
+      },
+      {
+        "lane": 4,
+        "logical_ms": 1267.407,
+        "calls": [
+          141.204,
+          158.429,
+          156.153,
+          138.886,
+          130.308,
+          122.869,
+          114.963,
+          106.197,
+          98.855,
+          95.197
+        ],
+        "wire_digest": "88bc3cc596ff0c4221419a1cd3793cc483d9a31a8b76aa7453478e90fcd86477",
+        "profile": {
+          "_scan": [
+            19,
+            893.6
+          ],
+          "_envelopes": [
+            10,
+            197.666
+          ],
+          "project_events": [
+            10,
+            105.871
+          ],
+          "validate_topology": [
+            10,
+            0.451
+          ],
+          "wire_json": [
+            175,
+            31.659
+          ]
+        }
+      },
+      {
+        "lane": 5,
+        "logical_ms": 1268.233,
+        "calls": [
+          141.595,
+          153.594,
+          146.091,
+          138.39,
+          137.32,
+          125.759,
+          116.097,
+          106.263,
+          111.19,
+          87.773
+        ],
+        "wire_digest": "b0ee712ab259b1e4a4042c32c6352b3e1c3b9de7e8bb5a10b3786f9561b760a3",
+        "profile": {
+          "_scan": [
+            19,
+            894.219
+          ],
+          "_envelopes": [
+            10,
+            197.669
+          ],
+          "project_events": [
+            10,
+            106.475
+          ],
+          "validate_topology": [
+            10,
+            0.477
+          ],
+          "wire_json": [
+            175,
+            31.94
+          ]
+        }
+      },
+      {
+        "lane": 6,
+        "logical_ms": 1278.995,
+        "calls": [
+          141.191,
+          155.732,
+          145.254,
+          137.128,
+          137.779,
+          149.267,
+          115.2,
+          106.629,
+          98.289,
+          88.515
+        ],
+        "wire_digest": "6c4ec1da3788abf33890d0d051b51ba43d538b5ece77a808c349eba775877310",
+        "profile": {
+          "_scan": [
+            19,
+            891.934
+          ],
+          "_envelopes": [
+            10,
+            209.109
+          ],
+          "project_events": [
+            10,
+            107.474
+          ],
+          "validate_topology": [
+            10,
+            0.47
+          ],
+          "wire_json": [
+            175,
+            32.312
+          ]
+        }
+      },
+      {
+        "lane": 7,
+        "logical_ms": 1283.59,
+        "calls": [
+          143.904,
+          151.989,
+          145.953,
+          139.103,
+          142.234,
+          121.092,
+          113.322,
+          103.375,
+          126.455,
+          92.763
+        ],
+        "wire_digest": "29e4a96bb36347d8dab9e4f5bd842dfc1e798f7ce2cd505561053d95b02ac04b",
+        "profile": {
+          "_scan": [
+            19,
+            904.705
+          ],
+          "_envelopes": [
+            10,
+            197.576
+          ],
+          "project_events": [
+            10,
+            106.106
+          ],
+          "validate_topology": [
+            10,
+            0.46
+          ],
+          "wire_json": [
+            175,
+            32.008
+          ]
+        }
+      },
+      {
+        "lane": 8,
+        "logical_ms": 1338.413,
+        "calls": [
+          160.079,
+          158.86,
+          148.632,
+          139.973,
+          135.065,
+          122.072,
+          118.159,
+          136.063,
+          114.578,
+          100.739
+        ],
+        "wire_digest": "0162b7f9e19303a8d679ad7605714dff1b10f4c9a7eed562f08b30fcc75bf708",
+        "profile": {
+          "_scan": [
+            19,
+            945.089
+          ],
+          "_envelopes": [
+            10,
+            207.672
+          ],
+          "project_events": [
+            10,
+            110.409
+          ],
+          "validate_topology": [
+            10,
+            0.54
+          ],
+          "wire_json": [
+            175,
+            32.425
+          ]
+        }
+      },
+      {
+        "lane": 9,
+        "logical_ms": 1481.543,
+        "calls": [
+          177.079,
+          160.898,
+          167.434,
+          162.328,
+          157.037,
+          133.681,
+          127.971,
+          160.878,
+          139.053,
+          90.587
+        ],
+        "wire_digest": "b3462f01aecd10594d57aeba3c5e55b0046e9c234ca474a57189244d84130bbf",
+        "profile": {
+          "_scan": [
+            19,
+            1062.454
+          ],
+          "_envelopes": [
+            10,
+            228.316
+          ],
+          "project_events": [
+            10,
+            116.912
+          ],
+          "validate_topology": [
+            10,
+            0.486
+          ],
+          "wire_json": [
+            175,
+            33.114
+          ]
+        }
+      }
+    ],
+    "view": [
+      {
+        "lane": 0,
+        "logical_ms": 535.035,
+        "calls": [
+          142.248,
+          160.605,
+          120.925,
+          109.491
+        ],
+        "wire_digest": "fac455d6ba2f09abc5b65439b1b7604a1085cc1462e23f07241a3e81fb914ed5",
+        "profile": {
+          "_scan": [
+            7,
+            376.648
+          ],
+          "_envelopes": [
+            4,
+            79.787
+          ],
+          "project_events": [
+            4,
+            49.386
+          ],
+          "validate_topology": [
+            4,
+            0.199
+          ],
+          "wire_json": [
+            59,
+            7.195
+          ]
+        }
+      },
+      {
+        "lane": 1,
+        "logical_ms": 549.323,
+        "calls": [
+          168.623,
+          162.431,
+          128.314,
+          87.809
+        ],
+        "wire_digest": "49f2d050e77209c670509e30b1c0b58e50e6a6ce1f011b0866eb393d5954d742",
+        "profile": {
+          "_scan": [
+            7,
+            382.603
+          ],
+          "_envelopes": [
+            4,
+            83.238
+          ],
+          "project_events": [
+            4,
+            46.531
+          ],
+          "validate_topology": [
+            4,
+            0.216
+          ],
+          "wire_json": [
+            59,
+            6.909
+          ]
+        }
+      },
+      {
+        "lane": 2,
+        "logical_ms": 548.188,
+        "calls": [
+          191.679,
+          142.707,
+          112.394,
+          99.719
+        ],
+        "wire_digest": "472d8b437272ce40ca84da35f0ae7bae2d779c78aa47a9ceb7823f932c7c8621",
+        "profile": {
+          "_scan": [
+            7,
+            391.297
+          ],
+          "_envelopes": [
+            4,
+            84.051
+          ],
+          "project_events": [
+            4,
+            43.35
+          ],
+          "validate_topology": [
+            4,
+            0.194
+          ],
+          "wire_json": [
+            59,
+            6.661
+          ]
+        }
+      },
+      {
+        "lane": 3,
+        "logical_ms": 511.055,
+        "calls": [
+          140.594,
+          151.784,
+          124.997,
+          91.873
+        ],
+        "wire_digest": "ab5ed92c9d22ffe2201aa5c7dfb4a2a0316787c96d6f339437b7f671d89eb8e2",
+        "profile": {
+          "_scan": [
+            7,
+            362.1
+          ],
+          "_envelopes": [
+            4,
+            78.341
+          ],
+          "project_events": [
+            4,
+            41.567
+          ],
+          "validate_topology": [
+            4,
+            0.176
+          ],
+          "wire_json": [
+            59,
+            6.824
+          ]
+        }
+      },
+      {
+        "lane": 4,
+        "logical_ms": 576.034,
+        "calls": [
+          193.541,
+          182.098,
+          113.66,
+          84.986
+        ],
+        "wire_digest": "8a6434462498aaa5ae5292e93cb1d62fc66b7a70d6705d0005bbd7adcd7f36f3",
+        "profile": {
+          "_scan": [
+            7,
+            408.571
+          ],
+          "_envelopes": [
+            4,
+            81.668
+          ],
+          "project_events": [
+            4,
+            41.591
+          ],
+          "validate_topology": [
+            4,
+            0.175
+          ],
+          "wire_json": [
+            59,
+            6.744
+          ]
+        }
+      },
+      {
+        "lane": 5,
+        "logical_ms": 523.314,
+        "calls": [
+          146.018,
+          162.656,
+          121.91,
+          90.866
+        ],
+        "wire_digest": "ba2f90890ba80b0f65b40edc09953368971a6d82b32f33c418964fc9c19b7026",
+        "profile": {
+          "_scan": [
+            7,
+            376.03
+          ],
+          "_envelopes": [
+            4,
+            78.253
+          ],
+          "project_events": [
+            4,
+            41.626
+          ],
+          "validate_topology": [
+            4,
+            0.179
+          ],
+          "wire_json": [
+            59,
+            6.773
+          ]
+        }
+      },
+      {
+        "lane": 6,
+        "logical_ms": 690.446,
+        "calls": [
+          209.697,
+          278.483,
+          115.184,
+          85.373
+        ],
+        "wire_digest": "dce6e97684b47855175d30fa272653eb45647771ad32d2f55bb24f67854d24cd",
+        "profile": {
+          "_scan": [
+            7,
+            494.02
+          ],
+          "_envelopes": [
+            4,
+            107.015
+          ],
+          "project_events": [
+            4,
+            55.032
+          ],
+          "validate_topology": [
+            4,
+            0.192
+          ],
+          "wire_json": [
+            59,
+            10.801
+          ]
+        }
+      },
+      {
+        "lane": 7,
+        "logical_ms": 640.865,
+        "calls": [
+          166.126,
+          175.623,
+          208.357,
+          89.075
+        ],
+        "wire_digest": "9cb0a314647c4653970682c2c91336acb12245faf7cab2998c238d8ff1320810",
+        "profile": {
+          "_scan": [
+            7,
+            466.674
+          ],
+          "_envelopes": [
+            4,
+            86.297
+          ],
+          "project_events": [
+            4,
+            48.932
+          ],
+          "validate_topology": [
+            4,
+            0.206
+          ],
+          "wire_json": [
+            59,
+            8.767
+          ]
+        }
+      },
+      {
+        "lane": 8,
+        "logical_ms": 576.383,
+        "calls": [
+          155.794,
+          143.591,
+          173.336,
+          101.833
+        ],
+        "wire_digest": "8304eac7d306cf44cb7937437cb250d096d8a9b6276102d113105a132c05a9bd",
+        "profile": {
+          "_scan": [
+            7,
+            413.697
+          ],
+          "_envelopes": [
+            4,
+            86.049
+          ],
+          "project_events": [
+            4,
+            42.116
+          ],
+          "validate_topology": [
+            4,
+            0.178
+          ],
+          "wire_json": [
+            59,
+            9.196
+          ]
+        }
+      },
+      {
+        "lane": 9,
+        "logical_ms": 613.237,
+        "calls": [
+          231.287,
+          153.195,
+          126.821,
+          100.267
+        ],
+        "wire_digest": "754634d8ca2f870411fa7983131352e321a5448f60133832bf4ee718f191a655",
+        "profile": {
+          "_scan": [
+            7,
+            443.046
+          ],
+          "_envelopes": [
+            4,
+            86.716
+          ],
+          "project_events": [
+            4,
+            51.46
+          ],
+          "validate_topology": [
+            4,
+            0.197
+          ],
+          "wire_json": [
+            59,
+            6.705
+          ]
+        }
+      }
+    ]
+  },
+  "events_p95_ms": 1481.543,
+  "view_p95_ms": 690.446
+}
