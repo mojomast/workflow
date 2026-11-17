@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Deploy-parity checker (scripts/deploy_parity.py + tests): compares each surface with a deploy target against merged main - plugin checkout, gateway-loaded revision, running collector vs workflow main, deployed Observatory app vs orbitdesktop main, launcher recorded deployed sha vs hyvv main. Drift, UNKNOWN, or a check error exits non-zero with a table; UNKNOWN is never treated as parity.
+
 - Rails wave-2 backlog seed (plans/backlog.json): the 22 packages R00-R18 (incl. R17A-D integration leases) from the frozen spec at 9850efa, each with its exact file lease (R17D carries the spec's full 19-file integration lease incl. the 12 offline-vendored `contrib/rizzstack_rails` modules and their `vendor-manifest.json`), dependency gating expressed with `depends_on` and only the gate-watcher's supported gate types (the invented `slice_merged` type is gone), RED-first acceptance command, and the <=8 wave-2 pacing cap; briefs carry the spec's pinned per-repo source_rev (workflow 9f6aa6dc, bundlebees b2db04b8, hyvv 316bd975, orbitdesktop 8530a14b, each fetch-verified on its named repo) and priorities within 0-9, so the real `gate_watcher.load_backlog` accepts the file — the seeded draft did not (it was refused `brief_invalid` on RAILS-R00's placeholder source_rev).
 
 - Collector: serve the deployed `/obs-snapshot` path as an alias of `/snapshot` (the Observatory app and the same-origin 9443 proxy fetch `/obs-snapshot`; the merged collector only served `/snapshot`, a deploy-vs-main drift found by the deploy-parity audit). No behavior change on `/` or `/snapshot`.
