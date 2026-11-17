@@ -1,0 +1,62 @@
+{
+  "kind": "offline-rehearsal-only",
+  "source": {
+    "backlog_status": "planned",
+    "backlog_base": "3951ec15eac5db70f198d0ffc5ad3cdb6e6bd4e5",
+    "runbook_hash_at_backlog_base": "788be10f30ff487857f276dc1cd968c93bb258d35774947928dc5ef2fe5f11b4",
+    "acceptance_ids": [
+      "AC-001",
+      "AC-002",
+      "AC-003",
+      "AC-004",
+      "AC-005"
+    ],
+    "seed_brief_has_contract_body": false,
+    "seed_brief_has_project": false
+  },
+  "fixture_base": "5dccee224cab3b4f69a575b559b80f0d35753757",
+  "fixture_contract": "ca612d3c81cde5e067b378141d0c4fcb8a02a780bf079ee9db6649f605a91ca1",
+  "fixture": {
+    "disabled": "provisioning_disabled",
+    "unknown": "receipt_unknown",
+    "unenrolled": "profile_not_enrolled",
+    "no_job_authority": "authorization_missing",
+    "after_restart": "ready",
+    "gate_probes": {
+      "tool_missing": "contract_missing",
+      "standalone_gate_missing": "contract_required",
+      "wrong_project": "project_unauthorized",
+      "wrong_revision": "stale_revision",
+      "test_in_lease": "tests_tampered",
+      "edited_contract": "contract_changed",
+      "valid_gate_only": "contract"
+    },
+    "manual_suite": {
+      "approved_tests": [
+        "test_record_events_counts_kinds",
+        "test_record_events_rejects_unknown_kind",
+        "test_empty_events_yield_empty_tally",
+        "test_render_tally_sorts_and_joins"
+      ],
+      "test_file_sha256": "f93af21e2dcea03cd7405a6ae8e28addae694dd97c2c53268dcc860383aa2e6c",
+      "lease_diff": [
+        "canary/meter.py",
+        "canary/report.py"
+      ],
+      "manual_red": {
+        "exit": 1,
+        "stub_errors": 4
+      },
+      "local_reference_green": {
+        "exit": 0,
+        "passed": 4
+      }
+    },
+    "dirty_workspace": "receipt_stale",
+    "journal_after_drift": "uncertain",
+    "cleanup": "cleaned",
+    "attempts": 0
+  },
+  "real_canary": "not_run",
+  "operator_acceptance": "pending"
+}

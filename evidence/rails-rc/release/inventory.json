@@ -1,0 +1,94 @@
+{
+  "inventory_complete": true,
+  "packages": {
+    "RAILS-R00": {
+      "missing": [],
+      "repo": "workflow"
+    },
+    "RAILS-R01": {
+      "missing": [],
+      "repo": "workflow"
+    },
+    "RAILS-R02": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R03": {
+      "missing": [],
+      "repo": "orbitdesktop"
+    },
+    "RAILS-R04": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R05": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R06": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R07": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R08": {
+      "missing": [],
+      "repo": "hyvv"
+    },
+    "RAILS-R09": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R10": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R11": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R12": {
+      "missing": [],
+      "repo": "orbitdesktop"
+    },
+    "RAILS-R13": {
+      "missing": [],
+      "repo": "orbitdesktop"
+    },
+    "RAILS-R14": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R15": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R16": {
+      "missing": [],
+      "repo": "orbitdesktop"
+    },
+    "RAILS-R17A": {
+      "missing": [],
+      "repo": "workflow"
+    },
+    "RAILS-R17B": {
+      "missing": [],
+      "repo": "bundlebees"
+    },
+    "RAILS-R17C": {
+      "missing": [],
+      "repo": "hyvv"
+    },
+    "RAILS-R17D": {
+      "missing": [],
+      "repo": "orbitdesktop"
+    },
+    "RAILS-R18": {
+      "missing": [],
+      "repo": "workflow"
+    }
+  },
+  "vendor_mismatches": []
+}
