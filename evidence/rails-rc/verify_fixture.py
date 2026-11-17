@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
 
@@ -37,7 +38,11 @@ def run():
             raise ValueError('fixture Git bundle differs from reviewer capture')
         subprocess.run(['git','clone','-q','--mirror',str(bundle),str(mirror)],env=env,check=True,timeout=20)
         case = LocalSlice(); case.env, case.coding = env, coding
-        case.receive_campaign(campaign, mirror, expected['anchors'], expected['packet_digest'])
+        args = [campaign, mirror, expected['anchors'], expected['packet_digest']]
+        if 'receipt' in expected:
+            case.lease = expected['dispatch']
+            args.append(SimpleNamespace(**expected['receipt']))
+        case.receive_campaign(*args)
         result = json.loads((campaign/'jobs'/coding['job_id']/'return.json').read_bytes())
         observations = []
         for name,rev,code in [('baseline', result['repository']['source_rev'], 1),
