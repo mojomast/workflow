@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    85: (
+        "docs-sync companion (the RAILS-R03 backlog adoption: planned->dispatched with the "
+        "att_4be4db64 / od PR 43 coordinator-apply evidence chain) - same class as 81/84: a "
+        "registry bookkeeping change whose only content is this exclusion plus the adoption "
+        "transition; it carries its own exclusion so merging it leaves main green"
+    ),
     84: (
         "docs-sync companion (the PR 82 + PR 83 coverage rows, their merged-window bullets and "
         "the RAILS-R01 backlog adoption) - same class: a registry bookkeeping change whose only "
