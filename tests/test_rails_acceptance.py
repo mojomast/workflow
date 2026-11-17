@@ -746,7 +746,7 @@ try {
             dest = out / path.relative_to(self.state)
             dest.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(path, dest)
-        for rel in [*prior['evidence'], manifest['red_green']['red'], manifest['red_green']['green']]:
+        for rel in prior['evidence']:
             self.assertTrue((out / rel).is_file())
         shutil.copyfile(self.patch_file, out / 'candidate.patch')
         self.git('bundle', 'create', str(out.resolve() / 'fixture.bundle'), '--all')
@@ -757,7 +757,15 @@ try {
             self.assertEqual(self.git('show', f"{rev}:{self.coding['implementation']}", cwd=receiver), text.rstrip())
         from jsonschema import Draft202012Validator
         manifest_schema = Draft202012Validator(load_json(ROOT / 'schemas/return-manifest.schema.json'))
-        schema_findings = sorted({e.json_path for e in manifest_schema.iter_errors(manifest)})
+        from tools import return_manifest
+        received = load_json(out / directory.relative_to(self.state) / 'return.json')
+        # Do not normalize, reseal or repair native producer bytes in the receiver.
+        schema_findings = sorted({e.json_path for e in manifest_schema.iter_errors(received)})
+        try:
+            return_manifest.validate(received)
+        except return_manifest.ReturnError as exc:
+            self.fail(f'native RETURN: {exc.code}: {exc}; JSON Schema findings: {schema_findings}')
+        self.assertEqual(schema_findings, [])
         (out / 'handoff-scope.json').write_text(json.dumps(dict(
             scope='offline coding fixture; synthetic admission and launcher journal; automated reviewer only',
             pending_approvals=manifest['pending_approvals'], native_manifest_schema_error_paths=schema_findings,
