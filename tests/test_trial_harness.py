@@ -26,6 +26,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from scripts.trial import arms as arms
+from scripts.trial import evaluator as evaluator
+from scripts.trial import report as report_mod
+
 ROOT = Path(__file__).resolve().parents[1]
 
 PLAIN_TYPES = (dict, list, str, int, float, bool, type(None))
@@ -408,6 +412,127 @@ class NoNetworkTests(unittest.TestCase):
             losing["M8"] = _m8(5000)
             report = evaluator.evaluate_trial(baseline, _arm("treatment", losing))
             self.assertEqual(report["verdicts"]["H4"], "FAIL")
+
+
+
+class ArmReplayTests(unittest.TestCase):
+    """PART 2: the three arms replay deterministically and in the right order."""
+
+    def test_replay_is_deterministic_across_runs(self):
+        first = arms.replay_all()
+        second = arms.replay_all()
+        self.assertEqual(first, second)
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+    def test_every_arm_emits_every_metric_the_evaluator_reads(self):
+        for arm_id, record in arms.replay_all().items():
+            self.assertEqual(record["arm_id"], arm_id)
+            for metric_id, fields in evaluator.METRIC_SHAPES.items():
+                metric = record["metrics"][metric_id]
+                for field in fields:
+                    self.assertIn(field, metric)
+                    if field == "intrusions_per_brief":
+                        self.assertEqual(len(metric[field]), metric["probe_briefs_total"])
+                    else:
+                        self.assertIsInstance(metric[field], int)
+
+    def test_hybrid_arm_improves_the_pitfall_metric_over_no_memory(self):
+        metrics = arms.replay_all()
+        hybrid = metrics[arms.ARM_C]["metrics"]["M2"]
+        none = metrics[arms.ARM_A]["metrics"]["M2"]
+        self.assertEqual(hybrid["probe_briefs_with_pitfall"], hybrid["probe_briefs_total"])
+        self.assertEqual(none["probe_briefs_with_pitfall"], 0)
+        self.assertGreater(sum(none["intrusions_per_brief"]), sum(hybrid["intrusions_per_brief"]))
+
+    def test_hybrid_arm_reconstruction_cost_is_at_least_half_below_no_memory(self):
+        metrics = arms.replay_all()
+
+        def cost(arm_id):
+            m1 = metrics[arm_id]["metrics"]["M1"]
+            return m1["reconstruction_tokens"] + m1["reconstruction_turns"]
+
+        self.assertGreaterEqual((cost(arms.ARM_A) - cost(arms.ARM_C)) / cost(arms.ARM_A), 0.5)
+
+
+class ReportTests(unittest.TestCase):
+    """PART 2: the report renders, and its exit codes follow the documented rule."""
+
+    def test_report_pairs_h1_h2_h3_on_the_preregistered_baseline(self):
+        # docs/hindsight-synthesis.md:441-443 pre-registers the trial as
+        # "between B (baseline) and C (treatment), with A as the secondary
+        # control"; :413 fixes the baseline ("Baseline (fixed by the brief):
+        # Option B") and :277 names it ("Option B - contract-only (the
+        # trial's baseline)"). The a-vs-c pairing contradicts that
+        # pre-registration and flips H1 from FAIL to PASS for the stub arms.
+        self.assertIs(report_mod.H123_BASELINE, arms.ARM_B)
+        self.assertIs(report_mod.H123_TREATMENT, arms.ARM_C)
+        report = report_mod.build_report()
+        self.assertEqual(report["pairing"]["H1_H2_H3"], [arms.ARM_B, arms.ARM_C])
+
+    def test_arm_b_conformance_violation_fails_the_report_with_exit_one(self):
+        # docs/hindsight-synthesis.md:523 - any M5-M7 violation fails the arm
+        # outright; :540 - "Adopt nothing (A) if either arm fails a gate
+        # (M5-M7)". An arm-b violation must surface (H3 FAIL, exit 1), not
+        # hide behind a pairing that leaves arm-b's gate out of the report.
+        metrics = arms.replay_all()
+        metrics[arms.ARM_B] = json.loads(json.dumps(metrics[arms.ARM_B]))
+        metrics[arms.ARM_B]["metrics"]["M5"] = {"violations": 1}
+        report = report_mod.build_report(metrics)
+        self.assertEqual(report["verdicts"]["H3"], "FAIL")
+        self.assertIn("M5", report["hypotheses"]["H3"]["reason"])
+        self.assertEqual(report["exit_code"], report_mod.EXIT_ANY_FAIL)
+
+    def test_default_report_reports_pre_registered_h1_fail_with_exit_one(self):
+        # Honest-default consequence of the pre-registered pairing: the stub
+        # arms' H1 reduction is (548 - 292) / 548 ~= 46.7%, below the 0.5
+        # threshold, so the default report must show H1 FAIL and exit 1 - not
+        # the all-PASS/exit-0 the a-vs-c pairing produced.
+        report = report_mod.build_report()
+        self.assertEqual(
+            report["verdicts"],
+            {"H1": "FAIL", "H2": "PASS", "H3": "PASS", "H4": "PASS"},
+        )
+        self.assertEqual(report["exit_code"], report_mod.EXIT_ANY_FAIL)
+
+    def test_render_prints_thresholds_arms_and_verdicts(self):
+        import io
+
+        buffer = io.StringIO()
+        report_mod.render(report_mod.build_report(), stream=buffer)
+        text = buffer.getvalue()
+        for needle in ("H1_MIN_REDUCTION_FRACTION", "arm-a", "arm-b", "arm-c", "H1: FAIL", "exit_code: 1"):
+            self.assertIn(needle, text)
+
+    def test_conformance_violation_in_treatment_fails_the_report(self):
+        metrics = arms.replay_all()
+        metrics[arms.ARM_C] = json.loads(json.dumps(metrics[arms.ARM_C]))
+        metrics[arms.ARM_C]["metrics"]["M5"] = {"violations": 1}
+        report = report_mod.build_report(metrics)
+        self.assertEqual(report["verdicts"]["H3"], "FAIL")
+        self.assertEqual(report["verdicts"]["H1"], "FAIL")
+        self.assertEqual(report["exit_code"], report_mod.EXIT_ANY_FAIL)
+
+    def test_missing_metric_makes_the_report_inconclusive(self):
+        metrics = arms.replay_all()
+        metrics[arms.ARM_C] = json.loads(json.dumps(metrics[arms.ARM_C]))
+        del metrics[arms.ARM_C]["metrics"]["M1"]
+        report = report_mod.build_report(metrics)
+        self.assertEqual(report["verdicts"]["H1"], "UNINFORMATIVE")
+        self.assertEqual(report["exit_code"], report_mod.EXIT_INCONCLUSIVE)
+
+    def test_indistinguishable_arms_are_uninformative_not_pass(self):
+        metrics = arms.replay_all()
+        baseline = metrics[arms.ARM_B]
+        metrics[arms.ARM_C] = json.loads(json.dumps(baseline))
+        metrics[arms.ARM_C]["arm_id"] = arms.ARM_C
+        report = report_mod.build_report(metrics)
+        self.assertEqual(report["verdicts"]["H1"], "UNINFORMATIVE")
+
+    def test_no_network_in_arm_replay_or_report(self):
+        with mock.patch.object(socket, "socket", side_effect=AssertionError("network used")):
+            with mock.patch.object(socket, "create_connection", side_effect=AssertionError("network used")):
+                arms.replay_all()
+                report_mod.build_report()
 
 
 if __name__ == "__main__":
