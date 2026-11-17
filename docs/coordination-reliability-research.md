@@ -61,8 +61,12 @@ path, so the execution leaves no record and the work is lost with the environmen
 - The standing bee rule "Don't commit inside the sandbox" (chapter 03 §4) is the workaround
   version of the same omission: the brief owns a prohibition, nobody owns the durable step.
 - The worker-host remedy — diff against the base revision the host recorded at seed time — is
-  recorded as *proposed, not applied* (L-24, "why it is historical"). The proposal's home is the
-  worker-host repository, not the brief author's discipline.
+  recorded as *proposed, not applied* by L-24 (chapter 28 status 2026-11-14); the pinned launcher
+  source contradicts that status as of the pin: `upstream:hyvv@5bee1a87` `launcher.py` records the
+  seed commit at seed time (`refs/hyvv/seed`) and diffs the returned patch against it
+  (`_seed_project`, `patch`; pin dated 2026-11-13), so the diff-base half of the remedy is present
+  in the worker host, not missing, and its home is the worker-host repository, not the brief
+  author's discipline.
 
 **Why the boundary is unowned.** Execution happens in a disposable sandbox; durable delivery
 happens in the coordinator's tree. Between the two sits a transition — commit — that the brief
@@ -90,18 +94,24 @@ delivery a manual convention rather than a mechanism: conditions 1 and 2 of
   contract re-checks; this repository's `tests/test_obs_bottlenecks.py` pins the record shape that
   the bundlebees CLI verify writer and the verify_local commit-local path produce).
 - `upstream:hyvv@5bee1a87` `launcher.py` (the worker host, extracted from the pre-extraction
-  `pc-launcher/launcher.py` lineage shown in chapter 03's figure) — where the missing owner lives
-  today: the host seeds the sandbox per brief and returns a result manifest, but the diff base is
-  `HEAD` inside the sandbox rather than a base the host recorded at seed time. The L-24 remedy
-  belongs here.
+  `pc-launcher/launcher.py` lineage shown in chapter 03's figure) — where the diff-base half of
+  the L-24 remedy already lives: the host seeds the sandbox per brief, commits the seeded copy
+  in-sandbox and records that commit as the seed base (`refs/hyvv/seed`, returned as
+  `seed_commit`), and the patch collector diffs the returned patch against that recorded base —
+  not against the sandbox's moving `HEAD`, which survives only as the fallback for attempts seeded
+  before the record existed (`_seed_project`, `patch`; pin dated 2026-11-13). What the host still
+  leaves unowned is the durable commit itself: it returns the patch and integrates nothing, so
+  delivery remains the coordinator's manual convention (L-24, "practice today").
 - *Open question for the next wave:* `upstream:bundlebees@875025b` `bundlebees_plugin/tools.py`
   was named in the audit's file set; its role in this boundary has not been confirmed against the
   pinned checkout in this workspace (the checkout is absent here — see [§6](#6-limits-and-status)).
 
-**Candidate remedy (plan-only).** Assign the durable step: either the worker host records the seed
-base and diffs against it (host-owned delivery), or the executor's verify owns a commit-local
-delivery for every attempt (executor-owned). Pick one owner in writing, carry the rejected
-alternative, and gate it — AC-003, AC-004.
+**Candidate remedy (plan-only).** Assign the durable step: the worker host already records the
+seed base and diffs against it (`upstream:hyvv@5bee1a87` `launcher.py`, `_seed_project`/`patch`),
+so patch capture is owned — what remains unowned is the commit that makes the work durable:
+either the executor's verify owns a commit-local delivery for every attempt (executor-owned), or
+an integration step above the returned patch is assigned in writing (coordinator- or host-owned).
+Pick one owner in writing, carry the rejected alternative, and gate it — AC-003, AC-004.
 
 ### FC-2 — Restart-into-lane (boundary B-2: observed state vs restart)
 
@@ -471,13 +481,17 @@ chapters.
 
 ### WP-2 — FC-1 commit ownership decision
 
-- AC-003: A decision record names the owner of the durable commit step (worker-host base-diff or
-  executor commit-local) with the rejected alternative written down ->
+- AC-003: A decision record names the owner of the durable commit step (the coordinator's
+  post-retrieval commit as in L-24 practice today, executor commit-local, or a host-owned
+  integration step above the seed-base patch capture) with the rejected alternatives written down ->
   proven by tests/test_coordination_reliability.py::test_commit_owner_decision_recorded *(planned)*
 - AC-004: The worker host records the sandbox seed base and the returned patch is computed against
-  that recorded base, not against a moving `HEAD` ->
+  that recorded base, not against a moving `HEAD` — behavior already present at the pin
+  (`upstream:hyvv@5bee1a87` `launcher.py` `_seed_project`/`patch`, pin dated 2026-11-13; hyvv
+  `main`, read 2026-11-17, hardens it by refusing a `HEAD` fallback in `_verify_workspace`), which
+  this gate locks ->
   proven by upstream:hyvv@5bee1a87:tests/test_seed_base_diff.py::test_patch_diffs_recorded_base
-  *(planned, NOT RUN)*
+  *(planned, NOT RUN — the test module does not exist at the pin; the asserted behavior does)*
 
 ### WP-3 — FC-2 restart reconciliation at lane level
 
@@ -551,8 +565,11 @@ chapters.
   cross-repo statements cite the pinned revisions recorded in `profiles/repos.json` and the
   chapters written against those trees; nothing here re-verified them against the live trees.
   Cross-repo citations therefore carry the same status chapter 28 gives unreviewed self-reports:
-  recorded, not re-run. The planned tests named in AC-004, AC-005, AC-006, AC-007, AC-014,
-  AC-015 and AC-016 are *NOT RUN* and exist only as commitments.
+  recorded, not re-run — with one deliberate exception: the FC-1 worker-host diff-base statements
+  were re-verified on 2026-11-17 against the pinned source itself (`upstream:hyvv@5bee1a87`
+  `launcher.py`, fetched from raw.githubusercontent.com), because the sentence they replace
+  contradicted the pin it cited. The planned tests named in AC-004, AC-005, AC-006, AC-007,
+  AC-014, AC-015 and AC-016 are *NOT RUN* and exist only as commitments.
 - `bundlebees_plugin/tools.py` appears in the audit's named file set but not in the chapters this
   document cites; its role is an open question (AC-010), stated rather than guessed.
 - This document performs no implementation: no code, no schema, no test is added by this branch.
@@ -562,9 +579,11 @@ chapters.
 
 **Prior art actually read (in this workspace, for this document):** chapters 03, 13, 19, 21, 22,
 23, 24, 27, 28, 30 and 31; `tests/test_docs_parity.py`; `profiles/repos.json`;
-`plans/backlog.json` (the F5 transition record); `.gitleaksignore`; `docs/CI.md`; the external
-works cited per section above, cited from knowledge of the works and dated — not re-read from
-copies in this workspace, and marked accordingly.
+`plans/backlog.json` (the F5 transition record); `.gitleaksignore`; `docs/CI.md`;
+`upstream:hyvv@5bee1a87` `launcher.py` (read from the pinned raw source at
+raw.githubusercontent.com on 2026-11-17, not in this workspace); the external works cited per
+section above, cited from knowledge of the works and dated — not re-read from copies in this
+workspace, and marked accordingly.
 
 **Known pitfalls carried in (each from a recorded incident):**
 
@@ -589,9 +608,11 @@ copies in this workspace, and marked accordingly.
    catches.* Rejected: two prior refusals demonstrate the cost, and the scan reports shape not
    location, so examples buy recognition at the price of the document's own passability. Prose
    descriptions carry the same teaching value with none of the risk.
-3. *Implement the worker-host base-diff fix in this branch now.* Rejected: the remedy belongs to
-   the hyvv repository (L-24 names the worker-host repo as its home), and this branch is
-   plan-only with a one-file scope.
+3. *Implement the worker-host base-diff fix in this branch now.* Rejected: there is no unapplied
+   fix to port — the recorded-seed-base diff is present in the worker host at
+   `upstream:hyvv@5bee1a87` (`launcher.py` `_seed_project`/`patch`, pin dated 2026-11-13); what
+   remains open there is the AC-004 test lock and the AC-003 commit-owner decision, and this
+   branch is plan-only with a one-file scope.
 
 ## 8. Self-check record
 
