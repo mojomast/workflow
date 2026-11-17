@@ -544,6 +544,7 @@ try {
         jobs.create_job(self.state, job_id=job_id, packet=self.packet, tasks=[dict(task_id=task_id, objective=objective,
             lease=files, acceptance=acceptance, contract=self.contract, contract_sha256=self.contract_hash)])
         self.lease = leases.record_lease(self.state, self.aid, dict(job_id=job_id, task_id=task_id, objective=objective,
+            project=self.packet['repository']['identity'],
             source_rev=self.base, assigned_files=files, contract=self.contract, contract_sha256=self.contract_hash,
             acceptance=acceptance))
         self.suite = [sys.executable, '-m', 'pytest', '-q']
@@ -570,7 +571,7 @@ try {
             return page['imported']
 
     def campaign_finish(self):
-        from bundlebees_plugin import acdd_cli, bee_events, integrate_job, job as jobs, tdd, verify_local
+        from bundlebees_plugin import acdd_cli, bee_events, cli, integrate_job, job as jobs, tdd, verify_local
         from bundlebees_plugin.rails_outbox_source import RailsOutboxSource
         c = self.coding
         candidate = self.root / 'candidate-tree'
@@ -588,12 +589,15 @@ try {
         with contextlib.closing(self.open_ledger(self.db)) as db:
             self.assertEqual(RailsOutboxSource(self.state, ledger=db).replay()['emitted'], 1)
             self.assertEqual(RailsOutboxSource(self.state, ledger=db).replay()['duplicates'], 1)
+        scanner = shutil.which('gitleaks')
+        self.assertIsNotNone(scanner, 'offline campaign requires real gitleaks on PATH')
         rec = verify_local.verify_and_commit(self.state, self.repo, self.aid, patch=self.patch_file.read_text(),
             declared_files=[c['implementation']], expected_patch_sha256=self.patch_hash,
-            base_rev=self.base, tests=[c['test_id']], suite_command=self.suite, require_gitleaks=False, cacheable=False,
+            base_rev=self.base, tests=[c['test_id']], suite_command=self.suite, gitleaks=scanner, cacheable=False,
             contract_declared=True, acdd_preflight=lambda files: acdd_cli.verify_preflight(self.lease, self.state, files),
             runner=self.phase_check)
         self.assertTrue(rec['ok']); self.assertEqual((rec['red']['exit_code'], rec['suite']['exit_code']), (1, 0))
+        self.assertEqual(rec['gitleaks']['exit_code'], 0)
         self.assertEqual(rec['patch_sha256'], self.landing['data']['result']['artifact_sha256'])
         self.verified = rec['sha']
         checkout = self.root / 'review-checkout'
@@ -601,6 +605,16 @@ try {
         tested = self.phase_check(checkout, self.suite + [c['test_file']])
         green = acdd_cli.record_green(self.state, self.preflight, checkout, tested, self.verified)
         self.assertEqual(green['criteria'][c['criterion']], 'passed')
+        # Same pytest node ID, different test blob: a genuine passing run on the
+        # *broken* baseline must not satisfy the frozen RED. Isolate its output.
+        swapped = self.root / 'substitute-test'; swapped.mkdir()
+        (swapped / c['implementation']).write_text(c['baseline'])
+        (swapped / c['test_file']).write_text(c['approved_test'].replace('== 0', '== 1'))
+        substitute = self.phase_check(swapped, self.suite + [c['test_id']])
+        self.assertEqual(substitute['exit_code'], 0)
+        with self.assertRaises(cli.CliError) as refused:
+            acdd_cli.record_green(self.root / 'substitute-state', self.preflight, swapped, substitute, self.base)
+        self.assertEqual(refused.exception.code, 'tests_tampered')
         for override, reason in [(dict(contract_sha256='0'*64), 'stale_revision'),
                                  (dict(base_rev=self.verified), 'stale_revision'),
                                  (dict(test_fingerprints={}), 'tests_tampered'),
@@ -740,14 +754,13 @@ try {
         out.mkdir(mode=0o700, exist_ok=False)
         for path in [directory / name for name in ('return.json','RETURN.md',rails_return.FILE)] + [*self.state.glob('evidence/*/*.json'),
                      *self.state.glob('waves/*.json'), *self.state.glob('verify-results/*.json'),
-                     *self.state.glob('packets/*.json'), *self.state.glob('events/outbox/*.json')]:
+                     *self.state.glob('packets/*.json'), *self.state.glob('authorizations/*.json'),
+                     *self.state.glob('events/outbox/*.json')]:
             if not path.is_file():
                 continue
             dest = out / path.relative_to(self.state)
             dest.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(path, dest)
-        for rel in prior['evidence']:
-            self.assertTrue((out / rel).is_file())
         shutil.copyfile(self.patch_file, out / 'candidate.patch')
         self.git('bundle', 'create', str(out.resolve() / 'fixture.bundle'), '--all')
         receiver = self.root / 'receiver.git'
@@ -755,26 +768,142 @@ try {
         for rev, text in ((self.base, self.coding['baseline']), (self.verified, self.coding['candidate']),
                           (self.integrated, self.coding['candidate'])):
             self.assertEqual(self.git('show', f"{rev}:{self.coding['implementation']}", cwd=receiver), text.rstrip())
-        from jsonschema import Draft202012Validator
-        manifest_schema = Draft202012Validator(load_json(ROOT / 'schemas/return-manifest.schema.json'))
-        from tools import return_manifest
-        received = load_json(out / directory.relative_to(self.state) / 'return.json')
-        # Do not normalize, reseal or repair native producer bytes in the receiver.
-        schema_findings = sorted({e.json_path for e in manifest_schema.iter_errors(received)})
-        try:
-            return_manifest.validate(received)
-        except return_manifest.ReturnError as exc:
-            self.fail(f'native RETURN: {exc.code}: {exc}; JSON Schema findings: {schema_findings}')
-        self.assertEqual(schema_findings, [])
-        (out / 'handoff-scope.json').write_text(json.dumps(dict(
-            scope='offline coding fixture; synthetic admission and launcher journal; automated reviewer only',
-            pending_approvals=manifest['pending_approvals'], native_manifest_schema_error_paths=schema_findings,
-            native_return_reverified=True, receiver_decision='pending'), indent=2) + '\n')
         heads = {repo.name:self.git('rev-parse', 'HEAD', cwd=repo) for repo in (ROOT, HYVV, BB, ORBIT)}
         for name, value in [('run-provenance', self.provenance(heads)), ('anchors', cfg), ('exported-origin', self.events),
                             ('coordinator-origin', self.local_rows), ('projected-results', self.observed),
                             ('browser-selection', self.browser_selection)]:
             (out / (name + '.json')).write_text(json.dumps(value, indent=2, sort_keys=True) + '\n')
+
+        # Pinned inputs are read independently of the producer's RETURN and sidecar.
+        def receive(root):
+            return self.receive_campaign(root, receiver, cfg, hashlib.sha256(canonical(self.packet)).hexdigest())
+
+        receive(out)
+        self.refuse_substitutions(out, receive, claim['event_id'])
+        receive(out)  # the real delivery is still intact and pending
+        (out / 'handoff-scope.json').write_text(json.dumps(dict(
+            scope='offline coding fixture; synthetic admission and launcher journal; automated reviewer only',
+            pending_approvals=manifest['pending_approvals'], native_manifest_schema_error_paths=[],
+            native_return_reverified=True, receiver_decision='pending'), indent=2) + '\n')
+
+    def receive_campaign(self, root, git_mirror, pins, packet_digest):
+        """Read only the delivered files, fixture Git objects and separately captured pins. No issuer DB/key."""
+        from jsonschema import Draft202012Validator
+        from tools import return_manifest
+
+        def resolve(ref):
+            path = (root / ref).resolve(strict=True)
+            self.assertTrue(not Path(ref).is_absolute() and path.is_relative_to(root.resolve()) and path.is_file())
+            return path
+
+        job = pins['job_id']
+        manifest = load_json(resolve(f'jobs/{job}/return.json'))
+        # Never normalize or re-seal received bytes to make a native manifest pass.
+        return_manifest.validate(manifest)
+        Draft202012Validator(load_json(ROOT / 'schemas/return-manifest.schema.json')).validate(manifest)
+        packet = load_json(resolve(f'packets/{job}.json'))
+        sha = lambda data: hashlib.sha256(data).hexdigest()
+        self.assertEqual(sha(canonical(packet)), packet_digest)
+        self.assertEqual(manifest['packet_digest'], packet_digest)
+        self.assertEqual((manifest['workflow_ref'], manifest['job_id']), (packet['workflow_ref'], job))
+        auth = manifest['authorization']; admission = load_json(resolve(auth['reference']))['body']
+        self.assertEqual((admission['job_id'], admission['base_rev'], admission['repo']),
+                         (job, pins['code_rev'], packet['repository']['identity']))
+        self.assertEqual((auth['authority'], auth['approved_by'], auth['approved_at']),
+                         ('m1-authorization', admission['by'], admission['at']))
+        self.assertIn('- receiver decision: `pending`', resolve(f'jobs/{job}/RETURN.md').read_text().splitlines())
+        contract = packet['contract']
+        self.assertEqual(sha(canonical({k:v for k,v in contract.items() if k != 'review'})), pins['contract_sha256'])
+        self.assertEqual(manifest['contract'], {'id':contract['id'], 'sha256':pins['contract_sha256']})
+        self.assertEqual(manifest['repository']['source_rev'], pins['code_rev'])
+        self.assertEqual(manifest['receiver_decision'], return_manifest.pending_receiver_decision())
+        self.assertEqual(set(manifest['pending_approvals']), set(packet['human_gates']))
+        row, = manifest['acceptance']; criterion, = contract['acceptance_criteria']
+        self.assertEqual((row['id'], row['tests'], row['status']), (criterion['id'], criterion['tests'], 'PASS'),
+                         'substituted approved tests')
+        verify, wave = manifest['verification'], manifest['integration']
+        verification = load_json(resolve(verify['record_path']))
+        self.assertEqual((verification['sha'], verification['base_rev'], verification['tests']),
+                         (verify['commit'], pins['code_rev'], criterion['tests']))
+        self.assertEqual((verify['suite']['result'], verify['gitleaks']['result']), ('PASS', 'PASS'))
+        self.assertEqual((verification['suite']['exit_code'], verification['gitleaks']['exit_code']), (0, 0))
+        wave_record = load_json(resolve(wave['evidence']))
+        self.assertEqual(sha(canonical(wave_record)), wave['accepted_wave_digest'])
+        self.assertTrue(wave_record['accepted']); self.assertEqual(wave_record['head_sha'], wave['commit'])
+        self.assertEqual(wave_record['wave_id'], wave['wave'])
+        self.git('merge-base', '--is-ancestor', verify['commit'], wave['commit'], cwd=git_mirror)
+
+        worker = load_json(resolve('exported-origin.json')); local = load_json(resolve('coordinator-origin.json'))
+        verify_origin(worker, pins['workers'][0]); verify_origin(local, pins['coordinator'])
+        events = {e['event_id']:e for e in [*worker, *local]}
+        for ref in [verify['record_path'], wave['evidence']]:
+            self.assertIn(sha(resolve(ref).read_bytes()), [e['source']['revision'] for e in local])
+        refs = manifest['red_green']
+        side_ref, = [ref for ref in row['evidence'] if '#sha256=' in ref]
+        self.assertCountEqual(row['evidence'], [refs['green']['record_path'], verify['record_path'], side_ref])
+        path, digest = side_ref.split('#sha256='); side_file = resolve(path)
+        self.assertEqual(path, f'jobs/{job}/rails-evidence.json')
+        self.assertEqual(sha(side_file.read_bytes()), digest, 'wrong sidecar bytes')
+        side = load_json(side_file)
+        Draft202012Validator(load_json(SCHEMAS / 'evidence.schema.json')).validate(side)
+        self.assertEqual(side['origin_heads'], [pins['coordinator'], *pins['workers']])
+        self.assertEqual(side['imported_checkpoints'], [dict(pins['workers'][0], source='rails_import')])
+        self.assertEqual((side['code_rev'], side['contract_sha256'], side['receiver_decision']),
+                         (pins['code_rev'], pins['contract_sha256'], 'pending'))
+        link, = side['verification_links']; linked = events[link['event_id']]
+        self.assertEqual((linked['kind'], linked['authority']), ('verification.result', 'verifier_record'),
+                         'worker observation cannot supply verifier authority')
+        self.assertEqual((link['ac_id'], link['verdict']), (row['id'], 'EXPECTED_RED'))
+        self.assertCountEqual(side['selected_event_ids'], pins['evidence'][row['id']])
+        self.assertIn(link['event_id'], side['selected_event_ids'])
+        for phase, rev in [('red', pins['code_rev']), ('green', verify['commit'])]:
+            ref = refs[phase]; file = resolve(ref['record_path']); record = load_json(file)
+            self.assertEqual((ref['phase'], ref['revision']), (phase, rev))
+            self.assertEqual(sha(file.read_bytes()), ref['sha256'], 'substituted evidence bytes')
+            origin, = [e for e in local if e['kind']=='verification.result' and e['authority']=='verifier_record'
+                       and e['payload']['phase']==phase]
+            self.assertEqual((origin['source']['revision'], origin['scope']['code_rev'], origin['scope']['contract_sha256']),
+                             (sha(file.read_bytes()), rev, pins['contract_sha256']))
+            if phase == 'red':
+                self.assertEqual(linked, origin)
+            self.assertEqual((record['phase'], record['revision'], record['contract_sha256'], record['produced_by']['role']),
+                             (phase, rev, pins['contract_sha256'], 'verifier'))
+            self.assertEqual([c['id'] for c in record['result']['cases']], criterion['tests'])
+            result = record['result']; expect = 'failed' if phase == 'red' else 'passed'
+            self.assertEqual((record['criteria'][row['id']], result['cases'][0]['outcome']), (expect, expect))
+            self.assertEqual((result['tests'], result['exit_code'], result['skipped'], result['errors'], result['timed_out']),
+                             (1, int(phase == 'red'), 0, 0, False))
+            test_file, = contract['scope']['test_files']
+            blob = subprocess.check_output(['git', 'show', f'{rev}:{test_file}'], cwd=git_mirror, env=self.env)
+            self.assertEqual(blob, self.coding['approved_test'].encode(), 'substituted approved test blob')
+            self.assertEqual(record['test_fingerprints'], {test_file:sha(blob)})
+
+    def refuse_substitutions(self, out, receive, worker_claim_id):
+        from tools import return_manifest
+        # Re-seal edited *copies*: failure must be the replacement, not stale manifest integrity.
+        for change in ('test', 'evidence', 'authority', 'decision'):
+            with self.subTest(change=change):
+                scratch = shutil.copytree(out, self.root / f'substitution-{change}')
+                path, = scratch.glob('jobs/*/return.json'); doc = load_json(path); row, = doc['acceptance']
+                if change == 'test':
+                    row['tests'] = ['test_substitute.py::test_unrelated']
+                    refusal = self.assertRaisesRegex(AssertionError, 'substituted approved tests')
+                elif change == 'evidence':
+                    files = doc['red_green']
+                    shutil.copyfile(scratch/files['red']['record_path'], scratch/files['green']['record_path'])
+                    refusal = self.assertRaisesRegex(AssertionError, 'substituted evidence bytes')
+                elif change == 'authority':
+                    side_path = path.with_name('rails-evidence.json'); side = load_json(side_path)
+                    side['verification_links'][0]['event_id'] = worker_claim_id
+                    side_path.write_bytes(canonical(side))
+                    row['evidence'][-1] = f'{side_path.relative_to(scratch)}#sha256={hashlib.sha256(side_path.read_bytes()).hexdigest()}'
+                    refusal = self.assertRaisesRegex(AssertionError, 'worker observation cannot supply verifier authority')
+                else:
+                    doc['receiver_decision']['status'] = 'accepted'
+                    refusal = self.assertRaisesRegex(return_manifest.ReturnError, 'must stay pending')
+                path.write_bytes(canonical(return_manifest.seal(doc)))
+                with refusal:
+                    receive(scratch)
 
     def check_wire(self, local_rows):
         event_schema = load_json(SCHEMAS / 'event.schema.json')
