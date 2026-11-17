@@ -174,13 +174,19 @@ def run(args, out, work, summary):
         suites = sorted(str(p.relative_to(ROOT/repo)) for p in (ROOT/repo/'tests').glob('test_rails_*.py'))
         demand(suites, f'{repo}: no Rails suites')
         if repo == 'bundlebees':
-            suites.append('tests/test_return_conformance.py')
+            suites.extend('tests/test_' + name + '.py' for name in (
+                'return_conformance', 'return_criterion_proof', 'return_review_authority',
+                'verify_receipt_pin', 'integration_replay', 'wave_identity', 'wave_compat', 'cli_commit_local'))
+        if repo == 'hyvv':
+            suites.extend('tests/test_' + name + '.py' for name in (
+                'landing_events', 'landing_export', 'landing_export_cursor', 'landing_export_storage', 'landing_publication'))
         if repo == 'workflow':
             suites.extend(['tests/test_return_manifest.py', 'contrib/core-review/test_core_usage_roundtrip.py'])
         execute(repo, repo, [sys.executable,'-m','pytest','-q','-p','no:cacheprovider',
                             '--junitxml',str(out/(repo+'.xml')), *suites], xml=True, required=R18 if repo=='workflow' else ())
     suites = sorted(str(p.relative_to(orbit)) for p in (orbit/'tests').glob('rails-*.test.mjs'))
     demand(suites, 'missing Orbit Rails node suites')
+    suites.extend(['tests/acdd-evidence-route.test.mjs','tests/acdd-evidence.test.mjs','tests/acdd-live-smoke.test.mjs'])
     execute('orbit-node','orbitdesktop',['node','--test','--test-reporter=junit',
             '--test-reporter-destination='+str(out/'orbit-node.xml'), *suites], xml=True)
     execute('orbit-browser','orbitdesktop',[sys.executable,'tests/rails-live.browser.py'])
