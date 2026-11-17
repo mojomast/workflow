@@ -8,7 +8,6 @@
 
 - Rails R00/R01 conversion record (docs/rails-w2-conversions.md, workflow #59): the destruction evidence for the wave-1 attempt workspaces lost to the worker restart, the precise re-dispatch remedy from the frozen spec, and the re-dispatch readiness assessment.
 
- Unreleased
 
 - Campaign report fixes: `pull_requests[].merge_order` is now defined as a 1..N ordinal position and `recommended_merge_order` as the open PR numbers in that position order, compared as an exact sequence instead of a set. The old set comparison refused a normal report whose first PR is `#2` in position 1 and accepted a reversed order (`#1` in position 1, `#2` in position 2, recommended `[2, 1]`). Each audit now carries `status: clean|findings|not_run`: a completed review with zero findings is representable without inventing an `AF-###` entry, while a review that did not run needs a reason, is disclosed in `known_limits`, and never counts as the audit that ran. Also: a `NOT RUN` criterion must be named in `not_run` by id, a passing `test` criterion cannot contradict a failed recorded run of the same command, a non-finite performance value or budget is refused (budget direction stays undefined by design), unknown fields are refused instead of silently dropped, and the schema now matches the validator on `ran_at` timestamps, empty optional strings, artifact evidence patterns and the PR state/position rule.
 
