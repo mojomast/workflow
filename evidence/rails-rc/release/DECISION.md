@@ -7,12 +7,24 @@ The four draft heads in [`release.json`](../release.json) form a reproducible so
 | Check | Result / evidence |
 |---|---|
 | Clean four-checkout gate | [665 cases](summary.json): Workflow 156, BundleBees 320, Hyvv 77, Orbit Python 25 and Node 87. Zero failures, errors or skips. The separate [Chromium check](orbit-browser.log) passed. The exact toolchain, wheel hashes and lockfile digest are in the summary. |
+| Hosted four-checkout gate | [GitHub Actions run 44192354558](https://github.com/mojomast/workflow/actions/runs/44192354558) passed the same 665 required cases with no failures/errors/skips. The [download and independent replay](hosted-replay.json) verified the archive, its internal checksums, and its own generated RETURN. Archive SHA-256: `5b425838c35ac50fa8a051b1c053c8894a94307ee6c8cb6bdb44f91fc2d44940`. |
 | Component CI | [64 successful checks](ci.json) at the four release heads: Workflow 14, BundleBees 4, Hyvv 14, Orbit 32. Counts are reported check jobs, not test cases. [BundleBees' sandbox suite](https://github.com/mojomast/bundlebees/actions/runs/44190910945/job/134419736161) passed 2,537 with 16 skips. Those skips are not counted as passes in the required cross-stack gate. |
 | Native RETURN | [Actual report](campaign/jobs/r18-coding/return.json) SHA-256 `6058fa382132dfb728908e47ddb519fc15a3d9241a21bd083b717482a9e3c585`; [sidecar](campaign/jobs/r18-coding/rails-evidence.json) SHA-256 `0701a07bdd50103627d57871e541b7625cd89ebd8ec2f15d9c8888c7e34754cf` resolves from `acceptance[0].evidence`. Body digest `3c89270df492ff9802733afe555ab7df4e098e700335e0423fa1b15878de2a82`. Manifest and sidecar decisions are `pending`. |
 | Independent receiver | Recomputed both origin chains; checked the retained dispatch and verifier pins, approved Git blob and candidate/integrated revisions; refused substituted tests, evidence, receipt bytes, worker authority and receiver decisions, as well as six foreign receipt scopes. [Re-execution](offline-replay.json) got RED (`56276756`), verified GREEN (`cad02b6b`), integrated GREEN (`f2c1f309`). The fixture's automated review is a coordinator observation, not an authenticated human review. |
 | Windows / historical waves | [Hosted native Windows](https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082037) passed. [Offline canary rehearsal](offline-m2.json) exercised the four expected seed failures, four reference passes, and `contract_missing` with zero attempts. [One synthetic wave](copied-synthetic-wave.json) was suite-compatible. No historical production copy or authorized live worker was supplied. |
 
 The original five green tests had hidden [nine schema diagnostics at seven distinct paths](../before/frozen-check.json). The later [receipt gap](../qualification-2/), [compatibility failure](../qualification-5/), and [ref-publication finding](../qualification-5/ref-publication-review.md) are retained. None was converted into an allowed skip. The CI archive correction preserves every original filename, including colons in ledger event URNs, inside one checksum-addressed tarball.
+
+## Authenticated pagination on the release heads
+
+Two fresh private 100,000-event SQLite ledgers; ten independent producers; one warm-up per lane and 100 measured logical 500-row pages per surface. Each physical response was authenticated, opened a fresh read-only snapshot, stayed under 32 KiB, and was checked against writer receipts. The threshold is **500 ms p95**.
+
+| Configuration | Events | View | Result |
+|---|---:|---:|---|
+| [Default](http-default.json) | 1,614.091 ms | 525.956 ms | **FAIL** on both surfaces. |
+| [Optional index installed before first append](http-indexed.json) | 499.716 ms | 189.422 ms | **PASS in this run.** Events had 0.284 ms of headroom. |
+
+The [prior repeated indexed run](../performance/coordinator-replay-100.json) recorded 670.749 ms for events, so this is not a reliable deployment-wide pass. The indexed procedure is opt-in, and no deployed ledger was changed. Local-only attempts and ten appenders do not establish mixed-origin, production-hardware or multi-host performance.
 
 ## Gap closure and owners
 
