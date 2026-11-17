@@ -127,17 +127,29 @@ UNKNOWN_STATE_ROW = {
 }
 
 
-def cli_runner(attempts, status, *, attempts_code=0, status_code=0):
-    """Runner that only answers the two packet-1 subcommands, by exact argv."""
+def cli_runner(attempts, status, *, attempts_code=0, status_code=0, state_dir=None):
+    """Runner that only answers the two packet-1 subcommands, by exact argv.
+
+    The invocation is pinned in both directions: the subcommand must be one
+    of the two real read-only ones, and the state directory on the wire must
+    be exactly the one the collector was given. A collector with no state
+    directory must send the bare subcommand - a ``--state-dir`` there would
+    be an invented one, and is refused; a collector with one must forward
+    it, and a missing one is refused just the same.
+    """
 
     def runner(argv):
-        if argv[1:] == ["bundlebees", "attempts"]:
+        if len(argv) < 3 or argv[1] != "bundlebees" or argv[2] not in ("attempts", "status"):
+            raise AssertionError(f"unexpected fleet invocation: {list(argv)}")
+        if state_dir is None:
+            assert "--state-dir" not in argv, f"invented state dir: {list(argv)}"
+        else:
+            assert argv[-2:] == ["--state-dir", str(state_dir)], list(argv)
+        if argv[2] == "attempts":
             body = "" if attempts is None else json.dumps(attempts)
             return attempts_code, body, ""
-        if argv[1:] == ["bundlebees", "status"]:
-            body = "" if status is None else json.dumps(status)
-            return status_code, body, ""
-        raise AssertionError(f"unexpected fleet invocation: {list(argv)}")
+        body = "" if status is None else json.dumps(status)
+        return status_code, body, ""
 
     return runner
 
@@ -228,7 +240,12 @@ class TestLiveCli:
 
     def test_counts_come_from_flat_status_payload(self, snapshot: dict) -> None:
         assert snapshot["fleet"]["in_flight"] == 2
-        assert snapshot["fleet"]["bee_cap"] == 12
+        # The CLI status reported bee_cap 12, but launcher configuration is
+        # not an observed fleet fact: the fleet section never surfaces it -
+        # suppressed even when the status payload carries it. The health
+        # and bottlenecks sections still derive from the value (asserted in
+        # the health test below).
+        assert snapshot["fleet"]["bee_cap"] is None
 
     def test_unmapped_cli_fields_never_enter_the_snapshot(self, snapshot: dict) -> None:
         dumped = json.dumps(snapshot)
@@ -247,7 +264,7 @@ class TestLiveCli:
         state = fresh_metrics_dir(tmp_path)
         snap = wiring_collector(
             state_dir=state,
-            fleet_runner=cli_runner(REAL_ATTEMPTS, REAL_STATUS),
+            fleet_runner=cli_runner(REAL_ATTEMPTS, REAL_STATUS, state_dir=state),
         ).build_snapshot()
         validated(snap)
         health = snap["health"]
@@ -366,9 +383,15 @@ class TestCliDegradation:
         assert fleet["status"] == "stale"
         assert fleet["error"] == "fleet_state_older_than_threshold"
         assert [row["attempt_id"] for row in fleet["attempts"]] == ["att-disp"]
-        # The reported counts are still the CLI's own numbers.
-        assert fleet["in_flight"] == 2
-        assert fleet["bee_cap"] == 12
+        # The stale-active row was demoted to unknown, so the collector's
+        # own row-derived count is 0 - the CLI's tally of 2 still counts a
+        # bee the collector cannot vouch for, and is never parroted over
+        # rows that contradict it.
+        assert fleet["attempts"][0]["state"] == "unknown"
+        assert fleet["attempts"][0]["detail"] == "dispatched"
+        assert fleet["in_flight"] == 0
+        # And the fleet section never surfaces the launcher's bee_cap.
+        assert fleet["bee_cap"] is None
 
     def test_unrecognized_label_degrades_to_unknown_without_leaking(self) -> None:
         snap = wiring_collector(
@@ -429,7 +452,10 @@ class TestPartialCli:
         ).build_snapshot()
         validated(snap)
         assert snap["fleet"]["status"] == "live"
-        assert snap["fleet"]["in_flight"] == 5
+        # The status summary tallied 5, but the collector counts the rows it
+        # just read: the in-flight pair {dispatched, verified} is 2, and the
+        # CLI tally is never parroted over rows that contradict it.
+        assert snap["fleet"]["in_flight"] == 2
         assert snap["fleet"]["bee_cap"] is None
 
     def test_empty_attempts_is_genuine_zero_not_unknown(self) -> None:
@@ -489,7 +515,10 @@ class TestRealSubprocess:
         fleet = snap["fleet"]
         assert fleet["status"] == "live"
         assert fleet["in_flight"] == 1
-        assert fleet["bee_cap"] == 12
+        # The real status payload reported bee_cap 12; launcher configuration
+        # is never surfaced by the fleet section - suppressed even when the
+        # CLI reports it, never fabricated where unknown.
+        assert fleet["bee_cap"] is None
         # dispatched renders as the lifecycle-aligned starting state.
         assert fleet["attempts"][0]["state"] == "starting"
         assert fleet["attempts"][0]["attempt_id"] == "att_real_1"

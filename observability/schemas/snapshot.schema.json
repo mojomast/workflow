@@ -308,18 +308,6 @@
             { "$ref": "#/$defs/branch_name" }
           ]
         },
-        "model": {
-          "oneOf": [
-            { "type": "null" },
-            { "$ref": "common.schema.json#/$defs/id_token" }
-          ],
-          "description": "The model or route label the source reported for the attempt, for example go or deepseek; null when the source named none. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
-        },
-        "title": {
-          "type": ["string", "null"],
-          "maxLength": 200,
-          "description": "Short scrubbed title of the work the attempt is for, as the source named it; null when the source named none. Never a prompt or transcript. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
-        },
         "route": { "$ref": "#/$defs/route_label" },
         "started_at": {
           "oneOf": [

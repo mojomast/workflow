@@ -254,6 +254,29 @@ def utc_now_string(now: datetime | None = None) -> str:
     return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def as_utc_moment(value: Any) -> datetime:
+    """Normalize an injected clock to an aware UTC datetime.
+
+    The collector takes an injected clock so snapshots are deterministic in
+    tests; a caller may hand it epoch seconds, a naive datetime or an aware
+    one. A value that is not a clock at all (None, a string, a bool) falls
+    back to the real UTC clock: a bad injection must degrade to ``now``,
+    never crash the build - over HTTP that crash is a 500 where the contract
+    says a snapshot, and staleness arithmetic would raise before the
+    degradation ladder ever runs.
+    """
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            pass
+    return datetime.now(timezone.utc)
+
+
 def scrub(value: Any, limit: int = 200) -> str | None:
     """Free text safe for a record: control characters dropped, URLs masked,
     length capped. Never raises."""
@@ -685,7 +708,10 @@ class Collector:
 
     # ------------------------------------------------------------------ time
     def now(self) -> datetime:
-        return self._now_fn()
+        """The collector's clock, normalized once: epoch seconds, naive and
+        aware datetimes all become an aware UTC moment; a non-clock value
+        falls back to the real UTC clock (see ``as_utc_moment``)."""
+        return as_utc_moment(self._now_fn())
 
     def _run(self, runner: Runner | None, argv: Sequence[str]) -> tuple[int, str, str]:
         active = runner or (lambda a: subprocess_runner(a, self.cli_timeout_s))
@@ -807,13 +833,17 @@ class Collector:
     ) -> dict[str, Any]:
         """One fleet row from a CLI attempts row or a dispatch-lease record.
 
-        Branch, model and title are carried when the source names them and
-        stay null otherwise; title is free text and is scrubbed. Fleet
+        Branch is carried when the source names it and stays null otherwise.
+        The model/title widening was reverted: they are not fleet-attempt
+        fields and are never surfaced, whatever the source carries. Fleet
         honesty: an ACTIVE-state row whose heartbeat is older than the
         staleness threshold cannot be vouched for as active - it is demoted
         to ``unknown`` with the raw state label kept in ``detail``, which
-        also removes it from the in-flight count.
+        also removes it from the in-flight count. The clock is normalized
+        once here so an injected non-datetime cannot reach the staleness
+        arithmetic and crash the build.
         """
+        now = as_utc_moment(now)
         attempt_id = id_token(first_str(raw, ("attempt_id", "id", "attempt")))
         raw_state = first_str(raw, ("state", "status")) or "unknown"
         raw_state = scrub(raw_state, 40) or "unknown"
@@ -836,8 +866,6 @@ class Collector:
             "task_id": id_token(first_str(raw, ("task_id", "task"))),
             "repo": repo_slug(first_str(raw, ("repo", "repository"))),
             "branch": branch_name(first_str(raw, ("branch", "head_branch"))),
-            "model": id_token(first_str(raw, ("model", "served_model"))),
-            "title": scrub(first_str(raw, ("title", "objective", "summary"))),
             "route": self._route_of(raw),
             "started_at": parse_iso_or_none(first_str(raw, ("started_at", "started", "ts"))),
             "updated_at": parse_iso_or_none(first_str(raw, ("updated_at", "updated", "heartbeat_at"))),

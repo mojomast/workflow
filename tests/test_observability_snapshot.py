@@ -7,10 +7,11 @@ Four behaviors, each pinned RED-first against the collector:
    ``<bin> bundlebees status --state-dir DIR``, scoped to the plugin state
    directory it was given; the ``bundlebees attempt op=...`` shape never
    existed and must never come back;
-2. fleet rows carry ``branch``, ``model`` and ``title``, and when the CLI
-   cannot answer the fleet section falls back to the dispatch-lease store
-   (``state_dir/leases/att_*.json``, newest 24) joined with the bee-landed
-   states in ``state_dir/outbox/``;
+2. fleet rows carry ``branch`` (the model/title widening was reverted: a
+   fleet attempt carries neither field, and the absence is pinned - not a
+   null), and when the CLI cannot answer the fleet section falls back to
+   the dispatch-lease store (``state_dir/leases/att_*.json``, newest 24)
+   joined with the bee-landed states in ``state_dir/outbox/``;
 3. fleet honesty: an ACTIVE-state row whose heartbeat is older than the
    staleness threshold is demoted to ``unknown`` and is not counted
    in-flight, and the CLI status ``bee_cap`` is not surfaced in the fleet
@@ -140,7 +141,7 @@ class TestRealFleetSubcommands:
 
 
 class TestFleetRowFields:
-    def test_rows_carry_branch_model_and_title(self) -> None:
+    def test_rows_carry_branch_and_never_model_or_title(self) -> None:
         row = collector.Collector()._fleet_row(
             {
                 "attempt_id": "att_row",
@@ -156,10 +157,13 @@ class TestFleetRowFields:
             FIXED_NOW,
         )
         assert row["branch"] == "feat/fleet-fallback"
-        assert row["model"] == "go"
-        assert row["title"] == "Add the dispatch-lease fallback"
+        # The widened contract was reverted: model and title are not fleet
+        # attempt fields at all. The source named both here and the row must
+        # still drop them - absence, never a null placeholder.
+        assert "model" not in row
+        assert "title" not in row
 
-    def test_row_model_and_title_are_scrubbed_and_validated(self, tmp_path: Path) -> None:
+    def test_row_free_text_from_the_source_never_surfaces(self, tmp_path: Path) -> None:
         def runner(argv):
             if "attempts" in argv:
                 payload = {
@@ -180,23 +184,23 @@ class TestFleetRowFields:
         snap = delta_collector(fleet_runner=runner).build_snapshot()
         validated(snap)
         row = snap["fleet"]["attempts"][0]
-        assert row["model"] == "go-worker-large"
-        assert row["title"] == collector.scrub(
-            "see https://internal.example/one and \x07 bell"
-        )
+        assert "model" not in row
+        assert "title" not in row
         dumped = json.dumps(snap)
+        # Neither the dropped fields' free text nor its URL may leak through
+        # any other carried field.
         assert "internal.example" not in dumped
         assert "\\u0007" not in dumped
 
-    def test_fields_the_cli_does_not_report_stay_null(self) -> None:
+    def test_fields_the_cli_does_not_report_stay_absent(self) -> None:
         row = collector.Collector()._fleet_row(
             {"attempt_id": "att_row", "state": "running", "updated_at": iso(60)},
             iso(0),
             FIXED_NOW,
         )
         assert row["branch"] is None
-        assert row["model"] is None
-        assert row["title"] is None
+        assert "model" not in row
+        assert "title" not in row
 
 
 def write_lease(
@@ -322,12 +326,14 @@ class TestDispatchLeaseFallback:
         assert by_id["att_fb3"]["detail"] == "dispatched"  # stale-active demotion
         assert by_id["att_fb4"]["state"] == "starting"
         # Lease context joins onto every row.
-        assert by_id["att_fb1"]["title"] == "Wire the outbox join"
         assert by_id["att_fb1"]["branch"] == "feat/outbox-join"
-        assert by_id["att_fb1"]["model"] == "deepseek"
         assert by_id["att_fb1"]["job_id"] == "job_d2"
         assert by_id["att_fb1"]["task_id"] == "T1"
         assert by_id["att_fb1"]["started_at"] == iso(60)
+        # The lease record names a model and a title; the reverted contract
+        # surfaces neither on a fleet attempt.
+        assert "model" not in by_id["att_fb1"]
+        assert "title" not in by_id["att_fb1"]
 
     def test_fallback_marks_the_section_stale_and_names_the_source(
         self, fallback_snapshot: dict
