@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    78: (
+        "docs-sync companion (the PR 70 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #70 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     77: (
         "docs-sync companion (the PR 75 coverage row + its merged-window bullet) - same "
         "class: a registry bookkeeping change whose only content is this exclusion plus "
@@ -272,6 +278,15 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 75,
         "name": "collector obs-snapshot alias",
         "keywords": ("obs-snapshot", "alias", "deploy parity", "auth bypass"),
+    },
+    {
+        # docs/coordination-reliability-research: the FC-1..FC-6
+        # coordination-reliability research doc with the D-1 correction: the
+        # pinned launcher's diff base is the recorded seed commit, not sandbox
+        # HEAD (verified in review against hyvv@5bee1a87 and hyvv main).
+        "pr": 70,
+        "name": "coordination-reliability research doc",
+        "keywords": ("coordination-reliability", "FC-1", "seed commit", "5bee1a87"),
     },
 )
 
