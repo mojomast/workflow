@@ -1,0 +1,1423 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/rails/payload.schema.json",
+  "title": "Rizzstack Rails closed kind payload schemas \u2014 rizzstack.rails-payload/1",
+  "$comment": "R01 freeze candidate. One closed schema per core kind listed in event.schema.json. Additional properties are refused; a consumer that does not recognize a version refuses it. Producers must scrub and allowlist payload values before canonical storage (privacy invariant R-PRIV); these schemas constrain shape only and cannot establish secret absence, producer authority or evidence truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "kinds"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.rails-payload/1"
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane.open",
+        "lane.spawn",
+        "lane.close",
+        "tool.start",
+        "tool.finish",
+        "decision.recorded",
+        "attempt.state",
+        "job.state",
+        "queue.transition",
+        "lease.recorded",
+        "verification.result",
+        "review.result",
+        "integration.result",
+        "merge.result",
+        "acceptance.result",
+        "usage.observed",
+        "feedback.recorded",
+        "intervention.requested",
+        "intervention.result",
+        "history.superseded",
+        "source.gap",
+        "source.checkpoint",
+        "source.error"
+      ],
+      "properties": {
+        "lane.open": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            }
+          },
+          "$comment": "Minimal provisional shape; lane identity lives in the envelope lane_id/parent_lane_id."
+        },
+        "lane.spawn": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "child_lane_id"
+          ],
+          "properties": {
+            "child_lane_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            }
+          },
+          "$comment": "Explicit spawn link; the child lane is recorded here and in the envelope parent fields."
+        },
+        "lane.close": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            }
+          },
+          "$comment": "Minimal provisional shape; closure reason may be added by a versioned /2, not by silent widening."
+        },
+        "tool.start": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "call_id",
+            "tool_name",
+            "command_family",
+            "outcome",
+            "summary",
+            "evidence_ref"
+          ],
+          "properties": {
+            "call_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "tool_name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "command_family": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outcome": {
+              "const": "pending"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "$comment": "A start has not concluded; its outcome is pending. Pairing is by same origin/lane/call_id only."
+        },
+        "tool.finish": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "call_id",
+            "tool_name",
+            "command_family",
+            "outcome",
+            "summary",
+            "evidence_ref"
+          ],
+          "properties": {
+            "call_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "tool_name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "command_family": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outcome": {
+              "enum": [
+                "pending",
+                "ok",
+                "failed",
+                "cancelled",
+                "unknown"
+              ]
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "outcome": {
+                    "const": "pending"
+                  }
+                },
+                "required": [
+                  "outcome"
+                ]
+              },
+              "then": false
+            }
+          ],
+          "$comment": "A finish always concludes; pending is not a finish outcome. Interrupted calls stay open without a finish or carry outcome unknown/cancelled on a real finish."
+        },
+        "decision.recorded": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "summary"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          },
+          "$comment": "Explicit observable decisions only; no raw reasoning text."
+        },
+        "attempt.state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from_state",
+            "to_state",
+            "operation_id",
+            "fencing_epoch",
+            "code",
+            "evidence_ref"
+          ],
+          "properties": {
+            "from_state": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to_state": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "fencing_epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "job.state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from_state",
+            "to_state",
+            "operation_id",
+            "fencing_epoch",
+            "code",
+            "evidence_ref"
+          ],
+          "properties": {
+            "from_state": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to_state": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "fencing_epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "queue.transition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from_state",
+            "to_state",
+            "operation_id",
+            "fencing_epoch",
+            "code",
+            "evidence_ref"
+          ],
+          "properties": {
+            "from_state": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to_state": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "fencing_epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "lease.recorded": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from_state",
+            "to_state",
+            "operation_id",
+            "fencing_epoch",
+            "code",
+            "evidence_ref"
+          ],
+          "properties": {
+            "from_state": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to_state": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "fencing_epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "verification.result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ac_id",
+            "contract_sha256",
+            "code_rev",
+            "run_id",
+            "phase",
+            "verdict",
+            "evidence_refs",
+            "reason"
+          ],
+          "properties": {
+            "ac_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "contract_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "code_rev": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "run_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "phase": {
+              "enum": [
+                "red",
+                "green",
+                "refactor",
+                "integration"
+              ]
+            },
+            "verdict": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "NOT_RUN",
+                "BLOCKED",
+                "UNVERIFIED",
+                "EXPECTED_RED"
+              ]
+            },
+            "evidence_refs": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              }
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "expected_intent_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "const": "PASS"
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "evidence_refs": {
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "evidence_refs"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "enum": [
+                      "FAIL",
+                      "NOT_RUN",
+                      "BLOCKED",
+                      "UNVERIFIED"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "reason": {
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "const": "EXPECTED_RED"
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "required": [
+                  "expected_intent_ref"
+                ],
+                "properties": {
+                  "expected_intent_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "review.result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "review_id",
+            "reviewer",
+            "author",
+            "reviewed_head",
+            "review_verdict",
+            "independent",
+            "basis"
+          ],
+          "properties": {
+            "review_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "reviewer": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "author": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "reviewed_head": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "review_verdict": {
+              "enum": [
+                "approve",
+                "approve_with_followups",
+                "changes_requested",
+                "not_run"
+              ]
+            },
+            "independent": {
+              "type": "boolean"
+            },
+            "basis": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "independent": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "independent"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "basis": {
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          ],
+          "$comment": "independent=true requires basis describing distinct execution evidence, not a display name."
+        },
+        "integration.result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "summary"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "evidence_refs": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              }
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "$comment": "Provisional minimal shape pending R00 bundlebees record fixtures."
+        },
+        "merge.result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "summary"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "evidence_refs": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              }
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "$comment": "Provisional minimal shape pending R00 bundlebees record fixtures."
+        },
+        "acceptance.result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ac_id",
+            "contract_sha256",
+            "code_rev",
+            "run_id",
+            "phase",
+            "verdict",
+            "evidence_refs",
+            "reason"
+          ],
+          "properties": {
+            "ac_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "contract_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "code_rev": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "run_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "phase": {
+              "enum": [
+                "red",
+                "green",
+                "refactor",
+                "integration"
+              ]
+            },
+            "verdict": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "NOT_RUN",
+                "BLOCKED",
+                "UNVERIFIED",
+                "EXPECTED_RED"
+              ]
+            },
+            "evidence_refs": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              }
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "expected_intent_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "const": "PASS"
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "evidence_refs": {
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "evidence_refs"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "enum": [
+                      "FAIL",
+                      "NOT_RUN",
+                      "BLOCKED",
+                      "UNVERIFIED"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "reason": {
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "const": "EXPECTED_RED"
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "required": [
+                  "expected_intent_ref"
+                ],
+                "properties": {
+                  "expected_intent_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "usage.observed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "usage_record_id",
+            "metric_scope",
+            "input_tokens",
+            "output_tokens",
+            "thinking_tokens",
+            "usage_basis",
+            "provider",
+            "model"
+          ],
+          "properties": {
+            "usage_record_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "metric_scope": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "input_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "output_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thinking_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "usage_basis": {
+              "enum": [
+                "delta",
+                "cumulative",
+                "final"
+              ]
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "$comment": "Tokens are required but nullable (unknown stays null, never inferred). basis is delta|cumulative|final; final receipt is recorded once per scope."
+        },
+        "feedback.recorded": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_event_id",
+            "rating",
+            "note",
+            "category",
+            "actor",
+            "supersedes_event_id"
+          ],
+          "properties": {
+            "target_event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "rating": {
+              "enum": [
+                -1,
+                0,
+                1,
+                null
+              ]
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "category": {
+              "enum": [
+                "quality",
+                "intervention",
+                "both"
+              ]
+            },
+            "actor": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "supersedes_event_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "intervention.requested": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request_id",
+            "target_event_id",
+            "operation",
+            "queue_action_id",
+            "decision",
+            "reason",
+            "authority_ref"
+          ],
+          "properties": {
+            "request_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "target_event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "operation": {
+              "enum": [
+                "retry",
+                "rewind_retry"
+              ]
+            },
+            "queue_action_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "decision": {
+              "enum": [
+                "pending",
+                "approved",
+                "declined",
+                "blocked",
+                "completed",
+                "failed"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "authority_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "intervention.result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request_id",
+            "target_event_id",
+            "operation",
+            "queue_action_id",
+            "decision",
+            "reason",
+            "authority_ref"
+          ],
+          "properties": {
+            "request_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "target_event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "operation": {
+              "enum": [
+                "retry",
+                "rewind_retry"
+              ]
+            },
+            "queue_action_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "decision": {
+              "enum": [
+                "pending",
+                "approved",
+                "declined",
+                "blocked",
+                "completed",
+                "failed"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "authority_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "history.superseded": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "old_event_ids",
+            "replacement_event_id",
+            "replacement_lane_id",
+            "operation_id"
+          ],
+          "properties": {
+            "old_event_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 500,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              }
+            },
+            "replacement_event_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "replacement_lane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            }
+          },
+          "$comment": "Authorized operation reference is operation_id. Ledger history stays intact; UI ghosts the old marks."
+        },
+        "source.gap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "cursor",
+            "range_start",
+            "range_end",
+            "code",
+            "count",
+            "digest"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "cursor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "range_start": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "range_end": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "digest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "$comment": "A gap is explicit missing evidence, never an empty successful source."
+        },
+        "source.checkpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "cursor",
+            "range_start",
+            "range_end",
+            "code",
+            "count",
+            "digest"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "cursor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "range_start": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "range_end": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "digest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "source.error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "cursor",
+            "range_start",
+            "range_end",
+            "code",
+            "count",
+            "digest"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "cursor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "range_start": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "range_end": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "digest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "$comment": "code carries a safe error token, never raw text from the record."
+        }
+      }
+    }
+  }
+}

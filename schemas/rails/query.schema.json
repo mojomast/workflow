@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/rails/query.schema.json",
+  "title": "Rizzstack Rails shared query \u2014 rizzstack.rails-query/1 and rizzstack.rails-result/1",
+  "$comment": "R01 freeze candidate. The file bundles the query request and result wire objects (spec section 6); validate an instance against the anyOf branch whose properties.schema const matches the instance's schema tag; the root object is a document, not an instance schema. Cursors are opaque encoded, input-validated and cannot widen access; they are not capabilities and every call re-checks access. Caps: max 500 items, 32 KiB model result (128 KiB HTTP surface is an HTTP-layer cap), limit default 100.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.rails-query/1"
+    }
+  },
+  "anyOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "selector",
+        "format",
+        "after",
+        "limit",
+        "max_bytes",
+        "include",
+        "show_tokens"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-query/1"
+        },
+        "selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "attempt",
+                "job",
+                "campaign",
+                "session",
+                "event"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+            }
+          },
+          "$comment": "Exactly one selector; the id is a public opaque token. No SQL, arbitrary path, raw URL, regex or database parameter is accepted."
+        },
+        "format": {
+          "enum": [
+            "markdown",
+            "json"
+          ],
+          "default": "markdown"
+        },
+        "after": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 100
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32768,
+          "default": 32768
+        },
+        "include": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "enum": [
+              "tools",
+              "verification",
+              "review",
+              "feedback"
+            ]
+          }
+        },
+        "show_tokens": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "ok",
+        "items",
+        "markdown",
+        "next_cursor",
+        "has_more",
+        "truncated",
+        "completeness",
+        "missing_sources",
+        "integrity",
+        "warnings"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-result/1"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object"
+          }
+        },
+        "markdown": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "empty"
+          ]
+        },
+        "missing_sources": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$"
+          }
+        },
+        "integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "checked_through"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "unchecked",
+                "ok",
+                "failed"
+              ]
+            },
+            "checked_through": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "$comment": "format=json returns items and empty markdown; format=markdown returns bounded markdown plus compact evidence identifiers in items. A complete UTF-8 response including pagination metadata is emitted within the caps; JSON is never sliced and truncation is never silently hidden. Missing selector is a not_found error, not a result; no history is an empty result with its completeness status, never sample data."
+    }
+  ]
+}
