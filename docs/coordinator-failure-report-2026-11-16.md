@@ -219,3 +219,27 @@ requirements (this package now carries PROVENANCE.md + MANIFEST.sha256), and the
 root-cause refinement: the shared pattern is UNOWNED BOUNDARIES (execution vs durable
 delivery, observed state vs restart, coordinator vs beat, planned scope vs authorized
 scope, evidence vs exported evidence) - adopted over the narrower "fresh read" framing.
+
+
+## CORRECTION 4 (22:10 EST, from the independent review's non-blocking findings)
+
+- **F-A1 accepted:** F1's "delivered nothing to origin: no branches, no commits" overstates -
+  the packaged record shows conversion r1's parity branch DID land (PR #55) and the retry
+  "pushed only 1 of 3". The accurate claim: the three payload deliverables (synthesis,
+  runbook, conversions r3) were not delivered; one auxiliary branch was.
+- **F-A2 accepted:** the "(537 total)" figure in F1's detection paragraph is not in any
+  packaged artifact; the record says 533 at the relevant time.
+- **F-A4 accepted:** CORRECTION's "(8 files, ~36K)" misstates the tarball - 8 members,
+  5,434 bytes uncompressed (36K was the directory listing's block size, not the archive).
+
+
+## CORRECTION 4 (22:10 EST, from the independent review's non-blocking findings)
+
+- **F-A1 accepted:** F1's "delivered nothing to origin: no branches, no commits" overstates -
+  the packaged record shows conversion r1's parity branch DID land (PR #55) and the retry
+  "pushed only 1 of 3". The accurate claim: the three payload deliverables (synthesis,
+  runbook, conversions r3) were not delivered; one auxiliary branch was.
+- **F-A2 accepted:** the "(537 total)" figure is not in any packaged artifact; the record
+  says 533 at the relevant time.
+- **F-A4 accepted:** CORRECTION's "(8 files, ~36K)" misstates the tarball - 8 members,
+  5,434 bytes uncompressed (36K was the directory listing block size, not the archive).
