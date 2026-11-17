@@ -46,6 +46,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    72: (
+        "docs-sync companion (the PR 68 coverage row) - same class: a registry "
+        "bookkeeping change whose only content is this exclusion plus the #68 "
+        "registry row; it carries its own exclusion so merging it leaves main green"
+    ),
     67: (
         "docs-sync companion (the main Unreleased-heading repair after the #57 self-"
         "registration mangle) - same class: a changelog-truth repair whose own coverage "
@@ -234,6 +239,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 59,
         "name": "rails R00/R01 conversion r3",
         "keywords": ("rails-w2-conversions", "re-dispatch remedy", "destruction evidence"),
+    },
+    {
+        # docs/coordinator-failure-report-2026-11-16: the failure report + packaged
+        # evidence (merged e356b3d).
+        "pr": 68,
+        "name": "coordinator failure report 2026-11-16",
+        "keywords": ("coordinator-failure-report-2026-11-16", "failure-evidence-2026-11-16"),
     },
 )
 
