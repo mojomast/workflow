@@ -1,0 +1,688 @@
+{
+  "bundlebees": {
+    "baseRefOid": "07cdc17afdff310582587cade6635a8f2362a464",
+    "headRefName": "feat/core-rails-buildout-20261117",
+    "headRefOid": "f95ef9e0a86e7171a527504a07df99a5f522f50a",
+    "isDraft": true,
+    "mergeable": "MERGEABLE",
+    "observed_at": "2026-11-17T20:52:20+00:00",
+    "reviewDecision": "",
+    "ruleset_required_contexts": [],
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:50:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/bundlebees/actions/runs/44172474604/job/134354955001",
+        "name": "tests (sandbox included)",
+        "startedAt": "2026-11-17T20:44:33Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:24Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/bundlebees/actions/runs/44172474604/job/134354954804",
+        "name": "orbit round trip (real Orbit API, required)",
+        "startedAt": "2026-11-17T20:44:33Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:25Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/bundlebees/actions/runs/44172474604/job/134354954968",
+        "name": "hermes plugins doctor (offline)",
+        "startedAt": "2026-11-17T20:44:33Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:47Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/bundlebees/actions/runs/44172474604/job/134354954303",
+        "name": "gitleaks",
+        "startedAt": "2026-11-17T20:44:33Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      }
+    ],
+    "url": "https://github.com/mojomast/bundlebees/pull/82"
+  },
+  "hyvv": {
+    "baseRefOid": "9bed64999f23d12c354c6f714b70e182f54f4486",
+    "headRefName": "feat/core-rails-buildout-20261117",
+    "headRefOid": "cd8cce9374dc8430c314ffde74fa65180a501960",
+    "isDraft": true,
+    "mergeable": "MERGEABLE",
+    "observed_at": "2026-11-17T20:52:20+00:00",
+    "reviewDecision": "",
+    "ruleset_required_contexts": [
+      "bee-ci/unit",
+      "bee-ci/contract",
+      "bee-ci/release-assets",
+      "bee-ci/installer-dry-run",
+      "bee-ci/scan"
+    ],
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:23:45Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341551899",
+        "name": "provisioning (windows)",
+        "startedAt": "2026-11-17T20:22:52Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:24:33Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341551831",
+        "name": "test (ubuntu-latest, 3.12)",
+        "startedAt": "2026-11-17T20:22:52Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:24:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341552138",
+        "name": "test (ubuntu-latest, 3.13)",
+        "startedAt": "2026-11-17T20:23:08Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:24:31Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341551964",
+        "name": "test (ubuntu-24.04-arm, 3.12)",
+        "startedAt": "2026-11-17T20:22:54Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:24:34Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341551259",
+        "name": "test (ubuntu-24.04-arm, 3.13)",
+        "startedAt": "2026-11-17T20:22:55Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:26:39Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341551985",
+        "name": "test (macos-latest, 3.12)",
+        "startedAt": "2026-11-17T20:23:16Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:32:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341552409",
+        "name": "test (macos-latest, 3.13)",
+        "startedAt": "2026-11-17T20:29:33Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:23:03Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341552056",
+        "name": "scan",
+        "startedAt": "2026-11-17T20:22:54Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:32:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134347693328",
+        "name": "bee-ci/unit",
+        "startedAt": "2026-11-17T20:32:47Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:32:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134347693254",
+        "name": "bee-ci/contract",
+        "startedAt": "2026-11-17T20:32:47Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:32:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134347693643",
+        "name": "bee-ci/release-assets",
+        "startedAt": "2026-11-17T20:32:51Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:32:57Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134347693429",
+        "name": "bee-ci/installer-dry-run",
+        "startedAt": "2026-11-17T20:32:52Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:23:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134341696342",
+        "name": "bee-ci/scan",
+        "startedAt": "2026-11-17T20:23:19Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:32:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/hyvv/actions/runs/44168250607/job/134347693419",
+        "name": "CI",
+        "startedAt": "2026-11-17T20:32:47Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      }
+    ],
+    "url": "https://github.com/mojomast/hyvv/pull/26"
+  },
+  "orbitdesktop": {
+    "baseRefOid": "9cb894b76df30b6852e7d899a3b5e82fc97eb5ee",
+    "headRefName": "feat/core-rails-buildout-20261117",
+    "headRefOid": "2a9391179311cee4aad35758610b782e57d16edc",
+    "isDraft": true,
+    "mergeable": "MERGEABLE",
+    "observed_at": "2026-11-17T20:52:20+00:00",
+    "reviewDecision": "",
+    "ruleset_required_contexts": [],
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:51:18Z",
+        "conclusion": "FAILURE",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478825/job/134354970131",
+        "name": "test",
+        "startedAt": "2026-11-17T20:44:34Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit plugin tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:51:46Z",
+        "conclusion": "FAILURE",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468299/job/134354932849",
+        "name": "test",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit plugin tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:46:45Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478832/job/134354969902",
+        "name": "Fresh container onboarding",
+        "startedAt": "2026-11-17T20:44:34Z",
+        "status": "COMPLETED",
+        "workflowName": "Fresh container smoke"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:58Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478907/job/134354970784",
+        "name": "catalog",
+        "startedAt": "2026-11-17T20:44:45Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit catalog admission"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:47:28Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971044",
+        "name": "Technology / knowledge",
+        "startedAt": "2026-11-17T20:44:44Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:09Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355242443",
+        "name": "Detect Workbench scope",
+        "startedAt": "2026-11-17T20:45:01Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134354938768",
+        "name": "Detect Workbench scope",
+        "startedAt": "2026-11-17T20:44:32Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:46:03Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971192",
+        "name": "Technology / interactive",
+        "startedAt": "2026-11-17T20:44:51Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:46:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971206",
+        "name": "Technology / voice",
+        "startedAt": "2026-11-17T20:44:50Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:46:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971021",
+        "name": "Technology / data",
+        "startedAt": "2026-11-17T20:44:48Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:49:34Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971002",
+        "name": "Technology / documents",
+        "startedAt": "2026-11-17T20:46:47Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:48:24Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354970796",
+        "name": "Technology / mcp",
+        "startedAt": "2026-11-17T20:46:47Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:48:26Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971360",
+        "name": "Technology / traces",
+        "startedAt": "2026-11-17T20:46:47Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:49:10Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971108",
+        "name": "Technology / browser",
+        "startedAt": "2026-11-17T20:47:32Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:51:46Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971063",
+        "name": "Technology / workspace-default",
+        "startedAt": "2026-11-17T20:48:27Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:51:35Z",
+        "conclusion": "FAILURE",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478877/job/134354971080",
+        "name": "Technology / workspace-docking",
+        "startedAt": "2026-11-17T20:48:29Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit technology feature tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355358803",
+        "name": "Workbench / core",
+        "startedAt": "2026-11-17T20:45:35Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355148068",
+        "name": "Workbench / core",
+        "startedAt": "2026-11-17T20:44:53Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355358684",
+        "name": "Workbench / workspace",
+        "startedAt": "2026-11-17T20:45:12Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355147898",
+        "name": "Workbench / workspace",
+        "startedAt": "2026-11-17T20:44:52Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355358809",
+        "name": "Workbench / workspace-composition",
+        "startedAt": "2026-11-17T20:45:13Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:52:17Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355147919",
+        "name": "Workbench / workspace-composition",
+        "startedAt": "2026-11-17T20:44:54Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355358836",
+        "name": "Workbench / tools",
+        "startedAt": "2026-11-17T20:45:27Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355148081",
+        "name": "Workbench / tools",
+        "startedAt": "2026-11-17T20:44:57Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355359141",
+        "name": "Workbench / themes",
+        "startedAt": "2026-11-17T20:46:06Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355148871",
+        "name": "Workbench / themes",
+        "startedAt": "2026-11-17T20:45:01Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355358722",
+        "name": "Workbench / chat",
+        "startedAt": "2026-11-17T20:45:13Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355148149",
+        "name": "Workbench / chat",
+        "startedAt": "2026-11-17T20:44:56Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172478867/job/134355358758",
+        "name": "Workbench / deferred execution and results",
+        "startedAt": "2026-11-17T20:45:20Z",
+        "status": "IN_PROGRESS",
+        "workflowName": "Orbit workbench browser tests"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:49Z",
+        "conclusion": "SKIPPED",
+        "detailsUrl": "https://github.com/mojomast/orbitdesktop/actions/runs/44172468365/job/134355149942",
+        "name": "Workbench / deferred execution and results",
+        "startedAt": "2026-11-17T20:44:49Z",
+        "status": "COMPLETED",
+        "workflowName": "Orbit workbench browser tests"
+      }
+    ],
+    "url": "https://github.com/mojomast/orbitdesktop/pull/46"
+  },
+  "workflow": {
+    "baseRefOid": "58aa9690c2494ab0ffc37094a6c303ac09cd7510",
+    "headRefName": "feat/core-rails-buildout-20261117",
+    "headRefOid": "60f61961c73aeb841a87bd52e38dde5577518b40",
+    "isDraft": true,
+    "mergeable": "MERGEABLE",
+    "observed_at": "2026-11-17T20:52:20+00:00",
+    "reviewDecision": "",
+    "ruleset_required_contexts": [
+      "bee-ci/reference",
+      "bee-ci/project-state",
+      "bee-ci/secret-scan"
+    ],
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:51Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920526",
+        "name": "reference demo + tests",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920546",
+        "name": "project-state schemas + reference checker (ubuntu-24.04)",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:50Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920448",
+        "name": "project-state schemas + reference checker (windows-latest)",
+        "startedAt": "2026-11-17T20:44:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:42Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920478",
+        "name": "observability record tests",
+        "startedAt": "2026-11-17T20:44:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:08Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920576",
+        "name": "cold-start acceptance (light, offline worker)",
+        "startedAt": "2026-11-17T20:44:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:45Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920483",
+        "name": "gitleaks",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:17Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920555",
+        "name": "feature packet protocol (required)",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:42Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354919941",
+        "name": "bee-landed protocol (required)",
+        "startedAt": "2026-11-17T20:44:29Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920673",
+        "name": "campaign report protocol",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920801",
+        "name": "return manifest protocol (required)",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134354920771",
+        "name": "recovery protocol (required)",
+        "startedAt": "2026-11-17T20:44:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:00Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134355164698",
+        "name": "bee-ci/project-state",
+        "startedAt": "2026-11-17T20:44:56Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:44:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134355109012",
+        "name": "bee-ci/secret-scan",
+        "startedAt": "2026-11-17T20:44:50Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-17T20:45:33Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/mojomast/workflow/actions/runs/44172464806/job/134355436608",
+        "name": "bee-ci/reference",
+        "startedAt": "2026-11-17T20:45:27Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      }
+    ],
+    "url": "https://github.com/mojomast/workflow/pull/91"
+  }
+}
