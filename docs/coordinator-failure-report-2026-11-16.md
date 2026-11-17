@@ -148,3 +148,53 @@ deleted by a collector, or never written is an open audit question - the worker 
 reachable only through a forced-command gateway (status/list-projects/.../logs/apply-update),
 so its filesystem is not directly inspectable from here.
 
+
+## CORRECTION 2 (after the independent audit, 20:40 EST)
+
+The independent audit (delivered by the owner) verified the package at the fixed head and
+raised findings. Verified against live state and accepted, with corrections to THIS report:
+
+1. **F2 timestamp conflation (accepted).** The report said "the 18:25 combined restart."
+   The record shows TWO SEPARATE operations: 18:02:25 EST the destructive `restart-idle`
+   (fired into the recovery bee's lane; workspaces destroyed), and 18:25 EST the hyvv
+   `apply-update` deploy (zero-active window, journal kept, sandboxes reattach). They were
+   never one operation; the report conflated them.
+2. **F6 envelope limit (accepted).** The packaged scope-violation envelope records
+   `ok:false` + the three leased files + diffstat only - no error code, no offending-path
+   list. The actual `scope_violation` text went to the coordinator's CLI stderr and was
+   never captured. The envelope alone does not establish the claimed violation; the
+   worker's own log message ("changed the unleased schema") is the supporting evidence.
+   The full patch is in the launcher's result envelope, not in this package.
+3. **Briefs ARE verifiable (answer to the audit's caveat).** The audit noted "all four
+   lacked commit instructions remains a reported conclusion" because original briefs were
+   not supplied. They are: each attempt's immutable lease (leases/att_*.json) embeds the
+   full brief text. leases/att_ccc560ab..., att_49baec23..., att_b470a77f...,
+   att_8d113acc... are the ORIGINAL four attempts - their `brief` fields show the
+   omission directly.
+4. **Zero-byte file removed (accepted).** `audit-failed-attempts.jsonl` was empty because
+   the plugin's audit stream contains NO records for these tool-path attempts - which is
+   itself consistent with the emission gap (P2), not a packaging accident. Removed rather
+   than shipped empty.
+5. **State-mapping correction (new, found while verifying).** The coordinator attempt
+   ledger reports att_c3b2c62f (obs-delta) and att_37d9797e (research) as `failed` while
+   the launcher logs both as `succeeded` (turn ended: end_turn). The coordinator state
+   derives from the missing completion events (the emission gap), not from worker truth.
+   end_turn is not a delivered artifact (audit's F1 framing) - and here it is not even a
+   delivered STATE.
+6. **Post-audit delivery state.** The beat merged the ORIGINAL write-back patch
+   (att_0810b361) to bundlebees main (85b7cd3, PR #68 on that repo). Verified against the
+   merged tree: `record_tool_completion` exists (agent_consumer.py:148) with tests, and
+   has NO call sites outside tests - the audit's P2 stands on merged main; the emission
+   is still unwired. The write-back re-dispatch (att_9b867e11) remains queued/dispatched.
+   The obs-delta re-dispatch (att_c3b2c62f) SUCCEEDED on the launcher, committed 770f953,
+   was verified (sha 1b062e2) and pushed; now open as workflow PR #69. The research
+   attempt's doc was refused by verify's secret scan (gate working; the doc contained
+   secret-shaped literals); re-dispatched scanner-safe as att_1f63d9ee.
+
+**Independent findings adopted into the work queue:** dispatch-before-lease race (P1),
+worker ~35 min missing-input wait (P1), success-report masking failed tests (P1),
+unwired emission caller (P2, now verified on merged main), evidence-export provenance
+requirements (this package now carries PROVENANCE.md + MANIFEST.sha256), and the audit's
+root-cause refinement: the shared pattern is UNOWNED BOUNDARIES (execution vs durable
+delivery, observed state vs restart, coordinator vs beat, planned scope vs authorized
+scope, evidence vs exported evidence) - adopted over the narrower "fresh read" framing.
