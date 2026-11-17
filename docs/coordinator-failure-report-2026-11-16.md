@@ -4,6 +4,19 @@
 **Purpose:** Complete, unvarnished ledger of every coordinator failure today, what was done about each, and what remains unresolved. Packaged for independent review by Codex.
 **Method note:** Everything below is sourced from the live campaign record (`records/rizzstack-reliability-2026-11.md`), launcher attempt logs (`logs/`), immutable lease files (`leases/`), verify-result envelopes (`logs/*.json`), and the bundlebees outbox (`logs/outbox-events.tar.gz`). The owner detected several of these failures himself — that fact is part of the record and is not softened.
 
+**SCOPE NOTE (dated 21:20 EST, after the independent audit — read Parts 1-5 together with the
+CORRECTION and CORRECTION 2 sections; where the narrative below states stronger claims than the
+packaged evidence supports, the corrections govern):** the evidence packages contain launcher
+logs, leases (which embed the full briefs), and verify envelopes — NOT the original brief
+documents as standalone files (they are inside the leases), NOT the coordinator's interactive
+stderr (the F6 scope-refusal text), and NOT independent restart/host records (the F2 timestamps
+in the narrative were conflated; see CORRECTION 2 item 1). Fleet-wide counts (47 failed / 28
+cancelled) are LAUNCHER lifetime states; the packaged attempts-dump.json holds COORDINATOR
+ledger states (135 dispatched / 81 failed / 77 verified / 3 accepted, no cancelled rows) — these
+are different populations and must not be substituted for each other. The outbox archive proves
+the contents of the captured plugin-side directory only; whether later events were emitted
+elsewhere, consumed, or never written requires source/consumer evidence not in this package.
+
 **Context:** One coordinator session running a multi-repo campaign (workflow / bundlebees / hyvv / orbitdesktop) with a beat/heartbeat automation layer firing every 10 minutes, a 14-bee ceiling, and Zoo free-tier LLM workers. ~20 merges, ~15 dispatches, 2 deploys, 1 restart across the window.
 
 ---
