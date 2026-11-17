@@ -1,0 +1,23 @@
+{
+ "at": "2026-11-17T00:38:34Z",
+ "attempt_id": "att_ab4f1be94f0e4609",
+ "branch": "contrib/obs-fleet-delta",
+ "evidence": {
+  "diffstat": {
+   "added": 866,
+   "deleted": 12,
+   "files": 3
+  },
+  "source_rev": "d952681425690177f65faf227036904bd50e9d9d"
+ },
+ "files": [
+  "contrib/rizzstack-observability/collector.py",
+  "contrib/rizzstack-observability/collector.py.deployed-reference",
+  "tests/test_observability_snapshot.py"
+ ],
+ "ok": false,
+ "sha": null,
+ "tests": [
+  "tests/test_observability_snapshot.py"
+ ]
+}
