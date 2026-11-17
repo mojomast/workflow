@@ -248,18 +248,22 @@
           "maxLength": 200
         },
         "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "source": {
+          "enum": ["cli", "dispatch_leases"],
+          "description": "Where the rows came from. cli: the live bundlebees CLI answered this run. dispatch_leases: the CLI could not answer and the rows were rebuilt from the dispatch-lease store joined with the bee-landed outbox; the section is then marked stale so no consumer mistakes it for a live read. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
+        },
         "attempts": {
           "type": "array",
           "items": { "$ref": "#/$defs/fleet_attempt" }
         },
         "in_flight": {
           "$ref": "#/$defs/nullable_count",
-          "description": "Attempts currently in flight per the CLI, or null when unknown."
+          "description": "Attempts currently in flight: the collector's own count of the active rows it read this run, with stale-active rows demoted to unknown and therefore never counted. The CLI status tally is never parroted over rows that contradict it. Null when no rows could be read."
         },
         "bee_cap": {
           "type": ["integer", "null"],
           "minimum": 1,
-          "description": "Shared bee cap when known. Do not invent a value."
+          "description": "No longer populated: the CLI status bee_cap is launcher configuration, not an observed fleet fact, so this field is always null. The health quota row and the bottlenecks verify stage still derive from the value. Kept required so snapshots emitted before this change keep validating unchanged."
         }
       }
     },
@@ -272,7 +276,7 @@
         "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
         "attempt_id": { "$ref": "common.schema.json#/$defs/id_token" },
         "state": {
-          "description": "Normalized attempt state. The recognized values align with the lifecycle state vocabulary; anything the CLI reports beyond them is carried as unknown with the raw label in detail.",
+          "description": "Normalized attempt state. The recognized values align with the lifecycle state vocabulary; anything the CLI reports beyond them is carried as unknown with the raw label in detail. An ACTIVE-state row whose heartbeat is older than the collector's staleness threshold is also demoted to unknown (its raw label in detail) and is not counted in-flight.",
           "enum": [
             "queued",
             "starting",
@@ -304,6 +308,18 @@
             { "$ref": "#/$defs/branch_name" }
           ]
         },
+        "model": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/id_token" }
+          ],
+          "description": "The model or route label the source reported for the attempt, for example go or deepseek; null when the source named none. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
+        },
+        "title": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed title of the work the attempt is for, as the source named it; null when the source named none. Never a prompt or transcript. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
+        },
         "route": { "$ref": "#/$defs/route_label" },
         "started_at": {
           "oneOf": [
@@ -320,7 +336,7 @@
         "detail": {
           "type": ["string", "null"],
           "maxLength": 200,
-          "description": "Short scrubbed note, for example the raw CLI state label when it normalized to unknown."
+          "description": "Short scrubbed note, for example the raw CLI state label when it normalized to unknown or was demoted from an active state by the staleness rule."
         }
       }
     },
@@ -456,6 +472,16 @@
         "schema": { "const": "rizzstack.observability/snapshot/1" },
         "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
         "job_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "title": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed title from the job's goal; null when the goal named none. Never a prompt or transcript. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
+        },
+        "summary": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed summary from the job's goal; null when the goal named none. Never a prompt or transcript. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
+        },
         "repo": {
           "oneOf": [
             { "type": "null" },
@@ -483,6 +509,11 @@
         "schema": { "const": "rizzstack.observability/snapshot/1" },
         "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
         "task_id": { "$ref": "common.schema.json#/$defs/id_token" },
+        "title": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "Short scrubbed title: the task's first acceptance-criterion statement, as the acdd/1 contract titles it. Null when the task names no criterion; the objective is never substituted. Optional so snapshots emitted before this field existed keep validating; the collector always emits it."
+        },
         "state": { "$ref": "#/$defs/task_state" },
         "attempts_count": { "$ref": "#/$defs/nullable_count" },
         "reason": {

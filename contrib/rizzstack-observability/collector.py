@@ -5,10 +5,14 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
 
 - plugin local state (``jobs/*.json``, ``verify-results/*.json``,
   ``metrics/*.jsonl``, ``queue.json``, the live claim records under
-  ``queue/``, and the recorded decision files under ``approvals/`` under
-  ``--state-dir``),
-- the Hermes bundlebees CLI (``<bin> bundlebees attempts`` and
-  ``<bin> bundlebees status``, both read-only) for the live fleet,
+  ``queue/``, the recorded decision files under ``approvals/``, and the
+  dispatch leases under ``leases/`` joined with the bee-landed events under
+  ``outbox/``) under ``--state-dir``,
+- the Hermes bundlebees CLI (``<bin> bundlebees attempts --state-dir DIR``
+  and ``<bin> bundlebees status --state-dir DIR``, both read-only) for the
+  live fleet - when the CLI cannot answer, the fleet section falls back to
+  the dispatch-lease store joined with the bee-landed outbox and marks
+  itself ``stale`` with ``source: dispatch_leases``,
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
@@ -19,6 +23,16 @@ depth, oldest-item age, dwell-time median and p95, throughput, WIP versus
 capacity, and the coordinator reconciler's own invariant of eligible work
 waiting despite available scheduler capacity. Dwell targets per stage are
 threshold configuration, not constants.
+
+Fleet rows and pipeline rows are honest about what their source shows. A
+fleet row whose active state is older than the staleness threshold is
+demoted to ``unknown`` and is not counted in-flight, and the CLI status
+``bee_cap`` is launcher configuration, not an observed fleet fact: it is
+never surfaced in the fleet section, though the health quota row and the
+bottlenecks verify stage still derive from it. The pipeline section carries
+the job title and summary from the goal and each task's title from its
+first acceptance-criterion statement, scrubbed like every other free-text
+field.
 
 Every section degrades independently: a missing or unreadable source yields
 an empty section with a ``stale``/``unavailable`` status marker, never a
@@ -212,6 +226,9 @@ ACTIVE_CLAIM_STATES = frozenset({"claimed", "running"})
 #: reported separately, never added twice.
 CLAIMED_TASK_STATES = frozenset({"dispatching", "dispatched"})
 WORKING_FLEET_STATES = frozenset({"running", "working"})
+# How many dispatch-lease records the fleet fallback reads at most (the
+# newest ones by mtime), so one crowded store cannot balloon a snapshot.
+FLEET_FALLBACK_LEASE_LIMIT = 24
 
 DEFAULT_THRESHOLDS = {
     "deepseek_balance_below_usd": 5,
@@ -578,9 +595,24 @@ def section(
     return out
 
 
-def default_fleet_argv(bundlebees_bin: str, op: str) -> list[str]:
-    """Read-only bundlebees subcommands: ``<bin> bundlebees attempts|status``."""
-    return [bundlebees_bin, "bundlebees", op]
+def default_fleet_argv(
+    bundlebees_bin: str,
+    op: str,
+    state_dir: Path | str | None = None,
+) -> list[str]:
+    """Read-only bundlebees subcommands, scoped to the plugin state directory.
+
+    The real read-only subcommands are ``<bin> bundlebees attempts`` and
+    ``<bin> bundlebees status``, each taking ``--state-dir DIR``; the
+    ``bundlebees attempt op=...`` shape never existed. The collector forwards
+    the state directory it was given so the fleet rows it reads describe the
+    same jobs the pipeline section reads. Without a state directory the bare
+    subcommand is sent and the CLI applies its own default.
+    """
+    argv = [bundlebees_bin, "bundlebees", op]
+    if state_dir is not None:
+        argv += ["--state-dir", str(state_dir)]
+    return argv
 
 
 FLEET_ERROR_CLI_MISSING = "fleet_cli_missing"
@@ -661,6 +693,20 @@ class Collector:
 
     # ----------------------------------------------------------------- fleet
     def fleet_section(self) -> tuple[dict[str, Any], int | None, int | None]:
+        """Returns (section, in_flight, bee_cap).
+
+        The section body is what the snapshot surfaces: rows, the derived
+        in-flight count and a ``source`` marker. The CLI status ``bee_cap``
+        is deliberately NOT surfaced there - it is launcher configuration,
+        not an observed fleet fact, so the body's ``bee_cap`` field stays
+        null - but the value is still returned to the caller because the
+        health quota row and the bottlenecks verify stage derive from it.
+        When the CLI cannot answer, the rows are rebuilt from the
+        dispatch-lease store joined with the bee-landed outbox (see
+        ``_lease_fallback_rows``); that fallback view is marked ``stale``
+        with ``source: dispatch_leases`` so no consumer mistakes it for a
+        live CLI read.
+        """
         now = self.now()
         generated = utc_now_string(now)
         attempts: list[dict[str, Any]] = []
@@ -668,11 +714,12 @@ class Collector:
         bee_cap: int | None = None
         status = "live"
         error: str | None = None
+        source = "cli"
         rows: list[Any] | None = None
 
         code, out, _ = self._run(
             self._fleet_runner,
-            default_fleet_argv(self.bundlebees_bin, "attempts"),
+            default_fleet_argv(self.bundlebees_bin, "attempts", self.state_dir),
         )
         payload = extract_json(out) if code == 0 else None
         if code != 0:
@@ -683,46 +730,61 @@ class Collector:
             rows = self._attempts_rows_of(payload)
             if rows is None:
                 status, error = "unavailable", FLEET_ERROR_OUTPUT_UNPARSEABLE
-            else:
-                for raw in rows:
-                    if not isinstance(raw, dict):
-                        continue
-                    attempts.append(self._fleet_row(raw, generated))
-                code2, out2, _ = self._run(
-                    self._fleet_runner,
-                    default_fleet_argv(self.bundlebees_bin, "status"),
+        if rows is None:
+            # The CLI could not answer: rebuild what the durable dispatch
+            # records can show. With no lease rows the section stays
+            # unavailable and empty, exactly as before.
+            fallback = self._lease_fallback_rows(generated, now)
+            if fallback:
+                attempts = fallback
+                source = "dispatch_leases"
+                status = "stale"
+                in_flight = sum(
+                    1 for row in attempts if row["state"] in ACTIVE_FLEET_STATES
                 )
-                if code2 == 0:
-                    summary = extract_json(out2)
-                    if isinstance(summary, dict):
-                        summary_body = summary.get("summary")
-                        body = summary_body if isinstance(summary_body, dict) else summary
-                        cap = first_number(body, ("bee_cap", "cap"))
-                        if cap is not None and cap >= 1:
-                            bee_cap = int(cap)
-                        inflight = first_number(body, ("in_flight", "bees_in_flight"))
-                        if inflight is not None and inflight >= 0:
-                            in_flight = int(inflight)
-                if in_flight is None:
-                    # Derived from rows the CLI actually reported; when the
-                    # attempts output never parsed, in_flight stays null.
-                    in_flight = sum(
-                        1 for row in attempts if row["state"] in ACTIVE_FLEET_STATES
-                    )
-                newest = max(
-                    (parse_ts(row["updated_at"]) for row in attempts if row["updated_at"]),
-                    default=None,
-                )
-                if attempts and newest and (now - newest) > timedelta(seconds=self.stale_after_s):
-                    status, error = "stale", "fleet_state_older_than_threshold"
+        else:
+            for raw in rows:
+                if not isinstance(raw, dict):
+                    continue
+                attempts.append(self._fleet_row(raw, generated, now))
+            code2, out2, _ = self._run(
+                self._fleet_runner,
+                default_fleet_argv(self.bundlebees_bin, "status", self.state_dir),
+            )
+            if code2 == 0:
+                summary = extract_json(out2)
+                if isinstance(summary, dict):
+                    summary_body = summary.get("summary")
+                    body = summary_body if isinstance(summary_body, dict) else summary
+                    cap = first_number(body, ("bee_cap", "cap"))
+                    if cap is not None and cap >= 1:
+                        bee_cap = int(cap)
+            # The in-flight count is the collector's own count over the rows
+            # it just read: stale-active rows were demoted to unknown by the
+            # row builder and are therefore never counted, and the CLI
+            # status tally is not parroted over rows that contradict it.
+            in_flight = sum(
+                1 for row in attempts if row["state"] in ACTIVE_FLEET_STATES
+            )
+            newest = max(
+                (parse_ts(row["updated_at"]) for row in attempts if row["updated_at"]),
+                default=None,
+            )
+            if attempts and newest and (now - newest) > timedelta(seconds=self.stale_after_s):
+                status, error = "stale", "fleet_state_older_than_threshold"
         return (
             section(
                 now,
                 status,
                 error,
+                source=source,
                 attempts=attempts,
                 in_flight=in_flight,
-                bee_cap=bee_cap,
+                # The CLI status bee_cap is launcher configuration, not an
+                # observed fleet fact: the fleet section never surfaces it.
+                # The value returned above still feeds the health quota row
+                # and the bottlenecks verify stage.
+                bee_cap=None,
             ),
             in_flight,
             bee_cap,
@@ -740,11 +802,31 @@ class Collector:
                     return value
         return None
 
-    def _fleet_row(self, raw: Mapping[str, Any], generated: str) -> dict[str, Any]:
+    def _fleet_row(
+        self, raw: Mapping[str, Any], generated: str, now: datetime
+    ) -> dict[str, Any]:
+        """One fleet row from a CLI attempts row or a dispatch-lease record.
+
+        Branch, model and title are carried when the source names them and
+        stay null otherwise; title is free text and is scrubbed. Fleet
+        honesty: an ACTIVE-state row whose heartbeat is older than the
+        staleness threshold cannot be vouched for as active - it is demoted
+        to ``unknown`` with the raw state label kept in ``detail``, which
+        also removes it from the in-flight count.
+        """
         attempt_id = id_token(first_str(raw, ("attempt_id", "id", "attempt")))
         raw_state = first_str(raw, ("state", "status")) or "unknown"
         raw_state = scrub(raw_state, 40) or "unknown"
         state = self._normalize_fleet_state(raw_state)
+        detail = None if state != "unknown" else raw_state
+        updated = parse_ts(first_str(raw, ("updated_at", "updated", "heartbeat_at")))
+        if (
+            state in ACTIVE_FLEET_STATES
+            and updated is not None
+            and (now - updated) > timedelta(seconds=self.stale_after_s)
+        ):
+            state = "unknown"
+            detail = raw_state
         return {
             "schema": SCHEMA,
             "generated_at": generated,
@@ -754,10 +836,12 @@ class Collector:
             "task_id": id_token(first_str(raw, ("task_id", "task"))),
             "repo": repo_slug(first_str(raw, ("repo", "repository"))),
             "branch": branch_name(first_str(raw, ("branch", "head_branch"))),
+            "model": id_token(first_str(raw, ("model", "served_model"))),
+            "title": scrub(first_str(raw, ("title", "objective", "summary"))),
             "route": self._route_of(raw),
             "started_at": parse_iso_or_none(first_str(raw, ("started_at", "started", "ts"))),
             "updated_at": parse_iso_or_none(first_str(raw, ("updated_at", "updated", "heartbeat_at"))),
-            "detail": None if state != "unknown" else raw_state,
+            "detail": detail,
         }
 
     def _normalize_fleet_state(self, raw_state: str) -> str:
@@ -774,6 +858,130 @@ class Collector:
         if route in ("go", "deepseek") or (route and PROVIDER_LABEL_RE.match(route)):
             return route
         return None
+
+    # ------------------------------------------------- dispatch-lease fallback
+    def _lease_fallback_rows(self, generated: str, now: datetime) -> list[dict[str, Any]]:
+        """Fleet rows rebuilt from durable dispatch records when the CLI
+        cannot answer.
+
+        Reads the dispatch-lease store ``state_dir/leases/att_*.json`` (the
+        newest 24 records by mtime; the collector only reads) and joins each
+        lease with the newest ``rizzstack.bee.landed.v1`` event for its
+        attempt under ``state_dir/outbox/``. A lease alone proves the attempt
+        was dispatched, so it renders as the lifecycle-aligned ``starting``
+        state dated by the lease itself; a landing event supplies the
+        terminal state and the landing time. The row builder's staleness
+        demotion applies to these rows exactly as to CLI rows, so an old
+        lease without a landing cannot pass for an active bee. Unreadable
+        records are skipped, never fatal.
+        """
+        if self.state_dir is None:
+            return []
+        leases_dir = self.state_dir / "leases"
+
+        def mtime_of(path: Path) -> float:
+            try:
+                return path.stat().st_mtime
+            except OSError:
+                return 0.0
+
+        try:
+            candidates = [p for p in leases_dir.glob("att_*.json") if p.is_file()]
+        except OSError:
+            return []
+        paths = sorted(candidates, key=mtime_of, reverse=True)[:FLEET_FALLBACK_LEASE_LIMIT]
+        if not paths:
+            return []
+        landed = self._outbox_landed_states()
+        rows: list[dict[str, Any]] = []
+        for path in paths:
+            record = read_json_dict(path)
+            if record is None:
+                continue
+            raw = dict(record)
+            attempt_id = id_token(first_str(raw, ("attempt_id", "id", "attempt"))) or id_token(
+                path.stem
+            )
+            # The lease itself dates the dispatch, whatever the landing says.
+            lease_ts = first_str(raw, ("created_at", "dispatched_at", "ts", "at"))
+            if lease_ts is None:
+                try:
+                    lease_ts = utc_now_string(
+                        datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+                    )
+                except OSError:
+                    lease_ts = None
+            if lease_ts is not None:
+                raw.setdefault("started_at", lease_ts)
+            landing = landed.get(attempt_id) if attempt_id else None
+            if landing is not None:
+                raw.setdefault("state", landing["state"])
+                if landing.get("time"):
+                    raw.setdefault("updated_at", landing["time"])
+            else:
+                # No landing recorded: the lease write is the last fact, so
+                # the staleness demotion ages the row from it.
+                if lease_ts is not None:
+                    raw.setdefault("updated_at", lease_ts)
+                raw.setdefault("state", "dispatched")
+            rows.append(self._fleet_row(raw, generated, now))
+        return rows
+
+    def _outbox_landed_states(self) -> dict[str, dict[str, Any]]:
+        """Newest bee-landed event per attempt id, read-only.
+
+        ``state_dir/outbox/`` holds the coordinator's durable
+        ``rizzstack.bee.landed.v1`` CloudEvents, one JSON object per file or
+        one per line in a ``.jsonl`` file. Files that are not landings or do
+        not parse are skipped. Only the payload's ``attempt_id`` joins a
+        landing to a lease; the envelope ``subject`` may name a task and is
+        never used as a join key. The newest event per attempt (by its
+        CloudEvents ``time``) wins, so redeliveries collapse.
+        """
+        outbox_dir = self.state_dir / "outbox" if self.state_dir else None
+        if outbox_dir is None:
+            return {}
+        try:
+            paths = sorted(
+                p for p in outbox_dir.iterdir()
+                if p.is_file() and p.suffix in (".json", ".jsonl")
+            )
+        except OSError:
+            return {}
+        landed: dict[str, dict[str, Any]] = {}
+        for path in paths:
+            if path.suffix == ".jsonl":
+                records, _ = read_jsonl(path)
+            else:
+                single = read_json_dict(path)
+                records = [single] if single is not None else []
+            for event in records:
+                if not isinstance(event, dict):
+                    continue
+                data = event.get("data")
+                if not isinstance(data, dict):
+                    continue
+                if event.get("type") != "rizzstack.bee.landed.v1" and data.get(
+                    "schema"
+                ) != "rizzstack.bee-landed/1":
+                    continue
+                attempt_id = id_token(first_str(data, ("attempt_id",)))
+                state = first_str(data, ("state",))
+                if attempt_id is None or not isinstance(state, str):
+                    continue
+                moment = parse_ts(first_str(event, ("time",))) or parse_ts(
+                    first_str(data, ("ts", "at"))
+                )
+                known = landed.get(attempt_id)
+                if known is None or (
+                    moment is not None and (known["moment"] is None or moment > known["moment"])
+                ):
+                    landed[attempt_id] = {
+                        "state": state,
+                        "time": moment.strftime("%Y-%m-%dT%H:%M:%SZ") if moment else None,
+                        "moment": moment,
+                    }
+        return landed
 
     # ----------------------------------------------------------------- usage
     def usage_section(self) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1077,6 +1285,8 @@ class Collector:
             job_id = id_token(data.get("job_id")) or id_token(path.stem) or "unknown"
             goal = data.get("goal") if isinstance(data.get("goal"), dict) else {}
             repo = repo_slug(goal.get("repo"))
+            job_title = scrub(first_str(goal, ("title", "objective")))
+            job_summary = scrub(first_str(goal, ("summary", "description")))
             base_rev_raw = first_str(goal, ("base_rev", "base"))
             base_rev = (
                 base_rev_raw.lower()
@@ -1103,6 +1313,7 @@ class Collector:
                         "schema": SCHEMA,
                         "generated_at": generated,
                         "task_id": task_id,
+                        "title": self._task_title(task),
                         "state": state,
                         "attempts_count": attempts_count,
                         "reason": reason,
@@ -1157,6 +1368,8 @@ class Collector:
                     "schema": SCHEMA,
                     "generated_at": generated,
                     "job_id": job_id,
+                    "title": job_title,
+                    "summary": job_summary,
                     "repo": repo,
                     "base_rev": base_rev,
                     "task_count": len(task_rows),
@@ -1185,6 +1398,36 @@ class Collector:
             blockers=blockers,
         )
         return body, blockers + escalations
+
+    def _task_title(self, task: Mapping[str, Any]) -> str | None:
+        """The task's title: its first acceptance-criterion statement.
+
+        The acdd/1 contract titles a task by its first criterion statement,
+        so the pipeline row carries exactly that, scrubbed. A task without
+        criteria has no title; the objective is never substituted, and a
+        criterion without a usable statement is skipped.
+        """
+        for criterion in self._acceptance_criteria(task):
+            statement = (
+                criterion.get("statement") if isinstance(criterion, dict) else criterion
+            )
+            title = scrub(statement if isinstance(statement, str) else None)
+            if title:
+                return title
+        return None
+
+    @staticmethod
+    def _acceptance_criteria(task: Mapping[str, Any]) -> list[Any]:
+        for key in ("acceptance_criteria", "accepts"):
+            value = task.get(key)
+            if isinstance(value, list) and value:
+                return value
+        contract = task.get("contract")
+        if isinstance(contract, dict):
+            value = contract.get("acceptance_criteria")
+            if isinstance(value, list) and value:
+                return value
+        return []
 
     def _task_reason(self, task: Mapping[str, Any], state: str) -> str | None:
         reason = scrub(first_str(task, ("reason", "blocker_reason", "failure_reason")))
@@ -1762,13 +2005,17 @@ class Collector:
         backlog_body: Mapping[str, Any],
         ci_body: Mapping[str, Any],
         fleet_body: Mapping[str, Any],
+        fleet_bee_cap: int | None = None,
     ) -> dict[str, Any]:
         """Compute the bottlenecks section read-only from records the other
         sections already read: job documents, the feature queue, the claim
         store, recorded approval decisions, review reports, scheduler
         metrics, the fleet, and open pull requests. Each contributing source
         degrades independently: a metric its source cannot show stays null
-        with a status marker, never zero."""
+        with a status marker, never zero. The fleet section no longer
+        surfaces the CLI status bee_cap (it is launcher configuration, not
+        an observed fleet fact), so the caller passes it separately; the
+        verify stage's WIP-versus-capacity row keeps deriving from it."""
         now = self.now()
         generated = utc_now_string(now)
         docs, unreadable_jobs = self._read_job_documents()
@@ -1836,7 +2083,7 @@ class Collector:
         stages = [
             self._verify_stage_row(
                 now, generated, docs, transitions, dispatch_by_attempt, fleet_body,
-                targets["verify"], pipeline_readable, event_status,
+                targets["verify"], pipeline_readable, event_status, fleet_bee_cap,
             ),
             self._review_stage_row(
                 now, generated, features, docs_by_id, report_by_attempt,
@@ -1908,6 +2155,7 @@ class Collector:
         target: float | None,
         source_readable: bool,
         event_status: str,
+        fleet_bee_cap: int | None = None,
     ) -> dict[str, Any]:
         open_count = 0
         entries: list[datetime] = []
@@ -1948,6 +2196,10 @@ class Collector:
                 if isinstance(row, dict) and row.get("state") in WORKING_FLEET_STATES
             )
             cap = fleet_body.get("bee_cap")
+            if not (isinstance(cap, int) and not isinstance(cap, bool) and cap >= 1):
+                # The fleet section no longer surfaces the CLI status bee_cap;
+                # the caller passes it through separately instead.
+                cap = fleet_bee_cap
             if isinstance(cap, int) and not isinstance(cap, bool) and cap >= 1:
                 capacity = cap
                 capacity_source = "bee_cap"
@@ -2412,8 +2664,14 @@ class Collector:
         self,
         fleet_body: Mapping[str, Any],
         usage_summary: Mapping[str, Any],
+        fleet_bee_cap: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, float]]:
-        """Returns (section, observations) — observations feed alerts."""
+        """Returns (section, observations) — observations feed alerts.
+
+        The fleet section no longer surfaces the CLI status bee_cap (it is
+        launcher configuration, not an observed fleet fact), so the caller
+        passes it separately: the bees_in_flight quota row still derives its
+        cap and remaining headroom from it."""
         now = self.now()
         generated = utc_now_string(now)
         metrics_paths: list[Path] = []
@@ -2470,6 +2728,10 @@ class Collector:
             )
         in_flight = fleet_body.get("in_flight")
         bee_cap = fleet_body.get("bee_cap")
+        if not (isinstance(bee_cap, int) and not isinstance(bee_cap, bool) and bee_cap >= 1):
+            # The fleet section no longer surfaces the CLI status bee_cap;
+            # the caller passes it through separately instead.
+            bee_cap = fleet_bee_cap
         if isinstance(in_flight, int) and not isinstance(in_flight, bool):
             warn_at = self.thresholds["bees_in_flight_warn_at"]
             quota_rows.append(
@@ -2629,8 +2891,9 @@ class Collector:
             backlog_body=backlog,
             ci_body=ci,
             fleet_body=fleet,
+            fleet_bee_cap=bee_cap,
         )
-        health, observations = self.health_section(fleet, usage_summary)
+        health, observations = self.health_section(fleet, usage_summary, fleet_bee_cap=bee_cap)
         any_live = any(
             body.get("status") == "live"
             for body in (fleet, usage, pipeline, backlog, ci, failures, health)
