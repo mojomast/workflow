@@ -543,10 +543,18 @@ try {
             prohibited=['push', 'edit approved tests'])
         jobs.create_job(self.state, job_id=job_id, packet=self.packet, tasks=[dict(task_id=task_id, objective=objective,
             lease=files, acceptance=acceptance, contract=self.contract, contract_sha256=self.contract_hash)])
+        # Test-only operator assignment. Provision this synthetic dispatch target
+        # before collect() even creates a launcher journal. No evidence row or
+        # generated head/selection is the source of the assignment.
+        target = self.root / 'worker'
+        target.mkdir()
+        with contextlib.closing(self.open_ledger(target / 'rails.sqlite')) as empty:
+            self.assertEqual(empty.head()['seq'], 0)
+            assigned_chain = empty.chain_id
         self.lease = leases.record_lease(self.state, self.aid, dict(job_id=job_id, task_id=task_id, objective=objective,
             project=self.packet['repository']['identity'],
             source_rev=self.base, assigned_files=files, contract=self.contract, contract_sha256=self.contract_hash,
-            acceptance=acceptance))
+            acceptance=acceptance), dispatch_chain_id=assigned_chain)
         self.suite = [sys.executable, '-m', 'pytest', '-q']
         self.key = leases.evidence_key(self.state)
         test_result = self.phase_check(self.repo, self.suite + [c['test_id']])
@@ -782,7 +790,7 @@ try {
         self.refuse_substitutions(out, receive, claim['event_id'])
         receive(out)  # the real delivery is still intact and pending
         (out / 'handoff-scope.json').write_text(json.dumps(dict(
-            scope='offline coding fixture; synthetic admission and launcher journal; automated reviewer only',
+            scope='offline coding fixture; test-only operator dispatch binding, synthetic admission and launcher journal; automated reviewer only',
             pending_approvals=manifest['pending_approvals'], native_manifest_schema_error_paths=[],
             native_return_reverified=True, receiver_decision='pending'), indent=2) + '\n')
 
@@ -856,6 +864,14 @@ try {
         self.assertEqual((link['ac_id'], link['verdict']), (row['id'], 'EXPECTED_RED'))
         self.assertCountEqual(side['selected_event_ids'], pins['evidence'][row['id']])
         self.assertIn(link['event_id'], side['selected_event_ids'])
+        # The test operator retained the assignment at setup, independently of
+        # the delivered sidecar, origin rows and post-run anchor/selection file.
+        dispatch = self.lease
+        tool, = [e for e in worker if e['event_id'] in side['selected_event_ids']]
+        self.assertEqual((tool['chain_id'], tool['scope']['attempt_id'], job, pins['task_id'],
+                          side['contract_sha256'], side['code_rev']),
+                         (dispatch['dispatch_chain_id'], dispatch['attempt_id'], dispatch['brief']['job_id'],
+                          dispatch['brief']['task_id'], dispatch['brief']['contract_sha256'], dispatch['source_rev']))
         for phase, rev in [('red', pins['code_rev']), ('green', verify['commit'])]:
             ref = refs[phase]; file = resolve(ref['record_path']); record = load_json(file)
             self.assertEqual((ref['phase'], ref['revision']), (phase, rev))
