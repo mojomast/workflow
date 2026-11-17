@@ -301,3 +301,129 @@ shape against the written schema), proves owner-needed-only delivery, dedupe,
 aging escalation, degrade-to-marker plus catch-up, silence, and runs an
 end-to-end smoke over real HTTP chat delivery to a loopback server — including
 the no-endpoint-leakage class over `status.json` and stderr.
+
+---
+
+# Rails operator surface
+
+This section documents the read path an operator uses to inspect one job,
+attempt, campaign or session through rails. Rails is the audit/observation
+surface defined by [`specs/rizzstack-rails-spec.md`](../../specs/rizzstack-rails-spec.md)
+and frozen in [`schemas/rails/README.md`](../../schemas/rails/README.md); the
+family contract id is `rizzstack.rails/1`. The collector above is separate: it
+assembles `rizzstack.observability/snapshot/1`, and rails adds no field to that
+closed document. Links between the two are made from fields the snapshot
+already carries (see below).
+
+## What an operator sees
+
+An operator opens a rail for exactly one public selector — `attempt`, `job`,
+`campaign`, `session` or `event` — and reads:
+
+- a lane tree of producer/session/attempt lanes, with explicit `parent_lane_id`
+  links and an `orphan` placeholder when the parent is unknown;
+- `marks` on a time axis, each a reference to one ledger event (never a
+  fabricated grouping event);
+- one inspector per selected mark: kind, outcome, timing and evidence ids;
+- the same rows as bounded `markdown` or `items` JSON from the shared query, so
+  a rail and a model/CLI query return identical event ids;
+- a result envelope whose required fields are `schema`, `ok`, `items`,
+  `markdown`, `next_cursor`, `has_more`, `truncated`, `completeness`,
+  `missing_sources`, `integrity` (with `checked_through`) and `warnings`;
+- completeness and integrity status for the range actually read;
+- an authorized SSE stream for marks that arrive after the page high-water;
+- a bounded feedback/intervention export, when the owner route is attached.
+
+Rails is not an authority. A mark shows what a producer reported. A verified
+`PASS` still requires the verifier record bound to the contract and revision;
+appearing in a hash chain never promotes a worker claim. Rails never executes a
+retry: the owner's request is delegated to the existing action queue.
+
+## Snapshot fields available for a rails link
+
+`rizzstack.observability/snapshot/1` is a closed contract
+([`observability/schemas/snapshot.schema.json`](../../observability/schemas/snapshot.schema.json)).
+Rails does not add a section or a field to it. The fields an operator can use to
+open a rail are the ones the `fleet` rows already carry:
+
+- `attempt_id` — the selector id for `kind: "attempt"`;
+- `job_id` — the selector id for `kind: "job"`; also present on pipeline,
+  blocker and backlog rows;
+- `task_id`, `repo`, `branch`, `route`, `state`, `started_at`, `updated_at`,
+  `detail` — context shown next to the link.
+
+Use the id unchanged as the query selector id; ids are public opaque tokens, not
+capabilities, and every rails call re-checks access. A missing or null `job_id`
+or `attempt_id` disables the link with an explanation; it never falls back to
+sample data or a timestamp guess. New rails health fields cannot be added to
+`snapshot/1`; that needs a separate `snapshot/2` proposal reviewed on its own.
+
+## Reading a rails timeline
+
+Read the timeline top-down, then the marks left-to-right:
+
+1. Pick the selector. Exactly one selector is allowed, and its `id` is the public
+   token from the fleet row.
+2. Check the envelope before the marks: `completeness` is `complete`, `partial`
+   or `empty`; `missing_sources` names the sources that did not report;
+   `integrity.status` is `unchecked`, `ok` or `failed`, with
+   `checked_through` naming the range that was actually verified. A clean page
+   proves nothing outside that range, and no partial page is a full-chain check.
+3. Walk lanes. `lane_id` identifies the producer/session/attempt,
+   `parent_lane_id` connects a spawn, `status` is `open`, `closed`, `orphan`,
+   `ghost` or `unknown`, and `source_status` is `live`, `stale`, `unavailable`
+   or `unknown`. A missing parent is an orphan mark, not an omitted row.
+4. Read the marks. `event_id` is the ledger id, `kind` is one of the closed
+   `rizzstack.rails/1` kinds, `occurred_at` is nullable source time and
+   `duration_ms` is nullable. `timing_quality` is `measured`, `estimated` or
+   `unknown`: only a paired start/finish on one machine is `measured`, a
+   timestamp difference is `estimated`, and an unpaired call stays `unknown`
+   rather than becoming zero.
+5. Read `outcome` and `evidence_refs`. A failure stays a failure regardless of
+   speed. `evidence_refs` are opaque ids resolved by the existing authorized
+   artifact resolver — rails is not a download proxy.
+6. Treat `ghost` marks as superseded history: they stay visible and the ledger
+   rows behind them are never rewritten.
+
+Timing labels are honest: a heatmap baseline is the median of comparable
+completed marks and reports insufficient baseline instead of inventing one, and
+model wait is an observed gap, never inferred tokens.
+
+## Interfaces and schema ids
+
+The operator surface is exactly these frozen interfaces:
+
+| Interface | File | What it fixes |
+| --- | --- | --- |
+| `rizzstack.rails/1` | [`schemas/rails/event.schema.json`](../../schemas/rails/event.schema.json) | Event envelope, identity, kind enum, authority and chain linkage |
+| `rizzstack.rails-query/1` | [`schemas/rails/query.schema.json`](../../schemas/rails/query.schema.json) | Selector, format, include allowlist and caps |
+| `rizzstack.rails-result/1` | [`schemas/rails/query.schema.json`](../../schemas/rails/query.schema.json) | `ok`, `items`, `markdown`, `next_cursor`, `has_more`, `truncated`, `completeness`, `missing_sources`, `integrity`, `warnings` |
+| `rizzstack.rails-view/1` | [`schemas/rails/view.schema.json`](../../schemas/rails/view.schema.json) | Lane tree, marks, timing honesty, ghost visibility, bounded marks |
+| `rizzstack.rails-http/1` | [`schemas/rails/http.schema.json`](../../schemas/rails/http.schema.json) | Route table, closed error codes, transport rules |
+| `rizzstack.observability/snapshot/1` | [`observability/schemas/snapshot.schema.json`](../../observability/schemas/snapshot.schema.json) | The collector snapshot that supplies link ids; unchanged by rails |
+
+Read-only routes from the frozen route table (every route requires bearer auth,
+and none of these imports or writes): GET on `/v1/health`, `/v1/events`,
+`/v1/view`, `/v1/stream` and `/v1/feedback/export`. Mutating routes
+(`/v1/append`, `/v1/feedback`, `/v1/interventions`, all POST) are producer or
+trusted-owner routes and are never part of the operator read path.
+
+The shared result envelope is `rizzstack.rails-result/1`; an unknown schema or
+version is refused rather than widened. This section is checked by
+[`tests/test_rails_contract.py`](../../tests/test_rails_contract.py), which fails
+when a cited path or schema id does not exist in this tree or a required section
+is missing.
+
+## Limits of the operator surface
+
+- Rails evidence is observations, not authority: hashes prove integrity
+  relative to an anchor, never completion, and a chain valid event can still be
+  unverified.
+- An unanchored suffix, a deleted suffix with no known head, a compromised
+  producer or a privileged rewrite of every copy stays a stated limit.
+- A partial or stale source is visible as `partial` completeness plus
+  `missing_sources`; it is never rendered as an empty success.
+- The snapshot link is only as good as the ids it carries; rails does not infer
+  an attempt from near timestamps.
+- Nothing here creates a second scheduler, a broker or a feedback database, and
+  no rails read triggers a retry.

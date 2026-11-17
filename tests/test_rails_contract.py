@@ -1322,3 +1322,418 @@ class OptionalJsonschemaCrossCheck(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# R17A - operator and RETURN documentation contract (spec section 9, row R17A)
+#
+# RED-first acceptance for R17A: a missing or wrong interface/evidence link, or
+# a missing required section, fails these checks. The documentation under
+# contrib/rizzstack-observability/README.md and docs/31-campaign-continuity.md
+# must reference only interfaces that exist in this tree: real schema files and
+# real contract ids, never an invented name.
+# ---------------------------------------------------------------------------
+
+OPERATOR_README = ROOT / "contrib" / "rizzstack-observability" / "README.md"
+RETURN_DOC = ROOT / "docs" / "31-campaign-continuity.md"
+SNAPSHOT_SCHEMA = ROOT / "observability" / "schemas" / "snapshot.schema.json"
+
+HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$")
+INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+PATH_RE = re.compile(
+    r"^(?:\.{1,2}/)*(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.(?:json|md|py|js|mjs)$"
+)
+SCHEMA_ID_RE = re.compile(r"^rizzstack\.[A-Za-z0-9][A-Za-z0-9._/-]*$")
+SCHEMA_ANY_RE = re.compile(r"rizzstack\.[A-Za-z0-9][A-Za-z0-9._/-]*")
+
+OPERATOR_SECTIONS = [
+    "Rails operator surface",
+    "What an operator sees",
+    "Snapshot fields available for a rails link",
+    "Reading a rails timeline",
+    "Interfaces and schema ids",
+    "Limits of the operator surface",
+]
+
+RETURN_SECTIONS = [
+    "31.9 Rails RETURN contract",
+    "What the RETURN manifest must carry",
+    "Evidence links required",
+    "Receiver decision stays pending",
+    "Limits of rails evidence",
+]
+
+OPERATOR_INTERFACES = [
+    "specs/rizzstack-rails-spec.md",
+    "schemas/rails/README.md",
+    "schemas/rails/event.schema.json",
+    "schemas/rails/query.schema.json",
+    "schemas/rails/view.schema.json",
+    "schemas/rails/http.schema.json",
+    "observability/schemas/snapshot.schema.json",
+    "tests/test_rails_contract.py",
+]
+
+RETURN_INTERFACES = [
+    "specs/rizzstack-rails-spec.md",
+    "schemas/rails/README.md",
+    "schemas/rails/evidence.schema.json",
+    "schemas/return-manifest.schema.json",
+    "templates/RETURN.md",
+    "tests/test_rails_contract.py",
+]
+
+SCHEMA_ID_HOMES = {
+    "rizzstack.observability/snapshot/1": SNAPSHOT_SCHEMA,
+    "rizzstack.rails/1": RAILS / "event.schema.json",
+    "rizzstack.rails-source/1": RAILS / "source.schema.json",
+    "rizzstack.rails-query/1": RAILS / "query.schema.json",
+    "rizzstack.rails-result/1": RAILS / "query.schema.json",
+    "rizzstack.rails-view/1": RAILS / "view.schema.json",
+    "rizzstack.rails-http/1": RAILS / "http.schema.json",
+    "rizzstack.rails-evidence/1": RAILS / "evidence.schema.json",
+}
+
+OPERATOR_SCHEMA_IDS = [
+    "rizzstack.observability/snapshot/1",
+    "rizzstack.rails/1",
+    "rizzstack.rails-query/1",
+    "rizzstack.rails-result/1",
+    "rizzstack.rails-view/1",
+    "rizzstack.rails-http/1",
+]
+
+RETURN_SCHEMA_IDS = [
+    "rizzstack.rails-evidence/1",
+    "rizzstack.rails/1",
+]
+
+OPERATOR_RESULT_FIELDS = [
+    "schema",
+    "ok",
+    "items",
+    "markdown",
+    "next_cursor",
+    "has_more",
+    "truncated",
+    "completeness",
+    "missing_sources",
+    "integrity",
+    "checked_through",
+    "warnings",
+]
+
+OPERATOR_VIEW_FIELDS = [
+    "lane_id",
+    "parent_lane_id",
+    "status",
+    "source_status",
+    "marks",
+    "event_id",
+    "kind",
+    "occurred_at",
+    "duration_ms",
+    "timing_quality",
+    "outcome",
+    "evidence_refs",
+    "ghost",
+]
+
+RETURN_EVIDENCE_FIELDS = [
+    "schema",
+    "generated_at",
+    "machines",
+    "ledgers",
+    "origin_heads",
+    "imported_checkpoints",
+    "source_coverage",
+    "selected_event_ids",
+    "code_rev",
+    "contract_sha256",
+    "redaction_policy",
+    "intervention_count",
+    "verification_links",
+    "receiver_decision",
+    "limitations",
+]
+
+RETURN_LINK_FIELDS = ["event_id", "ac_id"]
+
+
+def markdown_sections(text: str) -> dict:
+    """Map every ATX heading title to its body, ending at the next same-or-higher heading."""
+    lines = text.splitlines()
+    headings = []
+    for number, line in enumerate(lines):
+        match = HEADING_RE.match(line)
+        if match:
+            headings.append((number, len(match.group(1)), match.group(2).strip()))
+    sections = {}
+    for index, (number, level, title) in enumerate(headings):
+        end = len(lines)
+        for later_number, later_level, _ in headings[index + 1:]:
+            if later_level <= level:
+                end = later_number
+                break
+        sections[title] = "\n".join(lines[number + 1:end])
+    return sections
+
+
+def section_body(text: str, title: str):
+    return markdown_sections(text).get(title)
+
+
+def doc_references(body: str) -> set:
+    """Repo-path-ish references from markdown links and inline code spans."""
+    references = set()
+    for match in LINK_RE.finditer(body):
+        target = match.group(1).split("#", 1)[0].strip()
+        if target:
+            references.add(target)
+    for match in INLINE_CODE_RE.finditer(body):
+        value = match.group(1).strip()
+        if PATH_RE.match(value):
+            references.add(value)
+    return references
+
+
+def resolve_reference(doc_path: Path, reference: str):
+    """Resolve a doc reference against the doc's directory, then the repo root."""
+    target = reference.split("#", 1)[0].strip()
+    if not PATH_RE.match(target):
+        return None
+    for base in (doc_path.parent, ROOT):
+        candidate = (base / target).resolve()
+        try:
+            candidate.relative_to(ROOT)
+        except ValueError:
+            continue
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def unresolved_references(doc_path: Path, body: str) -> list:
+    missing = []
+    for reference in sorted(doc_references(body)):
+        if resolve_reference(doc_path, reference) is None:
+            missing.append(reference)
+    return missing
+
+
+def schema_ids_in(body: str) -> set:
+    ids = set()
+    for match in INLINE_CODE_RE.finditer(body):
+        value = match.group(1).strip()
+        if SCHEMA_ID_RE.match(value):
+            ids.add(value)
+    return ids
+
+
+def cited_paths(doc_path: Path, body: str) -> set:
+    resolved = set()
+    for reference in doc_references(body):
+        found = resolve_reference(doc_path, reference)
+        if found is not None:
+            resolved.add(found)
+    return resolved
+
+
+def all_property_names(node) -> set:
+    """Every JSON Schema property name anywhere in a document."""
+    names = set()
+    if isinstance(node, dict):
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            names.update(properties.keys())
+        for value in node.values():
+            names |= all_property_names(value)
+    elif isinstance(node, list):
+        for value in node:
+            names |= all_property_names(value)
+    return names
+
+
+def known_schema_ids() -> set:
+    ids = set()
+    for path in ROOT.rglob("*.json"):
+        if ".git" in path.parts:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        ids.update(SCHEMA_ANY_RE.findall(text))
+    return ids
+
+
+class TestRailsOperatorDocs(unittest.TestCase):
+    """contrib/rizzstack-observability/README.md documents the rails operator surface."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = OPERATOR_README.read_text(encoding="utf-8")
+
+    def body(self, title: str) -> str:
+        body = section_body(self.text, title)
+        self.assertIsNotNone(body, "missing operator README section: %s" % title)
+        return body
+
+    def test_required_sections_exist(self):
+        sections = markdown_sections(self.text)
+        for title in OPERATOR_SECTIONS:
+            with self.subTest(section=title):
+                self.assertIn(title, sections)
+
+    def test_links_resolve(self):
+        for title in OPERATOR_SECTIONS:
+            with self.subTest(section=title):
+                missing = unresolved_references(OPERATOR_README, self.body(title))
+                self.assertEqual(missing, [], "unresolved rail links in %r" % title)
+
+    def test_required_interfaces_are_cited(self):
+        body = "\n".join(self.body(title) for title in OPERATOR_SECTIONS)
+        resolved = cited_paths(OPERATOR_README, body)
+        for interface in OPERATOR_INTERFACES:
+            with self.subTest(interface=interface):
+                path = (ROOT / interface).resolve()
+                self.assertTrue(path.is_file(), "interface file does not exist: %s" % interface)
+                self.assertIn(path, resolved, "operator README must cite %s" % interface)
+
+    def test_schema_ids_are_real_and_homed(self):
+        body = self.body("Interfaces and schema ids")
+        cited = schema_ids_in(body)
+        known = known_schema_ids()
+        for schema_id in OPERATOR_SCHEMA_IDS:
+            with self.subTest(schema_id=schema_id):
+                self.assertIn(schema_id, cited)
+                self.assertIn(schema_id, known, "schema id not defined by any repository file")
+                home = SCHEMA_ID_HOMES[schema_id]
+                self.assertTrue(home.is_file(), "home file missing: %s" % home)
+                self.assertIn(
+                    schema_id,
+                    home.read_text(encoding="utf-8"),
+                    "%s must be defined in %s" % (schema_id, home.relative_to(ROOT)),
+                )
+
+    def test_result_and_view_fields_are_documented(self):
+        body = "\n".join(self.body(title) for title in OPERATOR_SECTIONS)
+        query_props = all_property_names(load_json(RAILS / "query.schema.json"))
+        view_props = all_property_names(load_json(RAILS / "view.schema.json"))
+        snapshot_props = all_property_names(load_json(SNAPSHOT_SCHEMA))
+        for field in OPERATOR_RESULT_FIELDS:
+            with self.subTest(field=field):
+                self.assertIn("`%s`" % field, body)
+                self.assertIn(field, query_props)
+        for field in OPERATOR_VIEW_FIELDS:
+            with self.subTest(field=field):
+                self.assertIn("`%s`" % field, body)
+                self.assertIn(field, view_props)
+        for field in ["attempt_id", "job_id", "task_id"]:
+            with self.subTest(snapshot_field=field):
+                self.assertIn("`%s`" % field, body)
+                self.assertIn(field, snapshot_props)
+
+    def test_routes_are_documented_from_the_real_route_table(self):
+        body = "\n".join(self.body(title) for title in OPERATOR_SECTIONS)
+        routes = load_json(RAILS / "http.schema.json")["routes"]
+        for route in routes:
+            if route["scope"] != "read":
+                continue
+            with self.subTest(route=route["path"]):
+                self.assertIn("`%s`" % route["path"], body)
+
+
+class TestRailsReturnDocs(unittest.TestCase):
+    """docs/31-campaign-continuity.md documents the RETURN-side rails contract."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = RETURN_DOC.read_text(encoding="utf-8")
+
+    def body(self, title: str) -> str:
+        body = section_body(self.text, title)
+        self.assertIsNotNone(body, "missing RETURN doc section: %s" % title)
+        return body
+
+    def test_required_sections_exist(self):
+        sections = markdown_sections(self.text)
+        for title in RETURN_SECTIONS:
+            with self.subTest(section=title):
+                self.assertIn(title, sections)
+
+    def test_links_resolve(self):
+        for title in RETURN_SECTIONS:
+            with self.subTest(section=title):
+                missing = unresolved_references(RETURN_DOC, self.body(title))
+                self.assertEqual(missing, [], "unresolved rail links in %r" % title)
+
+    def test_required_interfaces_are_cited(self):
+        body = "\n".join(self.body(title) for title in RETURN_SECTIONS)
+        resolved = cited_paths(RETURN_DOC, body)
+        for interface in RETURN_INTERFACES:
+            with self.subTest(interface=interface):
+                path = (ROOT / interface).resolve()
+                self.assertTrue(path.is_file(), "interface file does not exist: %s" % interface)
+                self.assertIn(path, resolved, "RETURN doc must cite %s" % interface)
+
+    def test_schema_ids_are_real_and_homed(self):
+        body = self.body("What the RETURN manifest must carry")
+        cited = schema_ids_in(body)
+        known = known_schema_ids()
+        for schema_id in RETURN_SCHEMA_IDS:
+            with self.subTest(schema_id=schema_id):
+                self.assertIn(schema_id, cited)
+                self.assertIn(schema_id, known, "schema id not defined by any repository file")
+                home = SCHEMA_ID_HOMES[schema_id]
+                self.assertIn(schema_id, home.read_text(encoding="utf-8"))
+
+    def test_required_evidence_fields_are_documented(self):
+        body = "\n".join(self.body(title) for title in RETURN_SECTIONS)
+        evidence = load_json(RAILS / "evidence.schema.json")
+        self.assertEqual(sorted(evidence["required"]), sorted(
+            field for field in RETURN_EVIDENCE_FIELDS if field != "limitations"
+        ))
+        for field in RETURN_EVIDENCE_FIELDS:
+            with self.subTest(field=field):
+                self.assertIn("`%s`" % field, body)
+                self.assertIn(field, evidence["properties"])
+        link_props = evidence["properties"]["verification_links"]["items"]["properties"]
+        for field in RETURN_LINK_FIELDS:
+            with self.subTest(link_field=field):
+                self.assertIn("`%s`" % field, body)
+                self.assertIn(field, link_props)
+
+    def test_receiver_decision_stays_pending(self):
+        body = self.body("Receiver decision stays pending")
+        self.assertIn("pending", body)
+        self.assertIn("`receiver_decision`", body)
+        manifest = load_json(ROOT / "schemas" / "return-manifest.schema.json")
+        self.assertIn("receiver_decision", manifest["properties"])
+        self.assertIn("`receiver_decision`", self.body("What the RETURN manifest must carry"))
+        self.assertIn("`acceptance`", self.body("What the RETURN manifest must carry"))
+
+
+class TestRailsDocsCheckersActuallyFail(unittest.TestCase):
+    """The doc checkers fail on a missing heading, file, or schema id."""
+
+    SAMPLE = "# Sample\n\n## Present\n\nSee `schemas/rails/query.schema.json`.\n"
+
+    def test_missing_section_is_detected(self):
+        self.assertIn("Present", markdown_sections(self.SAMPLE))
+        self.assertIsNone(section_body(self.SAMPLE, "Absent"))
+
+    def test_missing_file_is_detected(self):
+        body = section_body(self.SAMPLE, "Present")
+        self.assertEqual(unresolved_references(RETURN_DOC, body), [])
+        broken = body + "\nSee `schemas/rails/does-not-exist.schema.json`.\n"
+        self.assertEqual(
+            unresolved_references(RETURN_DOC, broken),
+            ["schemas/rails/does-not-exist.schema.json"],
+        )
+
+    def test_unknown_schema_id_is_detected(self):
+        known = known_schema_ids()
+        self.assertIn("rizzstack.rails-query/1", known)
+        self.assertNotIn("rizzstack.rails-invented/9", known)
