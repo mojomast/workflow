@@ -55,3 +55,19 @@ python3 -B "$e/performance/fresh_http.py" "$PWD" "$e/release.json" "$SCRATCH" "$
 ```
 
 **Next decision:** keep all four PRs in draft. Follow the [merge sequence and reverse-order rollback](../coordination.md#sequencing-and-rollback) only after the software and owner gates clear. Start live preflight only when the operations owner supplies the dated, nonsecret worker/contract/workspace binding, capacity window, read grant, and interruption/recovery authority. The earlier approval alone does not satisfy those conditions. No merge, live attempt, release or deployment was performed.
+
+## Exact-tuple stream, viewport and memory measurements
+
+The [raw indexed run](soak.json) completed 1,800.000 seconds on local Linux: 180 connected appends and 180 deliberate disconnect/replay appends, six windows of 30 pairs. Each probe verified the exact rendered origin ID. Connected append-to-checked-viewport p95 was **1,390.622 ms** (target ≤3,000 ms); reconnect/replay p95 was **1,684.463 ms**. HTTP-body p95 for the same probes: 1,350.212 / 1,629.649 ms connected/replay. The separate renderer cap check observed 2,000 distinct marks and 2,000 table rows from 2,500 inputs.
+
+Window medians, KiB (six consecutive five-minute windows):
+
+| Process / measure | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---:|---:|---:|---:|---:|---:|
+| R12 reader RSS | 29,682 | 30,304 | 30,302 | 30,416 | 30,494 | 30,422 |
+| Node fixture RSS | 110,664 | 116,298 | 122,280 | 124,364 | 128,100 | 130,228 |
+| Chromium process-set PSS | 144,207 | 170,533 | 171,450 | 172,454 | 244,802 | 246,743 |
+
+The [threshold comparison](evaluation.json) also records retained-reader and authenticated fresh-connection timings. A single 30-minute run cannot prove a long-term memory bound. The hardware record identifies the guest CPU, available cores, RAM and filesystem; physical SSD backing is unknown. The live-selector and 2,000-mark cap checks were separate workloads.
+
+**Disposition: connected visibility passed; memory remains unqualified.** Node RSS rose in every window (about 108 to 127 MiB). Chromium PSS rose from about 141 to 241 MiB; the largest jump occurred in the fifth window. Follow up with a longer repeat and a fixed-history control to distinguish retained history or caches from a leak. The default HTTP misses, live Windows binding and owner approval still keep promotion on HOLD.
