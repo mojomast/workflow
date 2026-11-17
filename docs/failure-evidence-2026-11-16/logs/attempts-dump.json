@@ -2038,3 +2038,631 @@
       "attempt_id": "att_3228da112c834d01",
       "branch": "feat/bee-landed-usage-payload",
       "created_at": "2026-11-16T15:57:13Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:08:10Z"
+    },
+    {
+      "attempt_id": "att_d0bce9c38f99452c",
+      "branch": "fix/cli-attempt-scrub-bypass-and-probe-docs",
+      "created_at": "2026-11-16T16:04:02Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:15:39Z"
+    },
+    {
+      "attempt_id": "att_a72a1fb6f92e4d03",
+      "branch": "docs/f15-f19-packets-r6",
+      "created_at": "2026-11-16T16:07:15Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:22:57Z"
+    },
+    {
+      "attempt_id": "att_da35ed0591e249d8",
+      "branch": "feat/bee-landed-usage-payload",
+      "created_at": "2026-11-16T16:08:55Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:23:31Z"
+    },
+    {
+      "attempt_id": "att_e3991013c7454900",
+      "branch": "feat/owner-decision-queue",
+      "created_at": "2026-11-16T16:09:06Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T16:49:39Z"
+    },
+    {
+      "attempt_id": "att_4d2be5379fe94ca6",
+      "branch": "feat/doctor-launcher-identity",
+      "created_at": "2026-11-16T16:17:41Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:49:30Z"
+    },
+    {
+      "attempt_id": "att_4ae6932cde8f4dbf",
+      "branch": "feat/lease-payload-pinned-sources",
+      "created_at": "2026-11-16T16:22:50Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T17:01:46Z"
+    },
+    {
+      "attempt_id": "att_0cdf5d9dec7d466d",
+      "branch": "fix/workbench-product-bugs",
+      "created_at": "2026-11-16T16:22:57Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T16:22:57Z"
+    },
+    {
+      "attempt_id": "att_148bc29d474641e8",
+      "branch": "feat/require-contract",
+      "created_at": "2026-11-16T16:23:06Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:49:34Z"
+    },
+    {
+      "attempt_id": "att_7770cece72e34968",
+      "branch": "feat/bee-landed-usage-payload",
+      "created_at": "2026-11-16T16:24:03Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:49:36Z"
+    },
+    {
+      "attempt_id": "att_7d594b4d804749d3",
+      "branch": "feat/obs-bottlenecks-section",
+      "created_at": "2026-11-16T16:25:17Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T16:48:04Z"
+    },
+    {
+      "attempt_id": "att_6553087bbf154083",
+      "branch": "feat/verify-workers-shadow",
+      "created_at": "2026-11-16T16:50:57Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:57:58Z"
+    },
+    {
+      "attempt_id": "att_dde7e418b7d048f3",
+      "branch": "feat/owner-decision-queue",
+      "created_at": "2026-11-16T16:56:55Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T17:11:52Z"
+    },
+    {
+      "attempt_id": "att_92fb4015dd7b4fbf",
+      "branch": "feat/event-consumer-actions-r2",
+      "created_at": "2026-11-16T16:56:56Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T17:30:03Z"
+    },
+    {
+      "attempt_id": "att_91f27b6cc3d9416b",
+      "branch": "feat/bee-landed-usage-payload",
+      "created_at": "2026-11-16T17:06:31Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T17:12:13Z"
+    },
+    {
+      "attempt_id": "att_ae04295af7cf48e4",
+      "branch": "feat/lease-payload-pinned-sources",
+      "created_at": "2026-11-16T17:06:31Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T17:45:40Z"
+    },
+    {
+      "attempt_id": "att_a064e00830d741c9",
+      "branch": "docs/umbrella-modularity",
+      "created_at": "2026-11-16T17:13:32Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:49:21Z"
+    },
+    {
+      "attempt_id": "att_9d84a069384c49d9",
+      "branch": "docs/rebrand-and-website-plan",
+      "created_at": "2026-11-16T17:13:40Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:49:24Z"
+    },
+    {
+      "attempt_id": "att_b6aa800d08bc42a9",
+      "branch": "docs/orbit-decomposition",
+      "created_at": "2026-11-16T17:17:02Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "verified",
+      "updated_at": "2026-11-16T18:49:31Z"
+    },
+    {
+      "attempt_id": "att_aa0489ab9aa74abb",
+      "branch": "docs/research-before-retry",
+      "created_at": "2026-11-16T17:32:54Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:15:12Z"
+    },
+    {
+      "attempt_id": "att_12b30a49c0e24f70",
+      "branch": "feat/owner-decision-queue",
+      "created_at": "2026-11-16T17:50:28Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T17:50:28Z"
+    },
+    {
+      "attempt_id": "att_034bd9a26b0643a6",
+      "branch": "feat/worker-cap-12",
+      "created_at": "2026-11-16T17:51:05Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T17:51:05Z"
+    },
+    {
+      "attempt_id": "att_fc26e387f8854d90",
+      "branch": "feat/serve-lease-payload",
+      "created_at": "2026-11-16T18:04:36Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:45:39Z"
+    },
+    {
+      "attempt_id": "att_fbb5884f342d4f00",
+      "branch": "feat/obs-events-bridge",
+      "created_at": "2026-11-16T18:16:02Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:49:51Z"
+    },
+    {
+      "attempt_id": "att_8fda0c97e07547cc",
+      "branch": "docs/research-before-retry",
+      "created_at": "2026-11-16T18:16:07Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T18:19:42Z"
+    },
+    {
+      "attempt_id": "att_0789965631f14034",
+      "branch": "docs/research-before-retry",
+      "created_at": "2026-11-16T18:22:00Z",
+      "model": null,
+      "project": null,
+      "state": "dispatched",
+      "updated_at": "2026-11-16T18:22:00Z"
+    },
+    {
+      "attempt_id": "att_2075cd1fc7bf4f86",
+      "branch": "docs/research-before-retry",
+      "created_at": "2026-11-16T18:27:54Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T18:45:44Z"
+    },
+    {
+      "attempt_id": "att_6ad375dde5e24f01",
+      "branch": "fix/attempt-reconciliation-sweep",
+      "created_at": "2026-11-16T18:32:17Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:17:37Z"
+    },
+    {
+      "attempt_id": "att_5a0316cd1dba4631",
+      "branch": "docs/m2-canary-prep",
+      "created_at": "2026-11-16T18:32:21Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T18:57:54Z"
+    },
+    {
+      "attempt_id": "att_bcf6adfd91464925",
+      "branch": "feat/decision-notifier",
+      "created_at": "2026-11-16T18:32:30Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T18:49:55Z"
+    },
+    {
+      "attempt_id": "att_56d09cdf3da74904",
+      "branch": "feat/gate-watcher-planned-to-queued",
+      "created_at": "2026-11-16T18:34:13Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:17:27Z"
+    },
+    {
+      "attempt_id": "att_4bd20d8040e4440f",
+      "branch": "feat/serve-lease-payload",
+      "created_at": "2026-11-16T18:47:26Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T20:04:02Z"
+    },
+    {
+      "attempt_id": "att_17b7519c897e4219",
+      "branch": "docs/umbrella-modularity",
+      "created_at": "2026-11-16T18:50:18Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T19:16:18Z"
+    },
+    {
+      "attempt_id": "att_a88f29defbfe4e85",
+      "branch": "feat/require-contract",
+      "created_at": "2026-11-16T18:50:23Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:16:34Z"
+    },
+    {
+      "attempt_id": "att_6d6b10d2a63e4508",
+      "branch": "docs/rebrand-and-website-plan",
+      "created_at": "2026-11-16T18:51:32Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:16:44Z"
+    },
+    {
+      "attempt_id": "att_912333afe2854ca5",
+      "branch": "feat/obs-events-bridge",
+      "created_at": "2026-11-16T18:51:32Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T18:51:32Z"
+    },
+    {
+      "attempt_id": "att_bafd2f724ee04f37",
+      "branch": "feat/decision-notifier",
+      "created_at": "2026-11-16T18:51:33Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T18:51:33Z"
+    },
+    {
+      "attempt_id": "att_48f66ad7045e41cb",
+      "branch": "fix/workbench-product-bugs",
+      "created_at": "2026-11-16T18:58:16Z",
+      "model": null,
+      "project": "orbitdesktop",
+      "state": "failed",
+      "updated_at": "2026-11-16T21:54:04Z"
+    },
+    {
+      "attempt_id": "att_1df4dbfffc9349c0",
+      "branch": "feat/graceful-recovery",
+      "created_at": "2026-11-16T18:59:35Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:27:53Z"
+    },
+    {
+      "attempt_id": "att_edca64fe79cf466b",
+      "branch": "feat/obs-events-bridge",
+      "created_at": "2026-11-16T19:01:45Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T19:17:50Z"
+    },
+    {
+      "attempt_id": "att_bd46d2356c484dbb",
+      "branch": "feat/verify-workers-shadow",
+      "created_at": "2026-11-16T19:02:26Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:28:36Z"
+    },
+    {
+      "attempt_id": "att_e11a72eaa21c4aba",
+      "branch": "feat/memory-contract",
+      "created_at": "2026-11-16T19:02:38Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T19:17:43Z"
+    },
+    {
+      "attempt_id": "att_c567ad5996e94c4c",
+      "branch": "feat/worker-cap-12",
+      "created_at": "2026-11-16T19:10:13Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T19:10:13Z"
+    },
+    {
+      "attempt_id": "att_87b50dab33324d40",
+      "branch": "docs/umbrella-modularity",
+      "created_at": "2026-11-16T19:21:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T19:50:37Z"
+    },
+    {
+      "attempt_id": "att_c9b65b8b575640e0",
+      "branch": "feat/obs-events-bridge",
+      "created_at": "2026-11-16T19:22:01Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:50:52Z"
+    },
+    {
+      "attempt_id": "att_5369386df80e4094",
+      "branch": "feat/memory-contract",
+      "created_at": "2026-11-16T19:22:12Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:51:19Z"
+    },
+    {
+      "attempt_id": "att_9c0d637cb4c14b3e",
+      "branch": "feat/decision-notifier",
+      "created_at": "2026-11-16T19:22:21Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T19:51:29Z"
+    },
+    {
+      "attempt_id": "att_65b4cffc4bca4602",
+      "branch": "feat/contract-followups",
+      "created_at": "2026-11-16T20:19:55Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-16T20:51:58Z"
+    },
+    {
+      "attempt_id": "att_a12663561bc041f6",
+      "branch": "docs/rizzstack-rails-spec",
+      "created_at": "2026-11-16T20:22:21Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T21:35:03Z"
+    },
+    {
+      "attempt_id": "att_6d32729c0b6f4732",
+      "branch": "feat/worker-cap-14",
+      "created_at": "2026-11-16T20:34:37Z",
+      "model": null,
+      "project": "hyvv",
+      "state": "verified",
+      "updated_at": "2026-11-16T21:21:31Z"
+    },
+    {
+      "attempt_id": "att_22245ced0327414d",
+      "branch": "docs/ground-truth-audit",
+      "created_at": "2026-11-16T21:26:40Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T21:56:30Z"
+    },
+    {
+      "attempt_id": "att_646f51d163594035",
+      "branch": "docs/hindsight-mechanism-report",
+      "created_at": "2026-11-16T21:26:48Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T21:56:30Z"
+    },
+    {
+      "attempt_id": "att_ef6953fe272341f9",
+      "branch": "feat/rails-r00-readiness",
+      "created_at": "2026-11-16T21:39:01Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T23:15:00Z"
+    },
+    {
+      "attempt_id": "att_584b1d5f44824af8",
+      "branch": "feat/rails-r01-freeze",
+      "created_at": "2026-11-16T21:39:08Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-16T22:39:52Z"
+    },
+    {
+      "attempt_id": "att_49e01eee09ac4d32",
+      "branch": "docs/parity-audit-nov16",
+      "created_at": "2026-11-16T21:44:29Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T22:39:54Z"
+    },
+    {
+      "attempt_id": "att_ccc560abaaa24be0",
+      "branch": "docs/rails-w2-conversions",
+      "created_at": "2026-11-16T22:46:07Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T22:46:07Z"
+    },
+    {
+      "attempt_id": "att_8d113acc6bad4437",
+      "branch": "docs/hindsight-synthesis",
+      "created_at": "2026-11-16T22:47:27Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T22:47:27Z"
+    },
+    {
+      "attempt_id": "att_b470a77f04e54912",
+      "branch": "docs/rebrand-execution-runbook",
+      "created_at": "2026-11-16T22:50:12Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T22:50:12Z"
+    },
+    {
+      "attempt_id": "att_49baec233e5d483b",
+      "branch": "docs/rails-w2-conversions-r2",
+      "created_at": "2026-11-16T22:53:00Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T22:53:00Z"
+    },
+    {
+      "attempt_id": "att_462832afc85e495f",
+      "branch": "docs/recovery-push-nov16",
+      "created_at": "2026-11-16T22:58:54Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-16T22:58:54Z"
+    },
+    {
+      "attempt_id": "att_9bde1b0ff46f419f",
+      "branch": "docs/hindsight-synthesis",
+      "created_at": "2026-11-16T23:03:30Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T23:13:55Z"
+    },
+    {
+      "attempt_id": "att_36629f4db66a4bdb",
+      "branch": "docs/rebrand-execution-runbook",
+      "created_at": "2026-11-16T23:03:35Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T23:14:16Z"
+    },
+    {
+      "attempt_id": "att_a385194d37544bd6",
+      "branch": "docs/rails-w2-conversions-r3",
+      "created_at": "2026-11-16T23:03:43Z",
+      "model": null,
+      "project": "workflow",
+      "state": "verified",
+      "updated_at": "2026-11-16T23:14:25Z"
+    },
+    {
+      "attempt_id": "att_97d401a1cdbe45c2",
+      "branch": null,
+      "created_at": "2026-11-16T23:10:30Z",
+      "model": null,
+      "project": null,
+      "state": "dispatched",
+      "updated_at": "2026-11-16T23:10:30Z"
+    },
+    {
+      "attempt_id": "att_ab4f1be94f0e4609",
+      "branch": "contrib/obs-fleet-delta",
+      "created_at": "2026-11-16T23:50:59Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-17T00:38:34Z"
+    },
+    {
+      "attempt_id": "att_0810b361360740f0",
+      "branch": "feat/tool-path-write-back",
+      "created_at": "2026-11-17T00:00:22Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "verified",
+      "updated_at": "2026-11-17T00:22:54Z"
+    },
+    {
+      "attempt_id": "att_f2ca4416d9674a19",
+      "branch": "contrib/obs-fleet-delta",
+      "created_at": "2026-11-17T00:23:15Z",
+      "model": null,
+      "project": "workflow",
+      "state": "dispatched",
+      "updated_at": "2026-11-17T00:23:15Z"
+    },
+    {
+      "attempt_id": "att_c3b2c62f5397458e",
+      "branch": "contrib/obs-fleet-delta",
+      "created_at": "2026-11-17T00:23:29Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-17T00:49:59Z"
+    },
+    {
+      "attempt_id": "att_9b867e11677545af",
+      "branch": "feat/tool-path-write-back",
+      "created_at": "2026-11-17T00:23:34Z",
+      "model": null,
+      "project": "bundlebees",
+      "state": "dispatched",
+      "updated_at": "2026-11-17T00:23:34Z"
+    },
+    {
+      "attempt_id": "att_37d9797e0b774bab",
+      "branch": "docs/coordination-reliability-research",
+      "created_at": "2026-11-17T00:24:50Z",
+      "model": null,
+      "project": "workflow",
+      "state": "failed",
+      "updated_at": "2026-11-17T00:53:27Z"
+    }
+  ]
+}

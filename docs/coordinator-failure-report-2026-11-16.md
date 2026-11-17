@@ -117,7 +117,7 @@ codex-failure-report-2026-11-16/
 │   ├── att_0810b361360740f0.log       write-back r1 (F6: superseded by corrected re-dispatch)
 │   ├── audit-tail.jsonl               the audit stream tail
 │   ├── attempts-dump.json             full attempt ledger snapshot
-│   ├── outbox-events.tar.gz           the outbox (CLI-path bee-landed events; tool-path absence = F1's evidence)
+│   ├── outbox-events.tar.gz           the plugin-side outbox: 8 bee-landed events, ALL from Nov 14 19:32-19:55 (the first job-CLI wave). Nothing emitted since, from any path - see the correction note below
 │   ├── scope-violation-att_ab4f1be9.json   verify refusal envelope (F6)
 │   └── r00-verify-envelope.json       the R00 recovery-proof envelope
 ├── leases/                            ← immutable lease records, including the poisoned + corrected ones
@@ -128,4 +128,23 @@ codex-failure-report-2026-11-16/
 
 **For Codex specifically:** the highest-value audit targets are (1) F3 — whether a launcher-side sha resolution check at lease time is the right fix vs coordinator-side pre-flight only; (2) F1 — whether "success = commit-on-branch" should be a launcher enforcement or a post-hoc audit; (3) F4/F5 — the machinery/coordinator role boundary, and whether the "one repair attempt then hand off" rule is enforceable or aspirational; (4) F6 — whether immutable leases need a bounded amendment path for dispatcher error, or whether re-dispatch is the correct permanent answer.
 
-*Compiled 19:40–20:00 EST, 2026-11-16. Every claim above is checkable against the packaged files.*
+*Compiled 19:40–20:00 EST, 2026-11-16; corrected 20:15 EST after independent review flagged two packaging defects. Every claim above is checkable against the packaged files — integrity via MANIFEST.sha256.*
+
+## CORRECTION (post-audit packaging fix, 20:15 EST)
+
+The independent reviewer (Codex) correctly flagged two packaging defects in the first push of
+this evidence set: (1) the outbox tarball was EMPTY (a wrong-path assembly error in the tar
+command); (2) the attempts ledger was truncated at exactly 60,000 bytes and unparsable (a
+head-c pipe truncation). Both are fixed in the follow-up commit: the tarball now contains the
+real plugin-side outbox (8 files, ~36K) and the ledger is the complete 296-row dump, both
+validated, with a sha256 MANIFEST.sha256 over every evidence file.
+
+The corrected outbox contents STRENGTHEN the audit: the plugin-side outbox contains exactly
+8 bee-landed events, ALL timestamped Nov 14 19:32-19:55 (the first job-CLI dogfood wave).
+No event has been emitted since - from ANY path, CLI or tool. The report's original framing
+("CLI-path emits, tool-path doesn't") underclaimed: the entire emission path has been dark
+since Nov 14. Whether later events were emitted elsewhere (e.g. worker-side), consumed and
+deleted by a collector, or never written is an open audit question - the worker host is
+reachable only through a forced-command gateway (status/list-projects/.../logs/apply-update),
+so its filesystem is not directly inspectable from here.
+
