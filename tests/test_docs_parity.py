@@ -376,6 +376,16 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "trial harness PART 2 arms + report",
         "keywords": ("arms.py", "evaluate_trial", "H123_BASELINE", "exit 0/1/2"),
     },
+    {
+        # feat/memory-vault-service: the disk-backed vault service for the
+        # rizzstack.memory/1 contract - DiskVault(root) over the contract
+        # layout, append-only log.md receipts with sequence numbers, vault_rev
+        # advancing on every accepted write; query is honest grep (M2 owns the
+        # index); no runtime wiring, MEMORY_ENABLED stays off.
+        "pr": 98,
+        "name": "memory vault service M1",
+        "keywords": ("rizzstack_memory", "DiskVault", "vault_rev", "test_memory_vault_disk"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
