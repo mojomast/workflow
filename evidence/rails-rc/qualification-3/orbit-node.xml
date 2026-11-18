@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="the preview is immutable, excludes private prose, and keys only the reviewed operation" time="0.003883" classname="test"/>
+	<testcase name="an absent transport or unregistered/held workspace cannot reach the writer" time="0.010504" classname="test"/>
+	<testcase name="the relay accepts only bounded quality operations, never an unsigned confirmation" time="0.004505" classname="test"/>
+	<testcase name="only fixed paths, scoped credentials, explicit same-origin mutations and bounded streams" time="0.074263" classname="test"/>
+	<testcase name="rails view module loads and validates the canonical view" time="0.006128" classname="test"/>
+	<testcase name="validateView rejects a wrong schema const" time="0.000242" classname="test"/>
+	<testcase name="validateView rejects a malformed generated_at timestamp" time="0.001592" classname="test"/>
+	<testcase name="validateView rejects a lane with more than 500 marks" time="0.003292" classname="test"/>
+	<testcase name="validateView rejects unknown enum values" time="0.000315" classname="test"/>
+	<testcase name="validateView rejects hostile markup in ids (schema pattern defense)" time="0.000240" classname="test"/>
+	<testcase name="validateView enforces field shapes, caps and additionalProperties" time="0.000475" classname="test"/>
+	<testcase name="buildLaneTree nests parent/child, flags orphans and detects cycles without hanging" time="0.000904" classname="test"/>
+	<testcase name="boundMarksForView caps per-lane marks, total visible marks and lane count" time="0.004237" classname="test"/>
+	<testcase name="breadcrumbPath walks ancestors and marks missing ones as orphan placeholders" time="0.000788" classname="test"/>
+	<testcase name="outcomeClass separates red, failure, ok, ghost-unknown and other outcomes" time="0.000526" classname="test"/>
+	<testcase name="formatTimestamp and formatDuration never invent values" time="0.000229" classname="test"/>
+	<testcase name="rendering shows lanes with distinct status and source classes and distinct mark outcome classes" time="0.003657" classname="test"/>
+	<testcase name="unknown values render honestly without fabricated timestamps or durations" time="0.003306" classname="test"/>
+	<testcase name="rendering bounds visible marks to the schema cap with an honest truncation indicator" time="0.075629" classname="test"/>
+	<testcase name="hostile markup-bearing data renders as inert text, never as markup (XSS escape proof)" time="0.000976" classname="test"/>
+	<testcase name="clean rendering never touches innerHTML (defense in depth)" time="0.001028" classname="test"/>
+	<testcase name="marks are keyboard reachable: initial selection, arrow navigation and Enter selection event" time="0.000915" classname="test"/>
+	<testcase name="zoom and pan transform the viewport with clamped bounds and a reset" time="0.000927" classname="test"/>
+	<testcase name="focus mode narrows to a subtree with breadcrumb navigation and restores on clear" time="0.001052" classname="test"/>
+	<testcase name="reduced motion preference is reflected on the container" time="0.000466" classname="test"/>
+	<testcase name="an invalid view renders an error state and no marks" time="0.000294" classname="test"/>
+	<testcase name="toolbar exposes accessible zoom, reset and focus controls that work" time="0.000590" classname="test"/>
+	<testcase name="inspector renders honest mark detail with breadcrumbs and escapes hostile strings" time="0.001786" classname="test"/>
+	<testcase name="inspector closes via close(), the close button and the Escape key" time="0.000805" classname="test"/>
+	<testcase name="index.html wires the app with a mount point and no inline script" time="0.000475" classname="test"/>
+	<testcase name="styles.css styles the distinct lane and mark states with focus and reduced-motion support" time="0.000174" classname="test"/>
+	<testcase name="bootObservatory is a no-op without a document" time="0.000113" classname="test"/>
+	<!-- tests 32 -->
+	<!-- suites 0 -->
+	<!-- pass 32 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 262.178216 -->
+</testsuites>

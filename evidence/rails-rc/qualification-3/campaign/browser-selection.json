@@ -1,0 +1,19 @@
+{
+  "browser_version": "152.0.7977.30",
+  "details": [
+    {
+      "event_id": "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c:3",
+      "owner_detail": "Selected event: m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c:3 \u00b7 authority: imported_observation \u00b7 tool_name: other \u00b7 command_family: unknown \u00b7 latency: unknown"
+    },
+    {
+      "event_id": "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:1",
+      "owner_detail": "Selected event: m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:1 \u00b7 authority: verifier_record \u00b7 ac_id: AC-001 \u00b7 run_id: record:f9755579d7fe1a56e91111fb342f8843 \u00b7 code_rev: ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702 \u00b7 contract_sha256: bd9a6559028548d366f0bdd443e6629e23062d5340d1c24160544195890b9f89"
+    },
+    {
+      "event_id": "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:11",
+      "owner_detail": "Selected event: m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:11 \u00b7 authority: verifier_record \u00b7 ac_id: AC-001 \u00b7 run_id: record:76694b45fc2571023aacf92aa8c9ae8d \u00b7 code_rev: 6495978e1d161437035fe60461785d3816da5b3d \u00b7 contract_sha256: bd9a6559028548d366f0bdd443e6629e23062d5340d1c24160544195890b9f89"
+    }
+  ],
+  "dist_index_sha256": "268e1eee902d0950aaa7b1c40a6dfee16c8eb81c04290671b40307a85743f2ab",
+  "selected_event_id": "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:11"
+}

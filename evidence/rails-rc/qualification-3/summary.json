@@ -1,0 +1,61 @@
+{
+  "junit": {
+    "bundlebees": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 258
+    },
+    "hyvv": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 12
+    },
+    "orbit-node": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 32
+    },
+    "orbitdesktop": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 25
+    },
+    "workflow": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 156
+    }
+  },
+  "passed": true,
+  "scope": "local four-checkout Rails gate; receiver decision pending",
+  "tools": {
+    "bundlebees_wheel_sha256": "fc7e2aa23e21968b1f9a33f7b128e9536308a6fe64cb73a2394e8a08082016fe",
+    "chromium": "Google Chrome for Testing 152.0.7977.30",
+    "chromium_sha256": "6642ab58861e8dedcd195e1fe090f76dae4cff8476f971911a11781e7ec7d2da",
+    "gitleaks": "8.21.2",
+    "hyvv_wheel_sha256": "ff749322d3bc7a6fbf44ffdc214cb6f0f29522e2d57f840d3c118154d82b7d9c",
+    "native_modules": {
+      "better-sqlite3/build/Release/better_sqlite3.node": "df9fbd0d061f360d81fb51e265c53c9605020bd68219e34f33c07c85de15719a",
+      "node-pty/build/Release/pty.node": "9b33df633d1dbd6a7e4d4ae11adca31a7d475c01421698abc9fdb564ec729e78"
+    },
+    "node": "22.23.5",
+    "node_abi": "127",
+    "npm": "10.8.2",
+    "orbit_lock_sha256": "e041e9127736742f2af7df98e4dceb835c98be9ede6068dc1caef6a5d97aa02a",
+    "python": "3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0]",
+    "python_packages": "9.2.0 4.26.0",
+    "sqlite": "3.53.2",
+    "wheel_builders": "78.1.1 1.33.0"
+  },
+  "tuple": {
+    "bundlebees": "d4aea255f30bb7177f0b2fb7c37e11b920800b72",
+    "hyvv": "06c6185d2b6060f62f1dc5377b2f1c7ca1e39aa5",
+    "orbitdesktop": "43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e",
+    "workflow": "2974e7999b3221d268d1394d6d38b1435cd23668"
+  }
+}

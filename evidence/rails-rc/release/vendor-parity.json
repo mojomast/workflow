@@ -1,0 +1,15 @@
+{
+  "canonical_pin": "adf8b3d77f5f657188b4be14c39ebc1d5c5007f0",
+  "bundlebees": {
+    "modules": 13,
+    "manifest_sha256": "8c5479b19b4a55f09c2517e1d455936b795d16a9ef0b68decb1924f5a07cab3d"
+  },
+  "hyvv": {
+    "modules": 4,
+    "manifest_sha256": "79de44951221d40ca08c5f81d1e2470fdfacb7d68897bc27bd2c522899d0da8c"
+  },
+  "orbitdesktop": {
+    "modules": 12,
+    "manifest_sha256": "8efe1b5d0ab914ba77c135b588b464946b29aa5a51deb32c731a32fbfe762b58"
+  }
+}

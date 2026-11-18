@@ -1,0 +1,88 @@
+{
+  "tuple": {
+    "workflow": "badc5591d7e5d4985fe829c3a1e39b2ee0e4c0f6",
+    "bundlebees": "83ffa37811225deb8f06518b2ef997a021b63bd2",
+    "hyvv": "35a4d0cf9473b3d30a2b8eb0b71ab9d10b6509a8",
+    "orbitdesktop": "43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e"
+  },
+  "junit_tests": 665,
+  "skips": 0,
+  "soak_seconds": 1800.0,
+  "windows": [
+    {
+      "cycles": 30,
+      "reader_rss_median_kib": 29682.0,
+      "node_rss_median_kib": 110664.0,
+      "chromium_pss_median_kib": 144207.0
+    },
+    {
+      "cycles": 30,
+      "reader_rss_median_kib": 30304.0,
+      "node_rss_median_kib": 116298.0,
+      "chromium_pss_median_kib": 170533.0
+    },
+    {
+      "cycles": 30,
+      "reader_rss_median_kib": 30302.0,
+      "node_rss_median_kib": 122280.0,
+      "chromium_pss_median_kib": 171449.5
+    },
+    {
+      "cycles": 30,
+      "reader_rss_median_kib": 30416.0,
+      "node_rss_median_kib": 124364.0,
+      "chromium_pss_median_kib": 172454.5
+    },
+    {
+      "cycles": 30,
+      "reader_rss_median_kib": 30494.0,
+      "node_rss_median_kib": 128100.0,
+      "chromium_pss_median_kib": 244802.0
+    },
+    {
+      "cycles": 30,
+      "reader_rss_median_kib": 30422.0,
+      "node_rss_median_kib": 130228.0,
+      "chromium_pss_median_kib": 246743.0
+    }
+  ],
+  "latency": {
+    "http_default_events": {
+      "p95_ms": 1614.091,
+      "limit_ms": 500,
+      "pass": false
+    },
+    "http_default_view": {
+      "p95_ms": 525.956,
+      "limit_ms": 500,
+      "pass": false
+    },
+    "http_indexed_events": {
+      "p95_ms": 499.716,
+      "limit_ms": 500,
+      "pass": true
+    },
+    "http_indexed_view": {
+      "p95_ms": 189.422,
+      "limit_ms": 500,
+      "pass": true
+    },
+    "retained_events": {
+      "p95_ms": 273.73,
+      "limit_ms": 500,
+      "pass": true
+    },
+    "retained_view": {
+      "p95_ms": 160.278,
+      "limit_ms": 500,
+      "pass": true
+    },
+    "connected_visible": {
+      "p95_ms": 1390.622,
+      "limit_ms": 3000,
+      "pass": true
+    }
+  },
+  "memory": "descriptive: review six windows and process trends; no numeric leak bound was frozen",
+  "scope": "synthetic Linux; separate 2000-mark cap test and connected viewport; physical SSD unknown"
+}

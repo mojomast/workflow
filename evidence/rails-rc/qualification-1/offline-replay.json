@@ -1,0 +1,30 @@
+{
+  "verified": true,
+  "native_digest": "358edd71d9d3c77c0af58c09d02866089137d26ed48c11c5c73e92dd4ef2849b",
+  "executions": [
+    {
+      "stage": "baseline",
+      "revision": "0a382f282823db9724e1efd90998c3eac335f8e4",
+      "expected_exit": 1,
+      "observed_exit": 1
+    },
+    {
+      "stage": "verified",
+      "revision": "0ba9d3cdec68748f350b020e6cebdba998efe7d7",
+      "expected_exit": 0,
+      "observed_exit": 0
+    },
+    {
+      "stage": "integrated",
+      "revision": "ecd71e2bb237ea95ef9940738cb4f998e9b62f53",
+      "expected_exit": 0,
+      "observed_exit": 0
+    }
+  ],
+  "decision": {
+    "decided_at": null,
+    "decided_by": null,
+    "note": null,
+    "status": "pending"
+  }
+}

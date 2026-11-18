@@ -1,0 +1,180 @@
+[
+  {
+    "authority": "worker_report",
+    "chain_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d",
+    "dedupe_key": "att_0000000000000018:g1:s1",
+    "duration_ms": null,
+    "event_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d:1",
+    "hash": "5563fde4d0e9b13b9c8439451dbd1e40c57c86c85352c76d7494c718ea4888a7",
+    "kind": "tool.start",
+    "lane_id": "att_0000000000000018:g1:r0",
+    "occurred_at": "2025-11-13T02:13:20.000000Z",
+    "parent_event_id": null,
+    "parent_lane_id": null,
+    "payload": {
+      "call_id": "call_0000000000000018",
+      "command_family": null,
+      "evidence_ref": "att_0000000000000018:g1:s1",
+      "outcome": "pending",
+      "summary": "Tool call observed",
+      "tool_name": "bash"
+    },
+    "prev_hash": "genesis",
+    "recorded_at": "2026-11-17T21:15:24.865667Z",
+    "redaction_policy": "rails-safe/1",
+    "schema": "rizzstack.rails/1",
+    "scope": {
+      "action_id": null,
+      "attempt_id": "att_0000000000000018",
+      "campaign_id": null,
+      "code_rev": null,
+      "contract_sha256": null,
+      "job_id": null,
+      "repo": null,
+      "session_id": null,
+      "task_id": null
+    },
+    "seq": 1,
+    "source": {
+      "adapter": "launcher-log",
+      "instance": "worker-1",
+      "record_id": "att_0000000000000018:g1:s1",
+      "revision": "v1"
+    },
+    "timing_quality": "unknown"
+  },
+  {
+    "authority": "worker_report",
+    "chain_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d",
+    "dedupe_key": "att_0000000000000018:g1:offset144",
+    "duration_ms": null,
+    "event_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d:2",
+    "hash": "b0e6e36216c58711a131b4cea214e96283f9dedbecba5fc6e11c23ac2d30c582",
+    "kind": "source.checkpoint",
+    "lane_id": "att_0000000000000018:g1:r0",
+    "occurred_at": null,
+    "parent_event_id": null,
+    "parent_lane_id": null,
+    "payload": {
+      "code": "bytes_consumed",
+      "count": 1,
+      "cursor": "144",
+      "digest": "dbb305ed3121ab541fc1a09483f700639f89d619e0dec39eaafe3a7a49a97685",
+      "range_end": 144,
+      "range_start": 144,
+      "source_id": "launcher-log"
+    },
+    "prev_hash": "5563fde4d0e9b13b9c8439451dbd1e40c57c86c85352c76d7494c718ea4888a7",
+    "recorded_at": "2026-11-17T21:15:24.866134Z",
+    "redaction_policy": "rails-safe/1",
+    "schema": "rizzstack.rails/1",
+    "scope": {
+      "action_id": null,
+      "attempt_id": "att_0000000000000018",
+      "campaign_id": null,
+      "code_rev": null,
+      "contract_sha256": null,
+      "job_id": null,
+      "repo": null,
+      "session_id": null,
+      "task_id": null
+    },
+    "seq": 2,
+    "source": {
+      "adapter": "launcher-log",
+      "instance": "worker-1",
+      "record_id": "att_0000000000000018:g1:offset144",
+      "revision": "v1"
+    },
+    "timing_quality": "unknown"
+  },
+  {
+    "authority": "worker_report",
+    "chain_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d",
+    "dedupe_key": "att_0000000000000018:g1:s2",
+    "duration_ms": null,
+    "event_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d:3",
+    "hash": "ba54961850c9a2032fec8349bf7a287a140f8f041d888c34d32b82829bbd7c0b",
+    "kind": "tool.finish",
+    "lane_id": "att_0000000000000018:g1:r0",
+    "occurred_at": "2025-11-13T02:13:21.000000Z",
+    "parent_event_id": null,
+    "parent_lane_id": null,
+    "payload": {
+      "call_id": "call_0000000000000018",
+      "command_family": null,
+      "evidence_ref": "att_0000000000000018:g1:s2",
+      "outcome": "ok",
+      "summary": "Tool completion observed",
+      "tool_name": "unknown"
+    },
+    "prev_hash": "b0e6e36216c58711a131b4cea214e96283f9dedbecba5fc6e11c23ac2d30c582",
+    "recorded_at": "2026-11-17T21:15:25.269935Z",
+    "redaction_policy": "rails-safe/1",
+    "schema": "rizzstack.rails/1",
+    "scope": {
+      "action_id": null,
+      "attempt_id": "att_0000000000000018",
+      "campaign_id": null,
+      "code_rev": null,
+      "contract_sha256": null,
+      "job_id": null,
+      "repo": null,
+      "session_id": null,
+      "task_id": null
+    },
+    "seq": 3,
+    "source": {
+      "adapter": "launcher-log",
+      "instance": "worker-1",
+      "record_id": "att_0000000000000018:g1:s2",
+      "revision": "v1"
+    },
+    "timing_quality": "unknown"
+  },
+  {
+    "authority": "worker_report",
+    "chain_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d",
+    "dedupe_key": "att_0000000000000018:g1:offset287",
+    "duration_ms": null,
+    "event_id": "m-ea2d64878fcd-76d6434b-79a2-4035-a91c-fd10fe12635d:4",
+    "hash": "2ba76e20a201edca49e6b495821ae5b93f3810628574dc3843af92e04651a6e7",
+    "kind": "source.checkpoint",
+    "lane_id": "att_0000000000000018:g1:r0",
+    "occurred_at": null,
+    "parent_event_id": null,
+    "parent_lane_id": null,
+    "payload": {
+      "code": "bytes_consumed",
+      "count": 1,
+      "cursor": "287",
+      "digest": "e0a043c5d2f0f554c19a766dd92e10dc86f6a5784464aed79112c845ef86a864",
+      "range_end": 287,
+      "range_start": 287,
+      "source_id": "launcher-log"
+    },
+    "prev_hash": "ba54961850c9a2032fec8349bf7a287a140f8f041d888c34d32b82829bbd7c0b",
+    "recorded_at": "2026-11-17T21:15:25.270426Z",
+    "redaction_policy": "rails-safe/1",
+    "schema": "rizzstack.rails/1",
+    "scope": {
+      "action_id": null,
+      "attempt_id": "att_0000000000000018",
+      "campaign_id": null,
+      "code_rev": null,
+      "contract_sha256": null,
+      "job_id": null,
+      "repo": null,
+      "session_id": null,
+      "task_id": null
+    },
+    "seq": 4,
+    "source": {
+      "adapter": "launcher-log",
+      "instance": "worker-1",
+      "record_id": "att_0000000000000018:g1:offset287",
+      "revision": "v1"
+    },
+    "timing_quality": "unknown"
+  }
+]

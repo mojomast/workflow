@@ -1,0 +1,20 @@
+{
+  "scope": "offline coding fixture; synthetic admission and launcher journal; automated reviewer only",
+  "pending_approvals": [
+    "deploy",
+    "merge",
+    "publish",
+    "release"
+  ],
+  "native_manifest_schema_error_paths": [
+    "$.attempts[0].project",
+    "$.authorization.authority",
+    "$.integration.wave",
+    "$.red_green.green",
+    "$.red_green.red",
+    "$.verification.gitleaks",
+    "$.verification.suite"
+  ],
+  "native_return_reverified": true,
+  "receiver_decision": "pending"
+}
