@@ -6,7 +6,7 @@ Exit 0 = all surfaces in parity; exit 1 = drift found (printed as a table).
 
 Surfaces and their sources of truth:
   plugin      git HEAD of the installed checkout vs origin/main of the plugin repo
-  gateway     gateway process start time vs the installed checkout's mtime (started after = loaded)
+  gateway     process start vs local HEAD reflog / install symlink mtime (restart proxy only)
   collector   sha256 of the running collector file vs `git show origin/main:<path>` of the workflow repo
   obs_app     sha256 of the deployed app.js vs the same file at orbitdesktop origin/main
   hyvv        reported DEPLOYED_SHA (env or deploy marker file) vs origin/main of the hyvv repo
@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
-import sys
+import time
 from pathlib import Path
 
 PLUGIN_DIR = Path.home() / ".hermes" / "plugins" / "bundlebees"
@@ -36,13 +36,10 @@ STATE = Path.home() / ".hermes" / "plugin-data" / "bundlebees"
 
 
 def git(repo: Path, *args: str) -> str:
-    return subprocess.run(
+    result = subprocess.run(
         ["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=60
-    ).stdout.strip()
-
-
-def sha_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "MISSING"
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 def check_plugin() -> tuple[str, str, bool]:
@@ -53,71 +50,60 @@ def check_plugin() -> tuple[str, str, bool]:
 
 def check_gateway_loaded() -> tuple[str, str, bool]:
     """Started-after-install is the mechanical proxy for 'loaded the installed code'."""
-    # honest proxy: the install is loaded iff the gateway started after the checkout change
     try:
         gw_start_epoch = _gateway_start_epoch()
-        install_epoch = float(git(PLUGIN_DIR, "log", "-1", "--format=%ct") or 0)
+        # A commit can be months older than its installation. Git's local HEAD
+        # log follows checkouts and fast-forwards, including in linked worktrees.
+        log = git(PLUGIN_DIR, "rev-parse", "--path-format=absolute", "--git-path", "logs/HEAD")
+        if not log or not Path(log).is_file():
+            return "UNKNOWN", "UNKNOWN", False
+        install_epoch = Path(log).stat().st_mtime
+        if PLUGIN_DIR.is_symlink():
+            install_epoch = max(install_epoch, PLUGIN_DIR.lstat().st_mtime)
         return (
             f"gateway_started={gw_start_epoch:.0f}",
-            f"checkout_commit_epoch={install_epoch:.0f}",
+            f"checkout_updated={install_epoch:.0f}",
             gw_start_epoch > install_epoch,
         )
-    except (ValueError, subprocess.SubprocessError):
+    except (ValueError, IndexError, OSError, subprocess.SubprocessError):
         return "UNKNOWN", "UNKNOWN", False
 
 
 def _gateway_pid() -> int:
     out = subprocess.run(
         ["systemctl", "--user", "show", "-p", "MainPID", "hermes-gateway"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, timeout=30, check=True,
     ).stdout.strip()
     return int(out.split("=")[-1] or 0)
 
 
 def _gateway_start_epoch() -> float:
-    out = subprocess.run(
-        ["systemctl", "--user", "show", "-p", "ActiveEnterTimestampMonotonic", "hermes-gateway"],
-        capture_output=True, text=True, timeout=30,
-    ).stdout.strip()
-    # monotonic is not wall clock; use /proc stat of the main pid instead
     pid = _gateway_pid()
-    if pid:
-        try:
-            with open(f"/proc/{pid}/stat", "r", encoding="utf-8") as fh:
-                fields = fh.read().split()
-            start_ticks = float(fields[21])
-            with open("/proc/uptime", "r", encoding="utf-8") as fh:
-                uptime = float(fh.read().split()[0])
-            return _now() - (uptime - start_ticks / os.sysconf("SC_CLK_TCK"))
-        except (OSError, IndexError, ValueError):
-            pass
-    return _now()
+    if pid <= 0:
+        raise ValueError("gateway has no main process")
+    # Field 2 (the parenthesized process name) may itself contain spaces or ')'.
+    stat = Path(f"/proc/{pid}/stat").read_text()
+    start_ticks = int(stat.rsplit(")", 1)[1].split()[19])  # field 22
+    uptime = float(Path("/proc/uptime").read_text().split()[0])
+    return time.time() - (uptime - start_ticks / os.sysconf("SC_CLK_TCK"))
 
 
-def _now() -> float:
-    import time
-
-    return time.time()
+def _file_parity(repo: Path, path: str, deployed: Path) -> tuple[str, str, bool]:
+    main = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "blob", f"origin/main:{path}"],
+        capture_output=True, timeout=60,
+    )
+    expected = hashlib.sha256(main.stdout).hexdigest() if main.returncode == 0 else None
+    actual = hashlib.sha256(deployed.read_bytes()).hexdigest() if deployed.is_file() else None
+    return (actual or "MISSING")[:12], (expected or "MISSING")[:12], actual is not None and actual == expected
 
 
 def check_collector() -> tuple[str, str, bool]:
-    main = subprocess.run(
-        ["git", "-C", str(WORKFLOW_REPO), "show", f"origin/main:{COLLECTOR_MAIN}"],
-        capture_output=True, text=True, timeout=60,
-    )
-    main_hash = hashlib.sha256(main.stdout.encode()).hexdigest() if main.returncode == 0 else "MISSING"
-    deployed = sha_file(COLLECTOR_DEPLOYED)
-    return deployed[:12], main_hash[:12], deployed == main_hash
+    return _file_parity(WORKFLOW_REPO, COLLECTOR_MAIN, COLLECTOR_DEPLOYED)
 
 
 def check_obs_app() -> tuple[str, str, bool]:
-    main = subprocess.run(
-        ["git", "-C", str(OD_REPO), "show", f"origin/main:{OBS_APP}"],
-        capture_output=True, text=True, timeout=60,
-    )
-    main_hash = hashlib.sha256(main.stdout.encode()).hexdigest() if main.returncode == 0 else "MISSING"
-    deployed = sha_file(OD_DEPLOY / OBS_APP)
-    return deployed[:12], main_hash[:12], deployed == main_hash
+    return _file_parity(OD_REPO, OBS_APP, OD_DEPLOY / OBS_APP)
 
 
 def check_hyvv() -> tuple[str, str, bool]:
@@ -158,4 +144,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

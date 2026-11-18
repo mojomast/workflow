@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="route refuses unauthorized callers and non-GET methods" time="0.003702" classname="test"/>
+	<testcase name="unconfigured state dir is reported, not guessed" time="0.001806" classname="test"/>
+	<testcase name="lists contracts with evidence and skips unsafe entries" time="0.012710" classname="test"/>
+	<testcase name="contract view comes from the lease contract and verified evidence records" time="0.008050" classname="test"/>
+	<testcase name="an all-invalid evidence directory reports invalid, not accepted" time="0.003168" classname="test"/>
+	<testcase name="a valid signed report with matching contract sha yields accepted:true" time="0.004525" classname="test"/>
+	<testcase name="even an accepted contract report identifies historical runs, not a current task head" time="0.010377" classname="test"/>
+	<testcase name="a rejected record or report overrides earlier signed passes on the board" time="0.021358" classname="test"/>
+	<testcase name="an unreadable report is rejected even when there are no run records" time="0.006150" classname="test"/>
+	<testcase name="a report with a bad signature or mismatched sha yields accepted:false" time="0.030498" classname="test"/>
+	<testcase name="a modified or stolen-label record is rejected by the route" time="0.019949" classname="test"/>
+	<testcase name="missing, group-readable and symlinked lease keys disable verification" time="0.017595" classname="test"/>
+	<testcase name="the lease key never appears in any route response" time="0.013443" classname="test"/>
+	<testcase name="bad, unknown and contract-less ids are refused" time="0.004440" classname="test"/>
+	<testcase name="reading never writes to the bundlebees state dir" time="0.010208" classname="test"/>
+	<testcase name="secrets and host paths do not leak" time="0.005569" classname="test"/>
+	<testcase name="client helpers: authorized GET request and escaped list" time="0.001833" classname="test"/>
+	<testcase name="the view is wired into the command palette, the Hermes menu and the server" time="0.009028" classname="test"/>
+	<testcase name="styles are dark-only and the window is read-only" time="0.000236" classname="test"/>
+	<testcase name="failure codes and status labels cover the protocol" time="0.001419" classname="test"/>
+	<testcase name="parseContract reads acdd/1 and refuses other versions" time="0.002313" classname="test"/>
+	<testcase name="parseEvidence normalises a record and refuses other versions" time="0.000360" classname="test"/>
+	<testcase name="canonicalJson matches Python json.dumps for nested keys and non-ASCII text" time="0.052841" classname="test"/>
+	<testcase name="a Python-computed fixture signature verifies byte-for-byte" time="0.063018" classname="test"/>
+	<testcase name="canonicalJson sorts keys by code point and escapes like Python" time="0.000224" classname="test"/>
+	<testcase name="a valid signed verifier record counts" time="0.006421" classname="test"/>
+	<testcase name="a modified record is rejected and never counted" time="0.006576" classname="test"/>
+	<testcase name="a stolen verifier label is rejected with evidence_tampered" time="0.001869" classname="test"/>
+	<testcase name="unsigned and worker records are ignored, not counted" time="0.006172" classname="test"/>
+	<testcase name="a fake 64-character signature is not evidence" time="0.000856" classname="test"/>
+	<testcase name="a valid signed acceptance report with matching sha yields accepted:true" time="0.000948" classname="test"/>
+	<testcase name="a report with a bad signature or mismatched sha cannot set accepted:true" time="0.007707" classname="test"/>
+	<testcase name="without a verified report criteria come from verified records only" time="0.000696" classname="test"/>
+	<testcase name="signed stale records are flagged and ignored for status" time="0.004124" classname="test"/>
+	<testcase name="a historical run needs an intact signed full tested revision and exact contract and role" time="0.012493" classname="test"/>
+	<testcase name="same digest and a verifier signature do not transfer evidence to another contract id" time="0.000458" classname="test"/>
+	<testcase name="repeated verifier attempts each appear once; a final not_run remains pending" time="0.000882" classname="test"/>
+	<testcase name="verificationState is verified only for a verified report and every required phase" time="0.000642" classname="test"/>
+	<testcase name="verificationState is rejected when any record or the report is rejected" time="0.005848" classname="test"/>
+	<testcase name="verificationState is invalid when the contract or every record is invalid" time="0.000253" classname="test"/>
+	<testcase name="verificationState is unverified without a usable key or without records" time="0.000306" classname="test"/>
+	<testcase name="verificationState is incomplete without a verified report or a required phase record" time="0.001369" classname="test"/>
+	<testcase name="record status verified needs a valid signature, verifier role and matching sha" time="0.011489" classname="test"/>
+	<testcase name="record status rejected covers modified, stolen-label and stale records" time="0.002853" classname="test"/>
+	<testcase name="record status invalid covers wrong versions, missing fields and unreadable records" time="0.000310" classname="test"/>
+	<testcase name="record status unverified covers missing keys and worker self-reports" time="0.000461" classname="test"/>
+	<testcase name="worker-claimed success can never produce acceptance" time="0.016767" classname="test"/>
+	<testcase name="the panel shows a dark badge with plain-language text for every state" time="0.007882" classname="test"/>
+	<testcase name="toActivityItems summarises phases for the activity feed" time="0.000588" classname="test"/>
+	<testcase name="readEvidenceDir reads the bundlebees layout safely" time="0.062535" classname="test"/>
+	<testcase name="lease key loading refuses missing, group-readable, symlinked and wrong-size keys" time="0.002814" classname="test"/>
+	<testcase name="an unavailable key produces an unavailable view and counts nothing" time="0.000424" classname="test"/>
+	<testcase name="secrets are redacted and the panel escapes HTML" time="0.000574" classname="test"/>
+	<testcase name="buildEvidenceView fails closed when no verifier is available: no report or record is trusted" time="0.005129" classname="test"/>
+	<testcase name="real Orbit evidence GET projects signed matching records as history on the board" time="1.590064" classname="test"/>
+	<testcase name="the preview is immutable, excludes private prose, and keys only the reviewed operation" time="0.007684" classname="test"/>
+	<testcase name="an absent transport or unregistered/held workspace cannot reach the writer" time="0.017935" classname="test"/>
+	<testcase name="the relay accepts only bounded quality operations, never an unsigned confirmation" time="0.008184" classname="test"/>
+	<testcase name="only fixed paths, scoped credentials, explicit same-origin mutations and bounded streams" time="0.118690" classname="test"/>
+	<testcase name="rails view module loads and validates the canonical view" time="0.010019" classname="test"/>
+	<testcase name="validateView rejects a wrong schema const" time="0.000240" classname="test"/>
+	<testcase name="validateView rejects a malformed generated_at timestamp" time="0.017435" classname="test"/>
+	<testcase name="validateView rejects a lane with more than 500 marks" time="0.002602" classname="test"/>
+	<testcase name="validateView rejects unknown enum values" time="0.000272" classname="test"/>
+	<testcase name="validateView rejects hostile markup in ids (schema pattern defense)" time="0.000258" classname="test"/>
+	<testcase name="validateView enforces field shapes, caps and additionalProperties" time="0.000484" classname="test"/>
+	<testcase name="buildLaneTree nests parent/child, flags orphans and detects cycles without hanging" time="0.000710" classname="test"/>
+	<testcase name="boundMarksForView caps per-lane marks, total visible marks and lane count" time="0.009081" classname="test"/>
+	<testcase name="breadcrumbPath walks ancestors and marks missing ones as orphan placeholders" time="0.000911" classname="test"/>
+	<testcase name="outcomeClass separates red, failure, ok, ghost-unknown and other outcomes" time="0.000530" classname="test"/>
+	<testcase name="formatTimestamp and formatDuration never invent values" time="0.000181" classname="test"/>
+	<testcase name="rendering shows lanes with distinct status and source classes and distinct mark outcome classes" time="0.002771" classname="test"/>
+	<testcase name="unknown values render honestly without fabricated timestamps or durations" time="0.000974" classname="test"/>
+	<testcase name="rendering bounds visible marks to the schema cap with an honest truncation indicator" time="0.097706" classname="test"/>
+	<testcase name="hostile markup-bearing data renders as inert text, never as markup (XSS escape proof)" time="0.001131" classname="test"/>
+	<testcase name="clean rendering never touches innerHTML (defense in depth)" time="0.001166" classname="test"/>
+	<testcase name="marks are keyboard reachable: initial selection, arrow navigation and Enter selection event" time="0.009231" classname="test"/>
+	<testcase name="zoom and pan transform the viewport with clamped bounds and a reset" time="0.000968" classname="test"/>
+	<testcase name="focus mode narrows to a subtree with breadcrumb navigation and restores on clear" time="0.002810" classname="test"/>
+	<testcase name="reduced motion preference is reflected on the container" time="0.000430" classname="test"/>
+	<testcase name="an invalid view renders an error state and no marks" time="0.000330" classname="test"/>
+	<testcase name="toolbar exposes accessible zoom, reset and focus controls that work" time="0.000568" classname="test"/>
+	<testcase name="inspector renders honest mark detail with breadcrumbs and escapes hostile strings" time="0.002823" classname="test"/>
+	<testcase name="inspector closes via close(), the close button and the Escape key" time="0.000583" classname="test"/>
+	<testcase name="index.html wires the app with a mount point and no inline script" time="0.000463" classname="test"/>
+	<testcase name="styles.css styles the distinct lane and mark states with focus and reduced-motion support" time="0.000197" classname="test"/>
+	<testcase name="bootObservatory is a no-op without a document" time="0.000110" classname="test"/>
+	<!-- tests 87 -->
+	<!-- suites 0 -->
+	<!-- pass 87 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 1773.218403 -->
+</testsuites>

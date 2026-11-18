@@ -90,15 +90,17 @@ def _is_number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _complete_metric(metrics: dict, metric_id: str):
+def complete_metric(arm: dict, metric_id: str):
     """Return the metric dict when complete per METRIC_SHAPES, else None."""
-    metric = metrics.get(metric_id)
+    metric = _metrics_of(arm).get(metric_id)
     if not isinstance(metric, dict):
         return None
     for field in METRIC_SHAPES[metric_id]:
         value = metric.get(field)
         if field == "intrusions_per_brief":
             if not (isinstance(value, list) and value and all(_is_number(v) for v in value)):
+                return None
+            if len(value) != metric.get("probe_briefs_total"):
                 return None
         elif not _is_number(value):
             return None
@@ -123,8 +125,8 @@ def _verdict(verdict: str, reason: str, details: dict) -> dict:
 
 
 def _evaluate_h1(baseline: dict, treatment: dict, treatment_gate: bool) -> dict:
-    baseline_m1 = _complete_metric(_metrics_of(baseline), "M1")
-    treatment_m1 = _complete_metric(_metrics_of(treatment), "M1")
+    baseline_m1 = complete_metric(baseline, "M1")
+    treatment_m1 = complete_metric(treatment, "M1")
     details = {}
     if treatment_gate:
         return _verdict(
@@ -187,8 +189,8 @@ def _evaluate_h1(baseline: dict, treatment: dict, treatment_gate: bool) -> dict:
 
 
 def _evaluate_h2(baseline: dict, treatment: dict, treatment_gate: bool) -> dict:
-    treatment_m2 = _complete_metric(_metrics_of(treatment), "M2")
-    baseline_m2 = _complete_metric(_metrics_of(baseline), "M2")
+    treatment_m2 = complete_metric(treatment, "M2")
+    baseline_m2 = complete_metric(baseline, "M2")
     details = {}
     if treatment_gate:
         return _verdict(
@@ -206,13 +208,6 @@ def _evaluate_h2(baseline: dict, treatment: dict, treatment_gate: bool) -> dict:
     total = int(treatment_m2["probe_briefs_total"])
     present = int(treatment_m2["probe_briefs_with_pitfall"])
     intrusions = [int(count) for count in treatment_m2["intrusions_per_brief"]]
-    if len(intrusions) != total:
-        return _verdict(
-            VERDICT_UNINFORMATIVE,
-            f"metric M2 incomplete for arm 'treatment': {len(intrusions)} intrusion "
-            f"entries for {total} probe briefs",
-            details,
-        )
     max_intrusions = max(intrusions)
     details = {
         "probe_briefs_total": total,
@@ -298,8 +293,8 @@ def _evaluate_h3(baseline: dict, treatment: dict) -> dict:
 
 
 def _evaluate_h4(baseline: dict, treatment: dict, treatment_gate: bool) -> dict:
-    baseline_m8 = _complete_metric(_metrics_of(baseline), "M8")
-    treatment_m8 = _complete_metric(_metrics_of(treatment), "M8")
+    baseline_m8 = complete_metric(baseline, "M8")
+    treatment_m8 = complete_metric(treatment, "M8")
     details = {}
     if treatment_gate:
         return _verdict(

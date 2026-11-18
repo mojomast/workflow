@@ -1,0 +1,7 @@
+{
+  "sql": "CREATE INDEX rails_local_attempt_scan ON event_rows (json_extract(envelope_json,'$.scope.attempt_id'), ingest_seq, event_id, rails_hash, length(CAST(envelope_json AS BLOB)))",
+  "create_ms": 715.8663882873952,
+  "before": 453750784,
+  "after": 468963328,
+  "sqlite": "3.46.1"
+}

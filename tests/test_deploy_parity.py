@@ -13,9 +13,13 @@ so the test is hermetic.
 """
 
 import importlib.util
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -70,6 +74,68 @@ class ParityContractTests(unittest.TestCase):
     def test_all_ok_exits_zero(self) -> None:
         self.set_checks((("a", lambda: ("1", "1", True)), ("b", lambda: ("2", "2", True))))
         self.assertEqual(self.run_main(), 0)
+
+
+class SurfaceTests(unittest.TestCase):
+    """Exercise real check functions against a disposable local Git repo."""
+
+    def setUp(self) -> None:
+        self.mod = load_module()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.git("init", "-q")
+        self.mod.WORKFLOW_REPO = self.mod.OD_REPO = self.mod.PLUGIN_DIR = self.repo
+        self.mod.COLLECTOR_MAIN = self.mod.OBS_APP = "artifact"
+        self.mod.OD_DEPLOY = self.root / "deploy"
+        self.mod.OD_DEPLOY.mkdir()
+        self.mod.COLLECTOR_DEPLOYED = self.mod.OD_DEPLOY / "artifact"
+
+    def git(self, *args: str) -> None:
+        subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
+
+    def create_main(self, data: bytes) -> None:
+        (self.repo / "artifact").write_bytes(data)
+        self.git("-c", "core.autocrlf=false", "add", "artifact")
+        self.git("-c", "user.name=test", "-c", "user.email=test@example.org",
+                 "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+    def test_absent_on_both_sides_is_drift(self) -> None:
+        for check in (self.mod.check_collector, self.mod.check_obs_app):
+            with self.subTest(check=check.__name__):
+                self.assertFalse(check()[2])
+
+    def test_compare_git_blob_and_deployment_as_bytes(self) -> None:
+        data = b"line\r\n"
+        self.create_main(data)
+        for deployed, matches in ((data, True), (b"line\n", False)):
+            self.mod.COLLECTOR_DEPLOYED.write_bytes(deployed)
+            for check in (self.mod.check_collector, self.mod.check_obs_app):
+                with self.subTest(check=check.__name__, matches=matches):
+                    self.assertEqual(check()[2], matches)
+
+    def test_stopped_gateway_is_not_loaded(self) -> None:
+        self.create_main(b"test")
+        with patch.object(self.mod, "_gateway_pid", return_value=0):
+            self.assertFalse(self.mod.check_gateway_loaded()[2])
+
+    def test_restart_must_postdate_local_install_not_commit(self) -> None:
+        self.create_main(b"test")
+        # Model a checkout made well after the commit was authored and a later
+        # switch of the plugin symlink back to that older checkout.
+        link = self.root / "installed"
+        link.symlink_to(self.repo, target_is_directory=True)
+        self.mod.PLUGIN_DIR = link
+        reflog = self.repo / ".git" / "logs" / "HEAD"
+        base = int(reflog.stat().st_mtime)
+        os.utime(reflog, (base + 200, base + 200))
+        os.utime(link, (base + 300, base + 300), follow_symlinks=False)
+        for start, matches in ((base + 100, False), (base + 250, False), (base + 400, True)):
+            with self.subTest(start=start), patch.object(self.mod, "_gateway_start_epoch", return_value=start):
+                self.assertEqual(self.mod.check_gateway_loaded()[2], matches)
 
 
 if __name__ == "__main__":

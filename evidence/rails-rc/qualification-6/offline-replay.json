@@ -1,0 +1,30 @@
+{
+  "verified": true,
+  "native_digest": "ca5a7af942d30f491cb283b03e9b8aa2bf6d235c33510be77d62ef94194b527d",
+  "executions": [
+    {
+      "stage": "baseline",
+      "revision": "fc2daa14691317bac173f165d3feee70e2068365",
+      "expected_exit": 1,
+      "observed_exit": 1
+    },
+    {
+      "stage": "verified",
+      "revision": "5195f7c5ddad867e5cddc7a6f029c075c328cd26",
+      "expected_exit": 0,
+      "observed_exit": 0
+    },
+    {
+      "stage": "integrated",
+      "revision": "0b6d871ae14531260cdeb21469d8263d71ea9608",
+      "expected_exit": 0,
+      "observed_exit": 0
+    }
+  ],
+  "decision": {
+    "decided_at": null,
+    "decided_by": null,
+    "note": null,
+    "status": "pending"
+  }
+}
