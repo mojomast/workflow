@@ -106,9 +106,33 @@
         }
       ],
       "depends_on": [],
-      "status": "planned",
-      "transitions": [],
-      "updated_at": "2026-11-16T18:30:00-05:00"
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "return_accepted",
+              "return_digest": "0515b019"
+            },
+            "canary": {
+              "pr": 1,
+              "job": "rizzstack-m2-canary-2",
+              "grant": "repo-346047d9c8d444a3"
+            },
+            "attribution": {
+              "attempt": "att_a2f93c9f29f14efb",
+              "intent": "f79031d486394e87883cfa1ad8c041f7",
+              "digest": "1d980726b5e2df35f63bd1a958085c9a19a656cd9e5f57f9acf4dc31493b496b"
+            },
+            "note": "One authorized Windows canary completed: acceptance report *** yes (AC-001..AC-005), signed reviewer attestation, and the E9 pre-dispatch attribution proven end-to-end on the attributed re-dispatch."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R00",
@@ -135,7 +159,7 @@
       },
       "gates": [],
       "depends_on": [],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -148,10 +172,40 @@
             "merge_commit": "b0cd15aa0118e256f102711feac373809d722483",
             "verified_head": "cd1e687009a4a18cc8eea760f1f564745c34257a"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_a3c2bb45b386442c",
-      "updated_at": "2026-11-17T06:10:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R01",
@@ -188,7 +242,7 @@
       "depends_on": [
         "RAILS-R00"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -201,10 +255,40 @@
             "merge_commit": "c7b5ab3aeca0bc47f7150c7d05c5388f1bb37f5c",
             "verified_head": "5288abb90b4c1130fbd0b622d5a099da898387cf"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_e0cff87d85a644e5",
-      "updated_at": "2026-11-17T06:55:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R02",
@@ -237,7 +321,7 @@
       "depends_on": [
         "RAILS-R01"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -252,10 +336,40 @@
             "merge_commit": "9287d91578fd8e0cce29b120bd1dfed2650f9569",
             "merge_status": "merged - bb PR #70 merged as 9287d91; bb main companion 2b6289c"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_f67c7573c44241fc",
-      "updated_at": "2026-11-17T08:05:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R03",
@@ -294,7 +408,7 @@
       "depends_on": [
         "RAILS-R01"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -322,10 +436,40 @@
             "merge_commit": "7b8b91e0f10f1b35ad50032ec81696b039ddc75e",
             "merge_status": "merged - od PR #43 merged as 7b8b91e0; completes the pending landing evidence above"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_4be4db6493c14270",
-      "updated_at": "2026-11-17T09:25:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R04",
@@ -354,7 +498,7 @@
       "depends_on": [
         "RAILS-R02"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -369,10 +513,40 @@
             "merge_commit": null,
             "merge_status": "in flight - r3 att_ad65300c on rails/r04-importer @ b65cda0"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_ad65300c35c0424f",
-      "updated_at": "2026-11-17T09:25:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R05",
@@ -401,8 +575,40 @@
         "RAILS-R01",
         "RAILS-R04"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R06",
@@ -431,8 +637,40 @@
         "RAILS-R01",
         "RAILS-R04"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R07",
@@ -468,8 +706,40 @@
         "RAILS-R01",
         "RAILS-R04"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R08",
@@ -501,7 +771,7 @@
         "RAILS-R01",
         "RAILS-R02"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -516,10 +786,40 @@
             "merge_commit": null,
             "merge_status": "in flight - att_84c7913c on rails/r08-emission @ 961a8bce"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_84c7913c916044b2",
-      "updated_at": "2026-11-17T09:25:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R09",
@@ -548,8 +848,40 @@
         "RAILS-R04",
         "RAILS-R08"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R10",
@@ -582,7 +914,7 @@
         "RAILS-R01",
         "RAILS-R02"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -597,10 +929,40 @@
             "merge_commit": null,
             "merge_status": "in flight - att_79a67032 on rails/r10-query @ b65cda0"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_79a6703225124daa",
-      "updated_at": "2026-11-17T09:25:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R11",
@@ -630,8 +992,40 @@
         "RAILS-R02",
         "RAILS-R10"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R12",
@@ -664,8 +1058,40 @@
         "RAILS-R10",
         "RAILS-R11"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R13",
@@ -698,7 +1124,7 @@
         "RAILS-R01",
         "RAILS-R03"
       ],
-      "status": "dispatched",
+      "status": "landed",
       "transitions": [
         {
           "from": "planned",
@@ -713,10 +1139,40 @@
             "merge_commit": "ffccf927e2ea47f92b970a32d3d8d5d0d678f645",
             "merge_status": "merged - od PR #45 merged as ffccf927; companion fixtures PR #44 merged as 24240ae8"
           }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
         }
       ],
       "attempt_id": "att_5ea00d9dacde4c80",
-      "updated_at": "2026-11-17T09:25:00Z"
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R14",
@@ -746,8 +1202,40 @@
       "depends_on": [
         "RAILS-R10"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R15",
@@ -778,8 +1266,40 @@
         "RAILS-R05",
         "RAILS-R11"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R16",
@@ -811,8 +1331,40 @@
         "RAILS-R12",
         "RAILS-R15"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R17A",
@@ -841,8 +1393,40 @@
         "RAILS-R01",
         "RAILS-R10"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R17B",
@@ -882,8 +1466,40 @@
         "RAILS-R14",
         "RAILS-R15"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R17C",
@@ -917,8 +1533,40 @@
         "RAILS-R02",
         "RAILS-R08"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R17D",
@@ -968,8 +1616,40 @@
         "RAILS-R17B",
         "RAILS-R17C"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     },
     {
       "id": "RAILS-R18",
@@ -1001,8 +1681,40 @@
         "RAILS-R17C",
         "RAILS-R17D"
       ],
-      "status": "planned",
-      "transitions": []
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
     }
   ],
   "transitions": [

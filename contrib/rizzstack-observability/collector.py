@@ -362,7 +362,23 @@ def first_number(record: Mapping[str, Any], keys: Sequence[str]) -> float | None
         if isinstance(value, bool):
             continue
         if isinstance(value, (int, float)):
-            return float(value)
+            try:
+                number = float(value)
+            except OverflowError:
+                continue
+            if math.isfinite(number):
+                return number
+    return None
+
+
+def first_count(record: Mapping[str, Any], keys: Sequence[str]) -> int | None:
+    """Non-negative integer observation, without rounding large JSON integers."""
+    for key in keys:
+        value = record.get(key)
+        if type(value) is int and value >= 0:
+            return value
+        if isinstance(value, float) and value >= 0 and value.is_integer():
+            return int(value)
     return None
 
 
@@ -374,20 +390,30 @@ def first_bool(record: Mapping[str, Any], keys: Sequence[str]) -> bool | None:
     return None
 
 
+_BAD_JSON = object()
+
+
+def jsonl_rows(path: Path) -> Iterable[Any]:
+    """Yield one parsed record at a time, or a marker for a malformed line."""
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if line.strip():
+                try:
+                    yield json.loads(line)
+                except ValueError:
+                    yield _BAD_JSON
+
+
 def read_jsonl(path: Path) -> tuple[list[Any], int]:
     """Read a JSONL file read-only; returns (records, parse_error_count)."""
     records: list[Any] = []
     errors = 0
     try:
-        with path.open(encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    records.append(json.loads(line))
-                except (json.JSONDecodeError, ValueError):
-                    errors += 1
+        for row in jsonl_rows(path):
+            if row is _BAD_JSON:
+                errors += 1
+            else:
+                records.append(row)
     except OSError:
         return [], 0
     return records, errors
@@ -480,6 +506,14 @@ def agg_status(known: int, total: int, any_source: bool) -> str:
     if known <= 0:
         return "unknown"
     return "partial"
+
+
+def token_status(known: Mapping[str, int], requests: int) -> str:
+    if not requests:
+        return "unavailable"
+    if min(known["input"], known["output"]) == requests:
+        return "known"
+    return "partial" if known["input"] or known["output"] or known["total"] else "unknown"
 
 
 def _median_of(values: Sequence[float]) -> float | None:
@@ -1039,30 +1073,21 @@ class Collector:
             "usage_status": "unavailable",
         }
         summary: dict[str, Any] = {"today_cost_usd": 0.0, "today_known": 0, "quota_rows": []}
-        if self.usage_path is None:
-            body = section(
-                now,
-                "unavailable",
-                "source_missing",
-                source=empty_source,
-                totals=empty_totals,
-                by_model=[],
-                by_repo=[],
-            )
-            return body, summary
-        if not self.usage_path.is_file():
-            body = section(
-                now,
-                "unavailable",
-                "source_missing",
-                source=empty_source,
-                totals=empty_totals,
-                by_model=[],
-                by_repo=[],
-            )
-            return body, summary
+        error = "source_missing"
+        if self.usage_path is not None:
+            try:
+                return self._aggregate_usage(now, generated, jsonl_rows(self.usage_path))
+            except FileNotFoundError:
+                pass
+            except OSError:
+                # Discard even the subtotal if the ledger failed halfway through.
+                error = "source_unreadable"
+        return section(now, "unavailable", error, source=empty_source, totals=empty_totals,
+                       by_model=[], by_repo=[]), summary
 
-        records, parse_errors = read_jsonl(self.usage_path)
+    def _aggregate_usage(self, now: datetime, generated: str, records: Iterable[Any]) -> tuple[dict, dict]:
+        summary: dict[str, Any] = {"today_cost_usd": 0.0, "today_known": 0, "quota_rows": []}
+        parse_errors = 0
         today_prefix = now.astimezone(timezone.utc).strftime("%Y-%m-%d")
         totals = {"input": 0, "output": 0, "total": 0, "cost": 0.0}
         known = {"input": 0, "output": 0, "total": 0, "cost": 0}
@@ -1073,6 +1098,15 @@ class Collector:
         by_model: dict[tuple[str, str], dict[str, Any]] = {}
         by_repo: dict[str, dict[str, Any]] = {}
         seen_any = False
+        latest_quota: dict[tuple[str, str | None], tuple[datetime | None, dict[str, Any]]] = {}
+
+        def remember_quota(ts: datetime | None, hint: dict[str, Any]) -> None:
+            key = (hint["kind"], hint["resource_id"])
+            previous = latest_quota.get(key)
+            # Prefer event time over append order. If neither reading is dated,
+            # or the timestamps tie, the last ledger entry wins.
+            if previous is None or previous[0] is None or (ts is not None and ts >= previous[0]):
+                latest_quota[key] = (ts, hint)
 
         for record in records:
             if not isinstance(record, dict):
@@ -1080,19 +1114,22 @@ class Collector:
                 continue
             seen_any = True
             requests += 1
-            usage_status = record.get("usage_status")
             model = scrub(first_str(record, ("served_model", "model", "requested_model")), 64) or "unknown"
             model = model if ID_TOKEN_RE.match(model) else "unknown"
             provider = provider_label(first_str(record, ("route", "provider"))) or "unknown"
-            inp = _int_or_none(first_number(record, ("input_tokens", "prompt_tokens")))
-            outp = _int_or_none(first_number(record, ("output_tokens", "completion_tokens")))
-            total = _int_or_none(first_number(record, ("total_tokens", "tokens")))
+            inp = first_count(record, ("input_tokens", "prompt_tokens"))
+            outp = first_count(record, ("output_tokens", "completion_tokens"))
+            total = first_count(record, ("total_tokens", "tokens"))
+            # Orbit keeps the producer's total in usage_raw for extension-only
+            # events. Cache/thinking semantics vary; prefer the reported total.
+            if total is None and isinstance(record.get("usage_raw"), dict):
+                total = first_count(record["usage_raw"], ("total",))
             if total is None and inp is not None and outp is not None:
                 total = inp + outp
-            cost = first_number(record, ("cost_usd", "cost_usd_total", "cost"))
-            cost_known = cost is not None
-            record_unknown = usage_status == "unknown"
-            if not cost_known:
+            cost = first_number(record, ("cost_usd_list", "cost_usd", "cost_usd_total", "cost"))
+            if cost is not None and cost < 0:
+                cost = None
+            if cost is None:
                 unknown_cost += 1
             if inp is not None:
                 totals["input"] += inp
@@ -1107,19 +1144,26 @@ class Collector:
                 totals["cost"] += cost
                 known["cost"] += 1
 
-            http_429 = first_number(record, ("http_429", "http_429_count", "count_429"))
+            http_429 = first_count(record, ("http_429", "http_429_count", "count_429"))
             if isinstance(record.get("http_429"), bool):
                 http_429_count += 1 if record["http_429"] else 0
             elif http_429 is not None:
-                http_429_count += int(http_429)
+                http_429_count += http_429
             if record.get("fallback") or record.get("fallen_back"):
                 fallback_count += 1
 
             # Quota hints for the health section (never secret material).
+            ts = parse_ts(first_str(record, ("ts", "ts_end", "ts_start", "created_at", "time")))
             go_pct = first_number(record, ("go_allowance_used_pct", "go_allowance_pct_used"))
+            allowance = record.get("go_allowance")
+            # Orbit also emits a per-request derived_list_price percentage;
+            # only an observed account reading is a quota update.
+            if go_pct is None and isinstance(allowance, dict) and allowance.get("pct_source") == "opencode.allowance":
+                go_pct = first_number(allowance, ("pct_used",))
             if go_pct is not None:
                 label = id_token(first_str(record, ("go_label", "go_key_label", "resource_id"))) or "go"
-                summary["quota_rows"].append(
+                remember_quota(
+                    ts,
                     {
                         "kind": "go_allowance",
                         "resource_id": label,
@@ -1132,7 +1176,8 @@ class Collector:
                 )
             balance = first_number(record, ("deepseek_balance_usd", "deepseek_credit_usd"))
             if balance is not None:
-                summary["quota_rows"].append(
+                remember_quota(
+                    ts,
                     {
                         "kind": "deepseek_credit",
                         "resource_id": None,
@@ -1144,31 +1189,24 @@ class Collector:
                     }
                 )
 
-            ts = parse_ts(first_str(record, ("ts", "created_at", "time")))
             if ts and cost is not None and ts.astimezone(timezone.utc).strftime("%Y-%m-%d") == today_prefix:
                 summary["today_cost_usd"] += cost
                 summary["today_known"] += 1
 
-            bucket = by_model.setdefault(
-                (model, provider),
-                self._usage_bucket(generated, model=model, provider=provider),
-            )
-            self._usage_accumulate(bucket, requests_delta=1, inp=inp, outp=outp, total=total, cost=cost, cost_known=cost_known, record_unknown=record_unknown)
+            key = (model, provider)
+            if key not in by_model:
+                by_model[key] = self._usage_bucket(generated, model=model, provider=provider)
+            self._usage_accumulate(by_model[key], requests_delta=1, inp=inp, outp=outp, total=total, cost=cost)
 
-            repo = repo_slug(first_str(record, ("repo", "repository")))
+            repo = repo_slug(first_str(record, ("repo", "repository", "project")))
             if repo is None:
                 repo = "unknown/unknown"  # sentinel for records without a slug
-            rbucket = by_repo.setdefault(
-                repo,
-                self._usage_bucket(generated, model=None, provider=None, repo=repo),
-            )
-            self._usage_accumulate(rbucket, requests_delta=1, inp=inp, outp=outp, total=total, cost=cost, cost_known=cost_known, record_unknown=record_unknown)
+            if repo not in by_repo:
+                by_repo[repo] = self._usage_bucket(generated, model=None, provider=None, repo=repo)
+            self._usage_accumulate(by_repo[repo], requests_delta=1, inp=inp, outp=outp, total=total, cost=cost)
 
-        tokens_status = (
-            "unavailable"
-            if not seen_any
-            else agg_status(min(known["input"], known["output"]), requests, seen_any)
-        )
+        summary["quota_rows"] = [hint for _, hint in latest_quota.values()]
+        tokens_status = token_status(known, requests)
         cost_status = "unavailable" if not seen_any else agg_status(known["cost"], requests, seen_any)
         usage_status = "unavailable" if not seen_any else ("known" if parse_errors == 0 else "partial")
         totals_row = {
@@ -1252,8 +1290,6 @@ class Collector:
         outp: int | None,
         total: int | None,
         cost: float | None,
-        cost_known: bool,
-        record_unknown: bool,
     ) -> None:
         sums = bucket["_sums"]
         known = bucket["_known"]
@@ -1275,14 +1311,8 @@ class Collector:
         bucket["output_tokens"] = sums["output"] if known["output"] else None
         bucket["total_tokens"] = sums["total"] if known["total"] else None
         bucket["cost_usd"] = round(sums["cost"], 6) if known["cost"] else None
-        bucket["tokens_status"] = agg_status(
-            min(known["input"], known["output"]), requests_now, True
-        )
+        bucket["tokens_status"] = token_status(known, requests_now)
         bucket["cost_status"] = agg_status(known["cost"], requests_now, True)
-        if record_unknown:
-            # An explicitly unknown record keeps its buckets partial at best.
-            if bucket["cost_status"] == "known" and known["cost"] < requests_now:
-                bucket["cost_status"] = "partial"
 
     # -------------------------------------------------------------- pipeline
     def pipeline_section(self) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -2798,8 +2828,8 @@ class Collector:
             "bees_in_flight": float(in_flight) if isinstance(in_flight, int) and not isinstance(in_flight, bool) else None,
             "bee_cap": float(bee_cap) if isinstance(bee_cap, int) else None,
             "last_event_age_s": float(last_event_age_s) if last_event_age_s is not None else None,
-            "today_cost_usd": float(usage_summary.get("today_cost_usd") or 0.0)
-            if isinstance(usage_summary.get("today_cost_usd"), (int, float))
+            "today_cost_usd": float(usage_summary["today_cost_usd"])
+            if usage_summary.get("today_known") and isinstance(usage_summary.get("today_cost_usd"), (int, float))
             else None,
         }
         return body, observations
@@ -2898,7 +2928,7 @@ class Collector:
                 "daily_model_spend_above_usd",
                 float(today_cost),
                 float(spend_cap),
-                f"today's model spend is {today_cost:.2f} USD",
+                f"today's reported list-price subtotal is {today_cost:.2f} USD",
             )
         status = "live" if any_live_input else "unavailable"
         error = None if any_live_input else "no_live_inputs"
@@ -2971,12 +3001,6 @@ def _infer_failure_class(outcome_norm: str, code: str | None) -> str:
     if "suite" in haystack or "test" in haystack or "verify" in haystack:
         return "regression"
     return "unknown"
-
-
-def _int_or_none(value: float | None) -> int | None:
-    if value is None:
-        return None
-    return int(value)
 
 
 def _check_state(state: str) -> str:

@@ -3,7 +3,7 @@
 The report layer is what a human reads after ``python -m scripts.trial.report``.
 It replays the three stub arms, applies the pre-registered §3.3 thresholds via
 ``scripts/trial/evaluator.py``, scores the absolute §3.4 checks (M3 crash-digest
-injection, M4 visual-pitfall injection) from the fixture ``expected`` blocks,
+injection, M4 visual-pitfall injection) from captured brief entries,
 and prints:
 
 - the thresholds actually applied, with their source;
@@ -54,36 +54,64 @@ H4_BASELINE = arms.ARM_B
 H4_TREATMENT = arms.ARM_C
 
 
-def _score_absolute_checks(metrics: dict) -> dict:
-    """Score the §3.4 absolute checks (M3 crash digest, M4 visual pitfall).
+def _captured_items(briefs):
+    """One item list per brief. An empty context was observed; a missing one wasn't."""
+    if not isinstance(briefs, list):
+        return None
+    captures = []
+    for brief in briefs:
+        context = brief.get("memory_context") if isinstance(brief, dict) else None
+        items = context.get("items") if isinstance(context, dict) else None
+        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+            return None
+        captures.append(items)
+    return captures
 
-    A correct arm reports the fixture ``expected`` counts: the restart fixture
-    expects two recovery briefs, and the supersession fixture expects the
-    pitfall to be digest-pinned with the recorded source digest. The stubs
-    carry no memory items of their own, so the score is computed from what the
-    arm's metrics imply: an arm with zero memory-layer spend cannot have
-    injected a digest-pinned memory; an arm with spend can.
+
+def _pinned_match(item, expected):
+    return item.get("digest_pinned") is True and all(item.get(k) == v for k, v in expected.items())
+
+
+def _score_absolute_checks(record) -> dict:
+    """Score captured briefs only; absent instrumentation is unknown (None).
+
+    M4 needs a visual-task capture and its independently recorded source
+    digest. The two current fixtures supply neither; the F3 selector probe
+    and its supersession digest are not evidence for M4.
     """
-    expected_restart = fixtures.RESTART_FIXTURE["expected"]
-    expected_pitfall = fixtures.SUPERSESSION_RECALL_FIXTURE["expected"]["target_pitfall"]
-    scores = {}
-    for arm_id, record in metrics.items():
-        tokens = record["metrics"].get("M8", {}).get("memory_layer_tokens", 0)
-        has_memory = tokens > 0
-        scores[arm_id] = {
-            "M3_recovery_briefs_total": expected_restart["recovery_briefs_total"] if has_memory else 0,
-            "M3_crash_digest_pinned": has_memory,
-            "M4_pitfall_digest_pinned": has_memory,
-            "M4_expected_digest": expected_pitfall.get("source_digest", ""),
-        }
-    return scores
+    observations = record.get("observations") if isinstance(record, dict) else None
+    if not isinstance(observations, dict):
+        observations = {}
+    expected = fixtures.RESTART_FIXTURE["expected"]
+    recovery = _captured_items(observations.get("recovery_briefs"))
+    total = correct = crash_pinned = None
+    if recovery is not None:
+        total = len(recovery)
+        correct = sum(len(items) == 1 and _pinned_match(items[0], expected["recovery_brief_item"])
+                      for items in recovery)
+        crash_pinned = correct == total == expected["recovery_briefs_total"]
+
+    visual = _captured_items(observations.get("visual_briefs"))
+    visual_digest = observations.get("visual_source_digest")
+    visual_pinned = None
+    if visual is not None and isinstance(visual_digest, str) and visual_digest.strip():
+        pitfall = {"id": "pitfall-visual-acceptance", "memory_type": "pitfall",
+                   "source_kind": "session-digest", "source_digest": visual_digest}
+        visual_pinned = len(visual) == 1 and any(_pinned_match(item, pitfall) for item in visual[0])
+    return {
+        "M3_recovery_briefs_total": total,
+        "M3_recovery_briefs_correct": correct,
+        "M3_crash_digest_pinned": crash_pinned,
+        "M4_expected_digest": visual_digest,
+        "M4_pitfall_digest_pinned": visual_pinned,
+    }
 
 
 def build_report(metrics: dict | None = None) -> dict:
     """Build the report dict from the arm metrics (default: replay all arms)."""
     metrics = metrics if metrics is not None else arms.replay_all()
-    baseline = metrics[H123_BASELINE]
-    treatment = metrics[H123_TREATMENT]
+    baseline = metrics.get(H123_BASELINE, {})
+    treatment = metrics.get(H123_TREATMENT, {})
 
     trial = evaluator.evaluate_trial(baseline, treatment)
 
@@ -125,7 +153,7 @@ def build_report(metrics: dict | None = None) -> dict:
         "verdict_precedence": trial["verdict_precedence"],
         "conformance": trial["conformance"],
         "arm_metrics": metrics,
-        "absolute_checks": _score_absolute_checks(metrics),
+        "absolute_checks": {arm_id: _score_absolute_checks(metrics.get(arm_id)) for arm_id in arms.ARMS},
         "hypotheses": hypotheses,
         "verdicts": verdicts,
         "exit_code": exit_code,
@@ -150,17 +178,24 @@ def render(report: dict, stream=None) -> None:
     ):
         print(f"  {name} = {thresholds[name]}", file=stream)
     print("", file=stream)
-    print(f"{'arm':6} {'M1 tokens':>10} {'M1 turns':>9} {'intrusions':>11} {'M8 tokens':>10} {'violations':>10}", file=stream)
+    print(f"{'arm':6} {'M1 tokens':>10} {'M1 turns':>9} {'intrusions':>11} {'M8 tokens':>10} {'violations':>10}"
+          f" {'M3 (need 2/2)':>14} {'M4 visual':>10}", file=stream)
     for arm_id in arms.ARMS:
-        metrics = report["arm_metrics"][arm_id]["metrics"]
-        m1 = metrics["M1"]
-        m2 = metrics["M2"]
-        m8 = metrics["M8"]
-        violations = sum(metrics[m]["violations"] for m in ("M5", "M6", "M7"))
-        intrusions = sum(m2["intrusions_per_brief"])
+        record = report["arm_metrics"].get(arm_id, {})
+        m1 = evaluator.complete_metric(record, "M1") or {}
+        m2 = evaluator.complete_metric(record, "M2")
+        m8 = evaluator.complete_metric(record, "M8") or {}
+        gates = [evaluator.complete_metric(record, m) for m in evaluator.CONFORMANCE_GATE_METRICS]
+        violations = sum(g["violations"] for g in gates) if all(gates) else "unknown"
+        intrusions = sum(m2["intrusions_per_brief"]) if m2 else "unknown"
+        checks = report["absolute_checks"][arm_id]
+        recovery = (f"{checks['M3_recovery_briefs_correct']}/{checks['M3_recovery_briefs_total']}"
+                    if checks['M3_crash_digest_pinned'] is not None else "unknown")
+        visual = {True: "PASS", False: "FAIL", None: "unknown"}[checks["M4_pitfall_digest_pinned"]]
         print(
-            f"{arm_id:6} {m1['reconstruction_tokens']:>10} {m1['reconstruction_turns']:>9}"
-            f" {intrusions:>11} {m8['memory_layer_tokens']:>10} {violations:>10}",
+            f"{arm_id:6} {m1.get('reconstruction_tokens', 'unknown'):>10} {m1.get('reconstruction_turns', 'unknown'):>9}"
+            f" {intrusions:>11} {m8.get('memory_layer_tokens', 'unknown'):>10} {violations:>10}"
+            f" {recovery:>14} {visual:>10}",
             file=stream,
         )
     print("", file=stream)

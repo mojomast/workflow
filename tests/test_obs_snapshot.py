@@ -342,9 +342,66 @@ class TestFixtureSnapshot:
         # One alert per threshold key and resource label, not one per record.
         deepseek_alerts = [r for r in snapshot["alerts"]["active"] if r["key"] == "deepseek_balance_below_usd"]
         assert len(deepseek_alerts) == 1
+        assert deepseek_alerts[0]["observed"] == 3.4  # latest of two balance readings
         go_alert = next(r for r in snapshot["alerts"]["active"] if r["key"] == "go_allowance_pct_used")
         assert go_alert["observed"] == 82.0
         assert go_alert["threshold"] == 80
+
+    def test_quota_recovery_clears_only_the_recovered_resource(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "go_label": "go-1", "go_allowance_used_pct": 90,
+             "deepseek_balance_usd": 2},
+            {"ts": "2026-11-16T09:20:00Z", "go_label": "go-1", "go_allowance_used_pct": 89},
+            {"ts": "2026-11-16T09:20:00Z", "go_label": "go-1", "go_allowance_used_pct": 5,
+             "deepseek_balance_usd": 12},
+            # Late arrival and undated hint must not replace a newer dated observation.
+            {"ts": "2026-11-16T09:10:00Z", "go_label": "go-1", "go_allowance_used_pct": 85},
+            {"deepseek_balance_usd": 1},
+            # Without timestamps, use the last reading for this label.
+            {"go_label": "go-2", "go_allowance_used_pct": 10},
+            {"go_label": "go-2", "go_allowance_used_pct": 95},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        snap = fixture_collector(tmp_path, usage_path=ledger).build_snapshot()
+        validated(snap)
+
+        hints = [
+            (r["kind"], r["resource_id"], r["value"]) for r in snap["health"]["quota"]
+            if r["kind"] != "bees_in_flight"
+        ]
+        assert sorted(hints) == [
+            ("deepseek_credit", None, 12), ("go_allowance", "go-1", 5), ("go_allowance", "go-2", 95)
+        ]
+        quota_alerts = [
+            (r["key"], r["observed"]) for r in snap["alerts"]["active"]
+            if r["key"] in ("deepseek_balance_below_usd", "go_allowance_pct_used")
+        ]
+        assert quota_alerts == [("go_allowance_pct_used", 95)]
+        assert snap["usage"]["totals"]["requests"] == len(records)
+
+    def test_orbit_ledger_cost_and_observed_total(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"schema_version": "bee.usage/v1", "cost_usd_list": 0.125, "cost_status": "estimated",
+             "usage_status": "known", "ts_end": "2026-11-16T09:00:00Z", "usage_raw": {"total": 20},
+             "go_allowance": {"pct_used": 87.5, "pct_source": "opencode.allowance"},
+             "input_tokens": 10, "output_tokens": 5, "project": "mojomast/workflow"},
+            {"schema_version": "bee.usage/v1", "cost_usd_list": None, "cost_status": "unknown",
+             "input_tokens": None, "output_tokens": None, "usage_status": "partial", "usage_raw": {"total": 0},
+             "ts_end": "2026-11-16T09:30:00Z", "go_allowance": {"pct_used": 0.05, "pct_source": "derived_list_price"},
+             "project": "another-feature"},
+        ]
+        ledger.write_text("\n".join(map(json.dumps, records)))
+        source = fixture_collector(tmp_path, usage_path=ledger)
+        body, summary = source.usage_section()
+        assert body["totals"]["cost_usd"] == summary["today_cost_usd"] == 0.125
+        assert body["totals"]["unknown_cost_records"] == 1
+        assert [q["value"] for q in summary["quota_rows"]] == [87.5]
+        assert body["totals"]["total_tokens"] == 20
+        unassigned = next(row for row in body["by_repo"] if row["repo"] == "unknown/unknown")
+        assert (unassigned["total_tokens"], unassigned["tokens_status"]) == (0, "partial")
+        assert unassigned["input_tokens"] is None and unassigned["cost_usd"] is None
 
     def test_snapshot_contains_no_credential_shaped_material(self, snapshot: dict) -> None:
         dumped = json.dumps(snapshot)
@@ -356,6 +413,28 @@ class TestFixtureSnapshot:
 
 
 class TestDegradation:
+    def test_invalid_usage_number_does_not_discard_other_observations(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        # A JSON exponent outside the float range, a fractional count, and
+        # a large but valid integer must not break or round the snapshot.
+        ledger.write_text('{"cost_usd_list":1e999,"http_429_count":1e999,"input_tokens":-1,"output_tokens":0.5}\n'
+                          '{"cost_usd_list":0,"input_tokens":9007199254740993,"output_tokens":0}\n')
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 2
+        assert (totals["input_tokens"], totals["output_tokens"], totals["tokens_status"]) == (9007199254740993, 0, "partial")
+        assert (totals["cost_usd"], totals["cost_status"], totals["http_429_count"]) == (0.0, "partial", 0)
+
+    def test_ledger_read_error_does_not_publish_partial_aggregates(self, tmp_path, monkeypatch) -> None:
+        def interrupted(_path):
+            yield {"cost_usd_list": 1, "go_allowance_used_pct": 95}
+            raise OSError("fixture stream interrupted")
+
+        monkeypatch.setattr(collector, "jsonl_rows", interrupted)
+        body, summary = collector.Collector(usage_path=tmp_path / "usage.jsonl").usage_section()
+        assert (body["status"], body["error"]) == ("unavailable", "source_unreadable")
+        assert body["totals"]["cost_usd"] is None and not summary["quota_rows"]
+
     def test_missing_sources_degrade_with_stale_markers(self, tmp_path: Path) -> None:
         empty = tmp_path / "empty-state"
         empty.mkdir()

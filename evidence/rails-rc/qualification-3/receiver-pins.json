@@ -1,0 +1,49 @@
+{
+  "anchors": {
+    "code_rev": "ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702",
+    "contract_sha256": "bd9a6559028548d366f0bdd443e6629e23062d5340d1c24160544195890b9f89",
+    "coordinator": {
+      "chain_id": "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d",
+      "hash": "fd4ada65a872efb820fb3348d21015aa6f5afba254814624b48bbb4e5f666a4f",
+      "seq": 13
+    },
+    "evidence": {
+      "AC-001": [
+        "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c:3",
+        "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:1"
+      ]
+    },
+    "job_id": "r18-coding",
+    "schema": "bundlebees.rails-return-input/1",
+    "task_id": "r18-score",
+    "workers": [
+      {
+        "chain_id": "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c",
+        "hash": "adad4f49c3283418f3566345193e2cea093fee13ae42d988419e545416f0ede2",
+        "seq": 4
+      }
+    ]
+  },
+  "dispatch": {
+    "attempt_id": "att_0000000000000018",
+    "brief": {
+      "contract_sha256": "bd9a6559028548d366f0bdd443e6629e23062d5340d1c24160544195890b9f89",
+      "job_id": "r18-coding",
+      "task_id": "r18-score"
+    },
+    "dispatch_chain_id": "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c",
+    "source_rev": "ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702"
+  },
+  "fixture_bundle_sha256": "c8d3414497bb6469f9458fdc337fe807fdbed504e0dcf3592bc67066cb5a5a17",
+  "packet_digest": "793c4e5b9f869e343d78d6b1029f3594329505b5a22a2937fa23d8d720afbe27",
+  "receipt": {
+    "attempt_id": "att_0000000000000018",
+    "base_rev": "ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702",
+    "commit": "5ba87f2a1cf26b286e98960eefab03d7bdc6d7c0",
+    "contract_sha256": "bd9a6559028548d366f0bdd443e6629e23062d5340d1c24160544195890b9f89",
+    "job_id": "r18-coding",
+    "sha256": "8821935804164ef3d6da9eea52bb0920b9cfd4a413ce82d8aa0ef907ae0c80d4",
+    "task_id": "r18-score"
+  },
+  "workflow": "2974e7999b3221d268d1394d6d38b1435cd23668"
+}

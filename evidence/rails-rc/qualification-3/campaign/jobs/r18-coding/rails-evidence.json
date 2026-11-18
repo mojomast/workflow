@@ -1,0 +1,84 @@
+{
+  "code_rev": "ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702",
+  "contract_sha256": "bd9a6559028548d366f0bdd443e6629e23062d5340d1c24160544195890b9f89",
+  "generated_at": "2026-11-17T21:47:05.590525Z",
+  "imported_checkpoints": [
+    {
+      "chain_id": "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c",
+      "hash": "adad4f49c3283418f3566345193e2cea093fee13ae42d988419e545416f0ede2",
+      "seq": 4,
+      "source": "rails_import"
+    }
+  ],
+  "intervention_count": 0,
+  "ledgers": [
+    {
+      "ledger_uuid": "1dccf794-f922-4f42-ae40-e6490e65ca7d",
+      "machine": "m-a762539481fe"
+    },
+    {
+      "ledger_uuid": "2c544af0-2b32-454f-801b-e01d4458899c",
+      "machine": "m-9265c520a7ff"
+    }
+  ],
+  "limitations": [
+    "Coverage is limited to the anchored sources; worker observations are not acceptance.",
+    "Interventions count distinct local coordinator/owner requests explicitly scoped to this job.",
+    "Snapshot time is the recorded time of the anchored coordinator head."
+  ],
+  "machines": [
+    {
+      "alias": "m-a762539481fe",
+      "role": "coordinator"
+    },
+    {
+      "alias": "m-9265c520a7ff",
+      "role": "worker"
+    }
+  ],
+  "origin_heads": [
+    {
+      "chain_id": "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d",
+      "hash": "fd4ada65a872efb820fb3348d21015aa6f5afba254814624b48bbb4e5f666a4f",
+      "seq": 13
+    },
+    {
+      "chain_id": "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c",
+      "hash": "adad4f49c3283418f3566345193e2cea093fee13ae42d988419e545416f0ede2",
+      "seq": 4
+    }
+  ],
+  "receiver_decision": "pending",
+  "redaction_policy": "rails-safe/1",
+  "schema": "rizzstack.rails-evidence/1",
+  "selected_event_ids": [
+    "m-9265c520a7ff-2c544af0-2b32-454f-801b-e01d4458899c:3",
+    "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:1"
+  ],
+  "source_coverage": [
+    {
+      "adapter": "bundlebees",
+      "gaps": [
+        {
+          "code": "missing_contract_sha256",
+          "range_end": 0,
+          "range_start": 0,
+          "source_id": "bundlebees"
+        }
+      ],
+      "status": "gap"
+    },
+    {
+      "adapter": "launcher-log",
+      "gaps": [],
+      "status": "partial"
+    }
+  ],
+  "verification_links": [
+    {
+      "ac_id": "AC-001",
+      "event_id": "m-a762539481fe-1dccf794-f922-4f42-ae40-e6490e65ca7d:1",
+      "verdict": "EXPECTED_RED"
+    }
+  ]
+}

@@ -25,7 +25,7 @@ data, draw a dashboard, or define a usage schema.
 
 ## Envelope discriminator
 
-Every record names its type as `<name>/v<major>`, so a consumer reading a mixed
+Most records name their type as `<name>/v<major>`, so a consumer reading a mixed
 JSONL stream can tell records apart. These records carry it in `schema`
 (`agent.lifecycle/v1`) and keep `schema_version: "v1"` as a version-only field.
 The Hermes Forge usage record is **frozen** as `bee.usage/v1` with its type in
@@ -38,7 +38,8 @@ ingestion normalizes both shapes with `envelope.record_type()` /
 | this package (lifecycle, failure, vcs, board, resource) and the assembled snapshot | `agent.lifecycle/v1` …; `rizzstack.observability/snapshot/1` for the snapshot | `v1`; absent for the snapshot (the rizzstack.* family carries its major version in the discriminator itself) | `schema` |
 | Hermes Forge usage (frozen) | absent | `bee.usage/v1` | `schema_version` |
 
-A record whose two fields contradict each other is refused.
+A record whose two fields contradict each other is refused. The assembled
+snapshot keeps its published discriminator verbatim and has no `schema_version`.
 
 ## Stable vocabulary vs provider labels
 

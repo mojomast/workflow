@@ -1,0 +1,9 @@
+# Final ref-publication verification
+
+**Closed.** On BundleBees `a0a8688c0f476c15195c84f4a960c4945edcbc89` (tree `65db31ba9fdfa789ae0e5a49433d3bd7680b798a`), explicit job recovery, direct replay for a saved job, and standalone replay all distinguish an interrupted first publication from a later deletion. No blocker remains in these paths. The reviewed source and test files matched the commit’s Git blobs.
+
+**Why:** Publication checks the destination’s old revision, writes the tested commit and consumes the matching pending ref in one Git transaction. Without that marker, replay succeeds only if the destination already names the tested commit; there is no fallback that recreates an absent ref (`bundlebees_plugin/integrate_job.py:396–413`). Standalone replay binds the marker to its state directory, repository, wave, execution identity and result. Saved jobs use the sealed handoff and result; explicit recovery holds the tested ref through the job save (`integrate_job.py:838–852,951–972`; `job.py:1478–1504`).
+
+**Observed:** In three independent local fixtures, a child process exited at `wave.after_persist`. Git showed the destination absent and the pending ref at the tested commit. Each entry point resumed to that exact commit, consumed the marker and preserved the original receipt bytes. After a real deletion, repeated calls returned `wave_reconciliation_required`: the ref stayed absent and persisted state was byte-identical. This included deletion **before** the saved job recorded acceptance—the previously failing case. The standalone suite ran only once.
+
+**Results:** 60 targeted repository tests passed, zero failed or skipped, including crash-B and moved-ref refusal; all 3 independent process-crash checks passed. This verification covers process restart on the named commit only.

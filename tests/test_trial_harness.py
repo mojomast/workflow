@@ -20,6 +20,7 @@ Written before implementation, per the trial harness brief. The assertions pin:
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import socket
 import unittest
@@ -495,8 +496,6 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(report["exit_code"], report_mod.EXIT_ANY_FAIL)
 
     def test_render_prints_thresholds_arms_and_verdicts(self):
-        import io
-
         buffer = io.StringIO()
         report_mod.render(report_mod.build_report(), stream=buffer)
         text = buffer.getvalue()
@@ -519,6 +518,65 @@ class ReportTests(unittest.TestCase):
         report = report_mod.build_report(metrics)
         self.assertEqual(report["verdicts"]["H1"], "UNINFORMATIVE")
         self.assertEqual(report["exit_code"], report_mod.EXIT_INCONCLUSIVE)
+
+    def test_render_marks_incomplete_records_and_partial_sums_unknown(self):
+        records = arms.replay_all()
+        metrics = records[arms.ARM_C]["metrics"]
+        del metrics["M1"]["scrollback_sourced_reconstruction_events"]
+        metrics["M2"]["intrusions_per_brief"] = [0]  # two probes, one measurement
+        metrics["M5"] = {"violations": None}
+        del metrics["M8"]
+        report = report_mod.build_report(records)
+        output = io.StringIO()
+        report_mod.render(report, stream=output)
+        row = next(line.split() for line in output.getvalue().splitlines() if line.startswith(arms.ARM_C))
+        self.assertEqual(row[1:6], ["unknown"] * 5)
+        self.assertEqual(report["exit_code"], report_mod.EXIT_INCONCLUSIVE)
+        self.assertIn("H4: UNINFORMATIVE", output.getvalue())
+
+    def test_absolute_checks_distinguish_captured_empty_briefs_from_no_capture(self):
+        records = arms.replay_all()
+        records[arms.ARM_C]["metrics"]["M8"] = _m8(0)
+        scores = report_mod.build_report(records)["absolute_checks"]
+        for arm in arms.ARMS:
+            score = scores[arm]
+            self.assertEqual(score["M3_recovery_briefs_total"], 2)
+            self.assertEqual(score["M3_recovery_briefs_correct"], 2 if arm == arms.ARM_C else 0)
+            self.assertIs(score["M3_crash_digest_pinned"], arm == arms.ARM_C)
+            # The supersession probe is not a visual task, even for the hybrid.
+            self.assertIsNone(score["M4_pitfall_digest_pinned"])
+        del records[arms.ARM_C]["observations"]
+        self.assertIsNone(report_mod.build_report(records)["absolute_checks"][arms.ARM_C]["M3_crash_digest_pinned"])
+
+    def test_recovery_observation_uses_seeded_digest_independently_of_answer_key(self):
+        seed = next(record for record in arms.fixtures.RESTART_FIXTURE["scenario"]["durable_records_seeded"]
+                    if record["record"] == "session-digest")
+        with mock.patch.dict(seed, digest_id="sessions/different-crash.md"):
+            score = report_mod.build_report()["absolute_checks"][arms.ARM_C]
+        self.assertEqual(score["M3_recovery_briefs_correct"], 0)
+        self.assertIs(score["M3_crash_digest_pinned"], False)
+
+    def test_m3_requires_a_pinned_match_in_both_observed_briefs(self):
+        records = arms.replay_all()
+        brief = records[arms.ARM_C]["observations"]["recovery_briefs"][0]
+        entry = brief["memory_context"]["items"][0]
+        entry["digest_pinned"] = False
+        score = report_mod.build_report(records)["absolute_checks"][arms.ARM_C]
+        self.assertEqual(score["M3_recovery_briefs_correct"], 1)
+        self.assertIs(score["M3_crash_digest_pinned"], False)
+
+    def test_m4_requires_a_visual_brief_with_a_correctly_pinned_visual_pitfall(self):
+        records = arms.replay_all()
+        observation = records[arms.ARM_A]["observations"]  # zero memory spend
+        visual_digest = "sessions/visual-rejection.md"
+        entry = {"id": "pitfall-visual-acceptance", "memory_type": "pitfall", "source_kind": "session-digest",
+                 "source_digest": visual_digest, "digest_pinned": True}
+        observation.update(visual_source_digest=visual_digest, visual_briefs=[{"memory_context": {"items": [entry]}}])
+        for change, pinned in (({}, True), ({"id": "pitfall-t2-selector-test-id"}, False),
+                               ({"source_digest": "sessions/wrong.md"}, False), ({"digest_pinned": False}, False)):
+            with self.subTest(change=change), mock.patch.dict(entry, change):
+                score = report_mod.build_report(records)["absolute_checks"][arms.ARM_A]
+                self.assertIs(score["M4_pitfall_digest_pinned"], pinned)
 
     def test_indistinguishable_arms_are_uninformative_not_pass(self):
         metrics = arms.replay_all()

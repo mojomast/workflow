@@ -37,8 +37,9 @@ arm-c's reconstruction cost is >=50% below arm-a's, its probe intrusions are
 pair compares the two memory arms, not the no-memory baseline - the report
 layer states this pairing).
 
-M3/M4 (absolute crash-digest and visual-pitfall checks, §3.4) are scored from
-the fixture ``expected`` blocks by the report layer, not here.
+Recovery briefs capture the entries served by the stub for M3. Neither fixture
+dispatches a visual task, so there is no M4 brief capture (the supersession
+probe targets a different pitfall). Only the scorer reads expected answers.
 """
 
 from __future__ import annotations
@@ -65,6 +66,26 @@ BRIEFS_PER_REPLAY = 4
 
 #: Probe briefs the supersession fixture captures (``probe_briefs_total == 2``).
 PROBE_BRIEFS = 2
+
+
+def _recovery_brief(arm_id: str) -> dict:
+    """Build the relevant memory context at restart, also used on replay."""
+    items = []
+    if arm_id == ARM_C:
+        fixture = fixtures.RESTART_FIXTURE
+        crash = next(f for f in fixture["injected_failures"] if f["kind"] == "coordinator-kill")
+        records = fixture["scenario"]["durable_records_seeded"]
+        for record in records:
+            if record["record"] == "session-digest" and record.get("digest_id"):
+                items.append({
+                    "memory_type": "learning",
+                    "title": f"coordinator restart after a {crash['boundary']} crash recovers "
+                             "from the campaign checkpoint and session digest, not from chat",
+                    "source_kind": record["record"],
+                    "source_digest": record["digest_id"],
+                    "digest_pinned": True,
+                })
+    return {"memory_context": {"items": items}}
 
 
 def _arm_metrics(arm_id: str) -> dict:
@@ -114,12 +135,14 @@ def _arm_metrics(arm_id: str) -> dict:
 def replay(arm_id: str) -> dict:
     """Replay both fixtures for one arm and return its metric record.
 
-    Deterministic: no randomness, no clock, no I/O. The fixture data is read
-    only to keep the cost model tied to the declared record counts, so a
-    fixture change that adds a durable record changes every arm's M1 (the
-    comparison stays honest because all arms move together).
+    Deterministic: no randomness, no clock, no I/O. Capture one recovery brief
+    at the injected restart and a second on the restart fixture replay (§3.2).
     """
-    return {"arm_id": arm_id, "metrics": _arm_metrics(arm_id)}
+    return {
+        "arm_id": arm_id,
+        "metrics": _arm_metrics(arm_id),
+        "observations": {"recovery_briefs": [_recovery_brief(arm_id) for _ in range(2)]},
+    }
 
 
 def replay_all() -> dict:

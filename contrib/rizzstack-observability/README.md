@@ -42,6 +42,18 @@ The top-level `degraded` array lists the sections not `live` this run. A
 missing source is a degradation, never a crash, and the other sections still
 report.
 
+`health.quota` and quota alerts use the latest numeric ledger reading for
+each resource (Go allowances are tracked per label). A dated reading takes
+precedence over an undated one; the last ledger entry wins for equal or
+absent timestamps. A recovered balance or allowance therefore clears that
+resource's warning. Historical requests still contribute to `usage` totals.
+
+Usage aggregation streams the JSONL input. Orbit's `cost_usd_list` is a
+list-price estimate; it is never an invoice. Only rows with an amount
+contribute to `cost_usd`; check `cost_status` and `unknown_cost_records`
+before treating that subtotal as complete. Totals reported in `usage_raw.total`
+take precedence over adding input and output, and zero is a real observation.
+
 The fleet section derives from two fixed read-only subcommands. When the CLI
 cannot answer, it degrades with a precise generic cause — `fleet_cli_missing`
 (the binary is absent or not executable), `fleet_cli_timeout` (the subprocess

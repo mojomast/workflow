@@ -1,0 +1,57 @@
+{
+  "result": "FAIL",
+  "errors": [
+    {
+      "path": "$.attempts[0].project",
+      "validator": "minLength",
+      "message": "'' should be non-empty"
+    },
+    {
+      "path": "$.authorization.authority",
+      "validator": "enum",
+      "message": "'human' is not one of ['m1-authorization', 'descendant-policy']"
+    },
+    {
+      "path": "$.integration.wave",
+      "validator": "type",
+      "message": "1 is not of type 'string', 'null'"
+    },
+    {
+      "path": "$.red_green.green",
+      "validator": "oneOf",
+      "message": "'evidence/r18-score/0002-green.json' is not valid under any of the given schemas"
+    },
+    {
+      "path": "$.red_green.red",
+      "validator": "oneOf",
+      "message": "'evidence/r18-score/0001-red.json' is not valid under any of the given schemas"
+    },
+    {
+      "path": "$.verification.gitleaks",
+      "validator": "type",
+      "message": "None is not of type 'object'"
+    },
+    {
+      "path": "$.verification.suite",
+      "validator": "additionalProperties",
+      "message": "Additional properties are not allowed ('exit_code' was unexpected)"
+    },
+    {
+      "path": "$.verification.suite",
+      "validator": "required",
+      "message": "'command' is a required property"
+    },
+    {
+      "path": "$.verification.suite",
+      "validator": "required",
+      "message": "'result' is a required property"
+    }
+  ],
+  "semantic_error": {
+    "error": "return_schema",
+    "message": "verification.suite: Additional properties are not allowed ('exit_code' was unexpected)",
+    "fix": "Fix the manifest shape."
+  },
+  "raw_sha256": "01f2d0be1b14701228fc9318737f4ab347be18b97ccf79a7df99a0432d058528",
+  "sidecar_bytes_sha256": "293de044a85be7097dcbe26a980570dc75ba3675007e6183f280c993760498d3"
+}

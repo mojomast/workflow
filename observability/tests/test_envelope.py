@@ -32,6 +32,15 @@ class EnvelopeTests(unittest.TestCase):
         doc = {"schema": "agent.lifecycle/v1", "schema_version": "v1"}
         self.assertEqual(record_type(doc), "agent.lifecycle/v1")
 
+    def test_collector_snapshot_keeps_its_published_discriminator(self) -> None:
+        schema = json.loads((EXAMPLES.parent / "schemas" / "snapshot.schema.json").read_text())
+        name = schema["properties"]["schema"]["const"]
+        self.assertEqual(normalize({"schema": name}), {"schema": name})
+        for bad in ({"schema_version": name}, {"schema": name, "schema_version": "v2"},
+                    {"schema": name + "/1"}, {"schema": "agent.lifecycle/v1\n"}):
+            with self.subTest(record=bad), self.assertRaises(EnvelopeError):
+                record_type(bad)
+
     def test_contradictions_and_missing_types_are_refused(self) -> None:
         for bad in (
             {},

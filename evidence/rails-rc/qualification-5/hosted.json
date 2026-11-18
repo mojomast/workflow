@@ -1,0 +1,460 @@
+{
+  "observed_at": "2026-11-17T22:25:30.247828+00:00",
+  "repos": {
+    "bundlebees": {
+      "all_reported_jobs_passed": false,
+      "baseRefName": "main",
+      "expected": "4347cff99766646da70efb61b8bd4e36ee86b51a",
+      "headRefOid": "4347cff99766646da70efb61b8bd4e36ee86b51a",
+      "isDraft": true,
+      "jobs": [
+        {
+          "name": "tests (sandbox included)",
+          "status": "FAILURE",
+          "url": "https://github.com/mojomast/bundlebees/actions/runs/44188077333/job/134409992247",
+          "workflow": "CI"
+        },
+        {
+          "name": "orbit round trip (real Orbit API, required)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/bundlebees/actions/runs/44188077333/job/134409991839",
+          "workflow": "CI"
+        },
+        {
+          "name": "hermes plugins doctor (offline)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/bundlebees/actions/runs/44188077333/job/134409991966",
+          "workflow": "CI"
+        },
+        {
+          "name": "gitleaks",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/bundlebees/actions/runs/44188077333/job/134409991515",
+          "workflow": "CI"
+        }
+      ],
+      "mergeable": "MERGEABLE",
+      "missing_required_success": [],
+      "reviewDecision": "",
+      "ruleset_contexts": [],
+      "state": "OPEN",
+      "url": "https://github.com/mojomast/bundlebees/pull/82"
+    },
+    "hyvv": {
+      "all_reported_jobs_passed": true,
+      "baseRefName": "main",
+      "expected": "35a4d0cf9473b3d30a2b8eb0b71ab9d10b6509a8",
+      "headRefOid": "35a4d0cf9473b3d30a2b8eb0b71ab9d10b6509a8",
+      "isDraft": true,
+      "jobs": [
+        {
+          "name": "provisioning (windows)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082037",
+          "workflow": "CI"
+        },
+        {
+          "name": "test (ubuntu-latest, 3.12)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082929",
+          "workflow": "CI"
+        },
+        {
+          "name": "test (ubuntu-latest, 3.13)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082657",
+          "workflow": "CI"
+        },
+        {
+          "name": "test (ubuntu-24.04-arm, 3.12)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082600",
+          "workflow": "CI"
+        },
+        {
+          "name": "test (ubuntu-24.04-arm, 3.13)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082886",
+          "workflow": "CI"
+        },
+        {
+          "name": "test (macos-latest, 3.12)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082823",
+          "workflow": "CI"
+        },
+        {
+          "name": "test (macos-latest, 3.13)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082789",
+          "workflow": "CI"
+        },
+        {
+          "name": "scan",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393082931",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/unit",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134395092776",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/contract",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134395092598",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/release-assets",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134395092375",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/installer-dry-run",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134395092719",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/scan",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134393177123",
+          "workflow": "CI"
+        },
+        {
+          "name": "CI",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/hyvv/actions/runs/44183310292/job/134395092694",
+          "workflow": "CI"
+        }
+      ],
+      "mergeable": "MERGEABLE",
+      "missing_required_success": [],
+      "reviewDecision": "",
+      "ruleset_contexts": [
+        "bee-ci/contract",
+        "bee-ci/installer-dry-run",
+        "bee-ci/release-assets",
+        "bee-ci/scan",
+        "bee-ci/unit"
+      ],
+      "state": "OPEN",
+      "url": "https://github.com/mojomast/hyvv/pull/26"
+    },
+    "orbitdesktop": {
+      "all_reported_jobs_passed": true,
+      "baseRefName": "main",
+      "expected": "43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e",
+      "headRefOid": "43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e",
+      "isDraft": true,
+      "jobs": [
+        {
+          "name": "Fresh container onboarding",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286427/job/134385969381",
+          "workflow": "Fresh container smoke"
+        },
+        {
+          "name": "catalog",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286532/job/134385970447",
+          "workflow": "Orbit catalog admission"
+        },
+        {
+          "name": "test",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286492/job/134385969499",
+          "workflow": "Orbit plugin tests"
+        },
+        {
+          "name": "test",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272210/job/134385921113",
+          "workflow": "Orbit plugin tests"
+        },
+        {
+          "name": "Technology / knowledge",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970437",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Detect Workbench scope",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134385970608",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Detect Workbench scope",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134385921110",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Technology / interactive",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970973",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / voice",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970788",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / data",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970859",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / documents",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385971026",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / mcp",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970967",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / traces",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970663",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / browser",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970979",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / workspace-default",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970820",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Technology / workspace-docking",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286507/job/134385970903",
+          "workflow": "Orbit technology feature tests"
+        },
+        {
+          "name": "Workbench / core",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386075972",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / core",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090613",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / workspace",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386075916",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / workspace",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090529",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / workspace-composition",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386075941",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / workspace-composition",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090727",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / tools",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386075946",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / tools",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090562",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / themes",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386076006",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / themes",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090622",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / chat",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386075921",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / chat",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090592",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / deferred execution and results",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134386075808",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "Workbench / deferred execution and results",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134386090288",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "workbench",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181286448/job/134397113329",
+          "workflow": "Orbit workbench browser tests"
+        },
+        {
+          "name": "workbench",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/orbitdesktop/actions/runs/44181272062/job/134397437615",
+          "workflow": "Orbit workbench browser tests"
+        }
+      ],
+      "mergeable": "MERGEABLE",
+      "missing_required_success": [],
+      "reviewDecision": "",
+      "ruleset_contexts": [],
+      "state": "OPEN",
+      "url": "https://github.com/mojomast/orbitdesktop/pull/46"
+    },
+    "workflow": {
+      "all_reported_jobs_passed": true,
+      "baseRefName": "main",
+      "expected": "8f9f283f98beb01aa2d0b722085eefdc24ce0b37",
+      "headRefOid": "8f9f283f98beb01aa2d0b722085eefdc24ce0b37",
+      "isDraft": true,
+      "jobs": [
+        {
+          "name": "reference demo + tests",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398088903",
+          "workflow": "CI"
+        },
+        {
+          "name": "project-state schemas + reference checker (ubuntu-24.04)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398089058",
+          "workflow": "CI"
+        },
+        {
+          "name": "project-state schemas + reference checker (windows-latest)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398089013",
+          "workflow": "CI"
+        },
+        {
+          "name": "observability record tests",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398089023",
+          "workflow": "CI"
+        },
+        {
+          "name": "cold-start acceptance (light, offline worker)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398088766",
+          "workflow": "CI"
+        },
+        {
+          "name": "gitleaks",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398089184",
+          "workflow": "CI"
+        },
+        {
+          "name": "feature packet protocol (required)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398088344",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-landed protocol (required)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398088989",
+          "workflow": "CI"
+        },
+        {
+          "name": "campaign report protocol",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398088866",
+          "workflow": "CI"
+        },
+        {
+          "name": "return manifest protocol (required)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398089089",
+          "workflow": "CI"
+        },
+        {
+          "name": "recovery protocol (required)",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398088876",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/project-state",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398411789",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/secret-scan",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398181061",
+          "workflow": "CI"
+        },
+        {
+          "name": "bee-ci/reference",
+          "status": "SUCCESS",
+          "url": "https://github.com/mojomast/workflow/actions/runs/44184731163/job/134398537937",
+          "workflow": "CI"
+        }
+      ],
+      "mergeable": "MERGEABLE",
+      "missing_required_success": [],
+      "reviewDecision": "",
+      "ruleset_contexts": [
+        "bee-ci/project-state",
+        "bee-ci/reference",
+        "bee-ci/secret-scan"
+      ],
+      "state": "OPEN",
+      "url": "https://github.com/mojomast/workflow/pull/91"
+    }
+  },
+  "success": false
+}
