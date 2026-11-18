@@ -1,10 +1,10 @@
 # Build workflow — Kyle Durepos (mojomast)
 
 <p align="center">
-  <img src="docs/assets/workflow-map/workflow-map.png" alt="The build workflow at a glance: plan and spec, orchestration, bees and other workers, verification, then a pull request, merge and deploy, each behind Kyle's explicit yes." width="1280">
+  <img src="docs/assets/workflow-map/workflow-map.png" alt="The rizzstack workflow at a glance: an ACDD contract with AC ids, a brief schema gate, the work scheduler and Hermes Kanban board, the event-driven factory dispatcher, bees on hyvv worker hosts, the W6 completion event, RED/GREEN/REFACTOR verification with research before retry, then a pull request with gitleaks and CI, a merge once CI is green and independently reviewed, a deploy behind Kyle's explicit yes, and Orbit observability and memory." width="1280">
 </p>
 
-<p align="center"><em>The whole workflow on one poster. A <a href="docs/assets/workflow-map/workflow-map.html">print-resolution HTML version</a> ships in the repo; open the file locally (fonts are beside it).</em></p>
+<p align="center"><em>The whole workflow on one poster, drawn from the code on <code>main</code> (Nov 18 2026). Its <a href="docs/assets/workflow-map/workflow-map.html">HTML source</a> ships in the repo; open it locally (fonts are beside it) or regenerate the PNG with <code>render.mjs</code>.</em></p>
 
 How Kyle and his agents plan, build, ship and host software, written down from what actually happened between mid-October and mid-November 2026. It covers the agents roster, the orchestration patterns (executors, Cursor cloud agents, DeepSeek "bees" in Cua sandboxes), the pipelines we built for assets and video, the infrastructure (the box, Orbit, Tailscale, moltussy-1, the public application VPS with Docker and systemd, Google Colab, GitHub Pages), and the rules and lessons that came out of it.
 
@@ -18,25 +18,23 @@ To **learn or repeat the workflow**, start with [09 Reproducible collaboration](
 
 ```mermaid
 flowchart LR
-    K([Kyle: idea / ask]) --> P[Plan & spec<br/>research, PLAN.md / SPEC.md,<br/>task slices + file leases]
-    P --> AC[ACDD contracts<br/>AC ids + tests, frozen hash,<br/>approved tests committed: RED]
-    AC -->|Kyle approves plan| O{Orchestrator bot<br/>MR.INDIA / Hermes Forge /<br/>Hermes Plugin Builder / Cheese}
-    O --> B[DeepSeek bees<br/>Cua sandboxes on Kyle's PC<br/>via Orbit launcher]
-    O --> C[Cursor cloud agents<br/>Opus / Sonnet, last resort]
-    O --> E[Executor subagents<br/>on the box]
-    O --> G[Asset pipelines<br/>GenerateImage, Google Colab<br/>ComfyUI, Remotion, HyperFrames]
-    B --> V[Independent verify<br/>scope + test fingerprints, GREEN/REFACTOR,<br/>schema budget, secret scan]
-    C --> V
-    E --> V
-    V --> PR[Feature branch + PR]
-    PR -->|Kyle's explicit yes| M[Merge → tag → release]
-    M -->|Kyle's yes| D[Deploy to moltussy-1 / VPS / Pages<br/>backup + rollback SHA]
-    M -->|Kyle's yes| CAT[Nous catalog PR<br/>YAML-only, SHA-pinned]
-    CAT --> R[Maintainer review] -->|change requests| O
-    D --> DEMO[Demo video, X post drafted,<br/>Kyle posts, Typeform after yes]
+    K([Kyle: idea / ask]) --> AC[ACDD contract<br/>AC ids + named tests,<br/>frozen hash]
+    AC --> BR[Brief schema gate<br/>validated before dispatch]
+    BR --> WS[Work scheduler<br/>+ Hermes Kanban board sync]
+    WS --> FD{Factory dispatcher<br/>factory_driver service<br/>pre-approved work, cap 12}
+    FD --> H[hyvv worker host<br/>bees in sandboxes<br/>Go DeepSeek Flash / DeepSeek direct]
+    H --> W6[W6 completion event<br/>completion ledger]
+    W6 -.wakes.-> FD
+    W6 --> V[Verify in bwrap<br/>RED / GREEN / REFACTOR,<br/>scope + test fingerprints]
+    V -->|fail| RS[Research before retry] -.new work.-> WS
+    V -->|pass| PR[PR: gitleaks + CI]
+    PR -->|green + independent review| M[Merge<br/>heartbeat merge stream]
+    M -->|Kyle's yes| D[Tag / release / deploy<br/>backup + rollback]
+    D --> OB[Orbit Observatory, Hive,<br/>Rails ledger, memory vault]
+    S[Scout hook ~2 min<br/>heartbeat 30 min: reconcile] -.-> FD
 ```
 
-Every arrow labelled "Kyle's yes" is a hard gate: merges, tags, releases, deploys, catalog PRs, posts and form submits each need Kyle's own words, not another agent's relay. See [06 Rules and lessons](docs/06-rules-and-lessons.md).
+Every arrow labelled "Kyle's yes" is a hard gate: tags, releases, deploys, catalog PRs, posts and form submits each need Kyle's own words, not another agent's relay. Merges are the one standing exception: since Nov 18 2026 the heartbeat's merge stream may merge a PR once CI is green and an independent review approves, which Kyle approved. See [06 Rules and lessons](docs/06-rules-and-lessons.md).
 
 ## Index
 
