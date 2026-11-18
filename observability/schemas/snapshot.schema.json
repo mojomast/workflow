@@ -291,6 +291,8 @@
             "rejected",
             "not_started",
             "done",
+            "verified",
+            "expired",
             "unknown"
           ]
         },
