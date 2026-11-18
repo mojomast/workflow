@@ -528,8 +528,13 @@ class TestCollectorCompat:
     def test_all_unavailable_collector_snapshot_validates(self) -> None:
         snapshot = collector.Collector(now_fn=lambda: FIXED_DT).build_snapshot()
         VALIDATOR.validate(snapshot, VALIDATOR.load(SNAPSHOT_SCHEMA))
-        assert "decisions" not in snapshot
-        assert "decisions" not in collector.SECTION_NAMES
+        # decisions is now a real collector section: with no state directory
+        # it degrades unavailable rather than being absent from the document,
+        # and the snapshot still validates against the same discriminator.
+        assert "decisions" in collector.SECTION_NAMES
+        assert snapshot["decisions"]["status"] == "unavailable"
+        assert snapshot["decisions"]["error"]
+        assert snapshot["decisions"]["records"] == []
 
 
 # ------------------------------------------------------------------------ CLI

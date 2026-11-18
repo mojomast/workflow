@@ -69,6 +69,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 SCHEMA = "rizzstack.observability/snapshot/1"
 COLLECTOR_NAME = "rizzstack-obs-collector"
+OWNER_DECISION_SCHEMA = "rizzstack.owner-decision/1"
 
 SECTION_NAMES = (
     "fleet",
@@ -80,6 +81,7 @@ SECTION_NAMES = (
     "health",
     "alerts",
     "bottlenecks",
+    "decisions",
 )
 
 ACTIVE_FLEET_STATES = frozenset(
@@ -2062,6 +2064,132 @@ class Collector:
         source = source or declared
         return {"pending": pending, "per_doc": per_doc, "known": known, "source": source}
 
+    # ------------------------------------------------------------- decisions
+    @staticmethod
+    def _decision_status(record: Mapping[str, Any]) -> str:
+        """The queue's own state derivation (decision_queue.DecisionQueue.status)."""
+        if record["withdrawn"] is not None:
+            return "withdrawn"
+        if record["applied"] is not None:
+            return "applied"
+        if record["decision"] is not None:
+            return "decided"
+        return "pending"
+
+    def _read_decision_record(
+        self, path: Path
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Read one ``<state>/decisions/<request_id>.json`` queue record.
+
+        The on-disk shape is the one decision_queue.py writes: the sealed
+        request, the final decision, the recorded deferrals, the applied
+        marker and the withdrawn marker. A record that cannot be read or does
+        not have that shape is refused with a precise code; the caller skips
+        it and never turns it into a fabricated request."""
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None, "decision_record_unreadable"
+        try:
+            data = json.loads(text)
+        except (TypeError, ValueError):
+            return None, "decision_record_malformed"
+        if not isinstance(data, dict):
+            return None, "decision_record_malformed"
+        if set(data) != {"request", "decision", "defers", "applied", "withdrawn"}:
+            return None, "decision_record_malformed"
+        if not isinstance(data["defers"], list):
+            return None, "decision_record_malformed"
+        for marker in ("decision", "applied", "withdrawn"):
+            if data[marker] is not None and not isinstance(data[marker], dict):
+                return None, "decision_record_malformed"
+        request = data["request"]
+        if not isinstance(request, dict):
+            return None, "decision_record_malformed"
+        if request.get("schema") != OWNER_DECISION_SCHEMA:
+            return None, "decision_record_malformed"
+        request_id = request.get("request_id")
+        if not isinstance(request_id, str) or request_id != path.stem:
+            return None, "decision_record_malformed"
+        if ID_TOKEN_RE.match(request_id) is None:
+            return None, "decision_record_malformed"
+        kind = request.get("kind")
+        if not isinstance(kind, str) or not kind:
+            return None, "decision_record_malformed"
+        subject = request.get("subject")
+        if not isinstance(subject, str) or ID_TOKEN_RE.match(subject) is None:
+            return None, "decision_record_malformed"
+        if parse_ts(request.get("raised_at")) is None:
+            return None, "decision_record_malformed"
+        return data, None
+
+    def decisions_section(self) -> dict[str, Any]:
+        """The owner-decision queue (rizzstack.owner-decision/1) as a section.
+
+        Records are read from the queue's own durable files under
+        ``<state-dir>/decisions``; each row carries only the request id, kind,
+        derived queue status and subject the queue stores. An absent
+        decisions directory is a genuine zero: no request has been raised, so
+        the section is live with no records. An unreadable directory is
+        unavailable; an unreadable or malformed record is skipped and
+        degrades the section with a precise error code, never a fake request.
+        """
+        now = self.now()
+        generated = utc_now_string(now)
+        records: list[dict[str, Any]] = []
+        status, error = "live", None
+        newest: datetime | None = None
+        if self.state_dir is None:
+            status, error = "unavailable", "source_missing"
+        else:
+            directory = self.state_dir / "decisions"
+            if not directory.exists():
+                # No request has been raised yet: a genuine zero, not unknown.
+                pass
+            elif not directory.is_dir():
+                status, error = "unavailable", "decisions_unreadable"
+            else:
+                try:
+                    paths = sorted(
+                        p
+                        for p in directory.glob("*.json")
+                        if not p.name.startswith(".") and p.is_file()
+                    )
+                except OSError:
+                    paths = []
+                    status, error = "unavailable", "decisions_unreadable"
+                malformed_error: str | None = None
+                for path in paths:
+                    record, code = self._read_decision_record(path)
+                    if record is None:
+                        malformed_error = malformed_error or code
+                        continue
+                    request = record["request"]
+                    records.append(
+                        {
+                            "request_id": request["request_id"],
+                            "kind": request["kind"],
+                            "status": self._decision_status(record),
+                            "subject": request["subject"],
+                        }
+                    )
+                    raised = parse_ts(request["raised_at"])
+                    if raised is not None and (newest is None or raised > newest):
+                        newest = raised
+                if malformed_error is not None:
+                    status, error = "unavailable", malformed_error
+                elif newest is not None:
+                    age = int((now - newest).total_seconds())
+                    if age > self.stale_after_s:
+                        status, error = "stale", "decisions_older_than_threshold"
+        return {
+            "schema": SCHEMA,
+            "generated_at": generated,
+            "status": status,
+            "error": error,
+            "records": records,
+        }
+
     def bottlenecks_section(
         self,
         *,
@@ -2950,6 +3078,7 @@ class Collector:
         backlog = self.backlog_section()
         ci = self.ci_section(pipeline.get("jobs", []))
         failures = self.failures_section()
+        decisions = self.decisions_section()
         bottlenecks = self.bottlenecks_section(
             pipeline_body=pipeline,
             backlog_body=backlog,
@@ -2978,6 +3107,7 @@ class Collector:
             "health": health,
             "alerts": alerts,
             "bottlenecks": bottlenecks,
+            "decisions": decisions,
         }
         return {
             "schema": SCHEMA,
