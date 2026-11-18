@@ -534,7 +534,7 @@ class TestCollectorCompat:
         assert "decisions" in collector.SECTION_NAMES
         assert snapshot["decisions"]["status"] == "unavailable"
         assert snapshot["decisions"]["error"]
-        assert snapshot["decisions"]["records"] == []
+        assert snapshot["decisions"]["requests"] == []
 
 
 # ------------------------------------------------------------------------ CLI

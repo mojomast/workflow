@@ -446,9 +446,9 @@ class TestDegradation:
         # Every source is missing so every source-backed section degrades.
         # decisions is the deliberate exception: an absent decisions
         # directory is a genuine zero (no request raised), so it stays live
-        # with an empty records list instead of pretending to be unknown.
+        # with an empty requests list instead of pretending to be unknown.
         assert set(snap["degraded"]) == set(collector.SECTION_NAMES) - {"decisions"}
-        assert (snap["decisions"]["status"], snap["decisions"]["records"]) == ("live", [])
+        assert (snap["decisions"]["status"], snap["decisions"]["requests"]) == ("live", [])
         assert snap["pipeline"]["error"] == "source_missing"
         assert snap["pipeline"]["jobs"] == []
         assert snap["failures"]["error"] == "source_missing"
