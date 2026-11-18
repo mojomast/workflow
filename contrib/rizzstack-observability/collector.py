@@ -95,7 +95,11 @@ FLEET_STATE_ALIASES = {
     "accepted_by_worker": "starting",
     "verify": "working",
     "verifying": "working",
-    "verified": "working",
+    # ``verified`` is a RECORDED OUTCOME, not work in progress: the bee
+    # finished and its result awaits acceptance. It used to alias to
+    # ``working``, which counted 104 finished attempts as active bees.
+    "verified": "verified",
+    "expired": "expired",
     "integrated": "accepted",
     "complete": "succeeded",
     "completed": "succeeded",
@@ -120,6 +124,8 @@ FLEET_STATES = frozenset(
         "rejected",
         "not_started",
         "done",
+        "verified",
+        "expired",
         "unknown",
     }
 )

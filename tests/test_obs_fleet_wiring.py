@@ -74,8 +74,8 @@ REAL_STATUS = {
         "credential_configured": False,
         "launcher_url_configured": False,
     },
-    "in_flight": 2,
-    "in_flight_attempts": ["att-disp", "att-verif"],
+    "in_flight": 1,
+    "in_flight_attempts": ["att-disp"],
 }
 REAL_ATTEMPTS_ROWS = [
     {
@@ -222,11 +222,11 @@ class TestLiveCli:
         assert fleet["error"] is None
         by_id = {row["attempt_id"]: row for row in fleet["attempts"]}
         assert sorted(by_id) == ["att-accept", "att-disp", "att-fail", "att-verif"]
-        # All four real CLI states map onto the frozen snapshot vocabulary:
-        # dispatched and verified are the in-flight pair, failed/accepted are
-        # terminal.
+        # All four real CLI states map onto the frozen snapshot vocabulary.
+        # dispatched is in flight; verified is a recorded outcome awaiting
+        # acceptance, so it is neither working nor in flight.
         assert by_id["att-disp"]["state"] == "starting"
-        assert by_id["att-verif"]["state"] == "working"
+        assert by_id["att-verif"]["state"] == "verified"
         assert by_id["att-fail"]["state"] == "failed"
         assert by_id["att-accept"]["state"] == "accepted"
         # Mapped passthrough fields survive the real row shape.
@@ -239,7 +239,7 @@ class TestLiveCli:
         assert by_id["att-verif"]["detail"] is None
 
     def test_counts_come_from_flat_status_payload(self, snapshot: dict) -> None:
-        assert snapshot["fleet"]["in_flight"] == 2
+        assert snapshot["fleet"]["in_flight"] == 1
         # The CLI status reported bee_cap 12, but launcher configuration is
         # not an observed fleet fact: the fleet section never surfaces it -
         # suppressed even when the status payload carries it. The health
@@ -269,16 +269,18 @@ class TestLiveCli:
         validated(snap)
         health = snap["health"]
         assert health["status"] == "live"
-        assert health["bees_in_flight"] == 2
+        # Only the dispatched attempt is an active bee; the verified one has
+        # already finished.
+        assert health["bees_in_flight"] == 1
         assert health["bee_cap"] == 12
         scheduler = health["scheduler"]
         assert scheduler["liveness"] == "live"
         assert scheduler["alive"] is True
         assert scheduler["last_event_age_s"] == 120
         bees = next(row for row in health["quota"] if row["kind"] == "bees_in_flight")
-        assert bees["value"] == 2.0
+        assert bees["value"] == 1.0
         assert bees["cap"] == 12
-        assert bees["remaining"] == 10
+        assert bees["remaining"] == 11
         assert bees["unit"] == "count"
         assert bees["status"] == "ok"
 
@@ -286,26 +288,38 @@ class TestLiveCli:
 # ------------------------------------------------------------- verified state
 
 
-class TestVerifiedStateWiring:
-    """The merged CLI emits ``verified`` as a frequent in-flight state
-    (in-flight = {dispatched, verified}); it must render ``working``, never
-    ``unknown``, and the status-failure fallback must not undercount it."""
+class TestOutcomeStates:
+    """``verified`` and ``expired`` are recorded outcomes, not work in progress.
 
-    def test_verified_state_maps_to_working(self) -> None:
+    The bundlebees CLI stopped counting ``verified`` as in flight (a verify
+    result means the bee finished and the result awaits acceptance) and started
+    reporting ``expired`` for dispatches with no outcome past its TTL. Both must
+    survive normalization as themselves -- never ``working`` (which reports a
+    finished bee as active) and never ``unknown`` (which hides a known state).
+    """
+
+    def test_dispatched_is_still_active(self) -> None:
         collector_under_test = wiring_collector()
         assert collector_under_test._normalize_fleet_state("dispatched") == "starting"
-        assert collector_under_test._normalize_fleet_state("verified") == "working"
 
-    def test_verified_row_counts_in_status_failure_fallback(self) -> None:
+    def test_verified_is_not_working(self) -> None:
+        collector_under_test = wiring_collector()
+        assert collector_under_test._normalize_fleet_state("verified") == "verified"
+
+    def test_expired_survives_normalization(self) -> None:
+        collector_under_test = wiring_collector()
+        assert collector_under_test._normalize_fleet_state("expired") == "expired"
+
+    def test_only_the_dispatched_row_is_in_flight_in_the_status_failure_fallback(self) -> None:
         snap = wiring_collector(
             fleet_runner=cli_runner(REAL_ATTEMPTS, None, status_code=1),
         ).build_snapshot()
         validated(snap)
         fleet = snap["fleet"]
         assert fleet["status"] == "live"
-        # att-disp (dispatched) and att-verif (verified) are in flight per the
-        # CLI's own definition; the fallback must count both, not just one.
-        assert fleet["in_flight"] == 2
+        # att-disp is in flight. att-verif has a recorded outcome, so the
+        # fallback must not count it as an active bee.
+        assert fleet["in_flight"] == 1
 
 
 # --------------------------------------------------------------- degradation
@@ -435,14 +449,14 @@ class TestPartialCli:
         fleet = snap["fleet"]
         assert fleet["status"] == "live"
         assert len(fleet["attempts"]) == 4
-        # Derived from real rows: the in-flight pair {dispatched, verified} is
-        # counted, so the fallback equals the CLI's own in_flight of 2 rather
-        # than undercounting the verified row.
-        assert fleet["in_flight"] == 2
+        # Derived from real rows: only the dispatched row is active. The
+        # verified row has an outcome recorded, so counting it would report a
+        # finished bee as in flight.
+        assert fleet["in_flight"] == 1
         # Cap was never reported: it stays null, never zero.
         assert fleet["bee_cap"] is None
         bees = next(row for row in snap["health"]["quota"] if row["kind"] == "bees_in_flight")
-        assert bees["value"] == 2.0
+        assert bees["value"] == 1.0
         assert bees["cap"] is None
         assert bees["remaining"] is None
 
@@ -453,9 +467,10 @@ class TestPartialCli:
         validated(snap)
         assert snap["fleet"]["status"] == "live"
         # The status summary tallied 5, but the collector counts the rows it
-        # just read: the in-flight pair {dispatched, verified} is 2, and the
-        # CLI tally is never parroted over rows that contradict it.
-        assert snap["fleet"]["in_flight"] == 2
+        # just read: only the dispatched row is active (verified has an
+        # outcome), and the CLI tally is never parroted over rows that
+        # contradict it.
+        assert snap["fleet"]["in_flight"] == 1
         assert snap["fleet"]["bee_cap"] is None
 
     def test_empty_attempts_is_genuine_zero_not_unknown(self) -> None:
