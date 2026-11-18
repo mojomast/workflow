@@ -46,6 +46,13 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    99: (
+        "docs-sync companion (the workflow #98 coverage row + its Unreleased bullet: the "
+        "memory vault service DiskVault landing with its 89-test disk suite) - same class "
+        "as 37/56/62/64/67/72/73/77/78/79/81/84/85/86/87/89: a registry bookkeeping change "
+        "whose only content is this exclusion plus the #98 coverage row; it carries its "
+        "own exclusion so merging it leaves main green"
+    ),
     89: (
         "docs-sync companion (the workflow #88 coverage row + its Unreleased bullet: the "
         "trial-harness arms/report landing with the att_f9e680d217bb458b repair and the "
@@ -375,6 +382,16 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 88,
         "name": "trial harness PART 2 arms + report",
         "keywords": ("arms.py", "evaluate_trial", "H123_BASELINE", "exit 0/1/2"),
+    },
+    {
+        # feat/memory-vault-service: the disk-backed vault service for the
+        # rizzstack.memory/1 contract - DiskVault(root) over the contract
+        # layout, append-only log.md receipts with sequence numbers, vault_rev
+        # advancing on every accepted write; query is honest grep (M2 owns the
+        # index); no runtime wiring, MEMORY_ENABLED stays off.
+        "pr": 98,
+        "name": "memory vault service M1",
+        "keywords": ("rizzstack_memory", "DiskVault", "vault_rev", "test_memory_vault_disk"),
     },
 )
 
