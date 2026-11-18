@@ -723,7 +723,19 @@ class DiskVault:
                 "granted": authority is not None,
             }
         )
+        self._refresh_index(record["id"], path)
         return {"accepted": True, "id": record["id"], "sha": record["sha"], "path": path, "log_seq": seq}
+
+    def _refresh_index(self, memory_id: str, path: str) -> None:
+        """Refresh an existing index for one accepted write; never raise."""
+        try:
+            from .index import Index
+
+            index = Index(self.root)
+            if index.healthy():
+                index.update_incremental(memory_id, path=path)
+        except Exception:
+            return
 
     def write_envelope(self, op: dict) -> dict:
         """A refusal envelope a coordinator can relay without catching."""
@@ -784,11 +796,68 @@ class DiskVault:
         include_expired = bool(op.get("include_expired"))
         types = set(op.get("types") or ())
         k = op.get("k", 8)
-        mode_used = resolve_mode(op.get("mode", "hybrid"), has_fts5=False, has_embeddings=False)
-        tokens = _query_tokens(op["q"])
+        requested = op.get("mode", "hybrid")
+        terms = _query_terms(op["q"])
 
+        index = self._open_index(requested)
+        mode_used = resolve_mode(requested, has_fts5=index is not None, has_embeddings=False)
+        ranked = None
+        if mode_used == "keyword" and index is not None:
+            try:
+                ranked = self._keyword_ranked(index, terms, types, include_expired, now)
+            except Exception:
+                ranked = None
+        if ranked is None:
+            mode_used = "grep"
+            ranked = self._grep_ranked(terms, types, include_expired, now)
+        ranked.sort(key=lambda hit: (-hit["score"], hit["path"]))
+        result = {
+            "op": "query-result",
+            "mode_used": mode_used,
+            "hits": ranked[:k],
+            "vault_rev": self.vault_rev,
+        }
+        return validate_query_result(result)
+
+    def _open_index(self, requested: str):
+        if requested == "grep":
+            return None
+        try:
+            from .index import Index
+
+            candidate = Index(self.root)
+            if candidate.healthy():
+                return candidate
+        except Exception:
+            return None
+        return None
+
+    def _keyword_ranked(self, index, terms: list, types: set, include_expired: bool, now: str) -> list:
+        entries = []
+        for memory_id in index.search(terms):
+            stored = index.get(memory_id)
+            if stored is None:
+                continue
+            try:
+                target = self._resolve(stored["path"])
+            except ContractError:
+                continue
+            if not target.is_file():
+                continue
+            try:
+                record, body = self._load(target)
+            except (ContractError, OSError, UnicodeDecodeError):
+                continue
+            entries.append({"record": record, "body": body, "path": stored["path"]})
+        return self._rank_entries(entries, terms, types, include_expired, now)
+
+    def _grep_ranked(self, terms: list, types: set, include_expired: bool, now: str) -> list:
+        return self._rank_entries(self._scan(), terms, types, include_expired, now)
+
+    @staticmethod
+    def _rank_entries(entries: list, terms: list, types: set, include_expired: bool, now: str) -> list:
         ranked = []
-        for entry in self._scan():
+        for entry in entries:
             record = entry["record"]
             if types and record["type"] not in types:
                 continue
@@ -796,7 +865,7 @@ class DiskVault:
                 continue
             body = entry["body"]
             title = _title_of(body, record)
-            score = _score(tokens, title, body)
+            score = _score(terms, title, body)
             if score <= 0:
                 continue
             ranked.append(
@@ -807,24 +876,17 @@ class DiskVault:
                     "title": title,
                     "sha": record["sha"],
                     "score": score,
-                    "snippet": _snippet(body, title, tokens),
+                    "snippet": _snippet(body, title, terms),
                 }
             )
-        ranked.sort(key=lambda hit: (-hit["score"], hit["path"]))
-        result = {
-            "op": "query-result",
-            "mode_used": mode_used,
-            "hits": ranked[:k],
-            "vault_rev": self.vault_rev,
-        }
-        return validate_query_result(result)
+        return ranked
 
 
-def _query_tokens(q: str) -> list:
+def _query_terms(q: str) -> list:
     seen = []
-    for token in re.findall(r"[a-z0-9]+", q.lower()):
-        if token not in seen:
-            seen.append(token)
+    for term in re.findall(r"[a-z0-9]+", q.lower()):
+        if term not in seen:
+            seen.append(term)
     return seen
 
 
@@ -836,23 +898,23 @@ def _title_of(body: str, record: dict) -> str:
     return title[:200]
 
 
-def _score(tokens: list, title: str, body: str) -> float:
-    if not tokens:
+def _score(terms: list, title: str, body: str) -> float:
+    if not terms:
         return 0.0
     title_low = title.lower()
     body_low = body.lower()
     score = 0.0
-    for token in tokens:
-        score += 3.0 * title_low.count(token)
-        score += float(body_low.count(token))
+    for term in terms:
+        score += 3.0 * title_low.count(term)
+        score += float(body_low.count(term))
     return score
 
 
-def _snippet(body: str, title: str, tokens: list) -> str:
+def _snippet(body: str, title: str, terms: list) -> str:
     lines = [line.strip() for line in body.splitlines()[1:] if line.strip()]
     if not lines:
         return title[:MAX_SNIPPET_CHARS]
-    best = max(lines, key=lambda line: sum(line.lower().count(token) for token in tokens))
+    best = max(lines, key=lambda line: sum(line.lower().count(term) for term in terms))
     if len(best) <= MAX_SNIPPET_CHARS:
         return best
     return best[: MAX_SNIPPET_CHARS - 1] + "\u2026"
