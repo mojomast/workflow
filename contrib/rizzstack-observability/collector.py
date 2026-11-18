@@ -70,6 +70,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 SCHEMA = "rizzstack.observability/snapshot/1"
 COLLECTOR_NAME = "rizzstack-obs-collector"
 OWNER_DECISION_SCHEMA = "rizzstack.owner-decision/1"
+DECISION_KINDS = frozenset({"gate", "budget", "scope", "grant"})
 
 SECTION_NAMES = (
     "fleet",
@@ -2066,15 +2067,31 @@ class Collector:
 
     # ------------------------------------------------------------- decisions
     @staticmethod
-    def _decision_status(record: Mapping[str, Any]) -> str:
-        """The queue's own state derivation (decision_queue.DecisionQueue.status)."""
+    def _decision_state(record: Mapping[str, Any]) -> str:
+        """Map the queue's own state onto the consumer's fixed vocabulary.
+
+        The consumer knows pending, approved, denied, applied and unknown. A
+        final answer is approved or denied by its outcome, an applied request
+        is applied, and a withdrawal has no consumer equivalent, so it stays
+        unknown rather than being presented as an approval or a denial."""
         if record["withdrawn"] is not None:
-            return "withdrawn"
+            return "unknown"
         if record["applied"] is not None:
             return "applied"
-        if record["decision"] is not None:
-            return "decided"
+        decision = record["decision"]
+        if decision is not None:
+            outcome = decision.get("outcome")
+            if outcome == "approve":
+                return "approved"
+            if outcome == "deny":
+                return "denied"
+            return "unknown"
         return "pending"
+
+    @staticmethod
+    def _decision_kind(kind: Any) -> str:
+        """Keep only the four recognized queue kinds; anything else is unknown."""
+        return kind if kind in DECISION_KINDS else "unknown"
 
     def _read_decision_record(
         self, path: Path
@@ -2119,24 +2136,38 @@ class Collector:
         subject = request.get("subject")
         if not isinstance(subject, str) or ID_TOKEN_RE.match(subject) is None:
             return None, "decision_record_malformed"
+        question = request.get("question")
+        if not isinstance(question, str) or not 1 <= len(question) <= 400:
+            return None, "decision_record_malformed"
         if parse_ts(request.get("raised_at")) is None:
+            return None, "decision_record_malformed"
+        decision = data["decision"]
+        if decision is not None:
+            if decision.get("outcome") not in ("approve", "deny"):
+                return None, "decision_record_malformed"
+            if parse_ts(decision.get("decided_at")) is None:
+                return None, "decision_record_malformed"
+        applied = data["applied"]
+        if applied is not None and parse_ts(applied.get("applied_at")) is None:
             return None, "decision_record_malformed"
         return data, None
 
     def decisions_section(self) -> dict[str, Any]:
         """The owner-decision queue (rizzstack.owner-decision/1) as a section.
 
-        Records are read from the queue's own durable files under
-        ``<state-dir>/decisions``; each row carries only the request id, kind,
-        derived queue status and subject the queue stores. An absent
-        decisions directory is a genuine zero: no request has been raised, so
-        the section is live with no records. An unreadable directory is
-        unavailable; an unreadable or malformed record is skipped and
-        degrades the section with a precise error code, never a fake request.
+        Requests are read from the queue's own durable files under
+        ``<state-dir>/decisions`` and mapped onto the consumer's fixed
+        vocabulary: ``requests`` (never ``records``), consumer state words,
+        and the request id, kind, subject, question and queue timestamps the
+        queue stores. An absent decisions directory is a genuine zero: no
+        request has been raised, so the section is live with an empty
+        requests array. An unreadable directory is unavailable; an unreadable
+        or malformed record is skipped and degrades the section with a
+        precise error code, never a fake request.
         """
         now = self.now()
         generated = utc_now_string(now)
-        records: list[dict[str, Any]] = []
+        requests: list[dict[str, Any]] = []
         status, error = "live", None
         newest: datetime | None = None
         if self.state_dir is None:
@@ -2165,12 +2196,19 @@ class Collector:
                         malformed_error = malformed_error or code
                         continue
                     request = record["request"]
-                    records.append(
+                    decision = record["decision"]
+                    applied = record["applied"]
+                    requests.append(
                         {
                             "request_id": request["request_id"],
-                            "kind": request["kind"],
-                            "status": self._decision_status(record),
+                            "state": self._decision_state(record),
+                            "kind": self._decision_kind(request["kind"]),
                             "subject": request["subject"],
+                            "question": request["question"],
+                            "generated_at": generated,
+                            "raised_at": request["raised_at"],
+                            "decided_at": decision["decided_at"] if decision else None,
+                            "applied_at": applied["applied_at"] if applied else None,
                         }
                     )
                     raised = parse_ts(request["raised_at"])
@@ -2183,11 +2221,10 @@ class Collector:
                     if age > self.stale_after_s:
                         status, error = "stale", "decisions_older_than_threshold"
         return {
-            "schema": SCHEMA,
-            "generated_at": generated,
             "status": status,
             "error": error,
-            "records": records,
+            "collected_at": generated,
+            "requests": requests,
         }
 
     def bottlenecks_section(

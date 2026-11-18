@@ -83,10 +83,10 @@
       "$ref": "#/$defs/bottlenecks_section"
     },
     "decisions": {
-      "description": "Optional extension section: the owner-decision queue (rizzstack.owner-decision/1) as exposed by the plugin. The collector emits the records form; the requests form is the earlier queue-produced extension and remains valid so documents already emitted keep validating. Absent when the producing run has no decision source; the section is not required.",
-      "oneOf": [
-        { "$ref": "#/$defs/decisions_section" },
-        { "$ref": "#/$defs/decisions_requests_section" }
+      "description": "Optional extension section: the owner-decision queue (rizzstack.owner-decision/1) as exposed by the plugin. The collector emits requests[] with the consumer-facing state and kind vocabulary; the legacy queue-produced requests form remains valid so documents already emitted keep validating. Absent when the producing run has no decision source; the section is not required.",
+      "anyOf": [
+        { "$ref": "#/$defs/decisions_requests_section" },
+        { "$ref": "#/$defs/legacy_decisions_requests_section" }
       ]
     }
   },
@@ -1201,35 +1201,53 @@
         }
       }
     },
-    "decision_record_row": {
+    "consumer_decision_state": {
+      "description": "The consumer-facing state of an owner-decision request. pending: raised and still awaiting the owner. approved: the owner's final answer was approve. denied: the owner's final answer was deny. applied: the final answer was consumed exactly once. unknown: the queue record carries a state the consumer vocabulary cannot express (for example a withdrawal) or an outcome it does not recognize; it is never reported as an approval or a denial.",
+      "enum": ["pending", "approved", "denied", "applied", "unknown"]
+    },
+    "consumer_decision_kind": {
+      "description": "The consumer-facing kind of an owner-decision request. A queue record whose kind is outside the four recognized kinds is reported as unknown, never as a plausible substitute.",
+      "enum": ["gate", "budget", "scope", "grant", "unknown"]
+    },
+    "decision_request_row": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["request_id", "kind", "status", "subject"],
+      "required": [
+        "request_id",
+        "state",
+        "kind",
+        "subject",
+        "question",
+        "generated_at",
+        "raised_at"
+      ],
       "properties": {
         "request_id": { "$ref": "common.schema.json#/$defs/id_token" },
-        "kind": { "$ref": "#/$defs/decision_kind" },
-        "status": { "$ref": "#/$defs/decision_state" },
-        "subject": { "$ref": "common.schema.json#/$defs/id_token" }
-      },
-      "description": "One owner-decision queue record as the collector emits it: the request id, kind, derived queue status and subject the queue stores. No field is invented; the queue's decision, question and timestamps stay in the queue record."
-    },
-    "decisions_section": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema", "generated_at", "status", "error", "records"],
-      "properties": {
-        "schema": { "const": "rizzstack.observability/snapshot/1" },
-        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
-        "status": { "$ref": "#/$defs/section_status" },
-        "error": {
-          "type": ["string", "null"],
-          "maxLength": 200
+        "state": { "$ref": "#/$defs/consumer_decision_state" },
+        "kind": { "$ref": "#/$defs/consumer_decision_kind" },
+        "subject": { "$ref": "common.schema.json#/$defs/id_token" },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "description": "The question the owner answers, as the queue stores it. Never invented or replaced with a default."
         },
-        "records": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/decision_record_row" }
+        "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "raised_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "decided_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
+        },
+        "applied_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+          ]
         }
-      }
+      },
+      "description": "One owner-decision queue record mapped onto the consumer contract the Hive app reads: requests[].request_id, .state, .kind, .subject, .question, .generated_at, plus the queue's raised_at/decided_at/applied_at when known. Field names and value vocabulary match the consumer exactly."
     },
     "decisions_requests_section": {
       "type": "object",
@@ -1244,9 +1262,28 @@
         "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
         "requests": {
           "type": "array",
+          "items": { "$ref": "#/$defs/decision_request_row" }
+        }
+      },
+      "description": "The consumer-facing decisions section emitted by the collector: a section status and an always-present requests array, empty when no request has been raised."
+    },
+    "legacy_decisions_requests_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "requests"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "requests": {
+          "type": "array",
           "items": { "$ref": "#/$defs/decision_row" }
         }
-      }
+      },
+      "description": "The earlier queue-produced requests form, retained only so documents already emitted keep validating. It is not the collector's contract: the collector emits decisions_requests_section with the consumer vocabulary."
     }
   }
 }
