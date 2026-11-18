@@ -158,21 +158,20 @@ class TestSnapshotSchema:
     def test_schema_contract_loads_and_ids_correctly(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
         assert schema["properties"]["schema"]["const"] == "rizzstack.observability/snapshot/1"
-        # The live contract is the collector's own section list: nine
+        # The live contract is the collector's own section list: ten
         # sections, read dynamically so a section added to the collector
         # must reach the schema (and this test) in the same change - a
         # hardcoded tuple drifted the moment bottlenecks shipped.
-        assert len(collector.SECTION_NAMES) == 9
+        assert len(collector.SECTION_NAMES) == 10
         for name in collector.SECTION_NAMES:
             assert name in schema["properties"], name
-        # The schema requires exactly the live nine minus bottlenecks:
-        # bottlenecks is always emitted by this collector but stays optional
-        # in the schema for documents emitted before it existed (as does the
-        # decisions extension, which is not a collector section at all).
+        # The schema requires exactly the live ten minus bottlenecks and
+        # decisions: both are always emitted by this collector but stay
+        # optional in the schema for documents emitted before they existed.
         required = set(schema["required"]) - {"schema", "generated_at", "collector", "degraded"}
         assert required <= set(collector.SECTION_NAMES), required - set(collector.SECTION_NAMES)
         optional = set(collector.SECTION_NAMES) - required
-        assert optional == {"bottlenecks"}, optional
+        assert optional == {"bottlenecks", "decisions"}, optional
         assert all(name in schema["properties"] for name in optional)
 
     def test_every_record_carries_schema_and_generated_at(self) -> None:
@@ -444,7 +443,12 @@ class TestDegradation:
             now_fn=lambda: FIXED_NOW,
         ).build_snapshot()
         validated(snap)
-        assert set(snap["degraded"]) == set(collector.SECTION_NAMES)
+        # Every source is missing so every source-backed section degrades.
+        # decisions is the deliberate exception: an absent decisions
+        # directory is a genuine zero (no request raised), so it stays live
+        # with an empty records list instead of pretending to be unknown.
+        assert set(snap["degraded"]) == set(collector.SECTION_NAMES) - {"decisions"}
+        assert (snap["decisions"]["status"], snap["decisions"]["records"]) == ("live", [])
         assert snap["pipeline"]["error"] == "source_missing"
         assert snap["pipeline"]["jobs"] == []
         assert snap["failures"]["error"] == "source_missing"
