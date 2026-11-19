@@ -393,6 +393,14 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "memory vault service M1",
         "keywords": ("rizzstack_memory", "DiskVault", "vault_rev", "test_memory_vault_disk"),
     },
+    {
+        # docs/readme-visuals: the README poster redrawn from main's code as a
+        # Night Hive render, with the HTML source and the render script shipped
+        # beside the PNG and the alt text, caption and mermaid flow updated.
+        "pr": 100,
+        "name": "workflow poster redraw",
+        "keywords": ("Night Hive", "render.mjs", "workflow-map.html"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
