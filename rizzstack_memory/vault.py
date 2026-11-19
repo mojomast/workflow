@@ -515,12 +515,24 @@ def _utc_now() -> str:
 
 
 class DiskVault:
-    """Read, query and write the markdown vault at ``root``."""
+    """Read, query and write the markdown vault at ``root``.
 
-    def __init__(self, root) -> None:
+    ``scanner`` names the gitleaks-compatible executable that gates every
+    write payload. When omitted the caller-supplied environment variable
+    (``scanner_env``) is consulted, and a bare install falls back to the
+    write path's conservative built-in denylist.
+    """
+
+    def __init__(self, root, scanner=None, scanner_env: str = None) -> None:
         self.root = Path(root)
         if self.root.exists() and not self.root.is_dir():
             raise NotADirectoryError(f"{self.root} is not a directory")
+        if scanner_env is None:
+            from .write_path import SCANNER_ENV
+
+            scanner_env = SCANNER_ENV
+        self.scanner_env = scanner_env
+        self.scanner = scanner if scanner is not None else (os.environ.get(scanner_env) or None)
         self._bootstrap()
 
     # -- bootstrap ---------------------------------------------------------
@@ -616,6 +628,37 @@ class DiskVault:
             handle.flush()
             os.fsync(handle.fileno())
 
+    @property
+    def refusal_log_path(self) -> Path:
+        return self.root / QUARANTINE_ROOT / "refusals.log"
+
+    def refusal_receipts(self) -> list:
+        entries = []
+        target = self.refusal_log_path
+        if not target.exists():
+            return entries
+        for line in target.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entries.append(json.loads(line))
+            except (ValueError, TypeError):
+                continue
+        return entries
+
+    def _gate_write(self, record: dict, body: str, writer: str, path: str) -> None:
+        from . import write_path
+
+        write_path.enforce_gate(
+            self,
+            record,
+            body,
+            scanner=self.scanner,
+            env_var=self.scanner_env,
+            writer=writer,
+            path=path,
+        )
+
     # -- scanning ----------------------------------------------------------
 
     def _candidate_paths(self) -> list:
@@ -710,6 +753,7 @@ class DiskVault:
             if existing["id"] != record["id"]:
                 refuse("id_mismatch", "the path holds a different memory id")
 
+        self._gate_write(record, body, writer, path)
         self._write_text(target, serialize_memory(record, body))
         seq = self._last_log_seq() + 1
         self._append_receipt(
@@ -749,6 +793,12 @@ class DiskVault:
                 "reread_required": err.reread_required,
                 "current_sha": err.current_sha,
             }
+
+    def promote(self, memory_id: str, grant: dict, scanner=None) -> dict:
+        """Promote one quarantined memory through the gated write path."""
+        from . import write_path
+
+        return write_path.promote(self, memory_id, grant, scanner=scanner)
 
     # -- read --------------------------------------------------------------
 
