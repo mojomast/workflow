@@ -31,7 +31,7 @@ flowchart LR
     PR -->|green + independent review| M[Merge<br/>heartbeat merge stream]
     M -->|Kyle's yes| D[Tag / release / deploy<br/>backup + rollback]
     D --> OB[Orbit Observatory, Hive,<br/>Rails ledger, memory vault]
-    S[Scout hook ~2 min<br/>heartbeat 30 min: reconcile] -.-> FD
+    S[Scout hook ~2 min: finished attempts<br/>driver sweep, opt-in, at most 30 min: reconcile] -.-> FD
 ```
 
 Every arrow labelled "Kyle's yes" is a hard gate: tags, releases, deploys, catalog PRs, posts and form submits each need Kyle's own words, not another agent's relay. Merges are the one standing exception: since Nov 18 2026 the heartbeat's merge stream may merge a PR once CI is green and an independent review approves, which Kyle approved. See [06 Rules and lessons](docs/06-rules-and-lessons.md).
