@@ -835,6 +835,12 @@ class DiskVault:
                 records.append(copy.deepcopy(entry["record"]))
         return records
 
+    def run_retention(self, now: str, dry_run: bool = False) -> list:
+        """Run one idempotent retention pass; see :mod:`rizzstack_memory.retention`."""
+        from .retention import run
+
+        return run(self, now, dry_run=dry_run)
+
     # -- query -------------------------------------------------------------
 
     def query(self, op: dict, now: str = None) -> dict:
