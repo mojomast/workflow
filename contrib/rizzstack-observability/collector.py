@@ -62,6 +62,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -732,6 +733,7 @@ class Collector:
         gh_runner: Runner | None = None,
         now_fn: Callable[[], datetime] | None = None,
         thresholds: Mapping[str, float] | None = None,
+        cli_workers: int = 8,
     ) -> None:
         self.state_dir = Path(state_dir) if state_dir else None
         self.usage_path = Path(usage_path) if usage_path else None
@@ -743,6 +745,10 @@ class Collector:
         self._fleet_runner = fleet_runner
         self._gh_runner = gh_runner
         self._now_fn = now_fn or (lambda: datetime.now(timezone.utc))
+        # Independent read-only CLI reads (fleet attempts/status, one gh read per
+        # repo) run concurrently, so a snapshot costs the slowest read rather than
+        # their sum. 1 restores strictly sequential reads.
+        self.cli_workers = max(1, int(cli_workers))
         self.thresholds = dict(DEFAULT_THRESHOLDS)
         if thresholds:
             for key, value in thresholds.items():
@@ -759,6 +765,21 @@ class Collector:
     def _run(self, runner: Runner | None, argv: Sequence[str]) -> tuple[int, str, str]:
         active = runner or (lambda a: subprocess_runner(a, self.cli_timeout_s))
         return active(argv)
+
+    def _parallel(self, calls: Sequence[Callable[[], Any]]) -> list[Any]:
+        """Run independent zero-argument reads, results in the given order.
+
+        Sequential when ``cli_workers`` is 1 or there is a single call. An
+        exception in one call propagates exactly as it would sequentially.
+        """
+        if self.cli_workers <= 1 or len(calls) <= 1:
+            return [call() for call in calls]
+        with ThreadPoolExecutor(
+            max_workers=min(self.cli_workers, len(calls)),
+            thread_name_prefix="obs-read",
+        ) as pool:
+            futures = [pool.submit(call) for call in calls]
+            return [future.result() for future in futures]
 
     # ----------------------------------------------------------------- fleet
     def fleet_section(self) -> tuple[dict[str, Any], int | None, int | None]:
@@ -786,9 +807,20 @@ class Collector:
         source = "cli"
         rows: list[Any] | None = None
 
-        code, out, _ = self._run(
-            self._fleet_runner,
-            default_fleet_argv(self.bundlebees_bin, "attempts", self.state_dir),
+        # Both fleet CLI reads are read-only and independent, so they run
+        # together; the status read is consulted only when the attempts read
+        # produced rows, exactly as when it ran second.
+        (code, out, _), (code2, out2, _) = self._parallel(
+            [
+                lambda: self._run(
+                    self._fleet_runner,
+                    default_fleet_argv(self.bundlebees_bin, "attempts", self.state_dir),
+                ),
+                lambda: self._run(
+                    self._fleet_runner,
+                    default_fleet_argv(self.bundlebees_bin, "status", self.state_dir),
+                ),
+            ]
         )
         payload = extract_json(out) if code == 0 else None
         if code != 0:
@@ -816,10 +848,6 @@ class Collector:
                 if not isinstance(raw, dict):
                     continue
                 attempts.append(self._fleet_row(raw, generated, now))
-            code2, out2, _ = self._run(
-                self._fleet_runner,
-                default_fleet_argv(self.bundlebees_bin, "status", self.state_dir),
-            )
             if code2 == 0:
                 summary = extract_json(out2)
                 if isinstance(summary, dict):
@@ -1583,11 +1611,8 @@ class Collector:
             slug = job.get("repo")
             if isinstance(slug, str) and slug not in repos and REPO_SLUG_RE.match(slug):
                 repos.append(slug)
-        repo_rows: list[dict[str, Any]] = []
-        pr_rows: list[dict[str, Any]] = []
-        failures = 0
-        successes = 0
-        for slug in repos:
+        def read_repo(slug: str) -> tuple[dict[str, Any], list[dict[str, Any]], bool]:
+            """One repo's open PRs and CI rows; (repo_row, pr_rows, answered)."""
             code, out, _ = self._run(
                 self._gh_runner,
                 [
@@ -1606,8 +1631,7 @@ class Collector:
             )
             payload = extract_json(out) if code == 0 else None
             if payload is None:
-                failures += 1
-                repo_rows.append(
+                return (
                     {
                         "schema": SCHEMA,
                         "generated_at": generated,
@@ -1616,11 +1640,12 @@ class Collector:
                         "open_prs": None,
                         "ci_state": "unavailable",
                         "failing_check_names": [],
-                    }
+                    },
+                    [],
+                    False,
                 )
-                continue
-            successes += 1
             prs = as_list(payload)
+            rows: list[dict[str, Any]] = []
             failing: set[str] = set()
             repo_state: set[str] = set()
             open_count = 0
@@ -1640,7 +1665,7 @@ class Collector:
                 if pr_state not in ("open", "merged", "closed", "draft"):
                     pr_state = "unknown"
                 head = branch_name(pr.get("headRefName"))
-                pr_rows.append(
+                rows.append(
                     {
                         "schema": SCHEMA,
                         "generated_at": generated,
@@ -1663,7 +1688,7 @@ class Collector:
                 repo_ci = "pending"
             else:
                 repo_ci = "mixed"
-            repo_rows.append(
+            return (
                 {
                     "schema": SCHEMA,
                     "generated_at": generated,
@@ -1672,8 +1697,21 @@ class Collector:
                     "open_prs": open_count,
                     "ci_state": repo_ci,
                     "failing_check_names": sorted(failing),
-                }
+                },
+                rows,
+                True,
             )
+
+        # One gh read per repo, concurrently; rows keep the configured repo order.
+        repo_rows: list[dict[str, Any]] = []
+        pr_rows: list[dict[str, Any]] = []
+        successes = 0
+        for repo_row, rows, answered in self._parallel(
+            [lambda slug=slug: read_repo(slug) for slug in repos]
+        ):
+            repo_rows.append(repo_row)
+            pr_rows.extend(rows)
+            successes += 1 if answered else 0
         if not repos:
             status, error = "unavailable", "no_repos_configured"
         elif successes == 0:
@@ -3109,13 +3147,21 @@ class Collector:
     def build_snapshot(self) -> dict[str, Any]:
         now = self.now()
         generated = utc_now_string(now)
-        fleet, in_flight, bee_cap = self.fleet_section()
-        usage, usage_summary = self.usage_section()
-        pipeline, blockers = self.pipeline_section()
-        backlog = self.backlog_section()
-        ci = self.ci_section(pipeline.get("jobs", []))
-        failures = self.failures_section()
-        decisions = self.decisions_section()
+
+        def local_and_ci() -> tuple[Any, ...]:
+            usage, usage_summary = self.usage_section()
+            pipeline, blockers = self.pipeline_section()
+            backlog = self.backlog_section()
+            ci = self.ci_section(pipeline.get("jobs", []))
+            failures = self.failures_section()
+            decisions = self.decisions_section()
+            return usage, usage_summary, pipeline, blockers, backlog, ci, failures, decisions
+
+        # The fleet CLI reads dominate a cold snapshot; they run alongside the
+        # file reads and the gh reads instead of before them.
+        fleet_result, rest = self._parallel([self.fleet_section, local_and_ci])
+        fleet, in_flight, bee_cap = fleet_result
+        usage, usage_summary, pipeline, blockers, backlog, ci, failures, decisions = rest
         bottlenecks = self.bottlenecks_section(
             pipeline_body=pipeline,
             backlog_body=backlog,
@@ -3323,6 +3369,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bundlebees-bin", default="hermes", help="Hermes CLI binary for the fleet section")
     parser.add_argument("--gh-bin", default="gh", help="GitHub CLI binary for the ci section")
     parser.add_argument("--cli-timeout-s", type=float, default=10.0, help="subprocess timeout in seconds")
+    parser.add_argument("--cli-workers", type=int, default=8, help="concurrent read-only CLI reads (1 = sequential)")
     parser.add_argument("--print", action="store_true", dest="print_snapshot", help="print the snapshot to stdout (default)")
     parser.add_argument("--serve", action="store_true", help="serve the snapshot over loopback HTTP")
     parser.add_argument("--host", default="127.0.0.1", help="bind address (loopback only)")
@@ -3346,6 +3393,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         gh_bin=args.gh_bin,
         cli_timeout_s=args.cli_timeout_s,
         thresholds=thresholds,
+        cli_workers=args.cli_workers,
     )
     if args.serve:
         credential = resolve_credential(args)
