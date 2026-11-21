@@ -7,12 +7,14 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
   ``metrics/*.jsonl``, ``queue.json``, the live claim records under
   ``queue/``, the recorded decision files under ``approvals/``, and the
   dispatch leases under ``leases/`` joined with the bee-landed events under
-  ``outbox/``) under ``--state-dir``,
+  ``events/outbox/`` (the legacy ``outbox/`` is still read) under
+  ``--state-dir``,
 - the Hermes bundlebees CLI (``<bin> bundlebees attempts --state-dir DIR``
   and ``<bin> bundlebees status --state-dir DIR``, both read-only) for the
   live fleet - when the CLI cannot answer, the fleet section falls back to
-  the dispatch-lease store joined with the bee-landed outbox and marks
-  itself ``stale`` with ``source: dispatch_leases``,
+  the dispatch-lease store joined with the bee-landed outbox under
+  ``events/outbox/`` and marks itself ``stale`` with ``source:
+  dispatch_leases``,
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
