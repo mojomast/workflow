@@ -11,7 +11,9 @@ Four behaviors, each pinned RED-first against the collector:
    fleet attempt carries neither field, and the absence is pinned - not a
    null), and when the CLI cannot answer the fleet section falls back to
    the dispatch-lease store (``state_dir/leases/att_*.json``, newest 24)
-   joined with the bee-landed states in ``state_dir/outbox/``;
+   joined with the bee-landed states in the live
+   ``state_dir/events/outbox/`` (the legacy ``state_dir/outbox/`` is still
+   read);
 3. fleet honesty: an ACTIVE-state row whose heartbeat is older than the
    staleness threshold is demoted to ``unknown`` and is not counted
    in-flight, and the CLI status ``bee_cap`` is not surfaced in the fleet
@@ -334,6 +336,20 @@ class TestDispatchLeaseFallback:
         # surfaces neither on a fleet attempt.
         assert "model" not in by_id["att_fb1"]
         assert "title" not in by_id["att_fb1"]
+
+    def test_fallback_joins_landings_from_the_events_outbox(self, tmp_path: Path) -> None:
+        state = tmp_path / "plugin-state"
+        leases = state / "leases"
+        write_lease(leases, "att_ev1", title="Join the live outbox", age_s=60)
+        write_lease(leases, "att_ev2", title="Land a failed attempt", age_s=60)
+        write_landed_event(state / "events" / "outbox", "att_ev1", "succeeded", age_s=30)
+        write_landed_event(state / "events" / "outbox", "att_ev2", "failed", age_s=30)
+        snap = delta_collector(state_dir=state, fleet_runner=failing_cli()).build_snapshot()
+        validated(snap)
+        by_id = {row["attempt_id"]: row for row in snap["fleet"]["attempts"]}
+        assert by_id["att_ev1"]["state"] == "succeeded"
+        assert by_id["att_ev2"]["state"] == "failed"
+        assert snap["fleet"]["in_flight"] == 0
 
     def test_fallback_marks_the_section_stale_and_names_the_source(
         self, fallback_snapshot: dict
