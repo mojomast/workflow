@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Collector module header now names the live bee-landed outbox at `state_dir/events/outbox` (the legacy `state_dir/outbox` is still read), so the file's own summary no longer contradicts the join B111 fixed; `tests/test_observability_snapshot.py` pins the header.
+
 - Collector fleet fallback joins the live bee-landed outbox at `state_dir/events/outbox` (the legacy `state_dir/outbox` is still read), so a cold-CLI timeout no longer reports landed attempts as in flight or raises a false in-flight alert; `tests/test_observability_snapshot.py` pins the join and the legacy path.
 
 - Collector cold snapshots run the independent CLI reads concurrently (workflow #107, merged at `47bde68`): `contrib/rizzstack-observability/collector.py` now runs the fleet `bundlebees attempts`/`status` reads and the per-repository `gh` reads in a thread pool, so a cold snapshot costs the slowest read instead of their sum — ~10.8 s to ~3.6 s measured on the campaign host — with each read still bounded by `--cli-timeout-s` and `--cli-workers 1` restoring strictly sequential reads; `tests/test_obs_parallel_reads.py` pins the concurrent build, the sequential control and the unchanged degradation paths.

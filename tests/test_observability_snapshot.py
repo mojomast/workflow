@@ -652,3 +652,17 @@ if __name__ == "__main__":
     import pytest
 
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+class TestModuleHeaderTruth:
+    def test_module_header_names_the_live_events_outbox(self) -> None:
+        """Pin review-wf-pr109 F1: the header must point at the live path.
+
+        B111 corrected the three method docstrings; the module summary still
+        sent a reader to the legacy ``outbox/`` as the landing directory.
+        """
+
+        header = " ".join((collector.__doc__ or "").split())
+        assert "bee-landed events under ``events/outbox/``" in header
+        assert "bee-landed events under ``outbox/``" not in header
+        assert "(the legacy ``outbox/`` is still read)" in header
