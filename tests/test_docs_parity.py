@@ -401,6 +401,15 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "workflow poster redraw",
         "keywords": ("Night Hive", "render.mjs", "workflow-map.html"),
     },
+    {
+        # perf/collector-parallel-cli: the collector's independent CLI reads
+        # (fleet attempts/status, per-repo gh) run in a thread pool, so a cold
+        # snapshot costs the slowest read instead of their sum (~10.8 s -> ~3.6 s);
+        # --cli-workers 1 restores strictly sequential reads.
+        "pr": 107,
+        "name": "collector independent CLI reads concurrent",
+        "keywords": ("independent CLI reads", "test_obs_parallel_reads", "concurrently"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
