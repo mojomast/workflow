@@ -966,7 +966,8 @@ class Collector:
         Reads the dispatch-lease store ``state_dir/leases/att_*.json`` (the
         newest 24 records by mtime; the collector only reads) and joins each
         lease with the newest ``rizzstack.bee.landed.v1`` event for its
-        attempt under ``state_dir/outbox/``. A lease alone proves the attempt
+        attempt under the live ``state_dir/events/outbox/`` (the legacy
+        ``state_dir/outbox/`` is still read). A lease alone proves the attempt
         was dispatched, so it renders as the lifecycle-aligned ``starting``
         state dated by the lease itself; a landing event supplies the
         terminal state and the landing time. The row builder's staleness
@@ -1029,24 +1030,30 @@ class Collector:
     def _outbox_landed_states(self) -> dict[str, dict[str, Any]]:
         """Newest bee-landed event per attempt id, read-only.
 
-        ``state_dir/outbox/`` holds the coordinator's durable
+        The live ``state_dir/events/outbox/`` holds the coordinator's durable
         ``rizzstack.bee.landed.v1`` CloudEvents, one JSON object per file or
-        one per line in a ``.jsonl`` file. Files that are not landings or do
-        not parse are skipped. Only the payload's ``attempt_id`` joins a
-        landing to a lease; the envelope ``subject`` may name a task and is
-        never used as a join key. The newest event per attempt (by its
-        CloudEvents ``time``) wins, so redeliveries collapse.
+        one per line in a ``.jsonl`` file; the legacy ``state_dir/outbox/``
+        is still read. Files that are not landings or do not parse are
+        skipped. Only the payload's ``attempt_id`` joins a landing to a
+        lease; the envelope ``subject`` may name a task and is never used as
+        a join key. The newest event per attempt (by its CloudEvents
+        ``time``) wins across both directories, so redeliveries collapse.
         """
-        outbox_dir = self.state_dir / "outbox" if self.state_dir else None
-        if outbox_dir is None:
+        if self.state_dir is None:
             return {}
-        try:
-            paths = sorted(
-                p for p in outbox_dir.iterdir()
-                if p.is_file() and p.suffix in (".json", ".jsonl")
-            )
-        except OSError:
-            return {}
+        paths: list[Path] = []
+        for outbox_dir in (
+            self.state_dir / "events" / "outbox",
+            self.state_dir / "outbox",
+        ):
+            try:
+                paths.extend(
+                    p for p in outbox_dir.iterdir()
+                    if p.is_file() and p.suffix in (".json", ".jsonl")
+                )
+            except OSError:
+                continue
+        paths.sort()
         landed: dict[str, dict[str, Any]] = {}
         for path in paths:
             if path.suffix == ".jsonl":
