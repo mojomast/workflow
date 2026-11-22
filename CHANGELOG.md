@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `tests/test_obs_snapshot.py` all-sources-missing tests now inject a failing fleet runner, so a host where the real `hermes` CLI answers can no longer turn fleet/health/alerts/bottlenecks live and fail the suite locally (review-wf-pr108 F1); the empty-state assertions are unchanged.
+
 - `tests/test_observability_snapshot.py` now pins the collector module header's fleet-fallback bullet from its trigger (`when the CLI cannot answer`) and verb, closing review-wf-pr112 F1, and asserts the no-rows fleet `source` is `cli`, closing F2.
 
 - Collector module header's fleet-fallback clause now names the legacy `outbox/` read and marks the section `stale` with `source: dispatch_leases` only when the lease store yields rows (review-wf-pr110 F2/F3); `tests/test_observability_snapshot.py` pins the corrected clause.
