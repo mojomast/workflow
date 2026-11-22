@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Collector module header's fleet-fallback clause now names the legacy `outbox/` read and marks the section `stale` with `source: dispatch_leases` only when the lease store yields rows (review-wf-pr110 F2/F3); `tests/test_observability_snapshot.py` pins the corrected clause.
+
 - `tests/test_observability_snapshot.py` now pins the collector module header's fleet-fallback clause verbatim as well as the plugin-state clause (review-wf-pr110 F1: reverting the fallback passage alone used to pass the header test).
 
 - Collector module header now names the live bee-landed outbox at `state_dir/events/outbox` (the legacy `state_dir/outbox` is still read), so the file's own summary no longer contradicts the join B111 fixed; `tests/test_observability_snapshot.py` pins the header.

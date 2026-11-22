@@ -13,8 +13,9 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
   and ``<bin> bundlebees status --state-dir DIR``, both read-only) for the
   live fleet - when the CLI cannot answer, the fleet section falls back to
   the dispatch-lease store joined with the bee-landed outbox under
-  ``events/outbox/`` and marks itself ``stale`` with ``source:
-  dispatch_leases``,
+  ``events/outbox/`` (the legacy ``outbox/`` is still read); when that store
+  yields rows the section marks itself ``stale`` with ``source:
+  dispatch_leases``;
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
