@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `tests/test_observability_snapshot.py` now pins the collector module header's fleet-fallback clause verbatim as well as the plugin-state clause (review-wf-pr110 F1: reverting the fallback passage alone used to pass the header test).
+
 - Collector module header now names the live bee-landed outbox at `state_dir/events/outbox` (the legacy `state_dir/outbox` is still read), so the file's own summary no longer contradicts the join B111 fixed; `tests/test_observability_snapshot.py` pins the header.
 
 - Collector fleet fallback joins the live bee-landed outbox at `state_dir/events/outbox` (the legacy `state_dir/outbox` is still read), so a cold-CLI timeout no longer reports landed attempts as in flight or raises a false in-flight alert; `tests/test_observability_snapshot.py` pins the join and the legacy path.

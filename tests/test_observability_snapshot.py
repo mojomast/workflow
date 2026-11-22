@@ -666,3 +666,19 @@ class TestModuleHeaderTruth:
         assert "bee-landed events under ``events/outbox/``" in header
         assert "bee-landed events under ``outbox/``" not in header
         assert "(the legacy ``outbox/`` is still read)" in header
+
+    def test_module_header_fallback_names_the_live_events_outbox(self) -> None:
+        """Pin review-wf-pr110 F1: the fallback clause needs its own pin.
+
+        The first header test's positive assertion matches the plugin-state
+        bullet alone, so reverting only B113's fleet-fallback clause still
+        passed. This test names that clause verbatim.
+        """
+
+        header = " ".join((collector.__doc__ or "").split())
+        assert (
+            "the fleet section falls back to the dispatch-lease store joined "
+            "with the bee-landed outbox under ``events/outbox/`` and marks "
+            "itself ``stale`` with ``source: dispatch_leases``"
+        ) in header
+        assert "joined with the bee-landed outbox and marks itself" not in header
