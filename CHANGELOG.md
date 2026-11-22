@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `tests/test_observability_snapshot.py` now pins the collector module header's fleet-fallback bullet from its trigger (`when the CLI cannot answer`) and verb, closing review-wf-pr112 F1, and asserts the no-rows fleet `source` is `cli`, closing F2.
+
 - Collector module header's fleet-fallback clause now names the legacy `outbox/` read and marks the section `stale` with `source: dispatch_leases` only when the lease store yields rows (review-wf-pr110 F2/F3); `tests/test_observability_snapshot.py` pins the corrected clause.
 
 - `tests/test_observability_snapshot.py` now pins the collector module header's fleet-fallback clause verbatim as well as the plugin-state clause (review-wf-pr110 F1: reverting the fallback passage alone used to pass the header test).
