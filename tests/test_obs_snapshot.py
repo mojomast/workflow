@@ -194,7 +194,10 @@ class TestSnapshotSchema:
         assert_envelope(schema)
 
     def test_all_unavailable_snapshot_validates(self, tmp_path: Path) -> None:
-        snap = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
+        snap = collector.Collector(
+            fleet_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+        ).build_snapshot()
         validated(snap)
         assert snap["degraded"] == list(collector.SECTION_NAMES)
         emitted = set(snap) - {"schema", "generated_at", "collector", "degraded"}
@@ -440,6 +443,7 @@ class TestDegradation:
         snap = collector.Collector(
             state_dir=empty,
             usage_path=tmp_path / "nope.jsonl",
+            fleet_runner=lambda argv: (1, "", ""),
             now_fn=lambda: FIXED_NOW,
         ).build_snapshot()
         validated(snap)
