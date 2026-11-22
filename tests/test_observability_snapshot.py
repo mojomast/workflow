@@ -425,6 +425,9 @@ class TestDispatchLeaseFallback:
         validated(snap)
         assert snap["fleet"]["status"] == "unavailable"
         assert snap["fleet"]["attempts"] == []
+        # review-wf-pr112 F2: the no-rows marker is a behavioural fact, not
+        # just prose. A drift that renames the source here must fail loudly.
+        assert snap["fleet"]["source"] == "cli"
 
 
 # ------------------------------------------------------------ 3. fleet honesty
@@ -668,19 +671,21 @@ class TestModuleHeaderTruth:
         assert "(the legacy ``outbox/`` is still read)" in header
 
     def test_module_header_fallback_names_the_live_events_outbox(self) -> None:
-        """Pin review-wf-pr110 F1/F2/F3: the fallback clause must be true.
+        """Pin review-wf-pr110 F1/F2/F3 and review-wf-pr112 F1: the bullet is true.
 
         The first header test's positive assertion matches the plugin-state
         bullet alone, so reverting only B113's fleet-fallback clause still
-        passed. This test names the corrected clause verbatim, including the
-        legacy read and the condition under which the section turns stale.
+        passed. This test names the corrected bullet verbatim from its trigger
+        (``when the CLI cannot answer``) through its condition, so the trigger
+        and the verb are pinned too, not only the clause after them.
         """
 
         header = " ".join((collector.__doc__ or "").split())
         assert (
-            "the dispatch-lease store joined with the bee-landed outbox under "
-            "``events/outbox/`` (the legacy ``outbox/`` is still read); when "
-            "that store yields rows the section marks itself ``stale`` with "
-            "``source: dispatch_leases``"
+            "for the live fleet - when the CLI cannot answer, the fleet "
+            "section falls back to the dispatch-lease store joined with the "
+            "bee-landed outbox under ``events/outbox/`` (the legacy "
+            "``outbox/`` is still read); when that store yields rows the "
+            "section marks itself ``stale`` with ``source: dispatch_leases``"
         ) in header
         assert "outbox under ``events/outbox/`` and marks itself" not in header
