@@ -458,6 +458,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "lessons-check",
         "keywords": ("lessons-check", "contract-test-ref", "evidence-absolute-path"),
     },
+    {
+        # slop-lint becomes a blocking ratchet (owner approved): stable job name, CODEOWNERS.
+        "pr": 124,
+        "name": "slop-lint blocking ratchet",
+        "keywords": ("blocking ratchet", "--pass-on-unpruned", "CODEOWNERS"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
