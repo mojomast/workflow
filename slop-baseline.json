@@ -1,0 +1,215 @@
+{
+  "acceptance/harness.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/compare.py": {
+    "complexity": 1
+  },
+  "contrib/bee-ci/dispatch.py": {
+    "complexity": 3
+  },
+  "contrib/bee-ci/evidence.py": {
+    "complexity": 1
+  },
+  "contrib/bee-ci/pipeline.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/poll.py": {
+    "complexity": 3
+  },
+  "contrib/bee-ci/report/pr_summary.py": {
+    "complexity": 1
+  },
+  "contrib/bee-ci/run_shadow.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_compare.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_evidence.py": {
+    "complexity": 3
+  },
+  "contrib/bee-ci/tests/test_jobs_conformance.py": {
+    "complexity": 1
+  },
+  "contrib/bee-ci/tests/test_jobs_manifest.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_linux_runner.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_manifest.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_pipeline.py": {
+    "complexity": 3
+  },
+  "contrib/bee-ci/tests/test_poll.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_record.py": {
+    "complexity": 1
+  },
+  "contrib/bee-ci/tests/test_report_render.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_run_shadow.py": {
+    "complexity": 8
+  },
+  "contrib/bee-ci/tests/test_status.py": {
+    "complexity": 2
+  },
+  "contrib/bee-ci/tests/test_windows_runner.py": {
+    "complexity": 1
+  },
+  "contrib/bee-ci/verify_result.py": {
+    "complexity": 1
+  },
+  "contrib/core-review/check_rails_delivery.py": {
+    "complexity": 1
+  },
+  "contrib/rizzstack-observability/collector.py": {
+    "complexity": 21
+  },
+  "contrib/rizzstack-observability/decision_notifier.py": {
+    "complexity": 3
+  },
+  "contrib/rizzstack-observability/events_bridge.py": {
+    "complexity": 2
+  },
+  "evidence/rails-rc/evaluate_run.py": {
+    "complexity": 1
+  },
+  "evidence/rails-rc/performance/measure.py": {
+    "complexity": 1
+  },
+  "evidence/rails-rc/pr_checks.py": {
+    "complexity": 1
+  },
+  "evidence/rails-rc/verify_fixture.py": {
+    "complexity": 1
+  },
+  "observability/envelope.py": {
+    "complexity": 1
+  },
+  "observability/validate.py": {
+    "complexity": 2
+  },
+  "reference/workflow/acdd.py": {
+    "complexity": 1
+  },
+  "reference/workflow/contract.py": {
+    "complexity": 1
+  },
+  "reference/workflow/lifecycle.py": {
+    "complexity": 2
+  },
+  "reference/workflow/orchestrator.py": {
+    "complexity": 2
+  },
+  "reference/workflow/schema.py": {
+    "complexity": 1
+  },
+  "reference/workflow/tdd.py": {
+    "complexity": 2
+  },
+  "reference/workflow/verify.py": {
+    "complexity": 1
+  },
+  "rizzstack_memory/index.py": {
+    "complexity": 1
+  },
+  "rizzstack_memory/retention.py": {
+    "complexity": 1
+  },
+  "rizzstack_memory/vault.py": {
+    "complexity": 6
+  },
+  "rizzstack_memory/write_path.py": {
+    "complexity": 2
+  },
+  "scripts/bench_rails.py": {
+    "complexity": 4
+  },
+  "scripts/rails_tuple.py": {
+    "complexity": 1
+  },
+  "tests/test_docs_parity.py": {
+    "complexity": 1
+  },
+  "tests/test_m2_canary_prep.py": {
+    "complexity": 1
+  },
+  "tests/test_memory_contract.py": {
+    "complexity": 6
+  },
+  "tests/test_obs_bottlenecks.py": {
+    "complexity": 7
+  },
+  "tests/test_obs_events_bridge.py": {
+    "complexity": 1
+  },
+  "tests/test_obs_fleet_wiring.py": {
+    "complexity": 2
+  },
+  "tests/test_obs_snapshot.py": {
+    "complexity": 4
+  },
+  "tests/test_observability_snapshot.py": {
+    "complexity": 1
+  },
+  "tests/test_rails_acceptance.py": {
+    "complexity": 5
+  },
+  "tests/test_rails_contract.py": {
+    "complexity": 2
+  },
+  "tests/test_rebrand_plan.py": {
+    "complexity": 1
+  },
+  "tests/test_runtime_conformance.py": {
+    "complexity": 1
+  },
+  "tests/test_wave4_packets.py": {
+    "complexity": 2
+  },
+  "tests/test_website_plan.py": {
+    "complexity": 1
+  },
+  "tools/acdd-lint/acdd_lint/checks_report.py": {
+    "complexity": 2
+  },
+  "tools/acdd-lint/acdd_lint/cli.py": {
+    "complexity": 1
+  },
+  "tools/acdd-lint/acdd_lint/contracts.py": {
+    "complexity": 1
+  },
+  "tools/acdd-lint/acdd_lint/evidence.py": {
+    "complexity": 2
+  },
+  "tools/acdd-lint/acdd_lint/schema.py": {
+    "complexity": 2
+  },
+  "tools/bee_landed.py": {
+    "complexity": 3
+  },
+  "tools/campaign_report.py": {
+    "complexity": 4
+  },
+  "tools/feature_packet.py": {
+    "complexity": 3
+  },
+  "tools/project-state/check.py": {
+    "complexity": 2
+  },
+  "tools/recovery.py": {
+    "complexity": 3
+  },
+  "tools/return_manifest.py": {
+    "complexity": 2
+  },
+  "tools/slop-lint/slop_lint/baseline.py": {
+    "complexity": 1
+  }
+}
