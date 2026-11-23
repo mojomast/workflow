@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `tools/slop-lint/` adds a stdlib-only slop linter (`python3 -m slop_lint check|baseline|prune`) with three rules (`complexity` over 10, `swallowed-exception`, `mutable-default-arg`) and a per-file+rule baseline ratchet: existing code passes through a committed baseline, only new or higher counts fail, a missing or malformed baseline always exits 2, and `--report-only` never fails on findings alone.
+
+- `.github/workflows/slop-lint.yml` runs slop-lint report-only on pull requests and pushes to main: read-only permissions, SHA-pinned actions, `continue-on-error`, findings appended to the job summary. It is not a required check; making it one needs the owner's decision.
+
+- `contrib/bee-ci/report/pr_summary.py` adds `render_pr_summary`, a deterministic Markdown summary of a contract's acceptance criteria and TDD evidence for reviewers. Untrusted text is escaped and secret or private-host shapes are redacted, and a missing or unreadable required phase is shown as a `GAP` line, never as success.
+
 - `tests/test_obs_snapshot.py` all-sources-missing tests now inject a failing fleet runner, so a host where the real `hermes` CLI answers can no longer turn fleet/health/alerts/bottlenecks live and fail the suite locally (review-wf-pr108 F1); the empty-state assertions are unchanged.
 
 - `tests/test_observability_snapshot.py` now pins the collector module header's fleet-fallback bullet from its trigger (`when the CLI cannot answer`) and verb, closing review-wf-pr112 F1, and asserts the no-rows fleet `source` is `cli`, closing F2.
