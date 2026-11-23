@@ -35,10 +35,11 @@ class BaselineAdoptionTests(unittest.TestCase):
                             "--report-only", "--pass-on-unpruned"], cwd=REPO, env=env, capture_output=True, text=True, timeout=300)
         self.assertEqual(p.returncode, 0, p.stdout[-800:] + p.stderr[-400:])
 
-    def test_ac005_ci_workflow_runs_from_repo_root_against_the_root_baseline_and_stays_report_only(self):
+    def test_ac005_ci_workflow_runs_from_repo_root_against_the_root_baseline_and_is_blocking_on_new_findings(self):
         t = (REPO / ".github" / "workflows" / "slop-lint.yml").read_text()
         self.assertIn("python3 -m slop_lint check", t)
-        self.assertIn("--report-only", t)
+        self.assertIn("--pass-on-unpruned", t)
+        self.assertNotIn("--report-only", t)
         self.assertIn("slop-baseline.json", t)
         self.assertNotIn("../..", t, "CI must run from the repo root so baseline paths match")
         self.assertNotIn("pull-requests", t)
