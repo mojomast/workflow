@@ -459,6 +459,10 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("lessons-check", "contract-test-ref", "evidence-absolute-path"),
     },
     {
+        # slop-lint becomes a blocking ratchet (owner approved): stable job name, CODEOWNERS.
+        "pr": 124,
+        "name": "slop-lint blocking ratchet",
+        "keywords": ("blocking ratchet", "--pass-on-unpruned", "CODEOWNERS"),
         # fork-safe PR summary comment: build workflow + privileged workflow_run commenter (wave 2).
         "pr": 127,
         "name": "fork-safe PR summary comment",

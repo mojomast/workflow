@@ -1,4 +1,4 @@
-"""Approved acceptance tests for the report-only slop-lint workflow. Coordinator-written; do not edit."""
+"""Acceptance tests for the blocking slop-lint workflow (ratchet: fail only on new findings vs the baseline). Owner approved blocking on 2026-11-23."""
 import re
 import unittest
 from pathlib import Path
@@ -32,12 +32,25 @@ class SlopLintWorkflowTests(unittest.TestCase):
         for u in uses:
             self.assertRegex(u, r"@[0-9a-f]{40}$", u)
 
-    def test_ac004_job_is_bounded_and_report_only(self):
+    def test_ac004_job_is_bounded_and_blocking_on_new_findings_only(self):
         t = self.text()
         m = re.search(r"timeout-minutes:\s*(\d+)", t)
         self.assertIsNotNone(m)
         self.assertLessEqual(int(m.group(1)), 10)
-        self.assertIn("--report-only", t)
+        self.assertIn("--pass-on-unpruned", t)
+        self.assertNotIn("--report-only", t)
+        self.assertNotIn("continue-on-error", t)
+        self.assertRegex(t, r"shell:\s*bash")
+
+    def test_ac008_job_has_the_stable_required_check_name_and_pinned_python(self):
+        t = self.text()
+        self.assertRegex(t, r"(?m)^name:\s*slop-lint\s*$")
+        self.assertRegex(t, r"(?m)^  slop-lint:\s*\n    name:\s*slop-lint\s*$")
+        self.assertRegex(t, r"python-version:\s*\"3\.12\"")
+
+    def test_ac009_baseline_is_owned_by_the_owner_via_codeowners(self):
+        co = (WF.parents[1] / "CODEOWNERS").read_text()
+        self.assertRegex(co, r"(?m)^/slop-baseline\.json\s+@mojomast\s*$")
 
     def test_ac005_runs_the_tool_against_the_committed_baseline(self):
         t = self.text()
