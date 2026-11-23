@@ -3,6 +3,7 @@
 ## Unreleased
 
 - slop-lint is now a blocking ratchet in CI (`.github/workflows/slop-lint.yml`): it fails only on findings above `slop-baseline.json` (`--pass-on-unpruned`, stale entries tolerated, shrink with `prune`), the job has the stable name `slop-lint`, and `.github/CODEOWNERS` assigns `slop-baseline.json` to the owner.
+- A fork-safe PR summary comment: `.github/workflows/pr-summary-build.yml` (`pull_request`, read-only) runs `contrib/bee-ci/report/pr_comment.py` and uploads `comment.md` plus `pr-number.txt`; `.github/workflows/pr-summary-comment.yml` (`workflow_run`, `pull-requests: write`, no checkout) validates the PR number against the head commit's pull requests, caps the body at 60000 bytes and upserts one sticky comment. It only comments on PRs that change a contract and its evidence together.
 
 - `schemas/tdd-evidence.schema.json` gains an optional `metrics` object (`lines_added`, `lines_removed`, `reedited_lines`, `attempts`, `retries`, `max_chain`, `review_findings`; non-negative integers, no unknown keys), copied from bundlebees' evidence schema. Records without it stay valid. Advisory data only.
 - A committed `slop-baseline.json` (report-only baseline) is adopted for slop-lint and the slop-lint workflow now runs from the repo root so its paths match. It is still not a required check.

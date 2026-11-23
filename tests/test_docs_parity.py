@@ -464,6 +464,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "slop-lint blocking ratchet",
         "keywords": ("blocking ratchet", "--pass-on-unpruned", "CODEOWNERS"),
     },
+    {
+        # fork-safe PR summary comment: build workflow + privileged workflow_run commenter (wave 2).
+        "pr": 127,
+        "name": "fork-safe PR summary comment",
+        "keywords": ("pr-summary-comment", "workflow_run", "pr_comment.py"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the

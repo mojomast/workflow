@@ -1,0 +1,78 @@
+name: pr-summary-comment
+
+on:
+  workflow_run:
+    workflows: [pr-summary-build]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  contents: read
+  actions: read
+
+jobs:
+  comment:
+    name: pr-summary-comment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Download the pr-summary artifact
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" -R "$REPO" -n pr-summary -D "$RUNNER_TEMP/pr-summary" || { echo 'no pr-summary artifact'; exit 0; }
+      # The artifact was produced by untrusted fork code. Treat every byte of it
+      # as hostile data: validate it, never execute it, and never forward any of
+      # it to the runner's environment or output files.
+      - name: Validate the artifact and upsert the sticky comment
+        run: |
+          set -euo pipefail
+
+          dir="$RUNNER_TEMP/pr-summary"
+          if [ ! -e "$dir/comment.md" ]; then
+            echo 'no pr-summary artifact; nothing to comment'
+            exit 0
+          fi
+
+          for f in comment.md pr-number.txt; do
+            if [ ! -f "$dir/$f" ] || [ -L "$dir/$f" ]; then
+              echo "invalid artifact: $f must be a regular file" >&2
+              exit 1
+            fi
+          done
+
+          PR=$(tr -d '[:space:]' < "$dir/pr-number.txt")
+          if ! [[ "$PR" =~ ^[0-9]{1,9}$ ]]; then
+            echo 'invalid pr-number.txt' >&2
+            exit 1
+          fi
+
+          associated=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '.[].number')
+          if ! printf '%s\n' "$associated" | grep -qx -- "$PR"; then
+            echo "pr-number is not associated with the head commit" >&2
+            exit 1
+          fi
+
+          if [ "$(wc -c < "$dir/comment.md")" -gt 60000 ]; then
+            echo 'comment.md exceeds 60000 bytes' >&2
+            exit 1
+          fi
+
+          first_line=$(head -n 1 -- "$dir/comment.md")
+          if [ "$first_line" != '<!-- workflow-pr-summary:v1 -->' ]; then
+            echo 'comment.md is missing the required marker' >&2
+            exit 1
+          fi
+
+          ids=$(gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[] | select(.user.type=="Bot") | select(.body | startswith("<!-- workflow-pr-summary:v1 -->")) | .id')
+          ID=$(printf '%s\n' "$ids" | head -n 1)
+          if [ -n "$ID" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$dir/comment.md"
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$dir/comment.md"
+          fi
