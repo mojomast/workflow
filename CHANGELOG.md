@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `schemas/tdd-evidence.schema.json` gains an optional `metrics` object (`lines_added`, `lines_removed`, `reedited_lines`, `attempts`, `retries`, `max_chain`, `review_findings`; non-negative integers, no unknown keys), copied from bundlebees' evidence schema. Records without it stay valid. Advisory data only.
+- A committed `slop-baseline.json` (report-only baseline) is adopted for slop-lint and the slop-lint workflow now runs from the repo root so its paths match. It is still not a required check.
+- `tools/lessons-check/` turns recurring review findings into deterministic checks (`contract-test-ref`, `evidence-absolute-path`, `brief-may-create`) with a `python3 -m lessons_check check|list` CLI. Report-only by default via `--report-only`; not wired into CI.
+
 - `tools/slop-lint/` adds a stdlib-only slop linter (`python3 -m slop_lint check|baseline|prune`) with three rules (`complexity` over 10, `swallowed-exception`, `mutable-default-arg`) and a per-file+rule baseline ratchet: existing code passes through a committed baseline, only new or higher counts fail, a missing or malformed baseline always exits 2, and `--report-only` never fails on findings alone.
 
 - `.github/workflows/slop-lint.yml` runs slop-lint report-only on pull requests and pushes to main: read-only permissions, SHA-pinned actions, `continue-on-error`, findings appended to the job summary. It is not a required check; making it one needs the owner's decision.

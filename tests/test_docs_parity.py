@@ -46,6 +46,10 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    123: (
+        "docs-sync companion (registry rows + Unreleased bullets for the wave-2 PRs 120/121/122): "
+        "a bookkeeping change with no feature content of its own"
+    ),
     118: (
         "docs-sync companion (registry rows + Unreleased bullets for the slop-lint wave-1 PRs "
         "115/116/117): a bookkeeping change with no feature content of its own"
@@ -435,6 +439,24 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 117,
         "name": "PR summary renderer",
         "keywords": ("pr_summary", "render_pr_summary", "GAP"),
+    },
+    {
+        # schemas/tdd-evidence.schema.json: optional metrics object synced from bundlebees (wave 2).
+        "pr": 120,
+        "name": "evidence schema optional metrics object",
+        "keywords": ("tdd-evidence.schema.json", "optional `metrics` object", "review_findings"),
+    },
+    {
+        # slop-baseline.json + CI path fix: report-only baseline adoption (wave 2).
+        "pr": 121,
+        "name": "slop-lint baseline adoption",
+        "keywords": ("slop-baseline.json", "repo root", "report-only baseline"),
+    },
+    {
+        # tools/lessons-check: recurring review findings as deterministic checks (wave 2).
+        "pr": 122,
+        "name": "lessons-check",
+        "keywords": ("lessons-check", "contract-test-ref", "evidence-absolute-path"),
     },
 )
 
