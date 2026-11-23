@@ -48,6 +48,34 @@ def _regular_file(root: Path, root_real: Path, rel: str) -> bool:
     return True
 
 
+def _classify(rel: str) -> tuple[str, str, str] | None:
+    """Return ``(kind, directory, id)`` for a contract or evidence file name, else None."""
+    name = rel.rsplit("/", 1)[-1]
+    directory = rel.rsplit("/", 1)[0] if "/" in rel else ""
+    if name.endswith(CONTRACT_SUFFIX):
+        stem = name[: -len(CONTRACT_SUFFIX)]
+        return ("contract", directory, stem) if stem else None
+    for phase in pr_summary.PHASES:
+        suffix = f".{phase}.json"
+        if name.endswith(suffix):
+            stem = name[: -len(suffix)]
+            return ("evidence", directory, stem) if stem else None
+    return None
+
+
+def _usable_entries(changed_files: object, root: Path, root_real: Path) -> list[str]:
+    try:
+        entries = list(changed_files)
+    except TypeError:
+        return []
+    usable = []
+    for raw in entries:
+        rel = _safe_relpath(raw)
+        if rel is not None and _regular_file(root, root_real, rel):
+            usable.append(rel)
+    return usable
+
+
 def _qualifying_directories(changed_files: object, root: Path) -> list[str]:
     try:
         root_real = root.resolve(strict=True)
@@ -55,36 +83,16 @@ def _qualifying_directories(changed_files: object, root: Path) -> list[str]:
         return []
     if not root_real.is_dir():
         return []
-
-    contracts: dict[str, set[str]] = {}
-    evidence: dict[str, set[str]] = {}
-    try:
-        entries = list(changed_files)
-    except TypeError:
-        return []
-    for raw in entries:
-        rel = _safe_relpath(raw)
-        if rel is None or not _regular_file(root, root_real, rel):
-            continue
-        name = rel.rsplit("/", 1)[-1]
-        directory = rel.rsplit("/", 1)[0] if "/" in rel else ""
-        if name.endswith(CONTRACT_SUFFIX):
-            contract_id = name[: -len(CONTRACT_SUFFIX)]
-            if contract_id:
-                contracts.setdefault(directory, set()).add(contract_id)
-            continue
-        for phase in pr_summary.PHASES:
-            suffix = f".{phase}.json"
-            if name.endswith(suffix):
-                evidence_id = name[: -len(suffix)]
-                if evidence_id:
-                    evidence.setdefault(directory, set()).add(evidence_id)
-                break
-
+    found: dict[str, dict[str, set[str]]] = {"contract": {}, "evidence": {}}
+    for rel in _usable_entries(changed_files, root, root_real):
+        item = _classify(rel)
+        if item is not None:
+            kind, directory, stem = item
+            found[kind].setdefault(directory, set()).add(stem)
     qualified = [
         directory
-        for directory in contracts
-        if contracts[directory] & evidence.get(directory, set())
+        for directory, ids in found["contract"].items()
+        if ids & found["evidence"].get(directory, set())
     ]
     return sorted(qualified)[:MAX_DIRECTORIES]
 
