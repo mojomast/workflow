@@ -410,6 +410,24 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "collector independent CLI reads concurrent",
         "keywords": ("independent CLI reads", "test_obs_parallel_reads", "concurrently"),
     },
+    {
+        # tools/slop-lint: stdlib slop linter with a per-file+rule baseline ratchet (wave 1).
+        "pr": 116,
+        "name": "slop-lint engine, baseline ratchet and CLI",
+        "keywords": ("slop-lint", "baseline ratchet", "swallowed-exception"),
+    },
+    {
+        # .github/workflows/slop-lint.yml: report-only CI job for slop-lint (wave 1).
+        "pr": 115,
+        "name": "slop-lint report-only workflow",
+        "keywords": ("slop-lint.yml", "report-only", "job summary"),
+    },
+    {
+        # contrib/bee-ci/report/pr_summary.py: escaped, redacted PR summary renderer (wave 1).
+        "pr": 117,
+        "name": "PR summary renderer",
+        "keywords": ("pr_summary", "render_pr_summary", "GAP"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
