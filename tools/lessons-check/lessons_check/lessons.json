@@ -1,0 +1,20 @@
+[
+  {
+    "id": "contract-test-ref",
+    "source": "LESSONS.md item 1",
+    "summary": "Contract test references must be class-qualified pytest node ids, not bare file paths.",
+    "fix": "Write every acceptance_criteria[].tests entry as file::Class::test so it can match a collected case id."
+  },
+  {
+    "id": "evidence-absolute-path",
+    "source": "LESSONS.md item 10",
+    "summary": "Signed evidence records must not keep absolute local paths from the recording machine.",
+    "fix": "Scrub absolute local paths from failure messages and notes before signing the evidence record."
+  },
+  {
+    "id": "brief-may-create",
+    "source": "LESSONS.md item 6",
+    "summary": "A brief must never tell a bee it may create files outside its assigned lease.",
+    "fix": "Commit the shared package skeleton ahead of dispatch and list every file in assigned_files."
+  }
+]
