@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- slop-lint is now a blocking ratchet in CI (`.github/workflows/slop-lint.yml`): it fails only on findings above `slop-baseline.json` (`--pass-on-unpruned`, stale entries tolerated, shrink with `prune`), the job has the stable name `slop-lint`, and `.github/CODEOWNERS` assigns `slop-baseline.json` to the owner.
+
 - `schemas/tdd-evidence.schema.json` gains an optional `metrics` object (`lines_added`, `lines_removed`, `reedited_lines`, `attempts`, `retries`, `max_chain`, `review_findings`; non-negative integers, no unknown keys), copied from bundlebees' evidence schema. Records without it stay valid. Advisory data only.
 - A committed `slop-baseline.json` (report-only baseline) is adopted for slop-lint and the slop-lint workflow now runs from the repo root so its paths match. It is still not a required check.
 - `tools/lessons-check/` turns recurring review findings into deterministic checks (`contract-test-ref`, `evidence-absolute-path`, `brief-may-create`) with a `python3 -m lessons_check check|list` CLI. Report-only by default via `--report-only`; not wired into CI.
