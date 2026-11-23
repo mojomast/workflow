@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A fork-safe PR summary comment: `.github/workflows/pr-summary-build.yml` (`pull_request`, read-only) runs `contrib/bee-ci/report/pr_comment.py` and uploads `comment.md` plus `pr-number.txt`; `.github/workflows/pr-summary-comment.yml` (`workflow_run`, `pull-requests: write`, no checkout) validates the PR number against the head commit's pull requests, caps the body at 60000 bytes and upserts one sticky comment. It only comments on PRs that change a contract and its evidence together.
+
 - `schemas/tdd-evidence.schema.json` gains an optional `metrics` object (`lines_added`, `lines_removed`, `reedited_lines`, `attempts`, `retries`, `max_chain`, `review_findings`; non-negative integers, no unknown keys), copied from bundlebees' evidence schema. Records without it stay valid. Advisory data only.
 - A committed `slop-baseline.json` (report-only baseline) is adopted for slop-lint and the slop-lint workflow now runs from the repo root so its paths match. It is still not a required check.
 - `tools/lessons-check/` turns recurring review findings into deterministic checks (`contract-test-ref`, `evidence-absolute-path`, `brief-may-create`) with a `python3 -m lessons_check check|list` CLI. Report-only by default via `--report-only`; not wired into CI.
