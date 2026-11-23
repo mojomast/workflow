@@ -1,0 +1,16 @@
+{
+ "evidence_version": "tdd-evidence/1",
+ "contract_id": "W2-demo",
+ "phase": "green",
+ "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "classification": "passed",
+ "result": {
+  "exit_code": 0,
+  "tests": 1,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "timed_out": false
+ },
+ "notes": "demo"
+}

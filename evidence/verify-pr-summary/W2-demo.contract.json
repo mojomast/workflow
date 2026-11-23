@@ -1,0 +1,21 @@
+{
+ "contract_version": "acdd/1",
+ "id": "W2-demo",
+ "title": "Verification PR for the summary comment (throwaway)",
+ "outcome": {
+  "summary": "demo",
+  "observable_behavior": [
+   "demo"
+  ]
+ },
+ "acceptance_criteria": [
+  {
+   "id": "AC-001",
+   "statement": "the summary comment is posted once",
+   "verification": "test",
+   "tests": [
+    "t.py::T::a"
+   ]
+  }
+ ]
+}
