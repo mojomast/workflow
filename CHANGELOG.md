@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Wave B design (`docs/design/wave-b-worker-contract.md`): draft `rizzstack.brief/1` and `rizzstack.attempt/1` schemas with a migration note; nothing validates against them yet.
 - Release prep (no tag): the entries below are now the `[0.1.0] - 2026-11-24` section, the first workflow release candidate (26-coordinated-release.md step 3). `tests/test_docs_parity.py` reads coverage keywords and the `### In review` subsection from `## Unreleased` together with that candidate section, so nothing that was covered stops being checked. Tagging `v0.1.0` still needs Kyle's typed yes.
 
 ## [0.1.0] - 2026-11-24

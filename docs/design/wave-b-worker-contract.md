@@ -1,7 +1,6 @@
 # Wave B design: one worker contract
 
-Status: **proposed** (design only; no code changes). Source: the Nov 24 next-level review, wave B
-([rizzstack #17](https://github.com/mojomast/rizzstack/pull/17)). Plan: rizzstack `NEXT.md`.
+Status: **accepted as design** (Kyle, chat t1650u). Design only; no code changes. Enforcement (step B6) is **not** switched on: the recommendation is report-only first and an owner-set date after two weeks with zero drift reports. Source: the Nov 24 next-level review, wave B ([rizzstack #17](https://github.com/mojomast/rizzstack/pull/17)). Plan: rizzstack `NEXT.md`.
 
 ## Problem
 
