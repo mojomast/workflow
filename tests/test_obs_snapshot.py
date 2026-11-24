@@ -14,6 +14,7 @@ import importlib.util
 import json
 import os
 import shutil
+import sqlite3
 import stat
 import subprocess
 import sys
@@ -147,8 +148,86 @@ def fixture_collector(tmp_path: Path, **overrides):
     return collector.Collector(**defaults)
 
 
+SHA_A = "a" * 40
+SHA_B = "b" * 40
+
+
+def worker_state(tmp_path: Path) -> Path:
+    state = tmp_path / "worker-state"
+    (state / "deliveries").mkdir(parents=True, exist_ok=True)
+    (state / "verify-results").mkdir(parents=True, exist_ok=True)
+    return state
+
+
+def write_delivery(state: Path, attempt_id: str, repo: str) -> None:
+    (state / "deliveries" / f"{attempt_id}.json").write_text(
+        json.dumps({"schema": "rizzstack.delivery/1", "attempt_id": attempt_id, "repo": repo}),
+        encoding="utf-8",
+    )
+
+
+def write_verify(state: Path, attempt_id: str, *, ok, sha) -> None:
+    (state / "verify-results" / f"{attempt_id}.json").write_text(
+        json.dumps({"attempt_id": attempt_id, "ok": ok, "sha": sha}),
+        encoding="utf-8",
+    )
+
+
+def rails_usage_envelope(
+    dedupe_key: str,
+    attempt_id: str,
+    *,
+    chain_id: str = "worker-1.ledger-test",
+    recorded_at: str = "2026-11-16T09:00:00Z",
+    model: str = "deepseek-v4.1-flash",
+    provider: str = "deepseek",
+    input_tokens=None,
+    output_tokens=None,
+    thinking_tokens=None,
+) -> dict:
+    return {
+        "schema": "rizzstack.rails/1",
+        "chain_id": chain_id,
+        "dedupe_key": dedupe_key,
+        "recorded_at": recorded_at,
+        "kind": "usage.observed",
+        "scope": {"attempt_id": attempt_id},
+        "payload": {
+            "usage_record_id": dedupe_key,
+            "metric_scope": attempt_id,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "thinking_tokens": thinking_tokens,
+            "usage_basis": "final",
+            "provider": provider,
+            "model": model,
+        },
+    }
+
+
+def write_rails_ledger(path: Path, events) -> None:
+    conn = sqlite3.connect(str(path))
+    try:
+        conn.execute("CREATE TABLE event_rows (envelope_json TEXT NOT NULL, kind TEXT NOT NULL)")
+        for env in events:
+            conn.execute(
+                "INSERT INTO event_rows (envelope_json, kind) VALUES (?, ?)",
+                (json.dumps(env), env.get("kind", "usage.observed")),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def validated(doc) -> None:
     VALIDATOR.validate(doc, VALIDATOR.load(SNAPSHOT_SCHEMA))
+
+
+def assert_optional_usage_fields(schema: dict) -> None:
+    usage = schema["$defs"]["usage_section"]
+    for name in ("by_role", "bee", "tokens_per_verified_patch"):
+        assert name in usage["properties"], name
+        assert name not in usage["required"], name
 
 
 # --------------------------------------------------------------------- schema
@@ -173,6 +252,7 @@ class TestSnapshotSchema:
         optional = set(collector.SECTION_NAMES) - required
         assert optional == {"bottlenecks", "decisions"}, optional
         assert all(name in schema["properties"] for name in optional)
+        assert_optional_usage_fields(schema)
 
     def test_every_record_carries_schema_and_generated_at(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
@@ -409,6 +489,170 @@ class TestFixtureSnapshot:
         dumped = json.dumps(snapshot)
         for marker in ("ghp_", "sk-", "BEGIN PRIVATE", "bearer "):
             assert marker not in dumped
+
+
+EXPECTED_USAGE_AT_BASE = json.loads(r"""
+{"by_model":[{"cost_status":"partial","cost_usd":0.02,"generated_at":"2026-11-16T09:30:00Z","input_tokens":1700,"model":"deepseek-v4.1-flash","output_tokens":850,"provider":"deepseek","requests":4,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":2550},{"cost_status":"unknown","cost_usd":null,"generated_at":"2026-11-16T09:30:00Z","input_tokens":null,"model":"go-worker-large","output_tokens":null,"provider":"go","requests":1,"schema":"rizzstack.observability/snapshot/1","tokens_status":"unknown","total_tokens":null}],"by_repo":[{"cost_status":"unknown","cost_usd":null,"generated_at":"2026-11-16T09:30:00Z","input_tokens":400,"output_tokens":200,"repo":"mojomast/bundlebees","requests":1,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":600},{"cost_status":"partial","cost_usd":0.02,"generated_at":"2026-11-16T09:30:00Z","input_tokens":1100,"output_tokens":550,"repo":"mojomast/workflow","requests":3,"schema":"rizzstack.observability/snapshot/1","tokens_status":"partial","total_tokens":1650},{"cost_status":"unknown","cost_usd":null,"generated_at":"2026-11-16T09:30:00Z","input_tokens":200,"output_tokens":100,"repo":"unknown/unknown","requests":1,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":300}],"collected_at":"2026-11-16T09:30:00Z","error":null,"source":{"generated_at":"2026-11-16T09:30:00Z","parse_errors":1,"record_count":5,"schema":"rizzstack.observability/snapshot/1","usage_status":"partial"},"status":"live","totals":{"cost_status":"partial","cost_usd":0.02,"fallback_count":1,"generated_at":"2026-11-16T09:30:00Z","http_429_count":2,"input_tokens":1700,"output_tokens":850,"requests":5,"schema":"rizzstack.observability/snapshot/1","tokens_status":"partial","total_tokens":2550,"unknown_cost_records":4}}
+""")
+
+
+class TestWorkerUsage:
+    def test_coordinator_only_usage_and_unavailable_worker(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"role": "coordinator", "input_tokens": 100, "output_tokens": 40,
+             "total_tokens": 140, "cost_usd": 0.01, "cache_read_tokens": 7},
+            {"role": "coordinator", "input_tokens": 10, "output_tokens": None,
+             "total_tokens": None, "cost_usd": None},
+        ]
+        ledger.write_text("".join(json.dumps(row) + "\n" for row in records), encoding="utf-8")
+        body, _ = collector.Collector(
+            usage_path=ledger, now_fn=lambda: FIXED_NOW, stale_after_s=1800
+        ).usage_section()
+        totals = body["totals"]
+        coordinator = body["by_role"]["coordinator"]
+        assert (coordinator["requests"], coordinator["input"], coordinator["output"],
+                coordinator["total"], coordinator["cost_usd"], coordinator["unknown_cost"],
+                coordinator["priced"], coordinator["cache_read"], coordinator["source"]) == (
+            totals["requests"], totals["input_tokens"], totals["output_tokens"],
+            totals["total_tokens"], totals["cost_usd"], totals["unknown_cost_records"],
+            1, 7, "bee.usage/v1")
+        assert body["by_role"]["unknown"]["requests"] == 0
+        assert body["by_role"]["worker"] == {
+            "status": "unavailable",
+            "source": "rizzstack-rails/usage.observed",
+            "requests": None,
+            "input": None,
+            "output": None,
+            "thinking": None,
+            "total": None,
+            "cost_usd": None,
+            "priced": 0,
+            "unknown_cost": 0,
+            "cache_read": None,
+        }
+        assert (body["bee"], body["tokens_per_verified_patch"]) == (None, None)
+
+    def test_bee_sums_models_repos_and_tokens_per_verified_patch(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        write_delivery(state, "a1", "mojomast/workflow")
+        write_delivery(state, "a2", "mojomast/workflow")
+        write_delivery(state, "a3", "mojomast/bundlebees")
+        write_verify(state, "v1", ok=True, sha=SHA_A)
+        write_verify(state, "v2", ok="true", sha=SHA_B)
+        write_verify(state, "v3", ok=False, sha=SHA_A)
+        write_verify(state, "v4", ok=True, sha=None)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            rails_usage_envelope("e1", "a1", input_tokens=10, output_tokens=5, thinking_tokens=2,
+                                 model="model-a", provider="provider-a"),
+            rails_usage_envelope("e2", "a2", input_tokens=20, output_tokens=None, thinking_tokens=3,
+                                 model="model-a", provider="provider-a"),
+            rails_usage_envelope("e3", "a3", input_tokens=None, output_tokens=7, thinking_tokens=None,
+                                 model="model-b", provider="provider-b"),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        bee = body["bee"]
+        assert (bee["status"], bee["source"], bee["attempts"], bee["requests"]) == (
+            "known", "rizzstack-rails/usage.observed", 3, 3)
+        assert (bee["input"], bee["output"], bee["thinking"], bee["total"],
+                bee["cost_usd"], bee["priced"], bee["unknown_cost"]) == (30, 12, 5, 47, None, 0, 3)
+        worker = body["by_role"]["worker"]
+        assert (worker["requests"], worker["input"], worker["output"], worker["thinking"],
+                worker["total"], worker["unknown_cost"]) == (3, 30, 12, 5, 47, 3)
+        by_model = {(row["model"], row["provider"]): row for row in bee["by_model"]}
+        assert ((by_model[("model-a", "provider-a")]["requests"],
+                 by_model[("model-a", "provider-a")]["total"],
+                 by_model[("model-a", "provider-a")]["unknown_cost"]),
+                by_model[("model-b", "provider-b")]["total"]) == ((2, 40, 2), 7)
+        by_repo = {row["repo"]: row for row in bee["by_repo"]}
+        assert (set(by_repo),
+                (by_repo["mojomast/workflow"]["attempts"],
+                 by_repo["mojomast/workflow"]["requests"],
+                 by_repo["mojomast/workflow"]["total"]),
+                (by_repo["mojomast/bundlebees"]["attempts"],
+                 by_repo["mojomast/bundlebees"]["total"])) == (
+            {"mojomast/workflow", "mojomast/bundlebees"}, (2, 2, 40), (1, 7))
+        tpp = body["tokens_per_verified_patch"]
+        assert (tpp["numerator"], tpp["denominator"], tpp["value"], tpp["unit"],
+                tpp["scope"], tpp["cost"]["status"], "input+output+thinking" in tpp["basis"]) == (
+            47, 2, 23.5, "tokens", "all time", "partial", True)
+
+    def test_duplicate_usage_observed_counts_once(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:00:00Z",
+                                 input_tokens=5),
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:10:00Z",
+                                 input_tokens=9, output_tokens=1),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        bee = body["bee"]
+        assert bee["requests"] == 1
+        assert bee["attempts"] == 1
+        assert (bee["input"], bee["output"], bee["total"]) == (9, 1, 10)
+        assert bee["by_model"][0]["requests"] == 1
+        assert bee["by_repo"][0]["repo"] == "unknown"
+
+    def test_empty_rails_ledger_is_measured_zero_and_null_ratio(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            {"chain_id": "worker-1.ledger-test", "dedupe_key": "open", "kind": "lane.open",
+             "recorded_at": "2026-11-16T09:00:00Z", "scope": {"attempt_id": "a1"}, "payload": {}},
+        ])
+        body, _ = collector.Collector(
+            rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        worker = body["by_role"]["worker"]
+        assert worker["status"] == "empty"
+        assert (worker["requests"], worker["input"], worker["output"], worker["thinking"],
+                worker["total"], worker["unknown_cost"]) == (0, 0, 0, 0, 0, 0)
+        bee = body["bee"]
+        assert bee["status"] == "empty"
+        assert bee["attempts"] == 0 and bee["requests"] == 0
+        assert (bee["input"], bee["output"], bee["thinking"], bee["total"]) == (0, 0, 0, 0)
+        assert bee["by_model"] == [] and bee["by_repo"] == []
+        assert body["tokens_per_verified_patch"] is None
+
+    def test_non_sqlite_rails_ledger_is_unavailable_without_degrading(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        state = state_root / "state"
+        bad = tmp_path / "not-a-ledger.sqlite3"
+        bad.write_text("this is not sqlite\n", encoding="utf-8")
+        snap = fixture_collector(tmp_path, rails_ledger=bad).build_snapshot()
+        validated(snap)
+        assert snap["usage"]["status"] == "live"
+        assert "usage" not in snap["degraded"]
+        worker = snap["usage"]["by_role"]["worker"]
+        assert worker["status"] == "unavailable"
+        assert worker["error"] == "rails_ledger_unreadable"
+        assert worker["requests"] is None and worker["total"] is None
+        assert snap["usage"]["bee"] is None
+        assert snap["usage"]["tokens_per_verified_patch"] is None
+        assert snap["usage"]["totals"]["requests"] == 5
+
+    def test_new_usage_shapes_are_optional_schema_properties(self) -> None:
+        schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
+        usage = schema["$defs"]["usage_section"]
+        for name in ("by_role", "bee", "tokens_per_verified_patch"):
+            assert name in usage["properties"]
+            assert name not in usage["required"]
+        assert usage["required"] == [
+            "status", "error", "collected_at", "source", "totals", "by_model", "by_repo"
+        ]
+
+    def test_usage_section_before_new_fields_matches_base_revision(self, tmp_path: Path) -> None:
+        snap = fixture_collector(tmp_path).build_snapshot()
+        validated(snap)
+        usage = copy.deepcopy(snap["usage"])
+        for name in ("by_role", "bee", "tokens_per_verified_patch"):
+            usage.pop(name, None)
+        assert usage == EXPECTED_USAGE_AT_BASE
 
 
 # ------------------------------------------------------------------ degradation
