@@ -1,8 +1,6 @@
 # Wave D design: one core, one log, one loop
 
-Status: **proposed** (design only). Wave D of the Nov 24 next-level review
-([rizzstack #17](https://github.com/mojomast/rizzstack/pull/17)). Absorbs `NEXT.md` W4-4 (refresh
-check for vendored slop-lint copies) and W1-7 (the legacy `pc-launcher`).
+Status: **accepted as design** (Kyle, chat t1650u). Design only. Wave D of the Nov 24 next-level review ([rizzstack #17](https://github.com/mojomast/rizzstack/pull/17)). Absorbs `NEXT.md` W4-4 and W1-7. Owner decisions taken: delete `pc-launcher/` and `server/checkpoints.mjs`; move the trial harness to `contrib/trial` and the other unwired bundlebees modules to `contrib/`; decide `verify_workers` after its shadow run.
 
 ## Why workflow owns this
 
