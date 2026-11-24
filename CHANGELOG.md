@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A `ci-gate` job in `.github/workflows/ci.yml` needs every other CI job and passes only when all of them succeeded, so the main ruleset can require one stable check name. `.github/scripts/check_ci_gate.py` (standard library only) fails if a job is added without being added to `ci-gate`'s `needs`, and the gate runs it first.
 - `ROADMAP.md` is rewritten as done / open PR / planned with every pull request number re-checked on 24 November 2026 (America/Toronto). The 12 November merge order is closed out, and new sections cover Rails (release on hold), the M2 canary (native Windows unconfirmed), the decision queue and risk tiers, quality gates, memory, and releases.
 - slop-lint is now a blocking ratchet in CI (`.github/workflows/slop-lint.yml`): it fails only on findings above `slop-baseline.json` (`--pass-on-unpruned`, stale entries tolerated, shrink with `prune`), the job has the stable name `slop-lint`, and `.github/CODEOWNERS` assigns `slop-baseline.json` to the owner.
 - A fork-safe PR summary comment: `.github/workflows/pr-summary-build.yml` (`pull_request`, read-only) runs `contrib/bee-ci/report/pr_comment.py` and uploads `comment.md` plus `pr-number.txt`; `.github/workflows/pr-summary-comment.yml` (`workflow_run`, `pull-requests: write`, no checkout) validates the PR number against the head commit's pull requests, caps the body at 60000 bytes and upserts one sticky comment. It only comments on PRs that change a contract and its evidence together.
