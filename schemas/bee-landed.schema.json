@@ -53,7 +53,11 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2048,
-      "description": "Optional CloudEvents attribute naming the schema URI."
+      "enum": [
+        "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json",
+        "https://rizstack.dev/schemas/bee-landed/v1"
+      ],
+      "description": "Optional CloudEvents attribute naming the schema URI. The canonical value is https://github.com/mojomast/workflow/schemas/bee-landed.schema.json. The deprecated legacy value https://rizstack.dev/schemas/bee-landed/v1 remains accepted for compatibility."
     },
     "data": {
       "type": "object",
