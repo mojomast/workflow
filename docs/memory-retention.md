@@ -102,6 +102,23 @@ the vault's existing fsynced receipt writer so it shares the monotonic
 the receipt readable on its own. Sequence numbers are strictly increasing and
 never reused.
 
+## Seeding from the agent lessons
+
+`scripts/seed_memory_from_lessons.py` turns every `### L-NN · Title` section in
+[28-agent-lessons.md](28-agent-lessons.md) into one `learning` memory with id
+`lesson-l-nn`. It writes as `agent:lessons-seed` without an authority grant, so
+the records land in that writer's quarantine subtree
+(`.quarantine/agent-lessons-seed/`) and need a human grant to promote them into
+the reviewed or curated zones. Re-running is idempotent; `--dry-run` lists the
+ids and touches nothing.
+
+```sh
+python3 scripts/seed_memory_from_lessons.py --vault <vault-path> [--now <rfc3339>] [--dry-run]
+```
+
+The last stdout line is a JSON summary with the writer, the number written and
+unchanged, and whether the run was a dry run.
+
 ## Scheduling is an operator decision
 
 This slice ships **no cron entry, systemd timer, daemon or background job**. The
