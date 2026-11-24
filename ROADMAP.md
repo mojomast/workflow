@@ -54,6 +54,13 @@ with unavailable kept apart from zero (#11), and collected-test-id validation
 - **Planned (release):** the [release decision](evidence/rails-rc/release/DECISION.md)
   is **HOLD**. It needs the worker-assignment binding chosen and a live
   Windows canary before `rails_enabled` is turned on anywhere.
+  That record was written at the four draft heads, before they merged, and
+  still calls the attempt index opt-in; since then bundlebees
+  [#84](https://github.com/mojomast/bundlebees/pull/84) (17 Nov) made the
+  index the default for new ledgers. Its paging numbers against the 500 ms
+  p95 target: events 1,614 ms by default, 499.7 ms with the index in that
+  run and 670.7 ms in the prior indexed run. Existing ledgers need the
+  directory migration from #84; multi-host runs are untested.
 
 ## M2 canary
 
