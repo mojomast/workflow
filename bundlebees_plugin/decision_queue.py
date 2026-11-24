@@ -43,9 +43,10 @@ import os
 import re
 import sys
 import tempfile
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 SUPPORTED = ("rizzstack.owner-decision/1",)
 
@@ -68,6 +69,7 @@ ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 NONCE_RE = re.compile(r"^[0-9a-f]{32}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$")
+RECEIPT_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 REL_PATH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
 
 REQUEST_FIELDS = (
@@ -441,7 +443,7 @@ def sign_receipt(receipt: Mapping[str, Any], key: bytes | str | None) -> dict[st
 
 def _receipt_body(receipt: Mapping[str, Any]) -> dict[str, Any]:
     """Validate the frozen receipt shape and return it as a plain dict."""
-    _need(isinstance(receipt, dict), "receipt_bad_version", "a receipt must be a JSON object")
+    _need(isinstance(receipt, Mapping), "receipt_bad_version", "a receipt must be a JSON object")
     body = dict(receipt)
     unknown = sorted(set(body) - set(RECEIPT_FIELDS))
     _need(
@@ -478,9 +480,9 @@ def _receipt_body(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "receipt decision_digest must be a hex sha256 digest",
     )
     _need(
-        isinstance(body["decided_at"], str) and TIMESTAMP_RE.match(body["decided_at"]) is not None,
+        isinstance(body["decided_at"], str) and RECEIPT_TIMESTAMP_RE.match(body["decided_at"]) is not None,
         "receipt_bad_timestamp",
-        "receipt decided_at must be an RFC 3339 UTC timestamp with second precision",
+        "receipt decided_at must be an RFC 3339 UTC timestamp with second precision ending in Z",
     )
     _need(
         body["outcome"] in RECEIPT_OUTCOMES,
@@ -532,6 +534,11 @@ def _verify_receipt_bindings(
         and body["decided_at"] == decision.get("decided_at"),
         "receipt_decision_mismatch",
         "the receipt does not answer this decision",
+    )
+    _need(
+        body["decided_by"] == decision.get("decided_by"),
+        "receipt_decision_mismatch",
+        "the receipt decided_by does not match the decision decided_by",
     )
 
 

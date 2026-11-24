@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -768,6 +769,42 @@ class TestReceiptSigning:
         assert RECEIPT_TEST_KEY.hex() not in str(excinfo.value)
         assert str(value) not in str(excinfo.value)
 
+    def test_a_signed_receipt_with_an_offset_decided_at_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(
+            request,
+            decision,
+            RECEIPT_TEST_KEY,
+            decided_at="2026-11-16T10:00:00+05:00",
+        )
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_bad_timestamp"
+
+    def test_a_mapping_receipt_is_accepted(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+
+        class ReceiptMapping(Mapping):
+            def __init__(self, body):
+                self._body = body
+
+            def __getitem__(self, key):
+                return self._body[key]
+
+            def __iter__(self):
+                return iter(self._body)
+
+            def __len__(self):
+                return len(self._body)
+
+        checked = decision_queue.verify_receipt(
+            ReceiptMapping(receipt), request=request, decision=decision, key=RECEIPT_TEST_KEY
+        )
+        assert checked == receipt
+
     @pytest.mark.parametrize(
         "field, value",
         [
@@ -870,6 +907,19 @@ class TestReceiptBindings:
             decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
         assert excinfo.value.code == "receipt_decision_mismatch"
 
+    def test_an_offset_decision_with_a_z_receipt_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request, decided_at="2026-11-16T10:00:00+05:00")
+        receipt = signed_receipt(
+            request,
+            decision,
+            RECEIPT_TEST_KEY,
+            decided_at="2026-11-16T10:00:00Z",
+        )
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_decision_mismatch"
+
 
 class TestDecisionReceiptWiring:
     def test_a_valid_receipt_is_evidence_and_is_not_persisted(self, queue: decision_queue.DecisionQueue, tmp_path: Path) -> None:
@@ -942,7 +992,7 @@ class TestDecisionReceiptWiring:
         assert hashlib.sha256(path.read_bytes()).hexdigest() == before
         assert queue.status(queue.get("odq_gate_1")) == "pending"
 
-    def test_a_deny_with_a_receipt_still_refuses_unexpected_receipt(self, queue: decision_queue.DecisionQueue) -> None:
+    def test_a_deny_with_the_legacy_receipt_ref_still_refuses_unexpected_receipt(self, queue: decision_queue.DecisionQueue) -> None:
         queue.raise_request(gate_request())
         request = queue.get("odq_gate_1")["request"]
         decision = receipt_decision(request, outcome="deny")
@@ -960,6 +1010,83 @@ class TestDecisionReceiptWiring:
             )
         assert excinfo.value.code == "unexpected_receipt"
         assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_receipt_for_an_agent_decision_is_refused_before_any_write(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        queue.raise_request(gate_request())
+        path = tmp_path / "decisions" / "odq_gate_1.json"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, decided_by="agent")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_decision_mismatch"
+        assert "decided_by" in str(excinfo.value)
+        with pytest.raises(decision_queue.QueueError) as record_excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="approve",
+                decided_by="agent",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref=decision["approval_receipt_ref"],
+                receipt=receipt,
+                key=RECEIPT_TEST_KEY,
+            )
+        assert record_excinfo.value.code == "receipt_decision_mismatch"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_deny_with_a_forged_signed_receipt_is_refused(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        queue.raise_request(gate_request())
+        path = tmp_path / "decisions" / "odq_gate_1.json"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, outcome="deny")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        receipt["signature"] = "0" * 64
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="deny",
+                decided_by="owner",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref=None,
+                receipt=receipt,
+                key=RECEIPT_TEST_KEY,
+            )
+        assert excinfo.value.code == "receipt_signature_invalid"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_valid_signed_deny_receipt_is_accepted_and_records_no_receipt_ref(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, outcome="deny")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        record = queue.record_decision(
+            "odq_gate_1",
+            outcome="deny",
+            decided_by="owner",
+            decided_at=decision["decided_at"],
+            rationale=decision["rationale"],
+            approval_receipt_ref=None,
+            receipt=receipt,
+            key=RECEIPT_TEST_KEY,
+        )
+        assert queue.status(record) == "decided"
+        assert record["decision"]["outcome"] == "deny"
+        assert record["decision"]["approval_receipt_ref"] is None
+        stored = json.loads((tmp_path / "decisions" / "odq_gate_1.json").read_text(encoding="utf-8"))
+        assert "receipt" not in stored
+        assert stored["decision"]["approval_receipt_ref"] is None
 
 
 class TestReceiptCli:

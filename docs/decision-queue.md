@@ -104,10 +104,12 @@ The rules the queue enforces mechanically:
 
 An approval may be accompanied by a frozen **owner-decision receipt**
 (`rizzstack.owner-decision-receipt/1`) signed on a trusted route. The receipt
-is evidence only; the queue records it for verification and never persists it
-in the queue entry.
+is evidence only; the queue validates it and never persists it in the queue
+entry.
 
-The shape is exactly these fields, in this order, and nothing else:
+The shape is exactly these fields and nothing else. `RECEIPT_FIELDS` is the
+canonical field list and order; it is not an input-order requirement, and
+the order of keys in a JSON object is irrelevant:
 
 | Field | Meaning |
 |---|---|
@@ -117,9 +119,15 @@ The shape is exactly these fields, in this order, and nothing else:
 | `decision_nonce` | the request's nonce, echoed by the receipt |
 | `outcome` | `approve` or `deny` |
 | `decided_by` | the literal `owner` |
-| `decided_at` | RFC 3339 UTC timestamp with second precision |
+| `decided_at` | RFC 3339 UTC timestamp with second precision, ending in `Z`; numeric offsets are refused |
 | `decision_digest` | the sealed decision's digest |
 | `signature` | 64 lowercase hex characters |
+
+A valid signed `approve` or `deny` receipt is accepted as evidence and verifies
+exactly the same way. The legacy `approval_receipt_ref` on a decision remains
+approve-only: a `deny` decision that carries it is still refused with
+`unexpected_receipt`. A receipt's `decided_at` must be a UTC timestamp ending
+in `Z`; a numeric offset is refused with `receipt_bad_timestamp`.
 
 The canonical signing domain is `canonical_json` of the receipt **without**
 the `signature` field: sorted keys, compact separators, ASCII escapes. The
@@ -138,7 +146,7 @@ name the rule:
 - key and signature: `receipt_key_missing`, `receipt_signature_invalid`;
 - bindings: `receipt_binding_mismatch` (the request id, request digest or
   nonce differs) and `receipt_decision_mismatch` (the decision digest,
-  outcome or decision time differs).
+  outcome, decision time or `decided_by` differs).
 
 `DecisionQueue.record_decision` accepts an optional `receipt` and `key`. It
 validates the decision first, then verifies the receipt against that decision
