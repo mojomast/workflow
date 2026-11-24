@@ -439,19 +439,8 @@ def sign_receipt(receipt: Mapping[str, Any], key: bytes | str | None) -> dict[st
     return body
 
 
-def verify_receipt(
-    receipt: Mapping[str, Any],
-    *,
-    request: Mapping[str, Any],
-    decision: Mapping[str, Any],
-    key: bytes | str | None,
-) -> dict[str, Any]:
-    """Verify the frozen receipt shape, its signature and its bindings.
-
-    The shape is checked first, then the signature with ``hmac.compare_digest``,
-    then the request and decision bindings. The key is supplied by the caller;
-    this module never reads or stores it.
-    """
+def _receipt_body(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the frozen receipt shape and return it as a plain dict."""
     _need(isinstance(receipt, dict), "receipt_bad_version", "a receipt must be a JSON object")
     body = dict(receipt)
     unknown = sorted(set(body) - set(RECEIPT_FIELDS))
@@ -508,12 +497,23 @@ def verify_receipt(
         "receipt_signature_invalid",
         "receipt signature must be 64 lowercase hex characters",
     )
+    return body
+
+
+def _verify_receipt_signature(body: Mapping[str, Any], key: bytes | str | None) -> None:
     expected = receipt_signature(body, _receipt_key(key))
     _need(
         hmac.compare_digest(expected, body["signature"]),
         "receipt_signature_invalid",
         "receipt signature does not verify",
     )
+
+
+def _verify_receipt_bindings(
+    body: Mapping[str, Any],
+    request: Mapping[str, Any],
+    decision: Mapping[str, Any],
+) -> None:
     _need(
         isinstance(request, dict) and isinstance(decision, dict),
         "receipt_binding_mismatch",
@@ -533,6 +533,24 @@ def verify_receipt(
         "receipt_decision_mismatch",
         "the receipt does not answer this decision",
     )
+
+
+def verify_receipt(
+    receipt: Mapping[str, Any],
+    *,
+    request: Mapping[str, Any],
+    decision: Mapping[str, Any],
+    key: bytes | str | None,
+) -> dict[str, Any]:
+    """Verify the frozen receipt shape, its signature and its bindings.
+
+    The shape is checked first, then the signature with ``hmac.compare_digest``,
+    then the request and decision bindings. The key is supplied by the caller;
+    this module never reads or stores it.
+    """
+    body = _receipt_body(receipt)
+    _verify_receipt_signature(body, key)
+    _verify_receipt_bindings(body, request, decision)
     return body
 
 
