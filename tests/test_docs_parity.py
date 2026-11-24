@@ -515,6 +515,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
             "agent:lessons-seed",
         ),
     },
+    {
+        # T4-NOIDX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 137,
+        "name": "T4-NOIDX: Rails bench index arms (workflow, T4-NOIDX): `scripts/bench_rails.py",
+        "keywords": ("scripts/bench_rails.py", "build_parser()", "rails_local_attempt_scan",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
