@@ -67,15 +67,20 @@ def check_ids(actual, expected):
         raise ValueError('duplicate, missing, out-of-order or unexpected event ID')
 
 
-def fixed_history_seed(held):
-    if held < 0:
-        raise ValueError('held marks cannot be negative')
-    return max(0, RENDERER_CAP - held)
+def fixed_history_seed(cycles):
+    if not 0 <= cycles <= LIVE_CYCLES_MAX:
+        raise ValueError('cycles must fit within the live view')
+    return LIVE_VIEW_LIMIT - 1 - 2 * cycles
+
+
+def cycles_per_window(duration):
+    width = duration / 6
+    return max(1, min(LIVE_CYCLES_MAX, int(width // 10)))
 
 
 def schedule(duration):
     width = duration / 6
-    count = max(1, min(LIVE_CYCLES_MAX, int(width // 10)))
+    count = cycles_per_window(duration)
     for window in range(6):
         for n in range(count):
             yield window, width * (window + n / count)
@@ -296,19 +301,21 @@ def soak(path, duration, overview, args, save):
         out = {'browser':get_message(js), 'cycles':[], 'windows':[], 'reader_start_kib':rss(reader.pid)}
         save(out)
         writer = RailsLedger(path); cleanup.callback(writer.close)
+        seed_count = fixed_history_seed(cycles_per_window(duration)) if args.fixed_history else 0
         if args.fixed_history:
-            seeded = fixed_history_seed(0)
-            for held in range(seeded):
-                receipt = writer.append(**candidate(0, FIXED_HISTORY_INDEX_BASE + held, live=0))
-                if receipt['duplicated']: raise ValueError('duplicate append')
-            out['fixed_history_seeded'] = seeded
+            out['fixed_history_seeded'] = seed_count
             save(out)
         start = time.monotonic(); previous = None; n = 0
         for window, planned in schedule(duration):
             time.sleep(max(0, start+planned-time.monotonic()))
             if window != previous:
+                seeded = []
+                for held in range(seed_count):
+                    receipt = writer.append(**candidate(0, FIXED_HISTORY_INDEX_BASE + held, live=window))
+                    if receipt['duplicated']: raise ValueError('duplicate append')
+                    seeded.append(receipt['event_id'])
                 receipt = writer.append(**candidate(0,0,live=window,gap=True))
-                send(js,dict(op='select',window=window,id=receipt['event_id']))
+                send(js,dict(op='select',window=window,id=receipt['event_id'],seeded=seeded))
                 if get_message(js) != 'armed': raise ValueError('browser did not arm')
                 previous, n = window, 1
             cycle = dict(window=window,planned_s=planned,start_s=round(time.monotonic()-start,3))
@@ -326,7 +333,7 @@ def soak(path, duration, overview, args, save):
                 if get_message(js) != 'visible': raise ValueError('browser visibility check failed')
                 visible_ms = ms(t)
                 ack = get_message(js)
-                if ack['id'] != receipt['event_id'] or ack['count'] != n:
+                if ack['id'] != receipt['event_id'] or ack['count'] != len(seeded) + n:
                     raise ValueError('incorrect visible receipt')
                 cycle[mode] = dict(**ack,http_body_ms=http_ms,browser_visible_ms=visible_ms)
             cycle.update(reader_kib=rss(reader.pid),node_kib=rss(js.pid),t_s=round(time.monotonic()-start,3))
@@ -361,7 +368,7 @@ def build_parser():
     p.add_argument('--events',type=int,default=100000,choices=range(5000,100001,5000),metavar='5000..100000 (multiple of 5000)')
     p.add_argument('--samples',type=int,default=100,choices=range(1,101),metavar='1..100')
     p.add_argument('--soak-seconds',type=int,default=1800,choices=range(0,14401),metavar='0..14400')
-    p.add_argument('--fixed-history',action='store_true',help='pre-seed the live viewport to the renderer cap (Arm B)')
+    p.add_argument('--fixed-history',action='store_true',help='pre-seed every live selector to the shared view cap (Arm B)')
     p.add_argument('--node-modules',type=Path,help='existing offline Orbit node_modules (esbuild + playwright-core)')
     arms = p.add_mutually_exclusive_group()
     arms.add_argument('--attempt-index', action='store_true', help='deprecated: the default; new ledgers create the index')
