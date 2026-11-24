@@ -28,6 +28,11 @@ LANES, PAGE, BATCH = 10, 500, 50
 MISSING = 'offline-worker'
 RENDERER_CAP = 2000
 FIXED_HISTORY_INDEX_BASE = 1000
+# The live view answers at most LIVE_VIEW_LIMIT marks per selector (the shared query's
+# default limit). A window holds its gap mark plus two probes per cycle, so it may plan
+# at most LIVE_CYCLES_MAX cycles; longer windows spread them out instead of adding more.
+LIVE_VIEW_LIMIT = 100
+LIVE_CYCLES_MAX = (LIVE_VIEW_LIMIT - 1) // 2
 # The service must import Orbit's vendored runtime, not a cached canonical module.
 sys.path.insert(0, str(ORBIT / 'contrib' if sys.argv[1:2] == ['--reader'] else BB))
 from rizzstack_rails import RailsLedger, query
@@ -70,7 +75,7 @@ def fixed_history_seed(held):
 
 def schedule(duration):
     width = duration / 6
-    count = max(1, int(width // 10))
+    count = max(1, min(LIVE_CYCLES_MAX, int(width // 10)))
     for window in range(6):
         for n in range(count):
             yield window, width * (window + n / count)

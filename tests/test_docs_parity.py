@@ -595,6 +595,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("merge_group", "bee-ci/reference",),
     },
     {
+        # P2 harness fix (Kyle 15:02 ET): row rides in its own PR so the merge leaves main green.
+        "pr": 151,
+        "name": "P2-LIVECAP: soak windows inside the live view",
+        "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
+    },
+    {
         # BEST-PRACTICE items 13/14: row rides in its own PR so the merge leaves main green.
         "pr": 154,
         "name": "FACTORY-BALANCE + SUPERSEDE-DONT-AMEND playbook rules, snapshot balance section",
