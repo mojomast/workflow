@@ -540,6 +540,18 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T3-RAILSDEC: `evidence/rails-rc/release/DECISION-2026-11-24-index-default.md` is ",
         "keywords": ("evidence/rails-rc/release/DECISION-2026-11-24-index-default.md", "rails_local_attempt_scan", "evidence/rails-rc/README.md",),
     },
+    {
+        # T3-ROADMAP (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 144,
+        "name": "T3-ROADMAP: `ROADMAP.md` refreshed after the 24 November merges: workflow #7 (He",
+        "keywords": ("ROADMAP.md", "contrib/hermes-forge.md", "evidence/rails-rc/release/DECISION-2026-11-24-index-default.md",),
+    },
+    {
+        # WA-DES-B (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 141,
+        "name": "WA-DES-B: Wave B design (`docs/design/wave-b-worker-contract.md`): draft `rizz",
+        "keywords": ("docs/design/wave-b-worker-contract.md", "rizzstack.brief/1", "rizzstack.attempt/1",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the

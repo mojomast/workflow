@@ -3,8 +3,9 @@
 Planned and in-flight work on the rizzstack: workflow (method), hyvv (worker
 host), bundlebees (orchestration) and Orbit (control surface), bottom to top,
 plus the umbrella repo and the two newer Hermes plugins. Status is one of
-**done**, **open PR**, or **planned**. Pull request numbers, states and merge
-commits were checked against GitHub on 24 November 2026, America/Toronto. Items
+**done**, **open PR**, **planned**, or **in progress**. Pull request numbers,
+states and merge commits were checked against GitHub on 24 November 2026,
+America/Toronto. Items
 that spend resources, merge, tag, release, deploy, or change the live hyvv
 worker host still need an explicit yes from the repository operator before
 they happen.
@@ -25,7 +26,7 @@ merged or been superseded by a merged port:
 | Artifact protocol: bundlebees #7, #9 | **Done**: [#9](https://github.com/mojomast/bundlebees/pull/9) merged (`7b77c3d`); #7 closed as superseded by #9. |
 | Self-integration, metrics, usage: bundlebees #8, #10, #11, #6 | **Done**: [#10](https://github.com/mojomast/bundlebees/pull/10) (`cad64bb`) and [#11](https://github.com/mojomast/bundlebees/pull/11) (`39602ff`) merged; #8 closed as superseded by #10, #6 as superseded by #11. |
 | workflow [#5](https://github.com/mojomast/workflow/pull/5), [#6](https://github.com/mojomast/workflow/pull/6), [#8](https://github.com/mojomast/workflow/pull/8), [#9](https://github.com/mojomast/workflow/pull/9) | **Done** (merged 12 Nov). |
-| workflow [#7](https://github.com/mojomast/workflow/pull/7) (Hermes Forge contrib) | **Open PR** (draft since 12 Nov). Candidate to close; that needs the owner's yes. |
+| workflow [#7](https://github.com/mojomast/workflow/pull/7) (Hermes Forge contrib) | **Done** (merged 24 Nov; the merged contribution is `contrib/hermes-forge.md`). |
 | hyvv [#1](https://github.com/mojomast/hyvv/pull/1) | **Done** (merged as `17a51f7`). |
 
 ## Hardening (P0 and P1)
@@ -53,14 +54,17 @@ with unavailable kept apart from zero (#11), and collected-test-id validation
   ([#94](https://github.com/mojomast/workflow/pull/94)).
 - **Planned (release):** the [release decision](evidence/rails-rc/release/DECISION.md)
   is **HOLD**. It needs the worker-assignment binding chosen and a live
-  Windows canary before `rails_enabled` is turned on anywhere.
-  That record was written at the four draft heads, before they merged, and
-  still calls the attempt index opt-in; since then bundlebees
-  [#84](https://github.com/mojomast/bundlebees/pull/84) (17 Nov) made the
-  index the default for new ledgers. Its paging numbers against the 500 ms
-  p95 target: events 1,614 ms by default, 499.7 ms with the index in that
-  run and 670.7 ms in the prior indexed run. Existing ledgers need the
-  directory migration from #84; multi-host runs are untested.
+  Windows canary before `rails_enabled` is turned on anywhere. That dated
+  record is kept as history; the newer
+  [DECISION-2026-11-24-index-default.md](evidence/rails-rc/release/DECISION-2026-11-24-index-default.md)
+  supersedes its "opt-in index" wording. The attempt index has been the default
+  for new ledgers since bundlebees
+  [#84](https://github.com/mojomast/bundlebees/pull/84) (17 Nov); existing
+  ledgers need the directory migration from #84; multi-host runs are untested.
+  Its paging numbers against the 500 ms p95 target: events 1,614 ms without the
+  index, 499.7 ms with the index in that run and 670.7 ms in the prior indexed
+  run.
+  **Next:** P1 pagination runs on throwaway local infrastructure.
 
 ## M2 canary
 
@@ -132,10 +136,12 @@ the schema id.
   and the fork-safe PR summary comment
   ([#117](https://github.com/mojomast/workflow/pull/117),
   [#127](https://github.com/mojomast/workflow/pull/127)).
-- **Done, not in CI:** lessons-check
-  ([#122](https://github.com/mojomast/workflow/pull/122)) is report-only.
-- **Planned:** slop-lint and gitleaks for uirizz and orbit-control-plane, a
-  gitleaks job in rizzstack, and lessons-check as an advisory CI job.
+- **Done:** lessons-check
+  ([#122](https://github.com/mojomast/workflow/pull/122)) is report-only, and
+  since [#135](https://github.com/mojomast/workflow/pull/135) (merged 24 Nov) it
+  also runs as an advisory `lessons-check` CI job — never a required check.
+- **Planned:** slop-lint and gitleaks for uirizz and orbit-control-plane, and a
+  gitleaks job in rizzstack.
 
 ## Memory (`rizzstack.memory/1`)
 
@@ -143,31 +149,47 @@ the schema id.
   the Hindsight trial harness (#82, #88), and the disk vault service with write
   quarantine, index and retention
   ([#98](https://github.com/mojomast/workflow/pull/98), #101, #102, #104).
-- **Planned:** a read-only query CLI, a seed loader, capture and recall behind
-  the flag, then a small canary. Not wired into the runtime; `MEMORY_ENABLED`
-  stays off until the owner approves a restart with it on.
+- **Done:** a read-only query CLI
+  ([#133](https://github.com/mojomast/workflow/pull/133), merged `ebc22ca`) and a
+  lessons seeder ([#136](https://github.com/mojomast/workflow/pull/136), merged
+  `70392e5`). **Planned:** capture and recall behind the flag, then a small
+  canary. Not wired into the runtime; `MEMORY_ENABLED` stays off until the owner
+  turns it on.
 
 ## Orbit onboarding
+
+**Next milestone: decision #25 is option B — M-B "a stranger can lend a
+worker": F15 → F18 → F16/F17 → F19.** The alternative, M-A "a stranger can run
+Orbit locally", would be F11 plus
+F12/[#27](https://github.com/mojomast/orbitdesktop/pull/27).
 
 - **Done:** minimal install, onboarding wizard, adapters, the opt-in router
   and SSH hosts ([Orbit #25](https://github.com/mojomast/orbitdesktop/pull/25),
   [#46](https://github.com/mojomast/orbitdesktop/pull/46)).
 - **Open PR:** the optional connect-GitHub step and repository picker,
   [Orbit #27](https://github.com/mojomast/orbitdesktop/pull/27) (draft since
-  12 Nov; packet [F12](plans/packets/F12-connect-github-repo-picker.md)). Which
+  12 Nov; retargeted to `main`; packet
+  [F12](plans/packets/F12-connect-github-repo-picker.md)). Which
   repos are tracked stays user-managed; one operator's defaults are data, not
   a shipped default.
+- **Closed:** Orbit #17 and #18 as superseded.
 - **Planned:** packets [F11](plans/packets/F11-runnable-by-anyone.md) and
   F13–F19 (router profile, evidence wiring, relay, NAT fallback, join probing,
   revocable tokens, live-host join install) are drafted, not dispatched.
 
 ## Releases and tags
 
-**Planned.** The only release tags are bundlebees v0.1.0 (11 Nov) and v0.1.1
-(12 Nov, before the hardening merges) and uirizz v0.1.0 (23 Nov). workflow,
-hyvv, orbit-control-plane and rizzstack have no release tags; Orbit's last tags
-are the `hermes-plugin-v0.3.0` line from September. A coordinated release at
-one tested set of revisions needs an explicit yes before tagging.
+**In progress.** Version-bump prep PRs are open for workflow 0.1.0
+([#132](https://github.com/mojomast/workflow/pull/132)), bundlebees 0.2.0
+([#258](https://github.com/mojomast/bundlebees/pull/258)) and orbitdesktop 0.4.0
+([#91](https://github.com/mojomast/orbitdesktop/pull/91)); hyvv 0.1.18
+([hyvv #41](https://github.com/mojomast/hyvv/pull/41)) merged on 24 Nov. No tags
+yet. The only release
+tags remain bundlebees v0.1.0 (11 Nov) and v0.1.1 (12 Nov, before the hardening
+merges) and uirizz v0.1.0 (23 Nov). workflow, hyvv, orbit-control-plane and
+rizzstack have no release tags; Orbit's last tags are the
+`hermes-plugin-v0.3.0` line from September. Tagging one tested set of revisions
+still needs an explicit yes.
 
 ## hyvv repo
 
@@ -198,8 +220,8 @@ repository, package, plugin id or doc changes until then.
 
 ## Hermes Forge usage work
 
-**Done (schema) / open PR.** `bee.usage/v1` is frozen, and the usage pipeline
+**Done.** `bee.usage/v1` is frozen, and the usage pipeline
 (launcher receipts, outbox, ingest, pricing snapshots, rollup) reached
 mainline on 16 November. The handoff in
-[workflow #7](https://github.com/mojomast/workflow/pull/7) is still an open
-draft.
+[workflow #7](https://github.com/mojomast/workflow/pull/7) merged on 24 November;
+`contrib/hermes-forge.md` is on `main`.
