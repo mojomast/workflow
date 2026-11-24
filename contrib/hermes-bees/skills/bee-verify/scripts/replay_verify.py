@@ -99,43 +99,60 @@ def lease_digest(paths):
     return hashlib.sha256("\n".join(n).encode("utf-8")).hexdigest()
 
 
+def _classify_paths(wm, vm, lease):
+    """(leased_files, mismatch, telemetry_extras, scope_extras) for the union of patch paths."""
+    alld = list(dict.fromkeys(list(wm) + list(vm)))
+    leased_files = [p for p in alld if _is_leased(p, lease)]
+    mismatch = sorted(p for p in leased_files if wm.get(p, "") != vm.get(p, ""))
+    outside = [p for p in alld if not _is_leased(p, lease)]
+    tel = sorted(p for p in outside if is_telemetry(p))
+    scope = sorted(p for p in outside if not is_telemetry(p))
+    return leased_files, mismatch, tel, scope
+
+
+def _commands(claimed):
+    """(commands, failed count). Checks stand in for commands when none are listed."""
+    cmds = claimed.get("commands") or [
+        {"rc": 0 if truth(c.get("passed")) else 1} for c in (claimed.get("checks") or [])]
+    return cmds, sum(1 for c in cmds if int(c.get("rc", 1)) != 0)
+
+
+def _secret_hits(claimed):
+    """Hit count from secret_scan, else 0/1 from a secret-scan check, else -1 (not run)."""
+    ss = claimed.get("secret_scan")
+    if isinstance(ss, dict) and ss.get("hits") is not None:
+        return len(ss["hits"])
+    hits = [c for c in (claimed.get("checks") or [])
+            if "secret" in str(c.get("name", "")).lower()
+            and "scan" in str(c.get("name", "")).lower()]
+    if not hits:
+        return -1
+    return 0 if truth(hits[0].get("passed")) else 1
+
+
+def _note(lease_missing, lease_pin_mismatch):
+    if lease_missing:
+        return LEASE_MISSING_NOTE
+    return LEASE_PIN_NOTE if lease_pin_mismatch else ""
+
+
 def decide(work_attempt, verify_attempt, work_result, verify_result, pinned_sha256=None):
     """Pure decision for one worker/verifier pair. No I/O; never mutates inputs.
 
     pinned_sha256 is the handoff pin for this card, or None when there is none."""
-    work_attempt = work_attempt or {}
     verify_attempt = verify_attempt or {}
-    work_result = work_result or {}
-    verify_result = verify_result or {}
-
-    claim, claimed = _claimed(verify_result)
-    wm, vm = patch_map(work_result), patch_map(verify_result)
-    lease, lease_missing = lease_from(work_attempt)
-
-    leased_files = [p for p in dict.fromkeys(list(wm) + list(vm)) if _is_leased(p, lease)]
-    mismatch = sorted(p for p in leased_files if wm.get(p, "") != vm.get(p, ""))
-    alld = list(dict.fromkeys(list(wm) + list(vm)))
-    tel = sorted(p for p in alld if not _is_leased(p, lease) and is_telemetry(p))
-    scope = sorted(p for p in alld if not _is_leased(p, lease) and not is_telemetry(p))
-
-    cmds = claimed.get("commands") or [
-        {"rc": 0 if truth(c.get("passed")) else 1} for c in (claimed.get("checks") or [])]
-    failed = sum(1 for c in cmds if int(c.get("rc", 1)) != 0)
-    ss = claimed.get("secret_scan")
-    if isinstance(ss, dict) and ss.get("hits") is not None:
-        secret_hits = len(ss["hits"])
-    else:
-        hits = [c for c in (claimed.get("checks") or [])
-                if "secret" in str(c.get("name", "")).lower()
-                and "scan" in str(c.get("name", "")).lower()]
-        secret_hits = (0 if truth(hits[0].get("passed")) else 1) if hits else -1
+    claim, claimed = _claimed(verify_result or {})
+    lease, lease_missing = lease_from(work_attempt or {})
+    leased_files, mismatch, tel, scope = _classify_paths(
+        patch_map(work_result or {}), patch_map(verify_result or {}), lease)
+    cmds, failed = _commands(claimed)
+    secret_hits = _secret_hits(claimed)
 
     lease_pinned = bool(pinned_sha256) and not lease_missing
     lease_pin_mismatch = lease_pinned and lease_digest(lease) != pinned_sha256
 
-    ok = (claim == "pass" and not lease_missing and not lease_pin_mismatch and not mismatch and not scope
-          and failed == 0 and secret_hits == 0
-          and verify_attempt.get("state") == "succeeded")
+    ok = all((claim == "pass", not lease_missing, not lease_pin_mismatch, not mismatch, not scope,
+              failed == 0, secret_hits == 0, verify_attempt.get("state") == "succeeded"))
     return {
         "verdict": "pass" if ok else "fail",
         "lease_missing": lease_missing,
@@ -153,7 +170,7 @@ def decide(work_attempt, verify_attempt, work_result, verify_result, pinned_sha2
         "leased_files": sorted(leased_files),
         "cmds": cmds,
         "not_run": claimed.get("not_run"),
-        "note": LEASE_MISSING_NOTE if lease_missing else (LEASE_PIN_NOTE if lease_pin_mismatch else ""),
+        "note": _note(lease_missing, lease_pin_mismatch),
     }
 
 
