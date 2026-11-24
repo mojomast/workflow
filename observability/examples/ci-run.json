@@ -1,0 +1,18 @@
+{
+  "schema": "ci.run/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-24T20:12:00Z",
+  "repo": "mojomast/example",
+  "workflow": "CI",
+  "job": "tests (shard 2)",
+  "shard": 2,
+  "sha": "0123abc",
+  "run_attempt": 1,
+  "event": "pull_request",
+  "conclusion": "success",
+  "queued_s": 8,
+  "duration_s": 204,
+  "flake": false,
+  "mq_wait_s": null,
+  "pr_number": 42
+}

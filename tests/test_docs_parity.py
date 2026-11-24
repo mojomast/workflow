@@ -595,6 +595,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("merge_group", "bee-ci/reference",),
     },
     {
+        # P2 harness fix (Kyle 15:02 ET): row rides in its own PR so the merge leaves main green.
+        "pr": 151,
+        "name": "P2-LIVECAP: soak windows inside the live view",
+        "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
+    },
+    {
         # BEST-PRACTICE item 3: row rides in its own PR so the merge leaves main green.
         "pr": 155,
         "name": "Audit chain anchors: rizzstack.audit-anchor/1 + collector",
