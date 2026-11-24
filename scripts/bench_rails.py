@@ -126,6 +126,18 @@ def drop_attempt_index(path):
         raise ValueError('local-attempt index is still present after drop')
 
 
+def check_arm(index_mode, present):
+    if index_mode not in ('default', 'none', 'migrated'):
+        raise ValueError('unknown attempt-index mode')
+    if present != (index_mode != 'none'):
+        raise ValueError(f'{index_mode} arm has unexpected local-attempt index state')
+
+
+def unindex_after_seed(path):
+    if has_attempt_index(path):
+        drop_attempt_index(path)
+
+
 def seed(path, total, *, index_mode='default'):
     if index_mode not in ('default', 'none', 'migrated'):
         raise ValueError('unknown attempt-index mode')
@@ -152,6 +164,8 @@ def seed(path, total, *, index_mode='default'):
     with contextlib.closing(sqlite3.connect(path)) as db:
         if db.execute('SELECT COUNT(*), COUNT(DISTINCT event_id) FROM event_rows').fetchone() != (total,total):
             raise ValueError('seed count or uniqueness failed')
+    if index_mode in ('none', 'migrated'):
+        unindex_after_seed(path)
     stats = dict(elapsed_ms=ms(start), db_bytes=path.stat().st_size, writer_pids=[p.pid for p in jobs],
                  events_per_lane=[len(b)*BATCH for b in blocks], unique_seed_ids=total, transaction_rows=BATCH,
                  index_mode=index_mode)
@@ -163,6 +177,7 @@ def seed(path, total, *, index_mode='default'):
         stats['migrate_ms'] = ms(started)
         if result != 'installed': raise ValueError('index was not installed on the benchmark ledger')
     stats['index_present_after_seed'] = has_attempt_index(path)
+    check_arm(index_mode, stats['index_present_after_seed'])
     return blocks, stats
 
 
