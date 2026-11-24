@@ -74,71 +74,99 @@ def _brief_task_id(brief):
     return str(b.get("task_id") or b.get("work_task_id") or b.get("kanban_task_id") or "")
 
 
-def owned_gap():
-    """True if an owned bee is non-terminal, or work succeeded with no verify yet."""
-    att = _att_dir()
-    if not att.exists():
-        return False
-    tasks = owned_task_ids()
-    rows = []
+def _load_rows(att):
+    """(attempt records, unreadable): unreadable is True if any attempt file
+    could not be read or parsed."""
+    rows, unreadable = [], False
     for p in att.glob("att_*.json"):
         if not AID.match(p.stem):
             continue
         try:
             a = json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, ValueError):
+            unreadable = True
             continue
         if isinstance(a, dict):
             a.setdefault("attempt_id", p.stem)
             rows.append(a)
-    owned_work = set()
-    for a in rows:
-        b = a.get("brief") or {}
-        if b.get("verify_of") or b.get("role") == "verify":
-            continue
-        if _brief_task_id(b) in tasks or (not tasks and False):
-            owned_work.add(a.get("attempt_id"))
-    verify_of = {}
+    return rows, unreadable
+
+
+def _is_verify(brief):
+    return bool(brief.get("verify_of") or brief.get("role") == "verify")
+
+
+def _verify_index(rows):
+    index = {}
     for a in rows:
         vof = (a.get("brief") or {}).get("verify_of")
         if vof:
-            verify_of.setdefault(vof, []).append(a)
-    for a in rows:
-        aid = a.get("attempt_id")
-        b = a.get("brief") or {}
-        tid = _brief_task_id(b)
-        is_verify = bool(b.get("verify_of") or b.get("role") == "verify")
-        interesting = (tid in tasks) or (aid in owned_work) or ((b.get("verify_of") or "") in owned_work)
-        if not interesting:
-            continue
-        st = a.get("state") or ""
-        if st not in TERMINAL:
-            return True
-        if (not is_verify) and st == "succeeded" and not verify_of.get(aid):
-            return True
-    return False
+            index.setdefault(vof, []).append(a)
+    return index
+
+
+def _has_gap(a, tasks, owned_work, verify_of):
+    """True if this owned attempt is in flight or is succeeded work without a verify."""
+    b = a.get("brief") or {}
+    aid = a.get("attempt_id")
+    if not (_brief_task_id(b) in tasks or aid in owned_work or (b.get("verify_of") or "") in owned_work):
+        return False
+    st = a.get("state") or ""
+    if st not in TERMINAL:
+        return True
+    return not _is_verify(b) and st == "succeeded" and not verify_of.get(aid)
+
+
+def owned_gap():
+    """True if an owned bee is non-terminal, or work succeeded with no verify yet.
+
+    Fail-closed: an unreadable attempt file counts as a gap, because the guard
+    can no longer prove that nothing is in flight.
+    """
+    att = _att_dir()
+    if not att.exists():
+        return False
+    rows, unreadable = _load_rows(att)
+    if unreadable:
+        return True
+    tasks = owned_task_ids()
+    owned_work = {a.get("attempt_id") for a in rows
+                  if not _is_verify(a.get("brief") or {}) and _brief_task_id(a.get("brief")) in tasks}
+    verify_of = _verify_index(rows)
+    return any(_has_gap(a, tasks, owned_work, verify_of) for a in rows)
 
 
 def _tool_name(data):
     return str(data.get("tool_name") or data.get("tool") or data.get("name") or "").lower()
 
 
+_TEXT_KEYS = ("command", "code", "cmd", "input", "script", "args", "reason", "message")
+
+
+def _first(ti, *keys):
+    return str(next((ti.get(k) for k in keys if ti.get(k)), "") or "")
+
+
 def _tool_text(data):
+    """(text to match, reason, kind) from the tool input."""
     ti = data.get("tool_input") or data.get("args") or data.get("input") or {}
-    parts = []
-    reason = kind = ""
-    if isinstance(ti, dict):
-        reason = str(ti.get("reason") or ti.get("message") or ti.get("comment") or "")
-        kind = str(ti.get("kind") or ti.get("block_kind") or "")
-        for k in ("command", "code", "cmd", "input", "script", "args", "reason", "message"):
-            v = ti.get(k)
-            if v:
-                parts.append(v if isinstance(v, str) else json.dumps(v))
-        if not parts:
-            parts.append(json.dumps(ti))
-    else:
-        parts.append(str(ti))
-    return "\n".join(parts), reason, kind
+    if not isinstance(ti, dict):
+        return str(ti), "", ""
+    reason = _first(ti, "reason", "message", "comment")
+    kind = _first(ti, "kind", "block_kind")
+    parts = [v if isinstance(v, str) else json.dumps(v) for v in (ti.get(k) for k in _TEXT_KEYS) if v]
+    return "\n".join(parts or [json.dumps(ti)]), reason, kind
+
+
+_BLOCK_CLI_RE = re.compile(r"\b(hermes\s+(-p\s+\S+\s+)?)?kanban\s+(block|schedule)\b", re.I)
+
+
+def _is_park(name, text):
+    return name in {"kanban_block", "kanban_schedule"} or bool(_BLOCK_CLI_RE.search(text))
+
+
+def _is_waiting(reason, text, kind):
+    return bool(WAIT_RE.search(reason) or WAIT_RE.search(text) or kind == "needs_input")
 
 
 def park_decision(data, gap=None):
@@ -149,14 +177,11 @@ def park_decision(data, gap=None):
     """
     name = _tool_name(data)
     text, reason, kind = _tool_text(data)
-    blob = " ".join([name, text, reason, kind])
-    is_block_tool = name in {"kanban_block", "kanban_schedule"}
-    is_block_cli = bool(re.search(r"\b(hermes\s+(-p\s+\S+\s+)?)?kanban\s+(block|schedule)\b", text, re.I))
-    if not (is_block_tool or is_block_cli):
+    if not _is_park(name, text):
         return None
     if ALLOW_PARK_RE.search(reason) or ALLOW_PARK_RE.search(text):
         return None
-    waiting = bool(WAIT_RE.search(reason) or WAIT_RE.search(text) or kind == "needs_input")
+    waiting = _is_waiting(reason, text, kind)
     if gap is None:
         gap = owned_gap()
     if gap or waiting:
