@@ -546,6 +546,30 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "WA-BACKLOG: `plans/backlog.json` records the 20 wave A slices (`WA-*`) from the ",
         "keywords": ("plans/backlog.json", ") from the next-level review, with lane ",),
     },
+    {
+        # T3-ROADMAP (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 144,
+        "name": "T3-ROADMAP: `ROADMAP.md` refreshed after the 24 November merges: workflow #7 (He",
+        "keywords": ("ROADMAP.md", "contrib/hermes-forge.md", "evidence/rails-rc/release/DECISION-2026-11-24-index-default.md",),
+    },
+    {
+        # WA-DES-B (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 141,
+        "name": "WA-DES-B: Wave B design (`docs/design/wave-b-worker-contract.md`): draft `rizz",
+        "keywords": ("docs/design/wave-b-worker-contract.md", "rizzstack.brief/1", "rizzstack.attempt/1",),
+    },
+    {
+        # WA-DEC-CHANGELOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 148,
+        "name": "WA-DEC-CHANGELOG: Design: changelog fragments (`changelog.d/<branch-slug>.md`) counted",
+        "keywords": ("changelog.d/<branch-slug>.md", "docs-parity", "scripts/changelog_assemble.py",),
+    },
+    {
+        # WA-DES-D (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 142,
+        "name": "WA-DES-D: Wave D design (`docs/design/wave-d-core-and-log.md`): one `rizzstack",
+        "keywords": ("docs/design/wave-d-core-and-log.md", "rizzstack_core",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
