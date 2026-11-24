@@ -1,0 +1,9 @@
+# Sanitized pre_tool_call hook from the live Hermes beekeeper profile.
+# The live command path is the profile's agent-hooks/beekeeper-guard.py;
+# this reference uses an env placeholder. Do not paste host-specific paths.
+hooks:
+  pre_tool_call:
+    - matcher: "^(terminal|execute_code|process|kanban_block|kanban_schedule)$"
+      command: "${HERMES_BEEKEEPER_PROFILE}/agent-hooks/beekeeper-guard.py"
+      timeout: 20
+      fail_closed: true
