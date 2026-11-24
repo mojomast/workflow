@@ -46,6 +46,16 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    140: (
+        "docs-sync companion (the workflow #136 coverage row for the T1-SEED agent-lessons "
+        "memory seeder): a registry bookkeeping change; it carries its own exclusion so "
+        "merging it leaves main green"
+    ),
+    138: (
+        "docs-sync companion (the workflow #133 coverage row for the T1-MEMQ memory query "
+        "CLI): a registry bookkeeping change; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     131: (
         "docs-sync companion (the workflow #130 coverage row + its Unreleased bullet: the "
         "ci-gate aggregate check): a registry bookkeeping change; it carries its own "
@@ -485,6 +495,32 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 130,
         "name": "ci-gate aggregate check",
         "keywords": ("ci-gate", "check_ci_gate.py", "main ruleset"),
+    },
+    {
+        # T1-MEMQ: the rizzstack.memory/1 query CLI the bundlebees recall client runs
+        # as BUNDLEBEES_MEMORY_QUERY; read-only, fail-closed, MEMORY_ENABLED stays off.
+        "pr": 133,
+        "name": "memory query CLI for lease-time recall",
+        "keywords": ("rizzstack_memory/cli.py", "BUNDLEBEES_MEMORY_QUERY", "MEMORY_ENABLED"),
+    },
+    {
+        # T1-SEED: scripts/seed_memory_from_lessons.py projects every L-NN section of
+        # docs/28-agent-lessons.md into one learning memory as agent:lessons-seed
+        # (quarantined until a human grant); idempotent through the stored digest.
+        "pr": 136,
+        "name": "agent-lessons memory seeder",
+        "keywords": (
+            "scripts/seed_memory_from_lessons.py",
+            "docs/28-agent-lessons.md",
+            "agent:lessons-seed",
+        ),
+    },
+    {
+        # Track 5 release prep (pre-registered in its own PR so the merge leaves main green):
+        # the 0.1.0 candidate section and the untagged-candidate coverage reader.
+        "pr": 132,
+        "name": "CHANGELOG [0.1.0] candidate section",
+        "keywords": ("Release prep (no tag)", "release candidate", "test_docs_parity.py"),
     },
 )
 
