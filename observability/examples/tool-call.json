@@ -1,0 +1,22 @@
+{
+  "schema": "gen_ai.tool_call/v1",
+  "schema_version": "v1",
+  "attempt_id": "att_mock01",
+  "card_id": "card_mock01",
+  "run_id": "run_mock01",
+  "project": "example-repo",
+  "role": "work",
+  "task_id": "task_mock01",
+  "job_id": "job_mock01",
+  "trace_id": "trace_mock01",
+  "step_seq": 3,
+  "call_seq": 7,
+  "tool_name": "bash",
+  "tool_type": "function",
+  "ts_start": "2026-11-24T20:10:14Z",
+  "ts_end": "2026-11-24T20:10:21Z",
+  "duration_s": 6.9,
+  "status": "ok",
+  "error_class": null,
+  "output_bytes": 2048
+}
