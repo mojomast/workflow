@@ -107,6 +107,31 @@ class ParkAllowlist(unittest.TestCase):
                 os.environ.pop("BEES_ATT_DIR", None)
                 os.environ.pop("BEES_OWNED_FILE", None)
 
+    def test_owned_gap_fails_closed_on_an_unreadable_attempt_file(self):
+        # A finished, verified pair would be "no gap", but one attempt file can't
+        # be read, so the guard can't prove nothing is in flight: it reports a gap.
+        with tempfile.TemporaryDirectory() as d:
+            att = Path(d) / "att"
+            att.mkdir()
+            owned = Path(d) / "owned.json"
+            owned.write_text(json.dumps({"task_ids": ["pilot-calc-0116"]}), encoding="utf-8")
+            (att / "att_aaaaaaaa.json").write_text(json.dumps({
+                "attempt_id": "att_aaaaaaaa", "state": "succeeded",
+                "brief": {"task_id": "pilot-calc-0116"},
+            }), encoding="utf-8")
+            (att / "att_bbbbbbbb.json").write_text(json.dumps({
+                "attempt_id": "att_bbbbbbbb", "state": "succeeded",
+                "brief": {"verify_of": "att_aaaaaaaa", "task_id": "pilot-calc-0116"},
+            }), encoding="utf-8")
+            (att / "att_cccccccc.json").write_text("{half written", encoding="utf-8")
+            os.environ["BEES_ATT_DIR"] = str(att)
+            os.environ["BEES_OWNED_FILE"] = str(owned)
+            try:
+                self.assertTrue(G.owned_gap())
+            finally:
+                os.environ.pop("BEES_ATT_DIR", None)
+                os.environ.pop("BEES_OWNED_FILE", None)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
