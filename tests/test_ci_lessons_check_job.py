@@ -15,30 +15,30 @@ import sys
 import unittest
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / ".github" / "scripts"))
+from check_ci_gate import gate_needs, job_blocks  # noqa: E402  (stdlib parser; no PyYAML on the runner)
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 README = ROOT / "tools" / "lessons-check" / "README.md"
 
 
-def load():
-    return yaml.safe_load(CI.read_text(encoding="utf-8"))
+def blocks():
+    return job_blocks(CI.read_text(encoding="utf-8").splitlines())
 
 
 def job():
-    return load()["jobs"].get("lessons-check")
+    return blocks().get("lessons-check")
 
 
 def run_text(j) -> str:
-    return "\n".join(str(s.get("run", "")) for s in j.get("steps", []))
+    return "\n".join(j)
 
 
 class TestLessonsCheckCiJob(unittest.TestCase):
     def test_job_exists_and_is_gated(self):
-        jobs = load()["jobs"]
+        jobs = blocks()
         self.assertIn("lessons-check", jobs)
-        self.assertIn("lessons-check", jobs["ci-gate"]["needs"])
+        self.assertIn("lessons-check", gate_needs(jobs["ci-gate"]))
         proc = subprocess.run([sys.executable, str(ROOT / ".github" / "scripts" / "check_ci_gate.py"), str(CI)],
                               capture_output=True, text=True, timeout=60, cwd=str(ROOT))
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -49,7 +49,7 @@ class TestLessonsCheckCiJob(unittest.TestCase):
         text = run_text(j)
         self.assertRegex(text, r"python3 -m lessons_check check .*--report-only")
         self.assertIn("python3 -m unittest discover -s tests -t .", text)
-        self.assertNotIn("continue-on-error", yaml.safe_dump(j))
+        self.assertNotIn("continue-on-error", text)
         self.assertNotRegex(text, r"\|\|\s*true")
         self.assertNotRegex(text, r"set \+e")
 
@@ -58,15 +58,18 @@ class TestLessonsCheckCiJob(unittest.TestCase):
 
     def test_job_is_hardened_like_the_others(self):
         j = job()
-        self.assertEqual(j.get("permissions"), {"contents": "read"})
-        self.assertIsInstance(j.get("timeout-minutes"), int)
-        self.assertLessEqual(j["timeout-minutes"], 15)
-        for step in j["steps"]:
-            uses = step.get("uses")
-            if uses:
-                self.assertRegex(uses, r"@[0-9a-f]{40}$", f"unpinned action {uses}")
-            if uses and uses.startswith("actions/checkout@"):
-                self.assertIs(step.get("with", {}).get("persist-credentials"), False)
+        self.assertIsNotNone(j)
+        text = run_text(j)
+        self.assertRegex(text, r"(?m)^    permissions:\s*\n      contents: read\s*$")
+        minutes = re.search(r"(?m)^    timeout-minutes:\s*(\d+)\s*$", text)
+        self.assertIsNotNone(minutes)
+        self.assertLessEqual(int(minutes.group(1)), 15)
+        uses = re.findall(r"uses:\s*(\S+)", text)
+        self.assertTrue(uses)
+        for ref in uses:
+            self.assertRegex(ref, r"@[0-9a-f]{40}$", f"unpinned action {ref}")
+        if any(u.startswith("actions/checkout@") for u in uses):
+            self.assertIn("persist-credentials: false", text)
 
     def test_readme_no_longer_says_not_wired(self):
         text = README.read_text(encoding="utf-8")
