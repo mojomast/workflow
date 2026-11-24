@@ -1,0 +1,40 @@
+{
+  "schema": "task.outcome/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-24T22:00:00Z",
+  "task_id": "task_mock01",
+  "job_id": "job_mock01",
+  "card_id": "card_mock01",
+  "project": "example-repo",
+  "trace_id": "trace_mock01",
+  "outcome": "merged",
+  "risk_tier": "low",
+  "model_lane": "nous",
+  "phases": {
+    "created": "2026-11-24T18:00:00Z",
+    "contract_frozen": "2026-11-24T18:20:00Z",
+    "red_recorded": "2026-11-24T18:30:00Z",
+    "first_dispatch": "2026-11-24T18:35:00Z",
+    "green": "2026-11-24T19:40:00Z",
+    "verify_pass": "2026-11-24T19:55:00Z",
+    "pr_opened": "2026-11-24T20:00:00Z",
+    "ci_green": "2026-11-24T20:12:00Z",
+    "mq_enter": "2026-11-24T20:13:00Z",
+    "merged": "2026-11-24T20:20:00Z"
+  },
+  "attempts": 2,
+  "review_rounds": 1,
+  "first_pass": false,
+  "tokens_total": 410000,
+  "tokens_wasted": {
+    "failed": 150000,
+    "superseded": 0,
+    "retry": 0,
+    "fallback": 12000,
+    "verify_rerun": null
+  },
+  "cost_total_usd": 0.31,
+  "cost_wasted_usd": 0.12,
+  "cost_status": "estimated",
+  "rework_14d": null
+}

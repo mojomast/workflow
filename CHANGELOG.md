@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `scripts/bench_rails.py` caps each soak window at `LIVE_CYCLES_MAX` (49) cycles so a window never plans more marks than the live view's `LIVE_VIEW_LIMIT` (100): one gap mark plus two probes per cycle. Longer windows spread their cycles out instead. A 4 h soak used to plan 240 cycles per window and failed at cycle 49. Soaks up to 1,470 s keep their 10 s spacing. `tests/test_rails_bench_live_view_cap.py` is RED at `7491114`.
+- `.github/workflows/ci.yml` and `.github/workflows/slop-lint.yml` also run on `merge_group`, so GitHub's native merge queue can test each queued merge commit with the same required checks (`ci-gate`, `gitleaks`, `slop-lint`, `bee-ci/reference`). Check names are unchanged.
 - Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench_rails.py` now accepts `--soak-seconds` up to `14400` (the four-hour P2 soak; the default is still `1800`) and adds `--fixed-history`, which appends `fixed_history_seed(0)` live events to window 0 before `t=0` so the live viewport starts at the `RENDERER_CAP` of `2000` marks. `fixed_history_seed()` saturates the cap and refuses a negative held count, `check_fixed_history()` refuses `--fixed-history` with `--soak-seconds 0`, the stream report records `fixed_history_seeded` and `config` records `fixed_history`. `docs/rails-performance.md` documents P2 Arm A / Arm B and the four-hour command shape. `tests/test_rails_bench_fixed_history.py` is RED at `bb9ae7b` and GREEN at `ea54f6b`.
 
 - Design: changelog fragments (`changelog.d/<branch-slug>.md`) counted as `docs-parity` coverage from the merge log, assembled by `scripts/changelog_assemble.py` at release; retires docs-sync companion PRs (`docs/design/changelog-fragments.md`, Kyle t1650u).

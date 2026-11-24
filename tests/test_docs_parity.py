@@ -588,6 +588,18 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "WA-A12A: bee-landed dataschema identity (workflow #149, WA-A12A): `tools/bee_",
         "keywords": ("tools/bee_landed.py", "DATASCHEMA", "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json",),
     },
+    {
+        # Speed-up C (merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 150,
+        "name": "CI-MERGEQ: CI and slop-lint run on merge_group",
+        "keywords": ("merge_group", "bee-ci/reference",),
+    },
+    {
+        # P2 harness fix (Kyle 15:02 ET): row rides in its own PR so the merge leaves main green.
+        "pr": 151,
+        "name": "P2-LIVECAP: soak windows inside the live view",
+        "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
