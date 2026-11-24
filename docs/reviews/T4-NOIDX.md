@@ -1,0 +1,16 @@
+VERDICT: APPROVE
+
+Reviewed the PR head tree against the T4-NOIDX SPEC: `scripts/bench_rails.py` (parser extraction, three index arms, index helpers, seed/stats/config), `docs/rails-performance.md`, and the approved `tests/test_rails_bench_index_arms.py` (read only, not edited). The parser retains the existing options, defaults, choices and the `--soak-seconds` cap; `build_parser()` owns construction and `main()` calls it; `--attempt-index`, `--no-attempt-index` and `--migrate-attempt-index` are one mutually exclusive group; `index_mode()` maps to `default`/`none`/`migrated`; `has_attempt_index()` and `drop_attempt_index()` fail closed; `seed()` requires the new-ledger index, drops it for none/migrated, and times the BundleBees installer for the migrated arm; stats/config match the SPEC; the docs document the three arms and the five-runs-per-arm P1 shape. No dependency, network, secret, host, absolute path, gate, sandbox, check or test was added, removed, skipped or weakened.
+
+Findings
+
+1. minor — `scripts/bench_rails.py:165` — `index_present_after_seed` is recorded but not compared with the selected arm, so if a drop did not stick (for example a ledger reopen recreating the index) an indexed run could still be reported as `none`/`migrated`. Concrete fix: after line 165 require `stats['index_present_after_seed'] == (index_mode != 'none')` and raise `ValueError` otherwise. This is hardening beyond the SPEC, which only requires recording the stat.
+2. minor — `tests/test_rails_bench_index_arms.py:22-27` — the approved test covers arm parsing, mutual exclusion, drop fail-closed and the soak cap, but never calls `seed()`, so the new seed stats, config fields and migrated installer path are only exercised by `tests/test_rails_bench.py`, which skips without the four-checkout tuple. Concrete fix: in a follow-up (not this read-only approved file), add a test that stubs `RailsLedger` and asserts `seed(..., index_mode=...)` returns the matching `index_mode`/`index_present_after_seed` (plus `migrate_ms` for migrated) without weakening existing coverage.
+3. minor — review evidence — the checkout is a single squashed base commit, so the requested range `ae9c080262ab593e7643e2fba79cd51a018f25df..718855025b98619087ab57501ecc4619c5e0b71c` and its objects are absent; the diff could not be produced and byte-identity of the read-only approved test cannot be proven from git history. Concrete fix for future reviews: include the source_rev tree or patch in the checkout.
+
+Test commands and exit codes
+
+- `timeout 900 python3 -m pytest -q -p no:cacheprovider tests/test_rails_bench_index_arms.py tests/test_rails_bench.py` — exit 1: `/usr/bin/python3: No module named pytest` (pytest is absent; installing it would require network, which the brief forbids).
+- `timeout 900 python3 -m unittest -v tests.test_rails_bench_index_arms tests.test_rails_bench` — exit 0: 6 tests, 5 pass and `test_rails_bench` skips because the four-checkout tuple is absent (its designed skip).
+- `timeout 1800 python3 -m unittest discover -s tests -t .` — exit 1: 622 tests, 15 import errors all `ModuleNotFoundError: No module named pytest` or `jsonschema`, 28 skips, no assertion failure. The errors are missing test-environment dependencies, not failures caused by the changed file.
+- `timeout 120 python3 -m py_compile scripts/bench_rails.py` — exit 0.
