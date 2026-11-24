@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -102,6 +103,20 @@ DECISION_FIELDS = (
     "rationale",
     "decision_digest",
 )
+
+RECEIPT_SCHEMA = "rizzstack.owner-decision-receipt/1"
+RECEIPT_FIELDS = (
+    "schema",
+    "request_id",
+    "request_digest",
+    "decision_nonce",
+    "outcome",
+    "decided_by",
+    "decided_at",
+    "decision_digest",
+    "signature",
+)
+RECEIPT_OUTCOMES = ("approve", "deny")
 
 QUESTION_MIN = 8
 QUESTION_MAX = 400
@@ -390,6 +405,137 @@ def validate_decision(decision: Mapping[str, Any], *, request: Mapping[str, Any]
     return body
 
 
+def canonical_receipt(receipt: Mapping[str, Any]) -> str:
+    """The canonical signing domain: the receipt without its ``signature``."""
+    return canonical_json({name: value for name, value in receipt.items() if name != "signature"})
+
+
+def _receipt_key(key: bytes | str | None) -> bytes:
+    if isinstance(key, str):
+        material = key.encode("utf-8")
+    elif isinstance(key, (bytes, bytearray)):
+        material = bytes(key)
+    else:
+        material = b""
+    _need(
+        bool(material),
+        "receipt_key_missing",
+        "a receipt needs the owner-held signing key",
+        "supply the key from its environment variable",
+    )
+    return material
+
+
+def receipt_signature(receipt: Mapping[str, Any], key: bytes | str | None) -> str:
+    """HMAC-SHA256 over :func:`canonical_receipt`, keyed with the owner's key."""
+    material = _receipt_key(key)
+    return hmac.new(material, canonical_receipt(receipt).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def sign_receipt(receipt: Mapping[str, Any], key: bytes | str | None) -> dict[str, Any]:
+    """Return a copy of *receipt* carrying its HMAC-SHA256 signature."""
+    body = {name: value for name, value in receipt.items() if name != "signature"}
+    body["signature"] = receipt_signature(body, key)
+    return body
+
+
+def verify_receipt(
+    receipt: Mapping[str, Any],
+    *,
+    request: Mapping[str, Any],
+    decision: Mapping[str, Any],
+    key: bytes | str | None,
+) -> dict[str, Any]:
+    """Verify the frozen receipt shape, its signature and its bindings.
+
+    The shape is checked first, then the signature with ``hmac.compare_digest``,
+    then the request and decision bindings. The key is supplied by the caller;
+    this module never reads or stores it.
+    """
+    _need(isinstance(receipt, dict), "receipt_bad_version", "a receipt must be a JSON object")
+    body = dict(receipt)
+    unknown = sorted(set(body) - set(RECEIPT_FIELDS))
+    _need(
+        not unknown,
+        "receipt_unknown_field",
+        "the receipt carries fields outside the protocol",
+        ", ".join(unknown),
+    )
+    for name in RECEIPT_FIELDS:
+        _need(name in body, "receipt_missing_field", f"the receipt is missing {name}", name)
+    _need(
+        body["schema"] == RECEIPT_SCHEMA,
+        "receipt_bad_version",
+        f"receipt schema must be {RECEIPT_SCHEMA}",
+    )
+    _need(
+        isinstance(body["request_id"], str) and ID_RE.match(body["request_id"]) is not None,
+        "receipt_bad_id",
+        "receipt request_id must be a short opaque identifier",
+    )
+    _need(
+        isinstance(body["decision_nonce"], str) and NONCE_RE.match(body["decision_nonce"]) is not None,
+        "receipt_bad_id",
+        "receipt decision_nonce must be 32 hex characters",
+    )
+    _need(
+        isinstance(body["request_digest"], str) and SHA256_RE.match(body["request_digest"]) is not None,
+        "receipt_bad_digest",
+        "receipt request_digest must be a hex sha256 digest",
+    )
+    _need(
+        isinstance(body["decision_digest"], str) and SHA256_RE.match(body["decision_digest"]) is not None,
+        "receipt_bad_digest",
+        "receipt decision_digest must be a hex sha256 digest",
+    )
+    _need(
+        isinstance(body["decided_at"], str) and TIMESTAMP_RE.match(body["decided_at"]) is not None,
+        "receipt_bad_timestamp",
+        "receipt decided_at must be an RFC 3339 UTC timestamp with second precision",
+    )
+    _need(
+        body["outcome"] in RECEIPT_OUTCOMES,
+        "receipt_bad_outcome",
+        f"receipt outcome must be one of {RECEIPT_OUTCOMES}",
+    )
+    _need(
+        body["decided_by"] == "owner",
+        "receipt_not_owner",
+        "a receipt must be signed for the literal owner",
+    )
+    _need(
+        isinstance(body["signature"], str) and SHA256_RE.match(body["signature"]) is not None,
+        "receipt_signature_invalid",
+        "receipt signature must be 64 lowercase hex characters",
+    )
+    expected = receipt_signature(body, _receipt_key(key))
+    _need(
+        hmac.compare_digest(expected, body["signature"]),
+        "receipt_signature_invalid",
+        "receipt signature does not verify",
+    )
+    _need(
+        isinstance(request, dict) and isinstance(decision, dict),
+        "receipt_binding_mismatch",
+        "a receipt must be verified against one request and one decision",
+    )
+    _need(
+        body["request_id"] == request.get("request_id")
+        and body["request_digest"] == request.get("request_digest")
+        and body["decision_nonce"] == request.get("decision_nonce"),
+        "receipt_binding_mismatch",
+        "the receipt does not bind this request",
+    )
+    _need(
+        body["decision_digest"] == decision.get("decision_digest")
+        and body["outcome"] == decision.get("outcome")
+        and body["decided_at"] == decision.get("decided_at"),
+        "receipt_decision_mismatch",
+        "the receipt does not answer this decision",
+    )
+    return body
+
+
 def build_request(
     *,
     request_id: str,
@@ -551,16 +697,24 @@ class DecisionQueue:
         rationale: str,
         approval_receipt_ref: str | None = None,
         decided_at: str | None = None,
+        receipt: Mapping[str, Any] | None = None,
+        key: bytes | str | None = None,
     ) -> dict[str, Any]:
         """Record the owner's answer for one pending request.
 
         A final answer (approve or deny) closes the request until
         :meth:`apply_ready` consumes it. A deferral is recorded and the request
         stays pending. Refuses a decision on anything that is not pending.
+
+        An optional owner-decision receipt is evidence only: it is verified
+        against the checked decision and its request, before any write, and is
+        never persisted by the queue.
         """
         record = self.get(request_id)
         current = self.status(record)
         _need(current == "pending", "not_pending", f"{request_id} is {current}, only a pending request may be decided")
+        if receipt is not None:
+            _receipt_key(key)
         decision = {
             "schema": SUPPORTED[0],
             "record": "decision",
@@ -575,6 +729,8 @@ class DecisionQueue:
         }
         decision["decision_digest"] = decision_digest(decision)
         checked = validate_decision(decision, request=record["request"])
+        if receipt is not None:
+            verify_receipt(receipt, request=record["request"], decision=checked, key=key)
         if checked["outcome"] == "defer":
             record["defers"].append(checked)
         else:
@@ -664,6 +820,31 @@ class DecisionQueue:
         }
 
 
+def _receipt_from_file(path: str) -> Any:
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError) as exc:
+        raise QueueError("receipt_bad_file", "cannot read the receipt document", path) from exc
+
+
+def _key_from_env(name: str | None) -> bytes:
+    _need(
+        isinstance(name, str) and bool(name),
+        "receipt_key_missing",
+        "a receipt needs the name of the key environment variable",
+        "--key-env",
+    )
+    value = os.environ.get(name, "")
+    _need(
+        bool(value),
+        "receipt_key_missing",
+        f"the key environment variable {name} is missing or empty",
+        "--key-env",
+    )
+    return value.encode("utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Read-only verbs plus decide/apply for the queue, JSON in and out."""
     parser = argparse.ArgumentParser(
@@ -678,6 +859,12 @@ def main(argv: list[str] | None = None) -> int:
     record = verb.add_parser("record", help="record a decision from a JSON file")
     record.add_argument("--request-id", required=True)
     record.add_argument("--file", required=True, help="path to the decision document")
+    record.add_argument("--receipt", help="path to an owner-decision receipt document")
+    record.add_argument("--key-env", help="environment variable holding the receipt signing key")
+    verify = verb.add_parser("verify-receipt", help="verify a receipt against a stored decision")
+    verify.add_argument("--request-id", required=True)
+    verify.add_argument("--file", required=True, help="path to the receipt document")
+    verify.add_argument("--key-env", required=True, help="environment variable holding the receipt signing key")
     verb.add_parser("apply", help="apply every decided request exactly once")
     args = parser.parse_args(argv)
     queue = DecisionQueue(args.state_dir)
@@ -697,9 +884,46 @@ def main(argv: list[str] | None = None) -> int:
             ]
         elif args.verb == "show":
             result = queue.get(args.request_id)
+        elif args.verb == "verify-receipt":
+            stored = queue.get(args.request_id)
+            _need(
+                stored["decision"] is not None,
+                "not_pending",
+                f"{args.request_id} has no final decision to verify against",
+            )
+            receipt = _receipt_from_file(args.file)
+            key = _key_from_env(args.key_env)
+            checked = verify_receipt(
+                receipt,
+                request=stored["request"],
+                decision=stored["decision"],
+                key=key,
+            )
+            result = {
+                "ok": True,
+                "request_id": checked["request_id"],
+                "outcome": checked["outcome"],
+            }
         elif args.verb == "record":
             with open(args.file, encoding="utf-8") as handle:
                 document = json.load(handle)
+            receipt = None
+            key = None
+            if args.receipt is not None or args.key_env is not None:
+                _need(
+                    args.receipt is not None,
+                    "receipt_bad_file",
+                    "the receipt document is required with --key-env",
+                    "--receipt",
+                )
+                _need(
+                    args.key_env is not None,
+                    "receipt_key_missing",
+                    "the key environment variable is required with --receipt",
+                    "--key-env",
+                )
+                receipt = _receipt_from_file(args.receipt)
+                key = _key_from_env(args.key_env)
             result = queue.record_decision(
                 args.request_id,
                 outcome=document.get("outcome", ""),
@@ -707,6 +931,8 @@ def main(argv: list[str] | None = None) -> int:
                 rationale=document.get("rationale", ""),
                 approval_receipt_ref=document.get("approval_receipt_ref"),
                 decided_at=document.get("decided_at"),
+                receipt=receipt,
+                key=key,
             )
         else:
             result = {"applied": queue.apply_ready()}
