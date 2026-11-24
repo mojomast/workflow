@@ -576,6 +576,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T4-NOIDXFIX: `scripts/bench_rails.py` settles the P1 index arms after seeding: ev",
         "keywords": ("scripts/bench_rails.py", "RailsLedger", "rails_local_attempt_scan",),
     },
+    {
+        # T4-FIXHIST (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 145,
+        "name": "T4-FIXHIST: Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench",
+        "keywords": ("scripts/bench_rails.py", "--soak-seconds", "14400",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
