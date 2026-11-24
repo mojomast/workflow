@@ -2,6 +2,8 @@
 
 **Release decision: HOLD.** Start with the [executive decision, gap matrix and reproduction instructions](release/DECISION.md), the [four full release SHAs](release.json) and the [exact-tuple result](release/summary.json). The native RETURN was repaired and independently verified. The required four-checkout software gate passed 665 cases with zero skips. The live Windows, production attribution and human decision gates remain open.
 
+Superseded in part by [DECISION-2026-11-24-index-default.md](release/DECISION-2026-11-24-index-default.md): the attempt index is the default for new ledgers, while the HOLD stands unchanged.
+
 | Capture | Observation |
 |---|---|
 | [`start.json`](start.json), [`before/`](before/) | Four fetched draft heads. All five original R18 cases passed; the frozen validator independently rejected the native RETURN with nine diagnostics across seven paths. The producer's verifier and receiver did not agree. |
