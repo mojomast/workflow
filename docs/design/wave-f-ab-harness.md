@@ -1,8 +1,6 @@
 # Wave F design: an A/B harness scored by tokens per verified patch
 
-Status: **proposed** (design only). Wave F of the Nov 24 next-level review
-([rizzstack #17](https://github.com/mojomast/rizzstack/pull/17)). `NEXT.md` now puts the memory
-canary (W2-G) behind this wave.
+Status: **accepted as design** (Kyle, chat t1650u). Design only. Wave F of the Nov 24 next-level review ([rizzstack #17](https://github.com/mojomast/rizzstack/pull/17)). The memory canary (W2-G) stays paused until experiment F1 reports.
 
 ## Problem
 
