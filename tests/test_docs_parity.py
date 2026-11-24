@@ -594,6 +594,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "CI-MERGEQ: CI and slop-lint run on merge_group",
         "keywords": ("merge_group", "bee-ci/reference",),
     },
+    {
+        # BEST-PRACTICE item 3: row rides in its own PR so the merge leaves main green.
+        "pr": 155,
+        "name": "Audit chain anchors: rizzstack.audit-anchor/1 + collector",
+        "keywords": ("rizzstack.audit-anchor/1", "audit_anchor.py",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
