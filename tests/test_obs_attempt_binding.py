@@ -23,6 +23,7 @@ Contracts pinned here (all read-only):
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -53,6 +54,11 @@ VALIDATOR = Validator(ROOT / "observability" / "schemas")
 
 def stamp(minutes_ago: float) -> str:
     return (NOW - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def sealed_job(body: dict) -> dict:
+    mac = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return {"body": body, "mac": mac}
 
 
 def make_state(tmp_path: Path) -> Path:
@@ -228,7 +234,7 @@ def test_fresh_wave_attempts_keep_the_pipeline_live(tmp_path):
     state = make_state(tmp_path)
     (state / "jobs").mkdir()
     job = state / "jobs" / "old-job.json"
-    job.write_text(json.dumps({"job_id": "old-job", "goal": {}, "tasks": [{"task_id": "T1", "state": "accepted"}]}))
+    job.write_text(json.dumps(sealed_job({"job_id": "old-job", "goal": {}, "tasks": [{"task_id": "T1", "state": "accepted"}]})))
     old = (NOW - timedelta(days=6)).timestamp()
     os.utime(job, (old, old))
     lease(state, "att_e1", label="wa-a1", wave="A", project="bundlebees")
@@ -258,7 +264,7 @@ def test_without_fresh_attempts_the_stale_job_store_stays_stale(tmp_path):
     state = make_state(tmp_path)
     (state / "jobs").mkdir()
     job = state / "jobs" / "old-job.json"
-    job.write_text(json.dumps({"job_id": "old-job", "goal": {}, "tasks": [{"task_id": "T1", "state": "accepted"}]}))
+    job.write_text(json.dumps(sealed_job({"job_id": "old-job", "goal": {}, "tasks": [{"task_id": "T1", "state": "accepted"}]})))
     old = (NOW - timedelta(days=6)).timestamp()
     os.utime(job, (old, old))
     snap = build(tmp_path, [], state=state)
