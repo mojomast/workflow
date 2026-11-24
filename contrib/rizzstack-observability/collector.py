@@ -1317,6 +1317,9 @@ class Collector:
         today_prefix = now.astimezone(timezone.utc).strftime("%Y-%m-%d")
         totals = {"input": 0, "output": 0, "total": 0, "cost": 0.0}
         known = {"input": 0, "output": 0, "total": 0, "cost": 0}
+        # Two denominators: totals.requests counts usage-bearing records,
+        # source.record_count counts every parsed dict record.
+        parsed_records = 0
         requests = 0
         unknown_cost = 0
         http_429_count = 0
@@ -1339,7 +1342,7 @@ class Collector:
                 parse_errors += 1
                 continue
             seen_any = True
-            requests += 1
+            parsed_records += 1
             model = scrub(first_str(record, ("served_model", "model", "requested_model")), 64) or "unknown"
             model = model if ID_TOKEN_RE.match(model) else "unknown"
             provider = provider_label(first_str(record, ("route", "provider"))) or "unknown"
@@ -1352,10 +1355,15 @@ class Collector:
                 total = first_count(record["usage_raw"], ("total",))
             if total is None and inp is not None and outp is not None:
                 total = inp + outp
+            usage_bearing = any(count is not None and count > 0 for count in (inp, outp, total))
+            if usage_bearing:
+                requests += 1
             cost = first_number(record, ("cost_usd_list", "cost_usd", "cost_usd_total", "cost"))
             if cost is not None and cost < 0:
                 cost = None
-            if cost is None:
+            # Only a usage-bearing row can be an unpriced request; a zero-token
+            # null-cost heartbeat must not trip the Hive coverage guard.
+            if cost is None and usage_bearing:
                 unknown_cost += 1
             if inp is not None:
                 totals["input"] += inp
@@ -1419,6 +1427,7 @@ class Collector:
                 summary["today_cost_usd"] += cost
                 summary["today_known"] += 1
 
+            # Bucket requests count records seen; totals.requests counts usage-bearing rows.
             key = (model, provider)
             if key not in by_model:
                 by_model[key] = self._usage_bucket(generated, model=model, provider=provider)
@@ -1469,7 +1478,7 @@ class Collector:
             source={
                 "schema": SCHEMA,
                 "generated_at": generated,
-                "record_count": requests,
+                "record_count": parsed_records,
                 "parse_errors": parse_errors,
                 "usage_status": usage_status,
             },
