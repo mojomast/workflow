@@ -19,6 +19,8 @@ Since bundlebees #84 a new ledger creates the local-attempt index itself, so the
 - **none** (`--no-attempt-index`): drop `rails_local_attempt_scan` before seeding, as the unindexed control.
 - **migrated** (`--migrate-attempt-index`): drop the index, seed without it, then run the pinned BundleBees installer over the existing ledger.
 
+Every `RailsLedger` writer open re-creates the index, so the ten producers bring it back during seeding. After they join and the receipt/count checks pass, the none and migrated arms drop it again; the migrated arm then installs it on the existing ledger and must report `installed`. `seed` checks the resulting state with `check_arm` and fails closed if it does not match the arm. Seed timing therefore includes index maintenance in all arms.
+
 Reports record `config.index_mode` and keep `config.attempt_index` (`false` only for the none arm). Seed stats record `index_mode` and `index_present_after_seed`; the migrated arm also records `migrate_ms`. Measurements from different arms are not interchangeable. `reads` measures the shared query API, not multi-request HTTP pagination.
 
 The P1 shape is five runs per arm, with a fresh output path each time:
