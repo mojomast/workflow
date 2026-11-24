@@ -60,7 +60,7 @@ class AnchorContract(unittest.TestCase):
         return a
 
     def test_example_and_both_reasons_validate(self) -> None:
-        example = json.loads((ROOT / "observability" / "examples" / "audit-anchor.json").read_text())
+        example = json.loads((ROOT / "contrib" / "rizzstack-observability" / "audit-anchor.example.json").read_text())
         self.validator.validate_file(example, "audit-anchor.schema.json")
         self.validator.validate_file(self.anchor(reason="rotation", seq=137), "audit-anchor.schema.json")
 
