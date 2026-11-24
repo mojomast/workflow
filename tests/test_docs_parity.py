@@ -582,6 +582,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T4-FIXHIST: Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench",
         "keywords": ("scripts/bench_rails.py", "--soak-seconds", "14400",),
     },
+    {
+        # WA-A12A (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 149,
+        "name": "WA-A12A: bee-landed dataschema identity (workflow #149, WA-A12A): `tools/bee_",
+        "keywords": ("tools/bee_landed.py", "DATASCHEMA", "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
