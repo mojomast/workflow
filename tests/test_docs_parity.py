@@ -46,6 +46,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    139: (
+        "docs-sync companion (the workflow #136 coverage row for the T1-SEED memory seed "
+        "script): a registry bookkeeping change; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     138: (
         "docs-sync companion (the workflow #133 coverage row for the T1-MEMQ memory query "
         "CLI): a registry bookkeeping change; it carries its own exclusion so merging it "
