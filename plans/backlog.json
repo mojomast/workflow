@@ -1715,6 +1715,1204 @@
         }
       ],
       "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "WA-A1A",
+      "title": "Wave A A1a: Verify refuses patches that can subvert the approved test run",
+      "project": "bundlebees",
+      "lane": "bb-verify",
+      "priority": 5,
+      "brief": {
+        "objective": "Add bundlebees_plugin/subversion_scan.py (scan_patch -> findings with kind/path/line for conftest, startup hooks, .pth files, pytest plugins, forced exit, atexit, pytest hooks, patched assertions) and call it from verify_local before the sandboxed test run; any finding refuses with VerifyError code test_subversion.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a1a",
+        "source_rev": "46e03db6b5c7f0aa430ba31334a00b187a4df90a",
+        "assigned_files": [
+          "bundlebees_plugin/subversion_scan.py",
+          "bundlebees_plugin/verify_local.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Verify refuses patches that can subvert the approved test run",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_subversion_scan.py"
+          ],
+          "tests": [
+            "tests/test_subversion_scan.py"
+          ]
+        },
+        "tests": [
+          "tests/test_subversion_scan.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_subversion_scan.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "verify_local.py is a sensitive module",
+            "closes review Fix-now #1 (junit/collection trust)"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a1a-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A1B",
+      "title": "Wave A A1b: GREEN must collect exactly the approved test ids",
+      "project": "bundlebees",
+      "lane": "bb-verify",
+      "priority": 5,
+      "brief": {
+        "objective": "Add tdd.check_collected_ids(approved, cases) and an approved_ids argument to tdd.check_green so GREEN fails with tests_mismatch on missing, extra, duplicate or collection-stage cases, and on an empty approved list; pass the frozen manifest ids from the verify path.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a1b",
+        "source_rev": "f0e77f27c8c195c36d7259420d90b65a78d45f69",
+        "assigned_files": [
+          "bundlebees_plugin/tdd.py",
+          "bundlebees_plugin/verify_local.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "GREEN must collect exactly the approved test ids",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_collected_ids_exact.py"
+          ],
+          "tests": [
+            "tests/test_collected_ids_exact.py"
+          ]
+        },
+        "tests": [
+          "tests/test_collected_ids_exact.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_collected_ids_exact.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "changes the GREEN evidence rule",
+            "touches verify_local.py (sensitive)"
+          ]
+        },
+        "deps": [
+          "A1a"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a1b-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-A1A"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A6",
+      "title": "Wave A A6: Lease-overlap check fails closed when the launcher list is unreadable",
+      "project": "bundlebees",
+      "lane": "bb-tools",
+      "priority": 5,
+      "brief": {
+        "objective": "In tools.py work_create, refuse with launcher_unreadable (no create call) when the launcher attempts listing raises or is not a list, instead of skipping the overlap check.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a6",
+        "source_rev": "224a954f6a5de4a5418ac0156052a937c2eb9227",
+        "assigned_files": [
+          "bundlebees_plugin/tools.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Lease-overlap check fails closed when the launcher list is unreadable",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_lease_check_fail_closed.py"
+          ],
+          "tests": [
+            "tests/test_lease_check_fail_closed.py"
+          ]
+        },
+        "tests": [
+          "tests/test_lease_check_fail_closed.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_lease_check_fail_closed.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "dispatch safety gate (review Fix-now #6)"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a6-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T1",
+      "title": "Wave A T1: Status attempts listing is bounded and compact by default",
+      "project": "bundlebees",
+      "lane": "bb-tools",
+      "priority": 5,
+      "brief": {
+        "objective": "bundlebees status attempts returns the newest 20 compact rows by default, with limit (max 200), state filter, detail flag, total and truncated; schema gains limit, state, detail.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-t1",
+        "source_rev": "58551bea1b99fe5f39b18125da70d9208043e51a",
+        "assigned_files": [
+          "bundlebees_plugin/tools.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Status attempts listing is bounded and compact by default",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_status_attempts_bounded.py"
+          ],
+          "tests": [
+            "tests/test_status_attempts_bounded.py"
+          ]
+        },
+        "tests": [
+          "tests/test_status_attempts_bounded.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_status_attempts_bounded.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "token waste: unbounded attempts list"
+          ]
+        },
+        "deps": [
+          "A6"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t1-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-A6"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A7",
+      "title": "Wave A A7: Risk floor comes from a versioned policy file and covers test-harness files",
+      "project": "bundlebees",
+      "lane": "bb-risk",
+      "priority": 5,
+      "brief": {
+        "objective": "Move the path floor into bundlebees_plugin/policy/risk-floor.json (schema bundlebees.risk-floor/1), add conftest.py, tests/fixtures/**, pytest.ini, tox.ini, setup.cfg, noxfile.py and sitecustomize.py as high, drop _SENSITIVE_MODULES, and fail closed to high when the policy is missing or unreadable.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a7",
+        "source_rev": "a2bc902e6b3b2529a420136090857492309a0edb",
+        "assigned_files": [
+          "bundlebees_plugin/risk.py",
+          "bundlebees_plugin/policy/risk-floor.json",
+          "docs/risk-tiers.md"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Risk floor comes from a versioned policy file and covers test-harness files",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_risk_floor_policy.py"
+          ],
+          "tests": [
+            "tests/test_risk_floor_policy.py"
+          ]
+        },
+        "tests": [
+          "tests/test_risk_floor_policy.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_risk_floor_policy.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "defines which briefs need contracts (review Fix-now #8)",
+            "changes how many briefs reach high tier; MI-31 model routing keys off this"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a7-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A8",
+      "title": "Wave A A8: integrate_job git calls have a bounded timeout",
+      "project": "bundlebees",
+      "lane": "bb-integrate",
+      "priority": 5,
+      "brief": {
+        "objective": "Add integrate_job.GIT_TIMEOUT_S and a timeout_s argument to integrate_job._git; a timeout raises IntegrateError git_timeout even when check=False.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a8",
+        "source_rev": "0c007335a49478f5cb0b089550c2b9cb5f9083f6",
+        "assigned_files": [
+          "bundlebees_plugin/integrate_job.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "integrate_job git calls have a bounded timeout",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_integrate_git_timeout.py"
+          ],
+          "tests": [
+            "tests/test_integrate_git_timeout.py"
+          ]
+        },
+        "tests": [
+          "tests/test_integrate_git_timeout.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_integrate_git_timeout.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "hang risk (review Fix-now #9)"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a8-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A10",
+      "title": "Wave A A10: Test-only consumer adapters and the crash switch need an explicit test env",
+      "project": "bundlebees",
+      "lane": "bb-consumer",
+      "priority": 5,
+      "brief": {
+        "objective": "In agent_consumer.py, the authorized adapter and the crash env switch are only reachable when BUNDLEBEES_TEST_ADAPTERS is exactly 1; add allowed_adapters(), resolve_adapter() (adapter_test_only, adapter_unknown, default hermes) and crash_armed().",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a10",
+        "source_rev": "356d031b2cb33bbcad29047f367b9c9804db45aa",
+        "assigned_files": [
+          "bundlebees_plugin/agent_consumer.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Test-only consumer adapters and the crash switch need an explicit test env",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_agent_work.py tests/test_consumer_test_only_adapters.py tests/test_m43_wakeup_e2e.py"
+          ],
+          "tests": [
+            "tests/test_agent_work.py",
+            "tests/test_consumer_test_only_adapters.py",
+            "tests/test_m43_wakeup_e2e.py"
+          ]
+        },
+        "tests": [
+          "tests/test_agent_work.py",
+          "tests/test_consumer_test_only_adapters.py",
+          "tests/test_m43_wakeup_e2e.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_agent_work.py tests/test_consumer_test_only_adapters.py tests/test_m43_wakeup_e2e.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "production reachability of test adapters (review Fix-now #11)"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a10-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A11",
+      "title": "Wave A A11: Preflight honours require_contract",
+      "project": "bundlebees",
+      "lane": "bb-preflight",
+      "priority": 5,
+      "brief": {
+        "objective": "preflight(brief, state_dir, require_contract=) plus a --require-contract CLI flag; the registered bundlebees preflight command reads the require_contract setting, so preflight and dispatch agree.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-a11",
+        "source_rev": "67d0807e7b82dfa07d48577456fe74640e10cc57",
+        "assigned_files": [
+          "bundlebees_plugin/preflight.py",
+          "bundlebees_plugin/cli.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Preflight honours require_contract",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_preflight_require_contract.py"
+          ],
+          "tests": [
+            "tests/test_preflight_require_contract.py"
+          ]
+        },
+        "tests": [
+          "tests/test_preflight_require_contract.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_preflight_require_contract.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "preflight/dispatch disagreement (review Fix-now #12)",
+            "path floor is medium for plugin source"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a11-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T4",
+      "title": "Wave A T4: Operator skill loads lean: no system prompt section, verify helper at step 7",
+      "project": "bundlebees",
+      "lane": "bb-tools",
+      "priority": 5,
+      "brief": {
+        "objective": "Remove register_system_prompt_section from the plugin entry, point to verify-and-deploy.md once at step 7, and keep skills/bundlebees-operator/SKILL.md at most 11,079 chars. Also reword the lease_overlap pitfall now that A6 makes the check fail closed.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-t4",
+        "source_rev": "72437abeb93e20c87f6fe7f18e6b5a6caf708ec2",
+        "assigned_files": [
+          "__init__.py",
+          "skills/bundlebees-operator/SKILL.md"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Operator skill loads lean: no system prompt section, verify helper at step 7",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_operator_skill_lean.py"
+          ],
+          "tests": [
+            "tests/test_operator_skill_lean.py"
+          ]
+        },
+        "tests": [
+          "tests/test_operator_skill_lean.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_operator_skill_lean.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "token waste per turn",
+            "plugin entry is source (medium floor)"
+          ]
+        },
+        "deps": [
+          "A6"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t4-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-A6"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-M1",
+      "title": "Wave A M1: Weekly tokens-per-verified-patch rollup",
+      "project": "bundlebees",
+      "lane": "bb-metrics",
+      "priority": 5,
+      "brief": {
+        "objective": "Add metrics.weekly(state_dir, now=, days=7) returning window_days, verified_patches, attempts, tokens_total, tokens_per_verified_patch, tokens_known_subtotal and coverage; unknown usage yields None, never zero.",
+        "project": "bundlebees",
+        "branch": "feat/wave-a-m1",
+        "source_rev": "7a5f5ea0e74df45e148b445d65c6b14a01161273",
+        "assigned_files": [
+          "bundlebees_plugin/metrics.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Weekly tokens-per-verified-patch rollup",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_metrics_weekly.py"
+          ],
+          "tests": [
+            "tests/test_metrics_weekly.py"
+          ]
+        },
+        "tests": [
+          "tests/test_metrics_weekly.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_metrics_weekly.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "wave A exit metric"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-m1-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-HY-1",
+      "title": "Wave A HY-1: Every attempt gets a wall clock, from the brief or the host default",
+      "project": "hyvv",
+      "lane": "hyvv-launcher",
+      "priority": 5,
+      "brief": {
+        "objective": "Add DEFAULT_ATTEMPT_TIMEOUT_S and config default_timeout_s (clamped 60..86400); attempt_budget_s falls back to it so no attempt runs unbounded; validate_brief refuses a missing budget only when config require_budget is set.",
+        "project": "hyvv",
+        "branch": "feat/wave-a-hy-1",
+        "source_rev": "7054d4a61fb7bc78c6f8f2d9b045d29d7ba139f8",
+        "assigned_files": [
+          "launcher.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Every attempt gets a wall clock, from the brief or the host default",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_budget_enforcement.py tests/test_default_wall_clock.py"
+          ],
+          "tests": [
+            "tests/test_budget_enforcement.py",
+            "tests/test_default_wall_clock.py"
+          ]
+        },
+        "tests": [
+          "tests/test_budget_enforcement.py",
+          "tests/test_default_wall_clock.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_budget_enforcement.py tests/test_default_wall_clock.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "runaway attempts (review Fix-now #2)",
+            "changes /v1 behaviour for briefs without budget"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-hy-1-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-HY-2",
+      "title": "Wave A HY-2: Retries resume the same run and every sandbox is torn down once",
+      "project": "hyvv",
+      "lane": "hyvv-launcher",
+      "priority": 5,
+      "brief": {
+        "objective": "_backoff keeps run_id and sandbox; a same-model retry resumes through backend.resume(a, prompt) with a short continue prompt when the backend supports it (a model switch restarts fresh); cleanup is keyed by sandbox so the retry sandbox is torn down exactly once.",
+        "project": "hyvv",
+        "branch": "feat/wave-a-hy-2",
+        "source_rev": "1c6001d335faa9f440413fab6c3edbb95494cc99",
+        "assigned_files": [
+          "launcher.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Retries resume the same run and every sandbox is torn down once",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_retry_resume_and_teardown.py"
+          ],
+          "tests": [
+            "tests/test_retry_resume_and_teardown.py"
+          ]
+        },
+        "tests": [
+          "tests/test_retry_resume_and_teardown.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_retry_resume_and_teardown.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "token waste on retry (Fix-now #3)",
+            "sandbox leak (Fix-now #4)"
+          ]
+        },
+        "deps": [
+          "HY-1"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-hy-2-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-HY-1"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-HY-3",
+      "title": "Wave A HY-3: Prompt renders findings and tests; bee-landed dataschema fixed",
+      "project": "hyvv",
+      "lane": "hyvv-launcher",
+      "priority": 5,
+      "brief": {
+        "objective": "render_prompt adds a bounded # Research findings section before # Rules and a # Tests that must pass section from brief.tests; LANDED_EVENT_SCHEMA uses the workflow schema $id; no rizstack.dev typo left in launcher.py or docs/bee-landed.md.",
+        "project": "hyvv",
+        "branch": "feat/wave-a-hy-3",
+        "source_rev": "0cf4d8b94fe51f7bef070ebfd2e4533fcf245f99",
+        "assigned_files": [
+          "launcher.py",
+          "docs/bee-landed.md"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Prompt renders findings and tests; bee-landed dataschema fixed",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_prompt_findings_and_landed_id.py"
+          ],
+          "tests": [
+            "tests/test_prompt_findings_and_landed_id.py"
+          ]
+        },
+        "tests": [
+          "tests/test_prompt_findings_and_landed_id.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_prompt_findings_and_landed_id.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "findings never rendered (Fix-now #5)",
+            "identifier disagreement (Fix-now #13)"
+          ]
+        },
+        "deps": [
+          "HY-2",
+          "A12a"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-hy-3-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-HY-2",
+        "WA-A12A"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A12A",
+      "title": "Wave A A12a: bee-landed dataschema is the schema $id; legacy typo URL still accepted",
+      "project": "workflow",
+      "lane": "workflow",
+      "priority": 5,
+      "brief": {
+        "objective": "tools/bee_landed.py sets DATASCHEMA to the schema $id, keeps the typo URL in LEGACY_DATASCHEMAS (accepted, flagged deprecated) and exposes dataschema_status(); the schema and docs/29 name both values. Type rizzstack.bee.landed.v1 and data schema rizzstack.bee-landed/1 are unchanged.",
+        "project": "workflow",
+        "branch": "feat/wave-a-a12a",
+        "source_rev": "c87c87ed45a4239baad937079977beb8429f5ad3",
+        "assigned_files": [
+          "tools/bee_landed.py",
+          "schemas/bee-landed.schema.json",
+          "docs/29-bee-landed.md"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "bee-landed dataschema is the schema $id; legacy typo URL still accepted",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_bee_landed_dataschema.py"
+          ],
+          "tests": [
+            "tests/test_bee_landed_dataschema.py"
+          ]
+        },
+        "tests": [
+          "tests/test_bee_landed_dataschema.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_bee_landed_dataschema.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "schemas/*.json is high on the path floor",
+            "cross-repo event contract"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a12a-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-A9",
+      "title": "Wave A A9: Control routes need the operator role; sessions expire server-side",
+      "project": "orbit-control-plane",
+      "lane": "control-plane",
+      "priority": 5,
+      "brief": {
+        "objective": "auth.SESSION_TTL_MS (12h) with server-side expiry; sessions carry a role; a new operator token and an operators identity allowlist; the 8 control routes return 403 for viewer and orbit and 202 for operator.",
+        "project": "orbit-control-plane",
+        "branch": "feat/wave-a-a9",
+        "source_rev": "98d6c0a2848596c2063bc4607baff596f1dd7b8b",
+        "assigned_files": [
+          "src/auth.mjs",
+          "src/server.mjs",
+          "src/config.mjs",
+          "README.md"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Control routes need the operator role; sessions expire server-side",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "node --test tests/operator-role.test.mjs tests/api.test.mjs tests/e2e-smoke.test.mjs tests/intents.test.mjs"
+          ],
+          "tests": [
+            "tests/api.test.mjs",
+            "tests/e2e-smoke.test.mjs",
+            "tests/helpers.mjs",
+            "tests/intents.test.mjs",
+            "tests/operator-role.test.mjs"
+          ]
+        },
+        "tests": [
+          "tests/api.test.mjs",
+          "tests/e2e-smoke.test.mjs",
+          "tests/helpers.mjs",
+          "tests/intents.test.mjs",
+          "tests/operator-role.test.mjs"
+        ],
+        "commands": [
+          "node --test tests/operator-role.test.mjs tests/api.test.mjs tests/e2e-smoke.test.mjs tests/intents.test.mjs"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "auth path (high floor)",
+            "needs a new operator credential before deploy"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-a9-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T2A",
+      "title": "Wave A T2a: Workspace context names the guide path instead of inlining it",
+      "project": "orbitdesktop",
+      "lane": "orbit-tarball",
+      "priority": 5,
+      "brief": {
+        "objective": "service.context(id) names the guide path and does not inline the guide text; context.parts keeps the guide for callers that need it. Regenerate hermes-plugin/orbit-source.tar.gz.",
+        "project": "orbitdesktop",
+        "branch": "feat/wave-a-t2a",
+        "source_rev": "ab6bd5dd3c710af312ccb5a806449cd5c79e8b2e",
+        "assigned_files": [
+          "server/workspace.mjs",
+          "hermes-plugin/orbit-source.tar.gz"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Workspace context names the guide path instead of inlining it",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "node --test tests/workspace-guide-by-path.test.mjs"
+          ],
+          "tests": [
+            "tests/workspace-guide-by-path.test.mjs"
+          ]
+        },
+        "tests": [
+          "tests/workspace-guide-by-path.test.mjs"
+        ],
+        "commands": [
+          "node --test tests/workspace-guide-by-path.test.mjs"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "token waste per turn"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t2a-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T2B",
+      "title": "Wave A T2b: describe catalog=true returns an index; one schema on request",
+      "project": "orbitdesktop",
+      "lane": "orbit-tarball",
+      "priority": 5,
+      "brief": {
+        "objective": "catalog=true returns sorted operation names, version and limits (no $defs, under 4000 chars); catalog_operation returns one operation plus only its referenced $defs; unknown operation is 400; the Hermes plugin accepts catalog_operation. Regenerate the tarball.",
+        "project": "orbitdesktop",
+        "branch": "feat/wave-a-t2b",
+        "source_rev": "09fded1b0d37101055a1b8dcf3f55ecc2c7b2a99",
+        "assigned_files": [
+          "server/workspace-description.mjs",
+          "server/workspace.mjs",
+          "hermes-plugin/__init__.py",
+          "hermes-plugin/orbit-source.tar.gz"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "describe catalog=true returns an index; one schema on request",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "node --test tests/workspace-catalog-index.test.mjs tests/workspace-description.test.mjs tests/hermes-plugin.test.mjs"
+          ],
+          "tests": [
+            "tests/hermes-plugin.test.mjs",
+            "tests/workspace-catalog-index.test.mjs",
+            "tests/workspace-description.test.mjs"
+          ]
+        },
+        "tests": [
+          "tests/hermes-plugin.test.mjs",
+          "tests/workspace-catalog-index.test.mjs",
+          "tests/workspace-description.test.mjs"
+        ],
+        "commands": [
+          "node --test tests/workspace-catalog-index.test.mjs tests/workspace-description.test.mjs tests/hermes-plugin.test.mjs"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "~10k-token catalog per call"
+          ]
+        },
+        "deps": [
+          "T2a"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t2b-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-T2A"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T3",
+      "title": "Wave A T3: AGENTS.md is a short router",
+      "project": "orbitdesktop",
+      "lane": "orbit-tarball",
+      "priority": 5,
+      "brief": {
+        "objective": "AGENTS.md at most 1500 bytes, keeps npm run check and scripts/bundle_hermes.py, and points at docs only conditionally. Regenerate the tarball if AGENTS.md is bundled.",
+        "project": "orbitdesktop",
+        "branch": "feat/wave-a-t3",
+        "source_rev": "ede1de2c88879011e16fd29eb5fdb9484b434584",
+        "assigned_files": [
+          "AGENTS.md",
+          "hermes-plugin/orbit-source.tar.gz"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "AGENTS.md is a short router",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "node --test tests/agents-router.test.mjs"
+          ],
+          "tests": [
+            "tests/agents-router.test.mjs"
+          ]
+        },
+        "tests": [
+          "tests/agents-router.test.mjs"
+        ],
+        "commands": [
+          "node --test tests/agents-router.test.mjs"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "medium",
+          "reasons": [
+            "AGENTS.md is docs, but the regenerated tarball puts the floor at medium (first preflight refused low: risk_tier_below_floor)"
+          ]
+        },
+        "deps": [
+          "T2b"
+        ]
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t3-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [
+        "WA-T2B"
+      ],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T5A",
+      "title": "Wave A T5a: uirizz SKILL.md is an index; Express notes move to a reference",
+      "project": "uirizz",
+      "lane": "uirizz-docs",
+      "priority": 5,
+      "brief": {
+        "objective": "SKILL.md at most 4000 chars, no Express essentials section or express code block, a topic=express pointer, notes kept in references/express.md, safety rules and the layout section unchanged.",
+        "project": "uirizz",
+        "branch": "feat/wave-a-t5a",
+        "source_rev": "aa0e7348b2ebcc75f15e5cc0d8b0cdba90e8f34b",
+        "assigned_files": [
+          "skills/uirizz/SKILL.md",
+          "skills/uirizz/references/express.md"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "uirizz SKILL.md is an index; Express notes move to a reference",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_skill_index.py"
+          ],
+          "tests": [
+            "tests/test_skill_index.py"
+          ]
+        },
+        "tests": [
+          "tests/test_skill_index.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_skill_index.py"
+        ],
+        "budget": {
+          "timeout_s": 1800,
+          "max_tool_calls": 60
+        },
+        "risk": {
+          "tier": "low",
+          "reasons": [
+            "docs only"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t5a-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
+    },
+    {
+      "id": "WA-T5B",
+      "title": "Wave A T5b: Approval notice shows once, then a short reminder",
+      "project": "uirizz",
+      "lane": "uirizz-gate",
+      "priority": 5,
+      "brief": {
+        "objective": "The full approval notice is injected once per scope, then a reminder under 300 chars; yes after the reminder still approves; tools stay blocked until approval; the cards hint repeats only when the cards change.",
+        "project": "uirizz",
+        "branch": "feat/wave-a-t5b",
+        "source_rev": "70dd2fa301bd123f8d1b2ea6f8c8eb39065c78c2",
+        "assigned_files": [
+          "uirizz_plugin/gate.py",
+          "uirizz_plugin/hints.py",
+          "uirizz_plugin/hooks.py"
+        ],
+        "wave": "A",
+        "acceptance": {
+          "criteria": [
+            "Approval notice shows once, then a short reminder",
+            "All approved tests named in tests pass; no approved test file is edited.",
+            "No other test in the repo regresses (full suite green)."
+          ],
+          "commands": [
+            "python -m pytest -q tests/test_notices_once.py"
+          ],
+          "tests": [
+            "tests/test_notices_once.py"
+          ]
+        },
+        "tests": [
+          "tests/test_notices_once.py"
+        ],
+        "commands": [
+          "python -m pytest -q tests/test_notices_once.py"
+        ],
+        "budget": {
+          "timeout_s": 2700,
+          "max_tool_calls": 90
+        },
+        "risk": {
+          "tier": "high",
+          "reasons": [
+            "approval-gate code: raised above the medium floor by the coordinator"
+          ]
+        },
+        "deps": []
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "fact": "wave-a-t5b-dispatch-via-backlog"
+        }
+      ],
+      "depends_on": [],
+      "status": "planned",
+      "notes": "Owner-approved (Kyle chat t1650u, t1651u). Dispatch runs on the rizzstack-t1634 Hermes kanban (one task per slice, lane parents = depends_on). The fact gate is never recorded while the kanban owns this slice, so the gate-watcher cannot double-dispatch it. High-tier contract: rizzstack plans/wave-a/contracts."
     }
   ],
   "transitions": [
