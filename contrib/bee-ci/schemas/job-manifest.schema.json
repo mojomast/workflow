@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/contrib/bee-ci/schemas/job-manifest.schema.json",
+  "title": "bee-run CI job manifest",
+  "description": "One manifest per repository. Each entry declares a runnable CI leg: the commands to run, the working directory, any required tools and an optional timeout. macOS and arm64 legs stay github-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repo", "jobs"],
+  "properties": {
+    "repo": {
+      "type": "string",
+      "enum": ["workflow", "bundlebees", "orbitdesktop", "hyvv"]
+    },
+    "jobs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/job"}
+    }
+  },
+  "$defs": {
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "os",
+        "image",
+        "arch",
+        "python",
+        "node",
+        "browser",
+        "runner"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "os": {
+          "type": "string",
+          "enum": ["ubuntu-24.04", "ubuntu-24.04-arm", "macos-14", "macos-15"]
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "arch": {
+          "type": "string",
+          "enum": ["x64", "arm64"]
+        },
+        "python": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]+\\.[0-9]+$"
+        },
+        "node": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]+$"
+        },
+        "browser": {
+          "type": "string",
+          "enum": ["none", "chromium", "firefox", "webkit"]
+        },
+        "runner": {
+          "type": "string",
+          "enum": ["bee", "github-only"]
+        },
+        "command": {
+          "type": "array",
+          "description": "Shell steps run in order. Empty or omitted for a github-only leg.",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "workdir": {
+          "type": "string",
+          "description": "Working directory relative to the repository root.",
+          "minLength": 1,
+          "default": ".",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "requires": {
+          "type": "array",
+          "description": "Tool names that must exist before the job may run.",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+          }
+        },
+        "timeout_s": {
+          "type": "integer",
+          "description": "Optional job timeout in seconds.",
+          "minimum": 1,
+          "default": 900
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"os": {"pattern": "^macos-"}},
+            "required": ["os"]
+          },
+          "then": {
+            "properties": {"runner": {"const": "github-only"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"arch": {"const": "arm64"}},
+            "required": ["arch"]
+          },
+          "then": {
+            "properties": {"runner": {"const": "github-only"}}
+          }
+        }
+      ]
+    }
+  }
+}

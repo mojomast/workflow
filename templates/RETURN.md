@@ -14,6 +14,10 @@
 |---|---|---|---|---|---|
 | Replace this row | Exact command or manual procedure | Pin the tested artifact | passed / failed / not run / blocked | Log, capture or report | Producer / reviewer |
 
+With an ACDD contract, use its AC ids in the first column and link the `tdd-evidence/1` records (RED, GREEN, REFACTOR, integration) from the verifier, not from the worker. Say `test_first: false` when the tests were written after the code.
+
+For a multi-task campaign, attach the validated `rizzstack.campaign-report/1` record. A finished task graph is not product acceptance: report the campaign's implementation, integration and acceptance counts separately, and keep the receiver decision pending.
+
 For performance: include units, baseline, workload, repetitions, thread settings and cache state. For visuals: list the frames or playback actually inspected. Mark reported results separately from independently reproduced results.
 
 ## Limits and continuation

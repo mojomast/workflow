@@ -1,0 +1,13 @@
+{
+  "schema": "project.state/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:36:00Z",
+  "project": "example-project",
+  "state": "parked",
+  "previous_state": "active",
+  "generation": 2,
+  "by": "human:owner",
+  "reason": "Set aside at the owner's request while other work takes priority.",
+  "source": "orbit",
+  "snapshot_path": "PARKED.md"
+}

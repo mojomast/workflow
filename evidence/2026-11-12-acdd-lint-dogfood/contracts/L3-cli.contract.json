@@ -1,0 +1,166 @@
+{
+ "contract_version": "acdd/1",
+ "id": "L3-cli",
+ "title": "acdd-lint: command line report and exit codes",
+ "outcome": {
+  "summary": "python3 -m acdd_lint walks a repository, finds acdd/1 contracts and tdd-evidence/1 records, runs the schema and protocol checks and prints a clear text or JSON report with exit code 0 clean, 1 problems, 2 usage.",
+  "observable_behavior": [
+   "a clean repo exits 0 with counts, 0 problems and 'signatures: not checked'",
+   "every problem names file, code and how to fix it; exit 1",
+   "--json prints {ok, contracts, evidence, problems, unrun}",
+   "usage errors exit 2; symlinks, .git, node_modules and files over 1 MiB are skipped"
+  ]
+ },
+ "interfaces": [
+  {
+   "name": "acdd_lint.cli.main",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "python3 -m acdd_lint",
+   "kind": "cli",
+   "change": "add"
+  }
+ ],
+ "acceptance_criteria": [
+  {
+   "id": "AC-001",
+   "given": "a repo with a valid frozen contract and its RED and GREEN",
+   "when": "acdd-lint runs",
+   "then": "exit 0, a summary with 1 contract, 2 evidence records, 0 problems and signatures: not checked",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_clean_repo_exits_zero_with_a_summary",
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_module_entry_point_runs_with_python3"
+   ]
+  },
+  {
+   "id": "AC-002",
+   "given": "contracts or evidence with protocol, schema or JSON problems",
+   "when": "acdd-lint runs",
+   "then": "exit 1 and each problem's code and file are printed",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_problems_exit_one_and_name_file_code_and_fix",
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_schema_errors_are_reported",
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_history_problems_are_reported",
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_broken_contract_json_is_a_problem"
+   ]
+  },
+  {
+   "id": "AC-003",
+   "given": "a signing key file (64 hex chars or 32 raw bytes)",
+   "when": "acdd-lint runs with --key-file",
+   "then": "signatures are checked, a forged record is evidence_tampered, and the key is never printed",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_key_file_checks_signatures"
+   ]
+  },
+  {
+   "id": "AC-004",
+   "given": "--json",
+   "when": "acdd-lint runs",
+   "then": "the JSON report has ok, contracts, evidence, problems [{code, file, where, message}] and unrun",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_json_output"
+   ]
+  },
+  {
+   "id": "AC-005",
+   "given": "a missing path, a schemas dir without schemas, a malformed key, symlinks, .git, node_modules or a huge file",
+   "when": "acdd-lint runs",
+   "then": "usage errors exit 2 and unsafe or huge files are skipped",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_usage_errors_exit_two",
+    "tools/acdd-lint/tests/test_cli.py::CliTests::test_unsafe_and_huge_files_are_skipped"
+   ]
+  },
+  {
+   "id": "AC-006",
+   "statement": "a reviewer confirms the report is clear enough to fix problems from and the tool passes on this repository's own dogfood evidence",
+   "verification": "review"
+  }
+ ],
+ "dependencies": [],
+ "assumptions": [
+  "standard library only",
+  "python3 3.12+",
+  "runs standalone outside bundlebees"
+ ],
+ "scope": {
+  "assigned_files": [
+   "tools/acdd-lint/acdd_lint/cli.py",
+   "tools/acdd-lint/acdd_lint/__main__.py"
+  ],
+  "test_files": [
+   "tools/acdd-lint/tests/test_cli.py"
+  ],
+  "read_only": [
+   "tools/acdd-lint/tests/support.py",
+   "tools/acdd-lint/tests/__init__.py",
+   "docs/ACDD.md",
+   "bundlebees_plugin/schemas/contract.schema.json",
+   "bundlebees_plugin/schemas/evidence.schema.json"
+  ],
+  "prohibited": [
+   ".github/*",
+   "bundlebees_plugin/*",
+   "tests/*",
+   "plugin.yaml",
+   "README.md",
+   "CHANGELOG.md"
+  ]
+ },
+ "source_rev": "37e454d56d95481cc103b78fc4292b1ee3484193",
+ "tdd": {
+  "applicable": true,
+  "test_first": true
+ },
+ "verification": {
+  "independent": true,
+  "commands": [
+   "cd tools/acdd-lint && timeout 300 python3 -m unittest discover -s tests -t ."
+  ],
+  "integration": true
+ },
+ "evidence_required": [
+  "red",
+  "green",
+  "refactor",
+  "review",
+  "integration"
+ ],
+ "authorization": {
+  "human_gates": [
+   "merge",
+   "tag",
+   "release",
+   "deploy",
+   "publish",
+   "catalog",
+   "post"
+  ],
+  "authorized": [
+   "implement assigned files on an isolated worker",
+   "coordinator may push dogfood/acdd-lint and open an unmerged PR"
+  ],
+  "not_authorized": [
+   "merge",
+   "tag",
+   "release",
+   "publish",
+   "deploy",
+   "editing approved tests"
+  ]
+ },
+ "review": {
+  "status": "approved",
+  "approved_by": "coordinator (delegated by Kyle, t1289u)",
+  "approved_at": "2026-11-12T18:10:00Z",
+  "contract_sha256": "3dfa46007c58307757d94ab6578faeddbf42865469333631bca87ac8a17aca77"
+ }
+}

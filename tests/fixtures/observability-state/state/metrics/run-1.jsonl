@@ -1,0 +1,6 @@
+{"seq": 1, "ts": "2026-11-16T08:05:00Z", "event": "dispatch", "job_id": "job_20261113_a", "task_id": "T1", "attempt_id": "att_1"}
+{"seq": 2, "ts": "2026-11-16T08:12:00Z", "event": "verify", "job_id": "job_20261113_a", "task_id": "T1", "attempt_id": "att_1", "outcome": "ok"}
+{"seq": 3, "ts": "2026-11-16T08:25:00Z", "event": "dispatch", "job_id": "job_20261113_a", "task_id": "T2", "attempt_id": "att_2"}
+{"seq": 4, "ts": "2026-11-16T08:30:00Z", "event": "verify", "job_id": "job_20261113_a", "task_id": "T2", "attempt_id": "att_2", "outcome": "failure"}
+{"seq": 5, "ts": "2026-11-16T08:31:00Z", "event": "recovery", "job_id": "job_20261113_a", "task_id": "T2", "reason": "needs_agent"}
+{"seq": 6, "ts": "2026-11-16T09:28:00Z", "event": "intervention", "job_id": "job_20261113_b", "note": "synthetic fixture tick"}

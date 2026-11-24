@@ -1,0 +1,24 @@
+{
+  "scope": "local synthetic launcher trace",
+  "attempt_id": "att_0000000000000018",
+  "journal": [
+    {"lseq": 1, "ts": 1763000000, "kind": "worker:tool_call", "tool_id": "call_0000000000000018", "line": "[tool execute] bash", "text": "r18-private-canary"},
+    {"lseq": 2, "ts": 1763000001, "kind": "worker:tool_update", "tool_status": "completed", "tool_id": "call_0000000000000018", "line": "r18-private-canary"}
+  ],
+  "query": {
+    "schema": "rizzstack.rails-query/1",
+    "selector": {"kind": "attempt", "id": "att_0000000000000018"},
+    "format": "json", "after": null, "limit": 100, "max_bytes": 32768,
+    "include": ["tools", "verification", "review", "feedback"], "show_tokens": false
+  },
+  "expected_tool_kinds": ["tool.start", "tool.finish"],
+  "feedback": {"idempotency_key": "r18-quality-click", "category": "quality", "rating": 1, "note": "fixture"},
+  "receiver_decision": "pending",
+  "coding_campaign": {
+    "job_id": "r18-coding", "criterion": "AC-001",
+    "implementation": "score.py", "test_file": "test_score.py", "test_id": "test_score.py::test_empty_score",
+    "baseline": "def score(values):\n    return 1 + sum(values)\n",
+    "candidate": "def score(values):\n    return sum(values)\n",
+    "approved_test": "from score import score\n\ndef test_empty_score():\n    assert score([]) == 0\n"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "alert.thresholds.override/v1",
+  "schema_version": "v1",
+  "thresholds": {
+    "daily_model_spend_above_usd": 15
+  }
+}

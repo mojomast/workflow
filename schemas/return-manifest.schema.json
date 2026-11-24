@@ -1,0 +1,740 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/return-manifest.schema.json",
+  "title": "Rizzstack RETURN manifest (rizzstack.return/1)",
+  "description": "The machine-readable companion to templates/RETURN.md. A producer records the result of one feature job: which packet, protocol revision and contract it ran under, what each acceptance criterion produced, the RED/GREEN sequence, verification, integration, transport and attempts, and what remains limited, unrun or awaiting a human. It is evidence, never authority, and it never carries a human decision: receiver_decision is always pending, and the validator refuses anything else. The human decision lives in the RETURN document.",
+  "$comment": "evidence_digest is sha256 over json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True) after removing evidence_digest and every generated_at field (at any depth). No volatile timestamp belongs in the digested body; generated_at is the only volatile field and is outside the digest. tools/return_manifest.py:evidence_digest implements this and tools/return_manifest.py:seal recomputes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "feature_id",
+    "job_id",
+    "packet_digest",
+    "workflow_ref",
+    "repository",
+    "authorization",
+    "descendant",
+    "contract",
+    "acceptance",
+    "red_green",
+    "verification",
+    "integration",
+    "transport",
+    "attempts",
+    "limitations",
+    "unrun",
+    "pending_approvals",
+    "receiver_decision",
+    "evidence_digest"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "pattern": "^rizzstack\\.return/[0-9]+$",
+      "description": "Protocol version. Shape only: tools/return_manifest.py refuses any version outside rizzstack.return/1."
+    },
+    "feature_id": {
+      "$ref": "#/$defs/id"
+    },
+    "job_id": {
+      "$ref": "#/$defs/id"
+    },
+    "packet_digest": {
+      "$ref": "#/$defs/sha256",
+      "description": "Canonical digest of the immutable rizzstack.feature-packet/1 intent packet this return answers (tools/feature_packet.py:packet_digest)."
+    },
+    "workflow_ref": {
+      "$ref": "#/$defs/commit",
+      "description": "Full commit SHA of the workflow protocol revision the producer ran under. It should bear this schema."
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "source_rev"
+      ],
+      "properties": {
+        "identity": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "source_rev": {
+          "$ref": "#/$defs/revision",
+          "description": "The authorized source revision the work started from: the exact packet's revision, or a dependent packet's accepted derived commit."
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "approved_by",
+        "approved_at",
+        "authority"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The sealed authorization or enrolled policy record this return depends on. It is a reference, never a grant."
+        },
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "When the authorization was approved. A historical record, not a generation time, so it stays inside the digest."
+        },
+        "authority": {
+          "enum": [
+            "m1-authorization",
+            "descendant-policy"
+          ],
+          "description": "m1-authorization for an exact feature; descendant-policy for a dependent feature. It must agree with descendant."
+        }
+      }
+    },
+    "descendant": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy_id",
+            "policy_digest",
+            "source_resolution_digest",
+            "dependency_feature",
+            "dependency_job",
+            "accepted_commit"
+          ],
+          "properties": {
+            "policy_id": {
+              "$ref": "#/$defs/id"
+            },
+            "policy_digest": {
+              "$ref": "#/$defs/sha256",
+              "description": "Digest of the enrolled policy at the revision that authorized the derivation."
+            },
+            "source_resolution_digest": {
+              "$ref": "#/$defs/sha256",
+              "description": "Canonical digest of the rizzstack.source-resolution/1 record that bound the intent packet to the accepted commit, computed like packet_digest. It is not the contract hash; contract.sha256 carries that."
+            },
+            "dependency_feature": {
+              "$ref": "#/$defs/id"
+            },
+            "dependency_job": {
+              "$ref": "#/$defs/id"
+            },
+            "accepted_commit": {
+              "$ref": "#/$defs/commit",
+              "description": "The dependency's accepted integration commit. It must equal repository.source_rev: a dependent feature runs at the derived revision."
+            }
+          }
+        }
+      ],
+      "description": "null for an exact feature. A dependent feature names the six resolution fields; see docs/26-return-manifest.md."
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Reviewed hash of the frozen acdd/1 contract the work ran under. For a dependent feature it is the source-bound contract hash from the resolution record."
+        }
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "tests",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/acceptance_id"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tests": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[^:\\s]+(::[^\\n]+)?$"
+            },
+            "description": "The approved tests for this criterion. Empty is allowed for a review or manual criterion."
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT RUN",
+              "UNVERIFIED",
+              "BLOCKED"
+            ],
+            "description": "PASS requires at least one evidence entry (tools/return_manifest.py:pass_without_evidence)."
+          },
+          "evidence": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Paths or references to the recorded check. Empty only for a criterion that did not produce a result."
+          }
+        }
+      }
+    },
+    "red_green": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_first",
+        "red",
+        "green"
+      ],
+      "properties": {
+        "test_first": {
+          "type": "boolean",
+          "description": "true exactly when a RED record exists and is named in red. A false claim with a red record is refused, and a true claim without one is refused."
+        },
+        "red": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_path",
+                "sha256",
+                "revision",
+                "phase"
+              ],
+              "properties": {
+                "record_path": {
+                  "$ref": "#/$defs/text"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256",
+                  "description": "Content hash of the referenced tdd-evidence/1 record."
+                },
+                "revision": {
+                  "$ref": "#/$defs/revision"
+                },
+                "phase": {
+                  "const": "red"
+                }
+              }
+            }
+          ]
+        },
+        "green": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_path",
+                "sha256",
+                "revision",
+                "phase"
+              ],
+              "properties": {
+                "record_path": {
+                  "$ref": "#/$defs/text"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256",
+                  "description": "Content hash of the referenced tdd-evidence/1 record."
+                },
+                "revision": {
+                  "$ref": "#/$defs/revision"
+                },
+                "phase": {
+                  "const": "green"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "files",
+        "base_rev",
+        "suite",
+        "gitleaks",
+        "record_path"
+      ],
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/commit",
+          "description": "The candidate revision the checks ran at."
+        },
+        "files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Changed paths at verification.commit, relative to base_rev."
+        },
+        "base_rev": {
+          "$ref": "#/$defs/revision"
+        },
+        "suite": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command",
+            "result"
+          ],
+          "properties": {
+            "command": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "result": {
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            },
+            "tests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failures": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "gitleaks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "result"
+          ],
+          "properties": {
+            "result": {
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            },
+            "findings": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "command": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "record_path": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "wave",
+        "evidence",
+        "accepted_wave_digest"
+      ],
+      "properties": {
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "wave": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "accepted_wave_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "description": "All four fields or none: an integration is either recorded completely or it did not happen in this return. A partial block is refused (integration_incomplete)."
+    },
+    "transport": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mirror_ref",
+            "source_sha",
+            "receipt_path"
+          ],
+          "properties": {
+            "mirror_ref": {
+              "$ref": "#/$defs/text",
+              "description": "The governed mirror ref the accepted revision was published to."
+            },
+            "source_sha": {
+              "$ref": "#/$defs/commit"
+            },
+            "receipt_path": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        }
+      ],
+      "description": "null when nothing was transported. A recorded transport names the mirror ref, the published commit and the receipt."
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "state",
+          "project",
+          "source_rev"
+        ],
+        "properties": {
+          "attempt_id": {
+            "$ref": "#/$defs/text"
+          },
+          "state": {
+            "$ref": "#/$defs/text",
+            "description": "The producer's exact recorded attempt state. This protocol does not normalize or invent a state machine."
+          },
+          "project": {
+            "$ref": "#/$defs/text"
+          },
+          "source_rev": {
+            "$ref": "#/$defs/revision",
+            "description": "The revision the attempt was briefed against."
+          }
+        }
+      }
+    },
+    "recovery": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "request_digest",
+          "failure_class",
+          "decision",
+          "adapter",
+          "supersession"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/$defs/id",
+            "description": "The rizzstack.recovery/1 request this entry records."
+          },
+          "request_digest": {
+            "$ref": "#/$defs/sha256",
+            "description": "The request's digest. It binds the entry to the exact request bytes the decision answered."
+          },
+          "failure_class": {
+            "enum": [
+              "implementation",
+              "specification",
+              "environment",
+              "infrastructure",
+              "integration"
+            ]
+          },
+          "decision": {
+            "enum": [
+              "retry",
+              "supersede",
+              "escalate"
+            ]
+          },
+          "adapter": {
+            "$ref": "#/$defs/id",
+            "description": "The agent adapter that decided. The request/decision documents remain the authority; this entry is the summary the return carries."
+          },
+          "supersession": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "contract_id",
+                  "contract_sha256",
+                  "supersedes",
+                  "supersedes_sha256"
+                ],
+                "properties": {
+                  "contract_id": {
+                    "$ref": "#/$defs/id",
+                    "description": "The contract that failed."
+                  },
+                  "contract_sha256": {
+                    "$ref": "#/$defs/sha256",
+                    "description": "The failed contract's reviewed hash."
+                  },
+                  "supersedes": {
+                    "$ref": "#/$defs/id",
+                    "description": "The corrected contract id (the replacement)."
+                  },
+                  "supersedes_sha256": {
+                    "$ref": "#/$defs/sha256",
+                    "description": "The corrected contract's reviewed hash. It must differ from contract_sha256."
+                  }
+                }
+              }
+            ],
+            "description": "null unless decision is supersede. The B3b naming: contract_* is the replaced contract, supersedes/supersedes_sha256 is the replacement."
+          },
+          "proposal": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "raw_sha256"
+                ],
+                "properties": {
+                  "path": {
+                    "$ref": "#/$defs/text"
+                  },
+                  "raw_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "elapsed_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "exit_code": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "parse_error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "The raw model proposal this decision was compiled from, with the digest a reviewer can recompute."
+              }
+            ]
+          },
+          "work": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "work_id",
+                  "state"
+                ],
+                "properties": {
+                  "work_id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "state": {
+                    "enum": [
+                      "pending",
+                      "claimed",
+                      "completed",
+                      "refused"
+                    ]
+                  },
+                  "claims": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "decision_digest": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "The durable agent-work item that carried this request to a separate consumer."
+              }
+            ]
+          }
+        }
+      },
+      "description": "OPTIONAL. One entry per bounded recovery the return depends on, in decision order. A manifest that omits it stays valid: no recovery happened, or the recovery was recorded elsewhere. When present, tools/return_manifest.py refuses an entry whose failure class and decision disagree (specification never retries; environment and infrastructure only escalate) and a decision that reports no supersession for a supersede, or one for anything else."
+    },
+    "limitations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Known defects, unproven claims and honest scope limits."
+    },
+    "unrun": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Checks that never executed, and why."
+    },
+    "pending_approvals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Human gates still awaiting an explicit yes."
+    },
+    "receiver_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "decided_by",
+        "decided_at",
+        "note"
+      ],
+      "properties": {
+        "status": {
+          "const": "pending",
+          "description": "Always pending in a generated manifest. The validator refuses every other value."
+        },
+        "decided_by": {
+          "type": "null"
+        },
+        "decided_at": {
+          "type": "null"
+        },
+        "note": {
+          "type": "null"
+        }
+      },
+      "description": "A fixed, always-pending slot. The human decision is recorded in templates/RETURN.md, never by editing this manifest."
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional volatile generation time. It is excluded from evidence_digest (at any depth) and should be omitted from durable examples."
+    },
+    "evidence_digest": {
+      "$ref": "#/$defs/sha256",
+      "description": "sha256 over the canonical JSON of this manifest without evidence_digest and without any generated_at field. tools/return_manifest.py:seal recomputes it."
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "acceptance_id": {
+      "type": "string",
+      "pattern": "^AC-[0-9]{3,}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

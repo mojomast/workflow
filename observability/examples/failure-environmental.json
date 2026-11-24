@@ -1,0 +1,18 @@
+{
+  "schema": "failure/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:10:00Z",
+  "source": "bundlebees",
+  "attempt_id": "att_99ff88ee77dd66cc",
+  "card_id": "t_board_1",
+  "run_id": "run-observability-1",
+  "project": "bundlebees",
+  "role": "verify",
+  "class": "environmental",
+  "code": "sandbox_layout",
+  "component": "sandbox",
+  "retryable": true,
+  "fallback_to": null,
+  "http_429": false,
+  "note": "Verifier failed because of the sandbox checkout layout, not a product regression"
+}

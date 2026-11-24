@@ -1,10 +1,10 @@
 # Build workflow — Kyle Durepos (mojomast)
 
 <p align="center">
-  <img src="docs/assets/workflow-map/workflow-map.png" alt="The build workflow at a glance: plan and spec, orchestration, bees and other workers, verification, then a pull request, merge and deploy, each behind Kyle's explicit yes." width="1280">
+  <img src="docs/assets/workflow-map/workflow-map.png" alt="The rizzstack workflow at a glance: an ACDD contract with AC ids, a brief schema gate, the work scheduler and Hermes Kanban board, the event-driven factory dispatcher, bees on hyvv worker hosts, the W6 completion event, RED/GREEN/REFACTOR verification with research before retry, then a pull request with gitleaks and CI, a merge once CI is green and independently reviewed, a deploy behind Kyle's explicit yes, and Orbit observability and memory." width="1280">
 </p>
 
-<p align="center"><em>The whole workflow on one poster. A <a href="docs/assets/workflow-map/workflow-map.html">print-resolution HTML version</a> ships in the repo; open the file locally (fonts are beside it).</em></p>
+<p align="center"><em>The whole workflow on one poster, drawn from the code on <code>main</code> (Nov 18 2026). Its <a href="docs/assets/workflow-map/workflow-map.html">HTML source</a> ships in the repo; open it locally (fonts are beside it) or regenerate the PNG with <code>render.mjs</code>.</em></p>
 
 How Kyle and his agents plan, build, ship and host software, written down from what actually happened between mid-October and mid-November 2026. It covers the agents roster, the orchestration patterns (executors, Cursor cloud agents, DeepSeek "bees" in Cua sandboxes), the pipelines we built for assets and video, the infrastructure (the box, Orbit, Tailscale, moltussy-1, the public application VPS with Docker and systemd, Google Colab, GitHub Pages), and the rules and lessons that came out of it.
 
@@ -14,28 +14,27 @@ Secrets, tokens, tailnet hostnames, private IPs and private URLs are deliberatel
 
 ## The workflow at a glance
 
-To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). The [three-layer architecture](docs/12-three-layer-architecture.md) explains how the protocol, bundlebees and Orbit fit together; [bundlebees hardening](docs/13-bundlebees-hardening.md) is what the plugin now enforces on `main`; [networking and worker deploy](docs/14-networking-and-worker-deploy.md) covers how remote workers should join (much of that is still planned); and [Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) is the agent-agnostic first-run goal (in progress). The [reference demo](reference/README.md) runs a miniature of the loop offline (Python 3 and git; no private infrastructure). The [cold-start acceptance test](acceptance/README.md) clones both public repos into a clean environment and runs the real bundlebees dispatch → verify → integrate path end to end, logging every manual intervention. For a live-host change, use [11 Working together](docs/11-working-together.md) and the [infrastructure deploy template](templates/INFRA-DEPLOY.md). Current live-host ports, container names and paths stay in the authorized host runbook, not in this public repository. The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it.
+To **learn or repeat the workflow**, start with [09 Reproducible collaboration](docs/09-reproducible-collaboration.md), copy the [handoff template](templates/HANDOFF.md), and try [10 Teaching the workflow](docs/10-teaching-the-workflow.md). The [three-layer architecture](docs/12-three-layer-architecture.md) explains how the protocol, bundlebees and Orbit fit together; [bundlebees hardening](docs/13-bundlebees-hardening.md) is what the plugin now enforces on `main`; [networking and worker deploy](docs/14-networking-and-worker-deploy.md) covers how remote workers should join (much of that is still planned); [Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) is the agent-agnostic first-run goal (in progress); [ACDD + TDD](docs/16-acdd-tdd.md) is the contract-first, test-first protocol every code slice should follow; and [Orbit plans](docs/17-orbit-plans.md) records the onboarding wizard, opt-in router and SSH hosts work (planned or in progress). Chapter 30 turns a finished campaign into a reviewable closeout; [chapter 31](docs/31-campaign-continuity.md) defines the durable checkpoint, restart reconciliation and host scheduler that keep an authorized campaign moving. The [reference demo](reference/README.md) runs a miniature of the loop offline (Python 3 and git; no private infrastructure), contract-first and test-first by default. The [cold-start acceptance test](acceptance/README.md) clones both public repos into a clean environment and runs the real bundlebees dispatch → verify → integrate path end to end, logging every manual intervention. For a live-host change, use [11 Working together](docs/11-working-together.md) and the [infrastructure deploy template](templates/INFRA-DEPLOY.md). Current live-host ports, container names and paths stay in the authorized host runbook, not in this public repository. The diagram below describes the existing build/release path; chapter 09 adds the research, creative-production and independent-review loop around it. [Chapter 20](docs/20-orchestrator-handoff.md) is how to hand orchestration from one coordinator agent to another. [Chapters 21-24](docs/21-autonomy-gap-analysis.md) audit what autonomy exists today, design the coordinator loop that is missing, plan the smallest slice, and define the dogfood campaign that would prove it. [Chapter 30](docs/30-campaign-closeout.md) turns a finished campaign into a reviewable closeout: implementation, integrated behavior, acceptance evidence and the human receiver decision are separate records.
 
 ```mermaid
 flowchart LR
-    K([Kyle: idea / ask]) --> P[Plan & spec<br/>research, PLAN.md / SPEC.md,<br/>task slices + file leases]
-    P -->|Kyle approves plan| O{Orchestrator bot<br/>MR.INDIA / Hermes Forge /<br/>Hermes Plugin Builder / Cheese}
-    O --> B[DeepSeek bees<br/>Cua sandboxes on Kyle's PC<br/>via Orbit launcher]
-    O --> C[Cursor cloud agents<br/>Opus / Sonnet, last resort]
-    O --> E[Executor subagents<br/>on the box]
-    O --> G[Asset pipelines<br/>GenerateImage, Google Colab<br/>ComfyUI, Remotion, HyperFrames]
-    B --> V[verify.sh on the box<br/>scope check, own tests,<br/>schema budget, secret scan]
-    C --> V
-    E --> V
-    V --> PR[Feature branch + PR]
-    PR -->|Kyle's explicit yes| M[Merge → tag → release]
-    M -->|Kyle's yes| D[Deploy to moltussy-1 / VPS / Pages<br/>backup + rollback SHA]
-    M -->|Kyle's yes| CAT[Nous catalog PR<br/>YAML-only, SHA-pinned]
-    CAT --> R[Maintainer review] -->|change requests| O
-    D --> DEMO[Demo video, X post drafted,<br/>Kyle posts, Typeform after yes]
+    K([Kyle: idea / ask]) --> AC[ACDD contract<br/>AC ids + named tests,<br/>frozen hash]
+    AC --> BR[Brief schema gate<br/>validated before dispatch]
+    BR --> WS[Work scheduler<br/>+ Hermes Kanban board sync]
+    WS --> FD{Factory dispatcher<br/>factory_driver service<br/>pre-approved work, cap 12}
+    FD --> H[hyvv worker host<br/>bees in sandboxes<br/>Go DeepSeek Flash / DeepSeek direct]
+    H --> W6[W6 completion event<br/>completion ledger]
+    W6 -.wakes.-> FD
+    W6 --> V[Verify in bwrap<br/>RED / GREEN / REFACTOR,<br/>scope + test fingerprints]
+    V -->|fail| RS[Research before retry] -.new work.-> WS
+    V -->|pass| PR[PR: gitleaks + CI]
+    PR -->|green + independent review| M[Merge<br/>heartbeat merge stream]
+    M -->|Kyle's yes| D[Tag / release / deploy<br/>backup + rollback]
+    D --> OB[Orbit Observatory, Hive,<br/>Rails ledger, memory vault]
+    S[Scout hook ~2 min<br/>heartbeat 30 min: reconcile] -.-> FD
 ```
 
-Every arrow labelled "Kyle's yes" is a hard gate: merges, tags, releases, deploys, catalog PRs, posts and form submits each need Kyle's own words, not another agent's relay. See [06 Rules and lessons](docs/06-rules-and-lessons.md).
+Every arrow labelled "Kyle's yes" is a hard gate: tags, releases, deploys, catalog PRs, posts and form submits each need Kyle's own words, not another agent's relay. Merges are the one standing exception: since Nov 18 2026 the heartbeat's merge stream may merge a PR once CI is green and an independent review approves, which Kyle approved. See [06 Rules and lessons](docs/06-rules-and-lessons.md).
 
 ## Index
 
@@ -53,11 +52,28 @@ Every arrow labelled "Kyle's yes" is a hard gate: merges, tags, releases, deploy
 | [10 Teaching the workflow](docs/10-teaching-the-workflow.md) | Practice session, exercises and a reproducibility rubric |
 | [11 Working together](docs/11-working-together.md) | The live-host operating rhythm: preflight, backups, shared-host etiquette, secrets, verification and reporting |
 | [12 Three-layer architecture](docs/12-three-layer-architecture.md) | Workflow as the protocol, bundlebees as the execution system, Orbit as the coordination interface; measurement fields now logged by the plugin, not yet a live baseline |
-| [13 Bundlebees hardening](docs/13-bundlebees-hardening.md) | Sandboxed verify, strict briefs, immutable leases, `source_rev` and combined-branch checks, metrics JSONL, and the WorkerBackend contract, now on bundlebees `main` (untagged) |
+| [13 Bundlebees hardening](docs/13-bundlebees-hardening.md) | Sandboxed verify (bubblewrap or firejail; `unshare` only with an explicit unsafe override), strict briefs, immutable leases, `source_rev` and combined-branch checks, metrics JSONL, and the WorkerBackend contract, now on bundlebees `main` (untagged) |
 | [14 Networking and worker deploy](docs/14-networking-and-worker-deploy.md) | Dial-out workers, pairing, tailcat, Cloudflare Tunnel and optional Tailscale; built versus planned is marked throughout |
-| [15 Agent-agnostic goal and Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) | Deploy Orbit, start with a Pi API key or a free OpenCode model, and let that first agent set up the rest; orbitdesktop PR #24 and the runnable-by-anyone work are in progress, not done |
-| [Reference demo](reference/README.md) | Runnable miniature: two workers, an out-of-scope rejection, throwaway verification, templates, integration and a metrics log (Python 3 + git, no network) |
-| [Templates](templates/HANDOFF.md) | [Handoff](templates/HANDOFF.md), [work return](templates/RETURN.md), [asset pack](templates/ASSET-PACK.md) and [infrastructure deploy](templates/INFRA-DEPLOY.md) contracts |
+| [15 Agent-agnostic goal and Orbit as the starting point](docs/15-agent-agnostic-and-orbit-start.md) | Deploy Orbit, start with a Pi API key or a free OpenCode model, and let that first agent set up the rest; orbitdesktop PR #24 (merged Nov 12) reconciled `main`; the runnable-by-anyone work is in progress, not done |
+| [16 ACDD + TDD](docs/16-acdd-tdd.md) | Contract-first, test-first protocol: `acdd/1` contracts with AC ids, freezing by hash, RED -> GREEN -> REFACTOR -> integration evidence (`tdd-evidence/1`), failure classification, named failure states and legacy compatibility. Enforced in the reference demo; bundlebees support is on a feature branch under review |
+| [17 Orbit plans](docs/17-orbit-plans.md) | Onboarding wizard, Bifrost router (opt-in), LiteLLM (Advanced, digest-pinned), external router, OpenCode free models direct, SSH hosts and the ACDD evidence view; all planned or in progress |
+| 18 (open PR, not on `main` yet) | the parking protocol is on [workflow #9](https://github.com/mojomast/workflow/pull/9) |
+| [19 Coordinator playbook](docs/19-coordinator-playbook.md) | How to orchestrate the work the way MR.INDIA does: roles and lanes, the intake loop and brief template, bee policy, verification, ACDD gates, the approval-gate table, security, reporting, state and merge plans, plus a copy-paste starter prompt for a new coordinator |
+| [20 Orchestrator handoff](docs/20-orchestrator-handoff.md) | How to switch coordinators mid-stream: recon, the handoff pack, approvals that carry over, credentials, plugin install with rollback, fail-closed merge automation, dependency and sandbox audits, a kickoff prompt, and a checklist |
+| [21 Autonomy gap analysis](docs/21-autonomy-gap-analysis.md) | The thirteen transitions from an authorized goal to a verified result, each classified PROVEN, IMPLEMENTED/UNPROVEN, PARTIAL or MISSING against the code: no job object, no coordinator wake-up, and verification/integration are verbs a human types |
+| [22 Autonomy architecture](docs/22-autonomy-architecture.md) | Reconcile against durable state instead of subscribing to events: a signed job document, a one-transition-per-tick reconciler, the job state machine, the agent-agnostic event contract, bounded recovery and the human-authority boundary |
+| [23 Autonomy development plan](docs/23-autonomy-devplan.md) | Six milestones with frozen acceptance contracts: merge the typed artifact client, then job state, reconciler, CLI and wake-up, bounded recovery, and the approval gate. What waits is listed too |
+| [24 Autonomy dogfood](docs/24-autonomy-dogfood.md) | A two-task objective with one failure declared in advance, a 4-bee / 90-minute envelope, and a primary metric of zero unplanned human interventions between authorization and the verified result |
+| [25 Feature packet](docs/25-feature-packet.md) | The durable description of one queued feature: a frozen contract, a pinned protocol revision, an authorization reference and a source-revision policy. Evidence and identity, never authority; dependent features use two immutable records instead of a rewritten packet |
+| [26 RETURN manifest](docs/26-return-manifest.md) | The machine-readable half of a work return: per-criterion status with evidence, RED/GREEN references, integration and transport blocks, and a recomputable `evidence_digest`. The receiver decision stays pending; the manifest proves assembly, not authorship |
+| [27 Bounded recovery](docs/27-recovery-protocol.md) | The request/decision pair for a failure inside an authorized job: five failure classes, the legal-decision matrix, envelope-bounded attempts and at most one contract supersession. Escalating is always legal; a decision can narrow authority, never widen it |
+| [28 Agent lessons](docs/28-agent-lessons.md) | The graded lesson catalogue: what the orchestration and provisioning campaigns proved, observed or only recommend, with the incident that demonstrated it, the portable practice, the evidence reference and the limits of each claim |
+| [29 Bee Landed](docs/29-bee-landed.md) | The terminal landing event (`rizzstack.bee-landed/1`): delivery is not verification and not acceptance; dedupe, refusal rules and the required CI gate |
+| [30 Campaign closeout](docs/30-campaign-closeout.md) | How a completed automated-development campaign becomes reviewable: implementation vs integration vs acceptance, the campaign report, visual/browser evidence, audit triage, final-head test counts, push state and pending receiver decision |
+| [31 Campaign continuity](docs/31-campaign-continuity.md) | The durable campaign checkpoint, restart reconciliation, the factory-driver scheduler and the Jackpot pause reconstruction: what was automatic, what needed the host, and what remains unproven |
+| [Reference demo](reference/README.md) | Runnable miniature (Python 3 + git, no network). Default: ACDD contracts, an invalid-contract refusal, RED/GREEN/REFACTOR evidence, out-of-scope and test-tampering rejections, integration and an acceptance report. `--legacy`: two workers, an out-of-scope rejection, packets and a metrics log |
+| [acdd-lint](tools/acdd-lint/README.md) | Zero-dependency checker for contracts and evidence (schemas, AC ids, RED before GREEN, hashes, signatures), built test-first by bees in the first [dogfood run](evidence/2026-11-12-acdd-lint-dogfood/README.md) (implementation success, not an accepted run: 0 accepted changes, 2 rejected waves) |
+| [Templates](templates/HANDOFF.md) | [ACDD contract](templates/CONTRACT.md) (with a [JSON example](templates/contract.example.json) and [schemas](schemas/)), [handoff](templates/HANDOFF.md), [work return](templates/RETURN.md), [asset pack](templates/ASSET-PACK.md), [campaign closeout](templates/CAMPAIGN-REPORT.md) and [infrastructure deploy](templates/INFRA-DEPLOY.md) contracts, the [campaign report schema](schemas/campaign-report.schema.json) and validator (`tools/campaign_report.py`), plus the [orchestrator handoff kit](templates/handoff/) |
 | [Worked example](examples/doppler-review-handoff.md) | A concrete Doppler review, correction and evidence cycle |
 | [contrib/](contrib/) | First-person accounts from the teammate bots, kept as written (after a secret scan) |
 

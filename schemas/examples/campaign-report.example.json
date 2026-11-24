@@ -1,0 +1,140 @@
+{
+  "schema": "rizzstack.campaign-report/1",
+  "campaign_id": "example-campaign",
+  "repository": "example/repo",
+  "branch": "feat/example",
+  "base_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_rev": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "generated_at": "2026-11-15T07:00:00Z",
+  "delivery_state": "ready_for_review",
+  "task_graph": {
+    "total": 27,
+    "implemented": 27,
+    "integrated": 27,
+    "accepted": 0,
+    "remaining": 0,
+    "note": "27/27 implemented; product acceptance is recorded separately and remains with the receiver."
+  },
+  "pull_requests": [
+    {
+      "number": 1,
+      "url": "https://github.com/example/repo/pull/1",
+      "draft": true,
+      "state": "open",
+      "base": "main",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "merge_order": 1
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "AC-001",
+      "statement": "The final tree passes the full package and application test suite.",
+      "kind": "test",
+      "status": "PASS",
+      "evidence": [
+        "evidence/test-run-final.log"
+      ],
+      "command": "pnpm test",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "id": "AC-002",
+      "statement": "The playable table renders its authored art at the reviewed desktop viewport.",
+      "kind": "visual",
+      "status": "PASS",
+      "evidence": [
+        "evidence/screenshots/table-1440.png"
+      ],
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "id": "AC-003",
+      "statement": "An automated accessibility audit runs against the final tree.",
+      "kind": "manual",
+      "status": "NOT RUN",
+      "evidence": [],
+      "reason": "The browser audit is not implemented; the jsdom check is a no-op.",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "test_runs": [
+    {
+      "command": "pnpm test",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "passed": 226,
+      "failed": 0,
+      "skipped": 0,
+      "ran_at": "2026-11-15T06:30:00Z"
+    }
+  ],
+  "audits": [
+    {
+      "source": "Independent read-only review",
+      "status": "findings",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "findings": [
+        {
+          "id": "AF-001",
+          "summary": "Save safety and frozen-cell scoring gaps were found.",
+          "disposition": "fixed",
+          "evidence": "evidence/audit-001.md"
+        },
+        {
+          "id": "AF-002",
+          "summary": "Removing inline symbol data broke the zero-runtime-network test.",
+          "disposition": "rejected",
+          "reason": "The removal failed the NET test; the change was reverted and the 283 KB duplication retained."
+        },
+        {
+          "id": "AF-003",
+          "summary": "The axe audit and coverage measurement remain unproven.",
+          "disposition": "deferred",
+          "reason": "No browser axe run or coverage tool is available on this host; recorded under known limits."
+        }
+      ]
+    },
+    {
+      "source": "Second read-only review of the final head",
+      "status": "clean",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "findings": []
+    }
+  ],
+  "artifacts": {
+    "screenshots": [
+      "evidence/screenshots/table-1440.png"
+    ],
+    "performance": [
+      {
+        "metric": "bundle",
+        "value": 1.9,
+        "unit": "MB gzip",
+        "budget": 3.0,
+        "evidence": "evidence/perf.txt"
+      }
+    ],
+    "assets": [
+      "assets/manifest.jsonl"
+    ]
+  },
+  "not_run": [
+    {
+      "check": "AC-003: automated accessibility audit",
+      "reason": "The browser audit is not implemented; the jsdom check is a no-op."
+    },
+    {
+      "check": "Full WebKit journey suite",
+      "reason": "The host lacks a runnable WebKit dependency; only the golden replay was run."
+    }
+  ],
+  "known_limits": [
+    "The four remaining art placeholders are named in the asset report.",
+    "The accessibility audit and coverage target are not proven.",
+    "No merge, tag, release or deploy was performed."
+  ],
+  "receiver_decision": "pending",
+  "recommended_merge_order": [
+    1
+  ]
+}

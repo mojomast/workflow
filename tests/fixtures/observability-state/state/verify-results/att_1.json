@@ -1,0 +1,14 @@
+{
+  "attempt_id": "att_1",
+  "job_id": "job_20261113_a",
+  "task_id": "T1",
+  "ts": "2026-11-16T08:12:00Z",
+  "outcome": "ok",
+  "code": "proven",
+  "component": "verify",
+  "retryable": false,
+  "http_429": false,
+  "fallback_to": null,
+  "note": "signature valid, head and job match, all steps exited 0",
+  "suite": {"exit_code": 0, "passed": 6, "failed": 0}
+}

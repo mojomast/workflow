@@ -29,8 +29,8 @@ This first-run path is a goal. It is **not** how Orbit ships today.
 
 | Work | State (Nov 12, 2026, America/Toronto) |
 |---|---|
-| [orbitdesktop PR #24](https://github.com/mojomast/orbitdesktop/pull/24) | **Open**, not merged. It reconciles `main` with the live Orbit tree (`reconcile/live-tree-nov12`). That is a prerequisite so later work starts from the tree that actually runs, not from the October `main`. |
-| Runnable-by-anyone follow-up | **In progress, not done.** The intended slices include hermetic tests, an agent registry that does not assume one vendor, first-run onboarding (Pi key or free OpenCode), adapter docs, and a quickstart for someone with none of the maintainer's setup. They have not landed on `main` or on PR #24. |
+| [orbitdesktop PR #24](https://github.com/mojomast/orbitdesktop/pull/24) | **Merged** Nov 12, 12:55 PM ET. It reconciled `main` with the live Orbit tree (`reconcile/live-tree-nov12`), so later work starts from the tree that actually runs, not from the October `main`. |
+| Runnable-by-anyone follow-up | **In progress, not done.** The intended slices include hermetic tests, an agent registry that does not assume one vendor, first-run onboarding (Pi key or free OpenCode), adapter docs, and a quickstart for someone with none of the maintainer's setup. They have not landed on `main`. The planned design (onboarding wizard, opt-in Bifrost router, SSH hosts) is summarised in [17](17-orbit-plans.md). |
 | Live Orbit on the box | Still the maintainer deployment described in [05](05-infrastructure-hosting-networking.md). This chapter does not change or restart it. |
 
 Until that work lands, a stranger cannot yet deploy Orbit with one command and start immediately with a Pi key or a free OpenCode model. Do not document those commands as if they already work.
@@ -38,7 +38,7 @@ Until that work lands, a stranger cannot yet deploy Orbit with one command and s
 ## How this sits with the rest of the docs
 
 - [12](12-three-layer-architecture.md) is the architecture. Changing the worker or the board should not change what counts as an accepted result.
-- [13](13-bundlebees-hardening.md) is the execution-side hardening now on bundlebees `main` (untagged). DeepSeek bees through the Orbit launcher are the default backend; OpenCode and Codex are documented stubs.
+- [13](13-bundlebees-hardening.md) is the execution-side hardening now on bundlebees `main` (untagged; the latest tag, v0.1.1, predates it). DeepSeek bees through the Orbit launcher are the default backend; OpenCode and Codex are documented stubs.
 - [14](14-networking-and-worker-deploy.md) is how remote workers should join later: dial out, pair, scoped token. Most of that join flow is planned.
 - [03](03-development-and-orchestration.md) and [05](05-infrastructure-hosting-networking.md) remain the historical account of how Kyle's own agents and hosts actually ran.
 - [09](09-reproducible-collaboration.md) remains the portable loop. One person with one assistant can use it; Orbit is a convenience for that loop, not a requirement.

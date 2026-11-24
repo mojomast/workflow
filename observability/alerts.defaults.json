@@ -1,0 +1,21 @@
+{
+  "schema": "alert.thresholds/v1",
+  "schema_version": "v1",
+  "destinations": [
+    "orbit_dashboard",
+    "board_note"
+  ],
+  "thresholds": {
+    "deepseek_balance_below_usd": 5,
+    "go_allowance_pct_used": 80,
+    "go_429_streak": 5,
+    "stuck_bee_no_progress_s": 1800,
+    "blocker_age_s": 14400,
+    "disk_free_pct": 10,
+    "bees_in_flight_warn_at": 12,
+    "daily_model_spend_above_usd": 10
+  },
+  "actions": {
+    "at_bee_cap": "warn"
+  }
+}

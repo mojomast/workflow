@@ -22,10 +22,67 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Run the reference demo
-        run: python3 reference/run_demo.py
+      - name: Run the reference demo (ACDD + TDD, default)
+        run: python3 reference/run_demo.py --out "$RUNNER_TEMP/acdd-demo"
+      - name: Run the legacy reference demo
+        run: python3 reference/run_demo.py --legacy
+      - name: Check the schemas, the example contract and the demo evidence with jsonschema
+        run: |
+          python3 -m pip install --quiet "jsonschema==4.23.0"
+          python3 reference/check_schemas.py "$RUNNER_TEMP/acdd-demo"
       - name: Run the reference tests
         run: python3 -m unittest discover -s reference/tests -v
+      - name: acdd-lint tests
+        working-directory: tools/acdd-lint
+        run: python3 -m unittest discover -s tests -t . -v
+      - name: acdd-lint on the build evidence and the demo's signed output
+        working-directory: tools/acdd-lint
+        run: |
+          python3 -m acdd_lint ../../evidence/2026-11-12-acdd-build
+          python3 -m acdd_lint "$RUNNER_TEMP/acdd-demo" --key-file "$RUNNER_TEMP/acdd-demo/keys/verifier.key"
+      - name: acdd-lint flags exactly the known stale record in the dogfood evidence
+        # L1's first RED was made against the superseded v1 contract; it is kept as history.
+        working-directory: tools/acdd-lint
+        run: |
+          set +e
+          python3 -m acdd_lint ../../evidence/2026-11-12-acdd-lint-dogfood --json > "$RUNNER_TEMP/dogfood-lint.json"
+          rc=$?
+          set -e
+          test "$rc" = 1
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); got=[(p['code'],p['file']) for p in d['problems']]; want=[('evidence_stale','evidence/L1-schema/0001-red.json')]; print(got); sys.exit(got!=want)" "$RUNNER_TEMP/dogfood-lint.json"
+
+  project-state:
+    name: project-state schemas + reference checker (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Run the project-state tests (jsonschema required, no skips)
+        run: python3 -m unittest discover -s tools/project-state/tests -t tools/project-state -v
+
+  observability:
+    name: observability record tests
+    # Runs the observability schema, alert-threshold and envelope tests, which
+    # the other jobs never ran (independent review, Nov 12). Make it a required
+    # check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Observability tests (stdlib only)
+        run: python3 -m unittest discover -s observability/tests -t . -v
 
   acceptance-light:
     name: cold-start acceptance (light, offline worker)
@@ -46,9 +103,14 @@ jobs:
           sudo apt-get install -y -qq bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: Cold start (fresh clones, clean HOME + venv)
+        # bundlebees#5 merged as 2f83ae4. Pin that exact commit (not a floating
+        # branch) and require ACDD against it. Bump the pin deliberately.
         env:
           ACCEPTANCE_MODE: local
           WORKFLOW_SRC: ${{ github.workspace }}
+          BUNDLEBEES_REF: main
+          BUNDLEBEES_SHA: 39602ff232cf6dad404a551d8e13f6f29b5d363d
+          ACCEPTANCE_ACDD: require
           ACCEPTANCE_PRIOR_INTERVENTIONS: "CI lifted the AppArmor userns restriction::GitHub ubuntu-24.04 runners block unprivileged user namespaces, which bwrap needs"
         run: |
           git checkout -B ci-under-test
@@ -73,6 +135,195 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks
       - name: Scan history
         run: ./gitleaks detect --source . --redact --no-banner
+
+  feature-packet:
+    name: feature packet protocol (required)
+    # Validates rizzstack.feature-packet/1 and rizzstack.source-resolution/1.
+    # The examples pin a real schema-bearing commit, so the job needs the
+    # history (fetch-depth: 0): a shallow clone cannot resolve the pin, and the
+    # drift check would have nothing to compare against.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema and pytest
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5" "pytest>=8,<9"
+      - name: Feature packet protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_feature_packet -v
+      # Own the full suite here: same runner, Python, dependencies and Git
+      # history as the other protocol jobs. Those keep their named checks.
+      - name: Every module under tests/
+        run: python3 -m pytest -q tests/
+
+  bee-landed:
+    name: bee-landed protocol (required)
+    # Validates rizzstack.bee-landed/1: the terminal CloudEvents envelope, the
+    # three terminal states, the dedupe key and every refusal rule.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Bee Landed protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_bee_landed -v
+      - name: Validate the Bee Landed examples when present
+        run: |
+          shopt -s nullglob
+          files=(schemas/examples/bee-landed*.json schemas/examples/bee-landed/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Bee Landed examples under schemas/examples; skipping."
+          else
+            python3 tools/bee_landed.py "${files[@]}"
+          fi
+
+  campaign-report:
+    name: campaign report protocol
+    # Validates rizzstack.campaign-report/1: implementation vs integration vs
+    # acceptance, final-head test results, PASS evidence, unrun reasons, audit
+    # triage, merge-order references and the always-pending receiver decision.
+    # This job is additive; making it a required context in branch protection
+    # needs a separate owner decision.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Campaign report protocol tests
+        run: python3 -m unittest tests.test_campaign_report -v
+      - name: Validate the campaign report example
+        run: python3 tools/campaign_report.py validate schemas/examples/campaign-report.example.json
+
+  return-manifest:
+    name: return manifest protocol (required)
+    # Validates rizzstack.return/1: digest recomputation, the always-pending
+    # receiver decision, PASS evidence, descendant consistency and every enum.
+    # The examples pin a schema-bearing ancestor, so the job needs the history
+    # (fetch-depth: 0) to resolve the pin and compare its bytes.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Return manifest protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_return_manifest -v
+      - name: Validate the two examples with the CLI
+        run: python3 tools/return_manifest.py schemas/examples/return-exact.json schemas/examples/return-dependent.json
+
+  recovery-protocol:
+    name: recovery protocol (required)
+    # Validates rizzstack.recovery/1: the five failure classes and their
+    # evidence, the envelope bounds, retry/supersede/escalation legality,
+    # supersession binding, digest binding, the anti-widening rules, and the
+    # optional recovery array in the RETURN manifest.
+    # Make this job a required check in branch protection.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install jsonschema
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5"
+      - name: Recovery protocol tests (required, jsonschema required, no skips)
+        run: python3 -m unittest tests.test_recovery_protocol -v
+      - name: Runtime conformance tests (required, jsonschema required, no skips)
+        # The migration evidence for bundlebees 191dc85: the archived
+        # pre-conformance captures must be refused and the canonical pair must
+        # validate. Named explicitly so failures identify runtime conformance.
+        run: python3 -m unittest tests.test_runtime_conformance -v
+      - name: Validate the request and decision examples with the CLI
+        run: |
+          python3 tools/recovery.py request schemas/examples/recovery-request.json
+          python3 tools/recovery.py decision schemas/examples/recovery-decision.json \
+            --request schemas/examples/recovery-request.json --attempts-used 1
+
+  # Required-context gates. The main-branch ruleset requires these three
+  # contexts by name, so each gate carries the exact required name and depends
+  # on the substantive job (or matrix job) that does the work. `if: always()`
+  # makes the gate run even when its dependency fails, and the step turns a
+  # non-success dependency result into a gate failure. A gate never reports
+  # success on its own.
+  bee-ci-reference:
+    name: bee-ci/reference
+    # feature-packet owns the one complete root tests/ sweep. A passing
+    # reference demo alone is not enough for this required context.
+    needs: [reference, feature-packet]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require both the reference and protocol suites
+        env:
+          REFERENCE_RESULT: ${{ needs.reference.result }}
+          PROTOCOL_RESULT: ${{ needs.feature-packet.result }}
+        run: |
+          if [ "$REFERENCE_RESULT" != success ] || [ "$PROTOCOL_RESULT" != success ]; then
+            echo "::error::reference=$REFERENCE_RESULT, feature-packet=$PROTOCOL_RESULT; both must succeed"
+            exit 1
+          fi
+
+  bee-ci-project-state:
+    name: bee-ci/project-state
+    # The matrix job's aggregate result covers every matrix leg: one failing
+    # leg makes needs.project-state.result non-success, which fails this gate.
+    needs: project-state
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless the project-state matrix succeeded
+        env:
+          SUBSTANTIVE_RESULT: ${{ needs.project-state.result }}
+        run: |
+          if [ "$SUBSTANTIVE_RESULT" != "success" ]; then
+            echo "::error::project-state finished with result '$SUBSTANTIVE_RESULT'; bee-ci/project-state cannot pass"
+            exit 1
+          fi
+          echo "project-state succeeded; bee-ci/project-state passes"
+
+  bee-ci-secret-scan:
+    name: bee-ci/secret-scan
+    needs: secret-scan
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless the secret-scan job succeeded
+        env:
+          SUBSTANTIVE_RESULT: ${{ needs.secret-scan.result }}
+        run: |
+          if [ "$SUBSTANTIVE_RESULT" != "success" ]; then
+            echo "::error::secret-scan finished with result '$SUBSTANTIVE_RESULT'; bee-ci/secret-scan cannot pass"
+            exit 1
+          fi
+          echo "secret-scan succeeded; bee-ci/secret-scan passes"
 
   hermes-bees-windows:
     name: hermes-bees helpers (Windows)
@@ -128,3 +379,49 @@ jobs:
           python3 -m unittest -v test_bee_watch test_beekeeper_guard
           cd ../skills/bee-verify/scripts
           python3 -m unittest -v test_replay_verify
+
+  ci-gate:
+    name: ci-gate
+    # The main ruleset requires this one check. It passes only when every job
+    # in this file succeeded, so new jobs must be added to needs (checked below).
+    if: ${{ always() }}
+    needs:
+      - reference
+      - project-state
+      - observability
+      - acceptance-light
+      - secret-scan
+      - feature-packet
+      - bee-landed
+      - campaign-report
+      - return-manifest
+      - recovery-protocol
+      - bee-ci-reference
+      - bee-ci-project-state
+      - bee-ci-secret-scan
+      - hermes-bees-windows
+      - hermes-bees-python
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: ci-gate needs every job in this file
+        run: python3 .github/scripts/check_ci_gate.py .github/workflows/ci.yml
+      - name: Fail unless every needed job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          results = {job: data["result"] for job, data in json.loads(os.environ["NEEDS"]).items()}
+          for job, result in sorted(results.items()):
+              print(f"{job}: {result}")
+          failed = sorted(job for job, result in results.items() if result != "success")
+          if failed or not results:
+              print("ci-gate FAILED: " + (", ".join(failed) or "no jobs"))
+              sys.exit(1)
+          PY

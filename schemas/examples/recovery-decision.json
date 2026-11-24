@@ -1,0 +1,18 @@
+{
+  "adapter": "codex-cli",
+  "corrected_tests": [
+    "tests/test_smoke.py"
+  ],
+  "decided_at": "2026-11-13T19:40:00Z",
+  "decision": "supersede",
+  "rationale": "The missing node id is an unusable acceptance selection, not an implementation defect. The pre-authorized file-level test selects the same behaviour, so one supersession inside the envelope is enough; no other criterion, lease or gate changes.",
+  "request_digest": "9bf2508aaba9503bf2e39739afa469ba05471d61e127f0157782c54a2801a21f",
+  "request_id": "recovery-feature-a-t1-0001",
+  "schema": "rizzstack.recovery/1",
+  "supersedes": {
+    "contract_id": "SMOKE-R",
+    "contract_sha256": "6da2faf1c91d6e9d25ec40ec6f83d3c11d66bdabd9fafb823fe568f5f90d89c2",
+    "new_contract_id": "SMOKE-R",
+    "new_contract_sha256": "38ba6cbcaca0c06962bf160161185ada0d9a4db53e737599ec192fd298a026ae"
+  }
+}

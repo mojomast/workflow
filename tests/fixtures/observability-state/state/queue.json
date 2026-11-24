@@ -1,0 +1,22 @@
+{
+  "features": [
+    {
+      "feature_id": "feat_obs_snapshot",
+      "job_id": "job_20261113_a",
+      "status": "running",
+      "depends_on": []
+    },
+    {
+      "feature_id": "feat_obs_dashboards",
+      "job_id": "job_20261113_b",
+      "status": "blocked",
+      "depends_on": ["feat_obs_snapshot"]
+    },
+    {
+      "feature_id": "feat_obs_alerts",
+      "job_id": null,
+      "status": "queued",
+      "depends_on": ["feat_obs_dashboards"]
+    }
+  ]
+}

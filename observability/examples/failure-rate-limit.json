@@ -1,0 +1,18 @@
+{
+  "schema": "failure/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:04:50Z",
+  "source": "hyvv",
+  "attempt_id": "att_aa11bb22cc33dd44",
+  "card_id": "t_45ff632b",
+  "run_id": "run-observability-1",
+  "project": "bundlebees",
+  "role": "work",
+  "class": "rate-limit",
+  "code": "http_429",
+  "component": "opencode-go",
+  "retryable": true,
+  "fallback_to": "deepseek",
+  "http_429": true,
+  "note": "Go returned 429; falling back to DeepSeek"
+}

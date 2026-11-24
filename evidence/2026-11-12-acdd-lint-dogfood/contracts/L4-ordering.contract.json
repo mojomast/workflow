@@ -1,0 +1,136 @@
+{
+ "contract_version": "acdd/1",
+ "id": "L4-ordering",
+ "title": "acdd-lint: same-second phase ordering and stale RED",
+ "outcome": {
+  "summary": "check_history orders records by time, then protocol phase, then file name, and a RED recorded against another contract hash no longer satisfies RED-before-GREEN.",
+  "observable_behavior": [
+   "records with equal 'at' are ordered red, green, refactor, integration, review",
+   "a stale RED is reported only as evidence_stale and never counts as the valid RED"
+  ]
+ },
+ "interfaces": [
+  {
+   "name": "acdd_lint.evidence.check_history",
+   "kind": "function",
+   "change": "modify"
+  }
+ ],
+ "acceptance_criteria": [
+  {
+   "id": "AC-001",
+   "given": "red, green and refactor records with the same 'at' and file names that sort green first",
+   "when": "check_history runs",
+   "then": "no problems",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_ordering.py::OrderingTests::test_same_second_records_use_phase_order_not_file_name"
+   ]
+  },
+  {
+   "id": "AC-002",
+   "given": "a RED recorded against an older contract hash",
+   "when": "check_history runs",
+   "then": "evidence_stale only; it does not satisfy RED-before-GREEN and is not also red_invalid",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_ordering.py::OrderingTests::test_stale_red_does_not_satisfy_red_before_green",
+    "tools/acdd-lint/tests/test_ordering.py::OrderingTests::test_stale_failed_red_is_reported_once_as_stale"
+   ]
+  },
+  {
+   "id": "AC-003",
+   "given": "the existing behaviour",
+   "when": "the suite runs",
+   "then": "time order still wins over phase order and every earlier acdd-lint test passes",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_ordering.py::OrderingTests::test_time_still_wins_over_phase",
+    "tools/acdd-lint/tests/test_checks.py",
+    "tools/acdd-lint/tests/test_cli.py",
+    "tools/acdd-lint/tests/test_schema.py"
+   ],
+   "regression": true
+  }
+ ],
+ "dependencies": [],
+ "assumptions": [
+  "standard library only",
+  "python3 3.12+",
+  "runs standalone outside bundlebees"
+ ],
+ "scope": {
+  "assigned_files": [
+   "tools/acdd-lint/acdd_lint/evidence.py"
+  ],
+  "test_files": [
+   "tools/acdd-lint/tests/test_ordering.py",
+   "tools/acdd-lint/tests/test_checks.py",
+   "tools/acdd-lint/tests/test_cli.py",
+   "tools/acdd-lint/tests/test_schema.py"
+  ],
+  "read_only": [
+   "tools/acdd-lint/tests/support.py",
+   "tools/acdd-lint/tests/__init__.py",
+   "docs/ACDD.md",
+   "bundlebees_plugin/schemas/contract.schema.json",
+   "bundlebees_plugin/schemas/evidence.schema.json"
+  ],
+  "prohibited": [
+   ".github/*",
+   "bundlebees_plugin/*",
+   "tests/*",
+   "plugin.yaml",
+   "README.md",
+   "CHANGELOG.md"
+  ]
+ },
+ "source_rev": "e06fd8d5ed4761a58ab24ab2a20aa75210cf3281",
+ "tdd": {
+  "applicable": true,
+  "test_first": true
+ },
+ "verification": {
+  "independent": true,
+  "commands": [
+   "cd tools/acdd-lint && timeout 300 python3 -m unittest discover -s tests -t ."
+  ],
+  "integration": true
+ },
+ "evidence_required": [
+  "red",
+  "green",
+  "refactor",
+  "review",
+  "integration"
+ ],
+ "authorization": {
+  "human_gates": [
+   "merge",
+   "tag",
+   "release",
+   "deploy",
+   "publish",
+   "catalog",
+   "post"
+  ],
+  "authorized": [
+   "implement assigned files on an isolated worker",
+   "coordinator may push dogfood/acdd-lint and open an unmerged PR"
+  ],
+  "not_authorized": [
+   "merge",
+   "tag",
+   "release",
+   "publish",
+   "deploy",
+   "editing approved tests"
+  ]
+ },
+ "review": {
+  "status": "approved",
+  "approved_by": "coordinator (delegated by Kyle, t1289u)",
+  "approved_at": "2026-11-12T18:10:00Z",
+  "contract_sha256": "51b11c09a15962f5b900d6e37631ed23203696ca9047410caaac768c855036fd"
+ }
+}

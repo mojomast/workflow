@@ -1,0 +1,163 @@
+{
+ "contract_version": "acdd/1",
+ "id": "L1-schema",
+ "title": "acdd-lint: zero-dependency schema validator",
+ "outcome": {
+  "summary": "acdd_lint.schema validates JSON documents against the shared acdd/1 and tdd-evidence/1 schemas without jsonschema, and finds and loads those schemas.",
+  "observable_behavior": [
+   "validate returns [] for valid contracts and evidence",
+   "each violation is a ($.path, message) pair pointing at the field",
+   "find_schema_dir walks up to the shared schemas; load_schemas refuses a dir without them"
+  ]
+ },
+ "interfaces": [
+  {
+   "name": "acdd_lint.schema.validate",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "acdd_lint.schema.load_schemas",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "acdd_lint.schema.find_schema_dir",
+   "kind": "function",
+   "change": "add"
+  },
+  {
+   "name": "acdd_lint.schema.LintError",
+   "kind": "class",
+   "change": "add"
+  }
+ ],
+ "acceptance_criteria": [
+  {
+   "id": "AC-001",
+   "given": "the shared schemas and valid fixture documents",
+   "when": "validate runs",
+   "then": "it returns no errors; a contract missing scope reports scope",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_schema.py::test_valid_shared_documents_have_no_errors",
+    "tools/acdd-lint/tests/test_schema.py::test_errors_are_path_message_pairs"
+   ]
+  },
+  {
+   "id": "AC-002",
+   "given": "each schema keyword the shared schemas use",
+   "when": "a violating value is validated",
+   "then": "it fails, and conforming values pass; annotations are ignored",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_schema.py::test_every_used_keyword_is_enforced",
+    "tools/acdd-lint/tests/test_schema.py::test_annotations_are_ignored"
+   ]
+  },
+  {
+   "id": "AC-003",
+   "given": "a nested violation",
+   "when": "validate runs",
+   "then": "the path is $.a[1]-style JSONPath to the failing value",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_schema.py::test_nested_paths_point_at_the_field"
+   ]
+  },
+  {
+   "id": "AC-004",
+   "given": "a repo with schemas under schemas/ or bundlebees_plugin/schemas/",
+   "when": "find_schema_dir and load_schemas run",
+   "then": "both naming conventions load; a dir without them raises LintError and find returns None",
+   "verification": "test",
+   "tests": [
+    "tools/acdd-lint/tests/test_schema.py::test_find_schema_dir_from_inside_the_repo",
+    "tools/acdd-lint/tests/test_schema.py::test_load_accepts_both_naming_conventions_and_refuses_missing"
+   ]
+  },
+  {
+   "id": "AC-005",
+   "statement": "a reviewer confirms the validator is small, standalone and readable",
+   "verification": "review"
+  }
+ ],
+ "dependencies": [],
+ "assumptions": [
+  "standard library only",
+  "python3 3.12+",
+  "runs standalone outside bundlebees"
+ ],
+ "scope": {
+  "assigned_files": [
+   "tools/acdd-lint/acdd_lint/__init__.py",
+   "tools/acdd-lint/acdd_lint/schema.py"
+  ],
+  "test_files": [
+   "tools/acdd-lint/tests/test_schema.py"
+  ],
+  "read_only": [
+   "tools/acdd-lint/tests/support.py",
+   "tools/acdd-lint/tests/__init__.py",
+   "docs/ACDD.md",
+   "bundlebees_plugin/schemas/contract.schema.json",
+   "bundlebees_plugin/schemas/evidence.schema.json"
+  ],
+  "prohibited": [
+   ".github/*",
+   "bundlebees_plugin/*",
+   "tests/*",
+   "plugin.yaml",
+   "README.md",
+   "CHANGELOG.md"
+  ]
+ },
+ "source_rev": "bfd9f30237ac9b26d76c27b73dce6f2a3f5163c4",
+ "tdd": {
+  "applicable": true,
+  "test_first": true
+ },
+ "verification": {
+  "independent": true,
+  "commands": [
+   "cd tools/acdd-lint && timeout 300 python3 -m unittest discover -s tests -t ."
+  ],
+  "integration": true
+ },
+ "evidence_required": [
+  "red",
+  "green",
+  "refactor",
+  "review",
+  "integration"
+ ],
+ "authorization": {
+  "human_gates": [
+   "merge",
+   "tag",
+   "release",
+   "deploy",
+   "publish",
+   "catalog",
+   "post"
+  ],
+  "authorized": [
+   "implement assigned files on an isolated worker",
+   "coordinator may push dogfood/acdd-lint and open an unmerged PR"
+  ],
+  "not_authorized": [
+   "merge",
+   "tag",
+   "release",
+   "publish",
+   "deploy",
+   "editing approved tests"
+  ]
+ },
+ "review": {
+  "status": "approved",
+  "approved_by": "coordinator (delegated by Kyle, t1289u)",
+  "approved_at": "2026-11-12T18:10:00Z",
+  "contract_sha256": "bbfdf9b696312ceb6df133307edfe18a82891df058cbcd54d7ec61a3435a5214"
+ }
+}

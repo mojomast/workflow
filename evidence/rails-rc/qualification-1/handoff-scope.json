@@ -1,0 +1,12 @@
+{
+  "scope": "offline coding fixture; synthetic admission and launcher journal; automated reviewer only",
+  "pending_approvals": [
+    "deploy",
+    "merge",
+    "publish",
+    "release"
+  ],
+  "native_manifest_schema_error_paths": [],
+  "native_return_reverified": true,
+  "receiver_decision": "pending"
+}

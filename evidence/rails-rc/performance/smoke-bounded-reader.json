@@ -1,0 +1,1180 @@
+{
+  "schema": "rails-offline-bench/2",
+  "status": "completed",
+  "started_utc": "2026-11-17T21:23:49+00:00",
+  "tuple": {
+    "workflow": "9f81c8686ffa083b2b23b4398b9b3508ce06ab11",
+    "bundlebees": "f54bb7e976929b5ffe73a568a46a289459e3337c",
+    "hyvv": "cd8cce9374dc8430c314ffde74fa65180a501960",
+    "orbitdesktop": "2a9391179311cee4aad35758610b782e57d16edc"
+  },
+  "hardware": {
+    "kernel": "6.12.113+deb13-cloud-amd64",
+    "machine": "x86_64",
+    "cpu": "AMD EPYC 7742 64-Core Processor",
+    "affinity_cpus": 4,
+    "ram_bytes": 16777064448,
+    "filesystem": "/dev/sda1 ext4",
+    "physical_backing": "unknown"
+  },
+  "python": "3.13.5",
+  "sqlite": "3.46.1",
+  "config": {
+    "events": 100000,
+    "samples_per_surface": 10,
+    "soak_seconds": 0,
+    "lanes": 10,
+    "logical_rows": 500,
+    "wire_bytes": 32768,
+    "warmups_per_surface": 10,
+    "p95": "nearest rank"
+  },
+  "seed": {
+    "elapsed_ms": 83957.985,
+    "db_bytes": 453255168,
+    "writer_pids": [
+      1239096,
+      1239097,
+      1239098,
+      1239099,
+      1239100,
+      1239101,
+      1239102,
+      1239103,
+      1239104,
+      1239105
+    ],
+    "events_per_lane": [
+      10000,
+      10000,
+      10000,
+      10000,
+      10000,
+      10000,
+      10000,
+      10000,
+      10000,
+      10000
+    ],
+    "unique_seed_ids": 100000,
+    "transaction_rows": 50
+  },
+  "reads": {
+    "rss_start_kib": {
+      "VmRSS": 26272,
+      "VmHWM": 29708
+    },
+    "series": {
+      "events": {
+        "samples": [
+          {
+            "lane": 0,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:151",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4650",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 147.536
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 22.086
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 19.628
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 17.183
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 15.148
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 12.856
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 11.086
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.693
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 6.121
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.516
+              }
+            ],
+            "logical_500_ms": 263.44,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 1,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:301",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4800",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 145.882
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 22.2
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 19.961
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 17.696
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 15.081
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 12.284
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.41
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.69
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 6.027
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.481
+              }
+            ],
+            "logical_500_ms": 261.308,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 2,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:101",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4900",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 150.355
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 25.442
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 20.414
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 18.147
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 16.038
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 14.584
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.834
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.061
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 5.956
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.478
+              }
+            ],
+            "logical_500_ms": 273.14,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 3,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:201",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4950",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 155.667
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 23.575
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 22.269
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 22.447
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 16.412
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 12.805
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.693
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.616
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 5.927
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.613
+              }
+            ],
+            "logical_500_ms": 282.155,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 4,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:51",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4550",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32230,
+                "ms": 147.96
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 22.374
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 21.738
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 17.677
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 14.652
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 12.381
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.822
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.334
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 5.956
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.568
+              }
+            ],
+            "logical_500_ms": 265.091,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 5,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:1",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4750",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32219,
+                "ms": 148.025
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 22.712
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 23.334
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 22.237
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 20.198
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 13.042
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.953
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.768
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 6.091
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.646
+              }
+            ],
+            "logical_500_ms": 279.005,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 6,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:451",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:5000",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 156.651
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 22.233
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 19.457
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 17.732
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 15.112
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 13.031
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.654
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.286
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 5.892
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.551
+              }
+            ],
+            "logical_500_ms": 272.171,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 7,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:251",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4700",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 152.244
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 29.588
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 20.608
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 17.196
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 14.608
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 12.521
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.458
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.364
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 5.862
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.634
+              }
+            ],
+            "logical_500_ms": 274.79,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 8,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:351",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4600",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 144.402
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32379,
+                "ms": 21.869
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 19.429
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 18.337
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 15.7
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 13.617
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 10.608
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 8.315
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 6.262
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.795
+              }
+            ],
+            "logical_500_ms": 262.07,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 9,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:401",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4850",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 50,
+                "bytes": 32279,
+                "ms": 150.793
+              },
+              {
+                "limit": 450,
+                "rows": 50,
+                "bytes": 32376,
+                "ms": 23.517
+              },
+              {
+                "limit": 400,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 22.279
+              },
+              {
+                "limit": 350,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 19.712
+              },
+              {
+                "limit": 300,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 16.719
+              },
+              {
+                "limit": 250,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 13.955
+              },
+              {
+                "limit": 200,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 11.582
+              },
+              {
+                "limit": 150,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 9.169
+              },
+              {
+                "limit": 100,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 6.296
+              },
+              {
+                "limit": 50,
+                "rows": 50,
+                "bytes": 32578,
+                "ms": 2.588
+              }
+            ],
+            "logical_500_ms": 277.639,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          }
+        ],
+        "p95_single_query_ms": 156.651,
+        "p95_logical_500_ms": 282.155,
+        "rss_end_kib": {
+          "VmRSS": 34164,
+          "VmHWM": 34164
+        }
+      },
+      "view": {
+        "samples": [
+          {
+            "lane": 0,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:151",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4650",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 149.782
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 20.777
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 12.101
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 2.531
+              }
+            ],
+            "logical_500_ms": 185.491,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 1,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:301",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4800",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 153.603
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 20.114
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 11.365
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.919
+              }
+            ],
+            "logical_500_ms": 187.177,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 2,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:101",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4900",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 146.094
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 17.152
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 10.865
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.686
+              }
+            ],
+            "logical_500_ms": 175.924,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 3,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:201",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4950",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 152.235
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 16.98
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 10.815
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.698
+              }
+            ],
+            "logical_500_ms": 181.857,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 4,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:51",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4550",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32663,
+                "ms": 153.723
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 19.424
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 11.412
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.921
+              }
+            ],
+            "logical_500_ms": 186.662,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 5,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:1",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4750",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32653,
+                "ms": 144.771
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 17.464
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 10.592
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.679
+              }
+            ],
+            "logical_500_ms": 174.629,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 6,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:451",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:5000",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 139.115
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 17.371
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 10.758
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.625
+              }
+            ],
+            "logical_500_ms": 169.033,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 7,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:251",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4700",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 137.13
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 17.527
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 10.724
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.692
+              }
+            ],
+            "logical_500_ms": 167.211,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 8,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:351",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4600",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32713,
+                "ms": 135.664
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 16.515
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 14.503
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 2.365
+              }
+            ],
+            "logical_500_ms": 169.209,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          },
+          {
+            "lane": 9,
+            "offset": 0,
+            "first_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:401",
+            "last_id": "m-855699d4cd65-9983328d-862e-4f66-9ab1-03f78c3b4780:4850",
+            "calls": [
+              {
+                "limit": 500,
+                "rows": 156,
+                "bytes": 32712,
+                "ms": 133.548
+              },
+              {
+                "limit": 344,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 16.598
+              },
+              {
+                "limit": 189,
+                "rows": 155,
+                "bytes": 32717,
+                "ms": 10.47
+              },
+              {
+                "limit": 34,
+                "rows": 34,
+                "bytes": 7791,
+                "ms": 1.636
+              }
+            ],
+            "logical_500_ms": 162.373,
+            "missing_sources": [
+              "offline-worker"
+            ]
+          }
+        ],
+        "p95_single_query_ms": 153.723,
+        "p95_logical_500_ms": 187.177,
+        "rss_end_kib": {
+          "VmRSS": 35704,
+          "VmHWM": 35704
+        }
+      }
+    },
+    "pragmas": {
+      "page_size": 4096,
+      "cache_size": -2000,
+      "journal_mode": "wal",
+      "query_only": 1
+    }
+  },
+  "stream": {
+    "status": "skipped_by_flag"
+  },
+  "finished_utc": "2026-11-17T21:25:21+00:00"
+}

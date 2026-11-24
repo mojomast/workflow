@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/schemas/rails/http.schema.json",
+  "title": "Rizzstack Rails HTTP contract \u2014 rizzstack.rails-http/1",
+  "$comment": "R01 freeze candidate. Describes the routes, error envelope, wire objects and limits of the Rails HTTP surface (spec sections 7 and 10). routes and transport_rules are document data; error_envelope, append_request, append_response, export_page and limits are schemas the wire objects must satisfy. Every route requires an existing credential from the configured store, including health; read and mutation credentials are distinct entries and are never printed or echoed. Unexpected Host headers, credentials in URL query strings, redirects and cross-origin calls are refused. Requests carry bounded Content-Length and application/json UTF-8; chunked upload and invalid or negative lengths are refused. Errors never leak tracebacks or paths.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "error_codes",
+    "error_envelope",
+    "append_request",
+    "append_response",
+    "export_page",
+    "limits"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rizzstack.rails-http/1"
+    },
+    "error_codes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "invalid_request",
+          "auth_required",
+          "forbidden",
+          "not_found",
+          "conflict",
+          "source_fork",
+          "stale_fence",
+          "too_large",
+          "capacity",
+          "source_unavailable",
+          "storage_full",
+          "reset_required",
+          "capability_unavailable"
+        ]
+      }
+    },
+    "error_status_map": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "http_status"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "invalid_request",
+              "auth_required",
+              "forbidden",
+              "not_found",
+              "conflict",
+              "source_fork",
+              "stale_fence",
+              "too_large",
+              "capacity",
+              "source_unavailable",
+              "storage_full",
+              "reset_required",
+              "capability_unavailable"
+            ]
+          },
+          "http_status": {
+            "enum": [
+              400,
+              401,
+              403,
+              404,
+              409,
+              413,
+              429,
+              503
+            ]
+          }
+        }
+      }
+    },
+    "error_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "error"
+      ],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "retryable",
+            "request_id"
+          ],
+          "properties": {
+            "code": {
+              "enum": [
+                "invalid_request",
+                "auth_required",
+                "forbidden",
+                "not_found",
+                "conflict",
+                "source_fork",
+                "stale_fence",
+                "too_large",
+                "capacity",
+                "source_unavailable",
+                "storage_full",
+                "reset_required",
+                "capability_unavailable"
+              ]
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "request_id": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9._:-]{1,64}$"
+            }
+          }
+        }
+      }
+    },
+    "append_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "records"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-append/1"
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "$comment": "each record must satisfy rizzstack.rails-candidate/1 from source.schema.json"
+          }
+        }
+      },
+      "$comment": "Worker export batches carry original hashed envelopes and must use the import path rather than re-authoring them; the service routes batches by authenticated producer capability, never by a client-supplied authority label."
+    },
+    "append_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "receipts",
+        "committed_cursor"
+      ],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "receipts": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "seq",
+              "hash",
+              "duplicate"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "duplicate": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "committed_cursor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "$comment": "Same dedupe key with same semantic bytes returns the original receipt with duplicate=true; same key with different bytes is a 409 conflict."
+    },
+    "export_page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "chain_id",
+        "after",
+        "events",
+        "next_cursor",
+        "head",
+        "has_more"
+      ],
+      "properties": {
+        "schema": {
+          "const": "rizzstack.rails-export/1"
+        },
+        "chain_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "$comment": "original canonical envelope bytes, never re-authored"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "head": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "seq",
+                "hash"
+              ],
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "hash": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      },
+      "$comment": "Origin cursor is numeric and exclusive. Invalid cursors are refused; a cursor beyond the head reports reset_required; a missing retained prefix reports source_gap. Initial replication verifies from genesis or an explicitly trusted checkpoint supplied through owner configuration."
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_max_bytes",
+        "feedback_max_bytes",
+        "stream_max",
+        "stream_buffer_max_bytes"
+      ],
+      "properties": {
+        "request_max_bytes": {
+          "type": "integer",
+          "maximum": 1048576
+        },
+        "feedback_max_bytes": {
+          "type": "integer",
+          "maximum": 8192
+        },
+        "stream_max": {
+          "type": "integer",
+          "maximum": 8
+        },
+        "stream_buffer_max_bytes": {
+          "type": "integer",
+          "maximum": 1048576
+        }
+      },
+      "$comment": "Proposed request cap 1 MiB; feedback cap 8 KiB; at most 8 concurrent streams with a 1 MiB buffer per stream. Slow stream clients are dropped with reconnect instructions and never block writers. Reverse proxy timeouts and connection caps apply in addition."
+    }
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/v1/health",
+      "scope": "read",
+      "behavior": "revisions, schema digest, last import, integrity range, source status, clock and coverage warnings; no private paths"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/events",
+      "scope": "read",
+      "behavior": "validated selector and cursor query, read-only"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/view",
+      "scope": "read",
+      "behavior": "safe presentation JSON (rizzstack.rails-view/1) for the same selector and cursor under the same result metadata and caps; format parameter is ignored"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/stream",
+      "scope": "read",
+      "behavior": "authorized server-sent events with selector and Last-Event-ID replay; no ingestion side effect"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/feedback/export",
+      "scope": "read",
+      "behavior": "same authorized filter, paginated bounded feedback and intervention projection as csv or jsonl"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/append",
+      "scope": "producer_append",
+      "behavior": "producer-authenticated atomic candidate batch; never exposed through the browser proxy"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/feedback",
+      "scope": "owner_mutation",
+      "behavior": "trusted owner route only; fixed feedback schema and idempotency key"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/interventions",
+      "scope": "owner_mutation",
+      "behavior": "trusted authorized action submission; delegates to the existing queue and never executes shell or session mutation in the server"
+    }
+  ],
+  "transport_rules": [
+    "every route, including health, requires an existing credential from the configured store",
+    "read and mutation credentials are distinct store entries and are never printed, echoed or logged",
+    "unexpected Host headers, credentials in URL query strings, redirects and cross-origin calls are refused",
+    "GET handlers never poll, import or write; polling and imports run through explicit ingestion operations with exactly one configured import owner per source",
+    "requests require bounded Content-Length and application/json UTF-8; chunked upload and invalid or negative lengths are refused",
+    "error envelopes carry only code, retryable and request_id; no traceback or path leak",
+    "stream identifiers are the local ingest-sequence cursor bound to ledger and filter; replay after Last-Event-ID is at least once and clients dedupe by origin event id and revision",
+    "stream heartbeat comment every 15 seconds; reconnect backs off exponentially between 1 and 30 seconds with jitter",
+    "unexpected cursor or ledger replacement returns 409 reset_required and the client refetches a bounded snapshot",
+    "feedback edits append superseding events; stale concurrent edits return 409; the same idempotency key returns the original result and never duplicates intervention counts"
+  ]
+}

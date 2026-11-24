@@ -1,0 +1,100 @@
+{
+  "run": "https://github.com/mojomast/workflow/actions/runs/44192354558",
+  "runner_definition_commit": "bf214914d06e0ce3423a5492d1831d779a8669b0",
+  "attempt": 1,
+  "conclusion": "success",
+  "archive_sha256": "5b425838c35ac50fa8a051b1c053c8894a94307ee6c8cb6bdb44f91fc2d44940",
+  "archive_bytes": 42717,
+  "artifact_id": 14378301482,
+  "artifact_name": "rails-tuple-44192354558-1",
+  "expires_at": "2026-11-24T22:48:05Z",
+  "summary": {
+    "junit": {
+      "bundlebees": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 320
+      },
+      "hyvv": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 77
+      },
+      "orbit-node": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 87
+      },
+      "orbitdesktop": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 25
+      },
+      "workflow": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 156
+      }
+    },
+    "passed": true,
+    "scope": "local four-checkout Rails gate; receiver decision pending",
+    "tools": {
+      "bundlebees_wheel_sha256": "e6a69cad7e027f0d01647a4995fafea93f976d30bb95d8f4bf06ce761ec2d23c",
+      "gitleaks": "8.21.2",
+      "hyvv_wheel_sha256": "63f67eb2ce08c532e7b701ea99239648f6fb109e50bec3c745ff9d3d7eb7773e",
+      "native_modules": {
+        "better-sqlite3/build/Release/better_sqlite3.node": "df9fbd0d061f360d81fb51e265c53c9605020bd68219e34f33c07c85de15719a",
+        "node-pty/build/Release/pty.node": "0934354174ea1bb78a6e1f89b4e9d48e4167bd470157508ef0ee0bd0fa4ad7f5"
+      },
+      "node": "22.23.1",
+      "node_abi": "127",
+      "npm": "10.9.8",
+      "orbit_lock_sha256": "e041e9127736742f2af7df98e4dceb835c98be9ede6068dc1caef6a5d97aa02a",
+      "python": "3.12.16 (main, Oct 26 2026, 02:50:49) [GCC 13.3.0]",
+      "python_packages": "8.4.2 4.23.0",
+      "sqlite": "3.53.2",
+      "wheel_builders": "78.1.1 1.33.0"
+    },
+    "tuple": {
+      "bundlebees": "83ffa37811225deb8f06518b2ef997a021b63bd2",
+      "hyvv": "35a4d0cf9473b3d30a2b8eb0b71ab9d10b6509a8",
+      "orbitdesktop": "43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e",
+      "workflow": "badc5591d7e5d4985fe829c3a1e39b2ee0e4c0f6"
+    }
+  },
+  "independent_replay": {
+    "verified": true,
+    "native_digest": "2e09eeff9528dfef5fe9afd03b09a909e30b37c7d1e49fb48e9308f3dfdf4c79",
+    "executions": [
+      {
+        "stage": "baseline",
+        "revision": "8de45f215aae70d68bd8aeee7713f28cfd34b008",
+        "expected_exit": 1,
+        "observed_exit": 1
+      },
+      {
+        "stage": "verified",
+        "revision": "ea16526ffc2d2a9c1a4cefea4182bf171dcdaca5",
+        "expected_exit": 0,
+        "observed_exit": 0
+      },
+      {
+        "stage": "integrated",
+        "revision": "6dffa5a85e9377735d1a4e8e26b79581b6986e2c",
+        "expected_exit": 0,
+        "observed_exit": 0
+      }
+    ],
+    "decision": {
+      "decided_at": null,
+      "decided_by": null,
+      "note": null,
+      "status": "pending"
+    }
+  }
+}

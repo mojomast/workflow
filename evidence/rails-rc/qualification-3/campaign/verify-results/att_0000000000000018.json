@@ -1,0 +1,98 @@
+{
+  "at": "2026-11-17T21:47:04Z",
+  "attempt_id": "att_0000000000000018",
+  "base_rev": "ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702",
+  "branch": "bb-verify/att_0000000000000018",
+  "execution_identity": {
+    "base_rev": "ef7ba3a95a0bd8f026cb0c1323550b4c0caa8702",
+    "command": [
+      "/var/tmp/rails-rc-unv0bamz/tooling/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "test_score.py::test_empty_score"
+    ],
+    "dependencies": "d58cff498a9c6618cbb11fe537311b39a91e875c98c7fb5057321d3f521844d6",
+    "dependency_environment": {
+      "available": true,
+      "count": 37,
+      "sha256": "19ff308a355613023a5913757355f1fa82b72afe644637b198b8349b0f390920"
+    },
+    "environment": {
+      "CI": "1",
+      "HOME": "<sandbox-home>",
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "PATH": "/usr/local/bin:/usr/bin:/bin",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONHASHSEED": "0",
+      "PYTHONNOUSERSITE": "1",
+      "TMPDIR": "<sandbox-tmp>",
+      "runner": "LocalSlice.phase_check"
+    },
+    "gitleaks": {
+      "required": true,
+      "tool": "/tmp/opencode/bb-offline-fAXGIP/bin/gitleaks"
+    },
+    "patch_sha256": "137268d0b14ba02f28cc8881447b0293e9b5ad488d939b71dcda8136486ddc9b",
+    "sandbox": {
+      "allow_unsafe_local": false,
+      "allow_weak": false,
+      "backend": "auto",
+      "runner": "injected",
+      "timeout": 600
+    },
+    "source_tree_sha256": "8d59aab48e478896f77920631f5f7e6d3b70b52ec60d287d709bdd8106f8e2d1",
+    "stack": {
+      "dependency_environment": {
+        "available": true,
+        "count": 37,
+        "sha256": "19ff308a355613023a5913757355f1fa82b72afe644637b198b8349b0f390920"
+      },
+      "executable": "/var/tmp/rails-rc-unv0bamz/tooling/bin/python",
+      "implementation": "CPython",
+      "machine": "x86_64",
+      "platform": "Linux-6.12.113+deb13-cloud-amd64-x86_64-with-glibc2.41",
+      "prefix": "/var/tmp/rails-rc-unv0bamz/tooling",
+      "pytest": "9.2.0",
+      "python": "3.13.5"
+    },
+    "suite_command": [
+      "/var/tmp/rails-rc-unv0bamz/tooling/bin/python",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "test_sources_sha256": "a232b27f11b9cce47474fa3dfba6e51d7c08ab703110f05f992ac75e79cb7d6d",
+    "tests": [
+      "test_score.py::test_empty_score"
+    ]
+  },
+  "files": [
+    "score.py"
+  ],
+  "gitleaks": {
+    "exit_code": 0
+  },
+  "mode": "commit-local",
+  "ok": true,
+  "patch_sha256": "137268d0b14ba02f28cc8881447b0293e9b5ad488d939b71dcda8136486ddc9b",
+  "red": {
+    "exit_code": 1,
+    "timed_out": false
+  },
+  "resumed": false,
+  "sha": "5ba87f2a1cf26b286e98960eefab03d7bdc6d7c0",
+  "suite": {
+    "exit_code": 0,
+    "timed_out": false
+  },
+  "test_cache": {
+    "executions": 3,
+    "hits": 0,
+    "misses": 3
+  },
+  "tests": [
+    "test_score.py::test_empty_score"
+  ]
+}

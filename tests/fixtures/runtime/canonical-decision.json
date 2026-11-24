@@ -1,0 +1,18 @@
+{
+  "adapter": "deterministic-agent",
+  "corrected_tests": [
+    "tools/acdd-lint/tests/test_check_reachability.py::Reachability::test_reachable_commit_is_silent"
+  ],
+  "decided_at": "2026-11-13T20:00:00Z",
+  "decision": "supersede",
+  "rationale": "The frozen contract names a selector that does not exist at the pinned revision, so the acceptance selection is unusable rather than the patch. The approved fixture method selects the same behaviour the criterion states, so one supersession inside the envelope is enough.",
+  "request_digest": "6d57b9800562a9d6d84987287ef66bdad94edca7998f61c7f16e8bed7f61387b",
+  "request_id": "job_m4_dogfood.T2.1",
+  "schema": "rizzstack.recovery/1",
+  "supersedes": {
+    "contract_id": "T2-REACHABILITY",
+    "contract_sha256": "b30fdd670282a097701bae2841177f99ccefcc9243055ac2696766dd6a1e249b",
+    "new_contract_id": "T2-REACHABILITY",
+    "new_contract_sha256": "52d17e65714343bcb86547309454beea9aca95944ce76a3732d3fd0fede3df72"
+  }
+}

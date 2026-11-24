@@ -1,0 +1,1884 @@
+{
+  "schema": "bundlebees.gate-backlog/1",
+  "budget": {
+    "lanes": 7,
+    "bees": 8
+  },
+  "slices": [
+    {
+      "id": "F5",
+      "title": "F5: contract-enforcement followups on the landed F2 (in-scope known gaps, RED-first)",
+      "project": "bundlebees",
+      "lane": "features",
+      "priority": 2,
+      "brief": {
+        "objective": "F5 contract-enforcement followups (seeded from the campaign record; runs after F2 bb#60 merges). Scope: the F2 known gaps that are IN the F2 file set - docs/ACDD.md + docs/contract-enforcement.md truthing against the shipped behavior, contracts.py/dispatch.py/settings.py edge cases named in the F2 review verdict, tests/test_contract_enforcement.py extended RED-first. Out of scope (recorded cross-repo followups): client.public_health deployment-receipt key stripping (client.py - separate lane), RULES.md section 4 (does not exist in-repo). RED-first mandated; lease = the F2 6-file set.",
+        "source_rev": "125c7111c80221c326639520fdb673f1e274c176",
+        "assigned_files": [
+          "bundlebees_plugin/contracts.py",
+          "bundlebees_plugin/dispatch.py",
+          "bundlebees_plugin/settings.py",
+          "tests/test_contract_enforcement.py",
+          "docs/ACDD.md",
+          "docs/contract-enforcement.md"
+        ],
+        "acceptance": {
+          "criteria": [
+            "RED-first: new tests fail at the pre-fix revision before the fix",
+            "required command: python3 -m pytest tests/test_contract_enforcement.py tests/test_dispatch.py tests/test_settings.py -q green in-sandbox",
+            "scanner hygiene: self-scan every added line against the six gate rules (name-colon-value trap, Bearer+6, sk-/ghp_/github_pat_/xox, AKIA/AIza, eyJ JWT, 32+ mixed-alnum) + private-key regex; rewrite trips; disclose the scan",
+            "no scope growth beyond the 6-file lease"
+          ]
+        }
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "attempt": "att_65b4cffc4bca4602"
+        }
+      ],
+      "depends_on": [],
+      "status": "dispatched",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "queued",
+          "at": "2026-11-16T15:19:41-05:00",
+          "reason": "gate_repaired_then_historic_dispatch",
+          "evidence": {
+            "gate": {
+              "type": "attempt_succeeded",
+              "attempt": "att_65b4cffc4bca4602"
+            },
+            "note": "campaign \u00a7128: F5 planned->queued executed with a corrected brief; original seeded gate pr_merged pr=60 was unreachable (workflow PR 60 does not exist; bb#60 was closed superseded by bb#65)"
+          }
+        },
+        {
+          "from": "queued",
+          "to": "dispatched",
+          "at": "2026-11-16T15:19:41-05:00",
+          "reason": "dispatched_att_65b4cffc4bca4602",
+          "evidence": {
+            "attempt": "att_65b4cffc4bca4602",
+            "state": "succeeded",
+            "landing": "bundlebees#67 merged 88d4bd4 (contract-enforcement followups)"
+          }
+        }
+      ],
+      "attempt_id": "att_65b4cffc4bca4602",
+      "updated_at": "2026-11-16T18:20:00-05:00"
+    },
+    {
+      "id": "M2-CANARY-RUN",
+      "title": "M2 canary run: execute the owner-decided canary per the runbook (after F2 lands)",
+      "project": "rizzstack-m2-canary",
+      "lane": "features",
+      "priority": 3,
+      "brief": {
+        "objective": "Execute Step 6 of docs/m2-canary-runbook.md: dispatch ONE bee on the canary project to implement contract M2-canary-wave-tally (contract_sha256 788be10f30ff487857f276dc1cd968c93bb258d35774947928dc5ef2fe5f11b4, frozen at the canary base revision) \u2014 a two-file event tally and its renderer proven by the four approved tests that exist and fail at the base revision. Branch canary/m2-wave-tally off main. The approved tests (tests/test_meter.py) are read-only for the bee; no push, no merge, no retry; 30 wall-clock minutes; the receiver decision after the run is the owner's (Step 12), never self-recorded. Dispatch is gated: the canary project must be registered first (Step 4b) and the coordinator fact m2-canary-runbook-step6-reached records that Steps 1-5 are complete.",
+        "source_rev": "3951ec15eac5db70f198d0ffc5ad3cdb6e6bd4e5",
+        "assigned_files": [
+          "canary/meter.py",
+          "canary/report.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "AC-001 record_events([\"dispatch\", \"verify\", \"dispatch\"]) -> {\"dispatch\": 2, \"verify\": 1} (tests/test_meter.py::MeterTests::test_record_events_counts_kinds)",
+            "AC-002 record_events([\"dispatch\", \"mystery\"]) raises UnknownEventKind (tests/test_meter.py::MeterTests::test_record_events_rejects_unknown_kind)",
+            "AC-003 record_events([]) -> {} (tests/test_meter.py::MeterTests::test_empty_events_yield_empty_tally)",
+            "AC-004 render_tally({\"verify\": 1, \"dispatch\": 2}) -> 'dispatch=2\\nverify=1' (tests/test_meter.py::ReportTests::test_render_tally_sorts_and_joins)",
+            "AC-005 the combined branch passes the full canary suite"
+          ]
+        }
+      },
+      "gates": [
+        {
+          "type": "attempt_succeeded",
+          "attempt": "att_a88f29defbfe4e85"
+        },
+        {
+          "type": "attempt_succeeded",
+          "fact": "m2-canary-runbook-step6-reached"
+        },
+        {
+          "type": "owner_decision",
+          "question": "Fire the M2 canary run? It creates the rizzstack-m2-canary project + repo on the worker host; provisioning gap may block; receiver decision after the run is yours."
+        }
+      ],
+      "depends_on": [],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "return_accepted",
+              "return_digest": "0515b019"
+            },
+            "canary": {
+              "pr": 1,
+              "job": "rizzstack-m2-canary-2",
+              "grant": "repo-346047d9c8d444a3"
+            },
+            "attribution": {
+              "attempt": "att_a2f93c9f29f14efb",
+              "intent": "f79031d486394e87883cfa1ad8c041f7",
+              "digest": "1d980726b5e2df35f63bd1a958085c9a19a656cd9e5f57f9acf4dc31493b496b"
+            },
+            "note": "One authorized Windows canary completed: acceptance report *** yes (AC-001..AC-005), signed reviewer attestation, and the E9 pre-dispatch attribution proven end-to-end on the attributed re-dispatch."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R00",
+      "title": "Rails R00 (S): M0; all source authors + integrator",
+      "project": "workflow",
+      "lane": "rails",
+      "priority": 0,
+      "brief": {
+        "objective": "Rails R00 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Pin real source versions, record sanitized native trace and session shape, locate proxy/auth/queue hooks, resolve uncertainties Q1\u2013Q4. Missing fixture/version/attachment makes the feasibility test RED. python -m unittest discover -s tests -p test_rails_feasibility.py; review rejects guessed hooks.",
+        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+        "assigned_files": [
+          "specs/rails-feasibility.md",
+          "schemas/rails/fixtures/source-matrix.json",
+          "tests/test_rails_feasibility.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_feasibility.py; review rejects guessed hooks."
+        ],
+        "acceptance": {
+          "criteria": [
+            "Pin real source versions, record sanitized native trace and session shape, locate proxy/auth/queue hooks, resolve uncertainties Q1\u2013Q4. Missing fixture/version/attachment makes the feasibility test RED. python -m unittest discover -s tests -p test_rails_feasibility.py; review rejects guessed hooks."
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T06:10:00Z",
+          "reason": "out-of-band landing adopted: actor-claimed attempt att_57791826 succeeded but its payload was refused at the coordinator verify secret scan; re-dispatch att_a3c2bb45 verified clean at cd1e6870 (firejail suite + house secret scan) and PR #80 merged at b0cd15a",
+          "evidence": {
+            "attempt": "att_a3c2bb45b386442c",
+            "pr": 80,
+            "merge_commit": "b0cd15aa0118e256f102711feac373809d722483",
+            "verified_head": "cd1e687009a4a18cc8eea760f1f564745c34257a"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_a3c2bb45b386442c",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R01",
+      "title": "Rails R01 (M): M0; every producer + consumer",
+      "project": "workflow",
+      "lane": "rails",
+      "priority": 1,
+      "brief": {
+        "objective": "Rails R01 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Bad hashes/duplicate keys/kind payloads/PASS without evidence fail; legacy vector matches upstream; freeze digest. python -m unittest discover -s tests -p test_rails_contract.py",
+        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+        "assigned_files": [
+          "schemas/rails/event.schema.json",
+          "schemas/rails/source.schema.json",
+          "schemas/rails/query.schema.json",
+          "schemas/rails/view.schema.json",
+          "schemas/rails/http.schema.json",
+          "schemas/rails/payload.schema.json",
+          "schemas/rails/evidence.schema.json",
+          "schemas/rails/examples.json",
+          "schemas/rails/fixtures/hash-vectors.json",
+          "schemas/rails/README.md",
+          "tests/test_rails_contract.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_contract.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Bad hashes/duplicate keys/kind payloads/PASS without evidence fail; legacy vector matches upstream; freeze digest. python -m unittest discover -s tests -p test_rails_contract.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R00"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T06:55:00Z",
+          "reason": "out-of-band landing adopted: r1 att_fa13d94 was the F1 zero-commit loss (verify refused, degenerate empty envelope, preserved); r2 att_e0cff87d with the anti-F1 turn discipline succeeded with 5/5 checks, was coordinator-reconciled after the staleness window, verified clean at 5288abb9 (firejail suite + house secret scan) and PR #83 merged at c7b5ab3",
+          "evidence": {
+            "attempt": "att_e0cff87d85a644e5",
+            "pr": 83,
+            "merge_commit": "c7b5ab3aeca0bc47f7150c7d05c5388f1bb37f5c",
+            "verified_head": "5288abb90b4c1130fbd0b622d5a099da898387cf"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_e0cff87d85a644e5",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R02",
+      "title": "Rails R02 (M): M1a; hyvv + Orbit + Bundlebees",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 2,
+      "brief": {
+        "objective": "Rails R02 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Concurrent 10 writers, identical/conflicting retry, crash around commit, mutation/hash detection, full disk, backup restore, readonly missing DB refusal and planted sensitive data. python -m unittest discover -s tests -p test_rails_ledger.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "contrib/rizzstack_rails/__init__.py",
+          "contrib/rizzstack_rails/ledger.py",
+          "contrib/rizzstack_rails/contracts.py",
+          "contrib/rizzstack_rails/privacy.py",
+          "contrib/rizzstack_rails/vendor-manifest.json",
+          "scripts/vendor_rails.py",
+          "tests/test_rails_ledger.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_ledger.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Concurrent 10 writers, identical/conflicting retry, crash around commit, mutation/hash detection, full disk, backup restore, readonly missing DB refusal and planted sensitive data. python -m unittest discover -s tests -p test_rails_ledger.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T08:05:00Z",
+          "reason": "out-of-band landing adopted: attempt att_f67c7573c44241fc (RAILS-R02 r3, bundlebees rails/r02-ledger at seed pin b2db04b8) succeeded in-sandbox 02:44 EST after two F1 zero-delivery losses (r1 att_7021e06e, r2 att_2e8118ca - owner item 24); the landing cascade verified the 7-file payload (acceptance suite tests/test_rails_ledger.py 35/35 green, secret scanner clean, vendor --check pins green) and applied it as bb PR #70 head 2f8ba100; review child att_87b7215d796c41c7 APPROVED (8/8 checks, no blocking; its sole observation - CI still in_progress at review time - was re-checked SUCCESS at the same head before merge); CI 4/4 SUCCESS at the exact head; MERGED as 9287d91 2026-11-17T07:58:34Z; bb docs-sync companion 2b6289c added the merged-window coverage rows for the unregistered PRs [68, 69, 70] (the bb registry invariant had been RED on bb main since #68 merged - disclosed in the campaign record)",
+          "evidence": {
+            "attempt": "att_f67c7573c44241fc",
+            "pr": 70,
+            "pr_repo": "bundlebees",
+            "verified_head": "2f8ba1004931cdc2cb1c5a873d58177dbe36ea64",
+            "merge_commit": "9287d91578fd8e0cce29b120bd1dfed2650f9569",
+            "merge_status": "merged - bb PR #70 merged as 9287d91; bb main companion 2b6289c"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_f67c7573c44241fc",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R03",
+      "title": "Rails R03 (S): M0; UI + compatibility reviewer",
+      "project": "orbitdesktop",
+      "lane": "rails",
+      "priority": 3,
+      "brief": {
+        "objective": "Rails R03 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Exact pristine pin + license/digests; no startup hooks executed; node-independent assets inspectable. python -m unittest discover -s tests -p test_rails_vendor.py",
+        "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
+        "assigned_files": [
+          "contrib/vibeline/README.md",
+          "contrib/vibeline/LICENSE",
+          "contrib/vibeline/ledger.py",
+          "contrib/vibeline/rails.py",
+          "contrib/vibeline/web.py",
+          "contrib/vibeline/sessions.py",
+          "contrib/vibeline/swarm.py",
+          "contrib/vibeline/shell.py",
+          "contrib/vibeline/feedback.py",
+          "contrib/vibeline/rewind.py",
+          "contrib/vibeline/web/index.html",
+          "contrib/vibeline/PROVENANCE.json",
+          "tests/test_rails_vendor.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_vendor.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Exact pristine pin + license/digests; no startup hooks executed; node-independent assets inspectable. python -m unittest discover -s tests -p test_rails_vendor.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T07:31:00Z",
+          "reason": "out-of-band landing adopted: attempt att_4be4db6493c14270 (RAILS-R03, orbitdesktop rails/r03-vendor at seed pin 8530a14) succeeded in-sandbox 02:12 EST with 6/6 self-checks; the coordinator verify REFUSED the payload at the house secret scan (pristine upstream bytes trip the scanner); line-level diagnosis attributed all 11 trips to identifier-shaped token plumbing or prose with zero credential literals; the coordinator APPLIED the payload unmodified (od PR #43 head ca2411a) per the brief's pristine-file rule and the od-r3 att_a26db3aa precedent, with independent byte-identity proof against the upstream pin d5d0f425 (all three tripped files sha256-match the pin blobs); review child att_15d1c1fd APPROVED 9/9; merge pending on the PROVEN-INHERITED od bundle-parity red (identical failures at base - the owner item 23 class) with the od#42 bundle rebuild in flight",
+          "evidence": {
+            "attempt": "att_4be4db6493c14270",
+            "pr": 43,
+            "pr_repo": "orbitdesktop",
+            "verified_head": "ca2411a85fcecba2b31201d2e0b58df5354dbdb4",
+            "merge_status": "pending - od PR #43 held on the proven-inherited bundle-parity red (owner item 23 class); od#42 rebuild in flight"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "dispatched",
+          "at": "2026-11-17T09:25:00Z",
+          "reason": "landing completed: od PR #43 (rails/r03-vendor at the branch-updated head 36e7f7a4f91ff39ce5de9ed38f1303a7bdb04190, review r2 att_2351e8c0189c402c APPROVED 10/10 + coordinator-applied cceab535 on review/pr43-r2) MERGED as 7b8b91e0f10f1b35ad50032ec81696b039ddc75e; CI green at the exact head via run 44045675643 (all jobs pass incl. Workbench/core 11m59s) - the sibling run 44045672072's single failure (test 215 'a detached job keeps running and can be tailed after the orchestrator closes') is a detached-process timing flake proven by the same-sha fully-green duplicate run, disclosed not rewritten; this completes the prior pending transition's promise",
+          "evidence": {
+            "attempt": "att_4be4db6493c14270",
+            "pr": 43,
+            "pr_repo": "orbitdesktop",
+            "verified_head": "36e7f7a4f91ff39ce5de9ed38f1303a7bdb04190",
+            "merge_commit": "7b8b91e0f10f1b35ad50032ec81696b039ddc75e",
+            "merge_status": "merged - od PR #43 merged as 7b8b91e0; completes the pending landing evidence above"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_4be4db6493c14270",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R04",
+      "title": "Rails R04 (S): M1a; local sources + remote import",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 4,
+      "brief": {
+        "objective": "Rails R04 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Append+cursor atomic, restart replay, fork/gap handling, truncated lines and byte caps; reads cannot commit. python -m unittest discover -s tests -p test_rails_importer.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "contrib/rizzstack_rails/source.py",
+          "contrib/rizzstack_rails/importer.py",
+          "tests/test_rails_importer.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_importer.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Append+cursor atomic, restart replay, fork/gap handling, truncated lines and byte caps; reads cannot commit. python -m unittest discover -s tests -p test_rails_importer.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R02"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T09:25:00Z",
+          "reason": "dispatched with a recorded loss: r1 att_aa8932b9694b4be8 CANCELLED ~40s after start (coordinator erratum: the brief's section-5 embed was truncated); r2 att_5d9a736239ae4e26 SUCCEEDED but ZERO-DELIVERY (10 tool calls, 0-token usage, only __pycache__ artifacts from running the landed suite, empty patch - diagnosed, loss #1 on the lane, preserved); r3 att_ad65300c35c0424f re-dispatched IN FLIGHT on bundlebees rails/r04-importer at main b65cda0681a12bfdf0599f743443c6a6fe18a7d7 - BASE DEVIATION from the seed pin b2db04b8 disclosed: R02's landed contrib/rizzstack_rails package is the dependency and exists only on bb main; lease exactly source.py + importer.py + test_rails_importer.py, tests gate test_rails_importer + test_rails_ledger, spec section 5 embedded verbatim, anti-F1 turn discipline in the brief",
+          "evidence": {
+            "attempt": "att_ad65300c35c0424f",
+            "pr": null,
+            "pr_repo": "bundlebees",
+            "verified_head": "b65cda0681a12bfdf0599f743443c6a6fe18a7d7",
+            "merge_commit": null,
+            "merge_status": "in flight - r3 att_ad65300c on rails/r04-importer @ b65cda0"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_ad65300c35c0424f",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R05",
+      "title": "Rails R05 (S): M1; query + audit",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 5,
+      "brief": {
+        "objective": "Rails R05 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Committed verify/review/merge records map correctly; unsigned worker PASS stays claim; snapshots do not invent transitions. python -m unittest discover -s tests -p test_rails_bundlebees_source.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "bundlebees_plugin/rails_bundlebees_source.py",
+          "tests/test_rails_bundlebees_source.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_bundlebees_source.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Committed verify/review/merge records map correctly; unsigned worker PASS stays claim; snapshots do not invent transitions. python -m unittest discover -s tests -p test_rails_bundlebees_source.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01",
+        "RAILS-R04"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R06",
+      "title": "Rails R06 (S): M1; campaign + rail",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 6,
+      "brief": {
+        "objective": "Rails R06 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Replayed landing dedupes; contradictory digest fails; terminal is not accepted. python -m unittest discover -s tests -p test_rails_outbox_source.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "bundlebees_plugin/rails_outbox_source.py",
+          "tests/test_rails_outbox_source.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_outbox_source.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Replayed landing dedupes; contradictory digest fails; terminal is not accepted. python -m unittest discover -s tests -p test_rails_outbox_source.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01",
+        "RAILS-R04"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R07",
+      "title": "Rails R07 (M): M1; coordinator self-view + review rails",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 7,
+      "brief": {
+        "objective": "Rails R07 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Allowlisted sessions, nested reviewer topology, edits/ghosts, missing result, unsupported schema; source DB bytes unchanged. python -m unittest discover -s tests -p test_rails_hermes_source.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "contrib/vibeline/LICENSE",
+          "contrib/vibeline/paths.py",
+          "contrib/vibeline/sessions.py",
+          "contrib/vibeline/swarm.py",
+          "contrib/vibeline/shell.py",
+          "contrib/vibeline/PROVENANCE.json",
+          "bundlebees_plugin/rails_hermes_source.py",
+          "tests/test_rails_hermes_source.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_hermes_source.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Allowlisted sessions, nested reviewer topology, edits/ghosts, missing result, unsupported schema; source DB bytes unchanged. python -m unittest discover -s tests -p test_rails_hermes_source.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R00",
+        "RAILS-R01",
+        "RAILS-R04"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R08",
+      "title": "Rails R08 (M): M1a; worker debug + coordinator",
+      "project": "hyvv",
+      "lane": "rails",
+      "priority": 8,
+      "brief": {
+        "objective": "Rails R08 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Windows JSONL Unicode/rotation/partial rows, native/backfill dedupe, real local HTTP export fork/disconnect, observed usage unknowns. python -m unittest discover -s tests -p test_rails_emission.py",
+        "source_rev": "316bd975e212973837daeefc271a491471ea882c",
+        "assigned_files": [
+          "rails_emitter.py",
+          "rails_log_source.py",
+          "rails_export.py",
+          "tests/test_rails_emission.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_emission.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Windows JSONL Unicode/rotation/partial rows, native/backfill dedupe, real local HTTP export fork/disconnect, observed usage unknowns. python -m unittest discover -s tests -p test_rails_emission.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R00",
+        "RAILS-R01",
+        "RAILS-R02"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T09:25:00Z",
+          "reason": "dispatched: att_84c7913c916044b2 on hyvv rails/r08-emission at main 961a8bce501d0ce38922baeb6e5c10347d1f7efd - BASE DEVIATION from the seed pin 316bd975 disclosed (current main carries the deployed worker fixes; all four leased files verified NEW at both pins); environment fact disclosed in the brief: contrib/rizzstack_rails (shared ledger writer) is NOT in hyvv yet (lands with R17C) - the lane implements self-contained with a local seam and records the divergence; lease exactly rails_emitter.py + rails_log_source.py + rails_export.py + tests/test_rails_emission.py, spec sections 4+5 embedded verbatim, R04's zero-delivery turn discipline carried into the brief",
+          "evidence": {
+            "attempt": "att_84c7913c916044b2",
+            "pr": null,
+            "pr_repo": "hyvv",
+            "verified_head": "961a8bce501d0ce38922baeb6e5c10347d1f7efd",
+            "merge_commit": null,
+            "merge_status": "in flight - att_84c7913c on rails/r08-emission @ 961a8bce"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_84c7913c916044b2",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R09",
+      "title": "Rails R09 (S): M1a; peer view + forensics",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R09 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: No redirects/arbitrary URL, preserved origin bytes, loss after commit replay, export gap, stale host. python -m unittest discover -s tests -p test_rails_remote_source.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "bundlebees_plugin/rails_remote_source.py",
+          "tests/test_rails_remote_source.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_remote_source.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "No redirects/arbitrary URL, preserved origin bytes, loss after commit replay, export gap, stale host. python -m unittest discover -s tests -p test_rails_remote_source.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R04",
+        "RAILS-R08"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R10",
+      "title": "Rails R10 (M): M1a; Orbit + CLI + agents",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R10 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Scoped bounded pages, cross-contract PASS rejection, latest failure, orphan/cycle, timing baselines, usage no double count, markdown injection. python -m unittest discover -s tests -p test_rails_query.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "contrib/rizzstack_rails/query.py",
+          "contrib/rizzstack_rails/projection.py",
+          "contrib/rizzstack_rails/markdown.py",
+          "contrib/rizzstack_rails/shell_labels.py",
+          "contrib/rizzstack_rails/__main__.py",
+          "tests/test_rails_query.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_query.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Scoped bounded pages, cross-contract PASS rejection, latest failure, orphan/cycle, timing baselines, usage no double count, markdown injection. python -m unittest discover -s tests -p test_rails_query.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01",
+        "RAILS-R02"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T09:25:00Z",
+          "reason": "dispatched: att_79a6703225124daa on bundlebees rails/r10-query at main b65cda0681a12bfdf0599f743443c6a6fe18a7d7 - BASE DEVIATION from the seed pin b2db04b8 disclosed (the landed R02 contrib/rizzstack_rails package is the query dependency, read in-repo); lease exactly query.py + projection.py + markdown.py + shell_labels.py + __main__.py + test_rails_query.py, spec sections 5+6 embedded verbatim, R04's zero-delivery turn discipline carried into the brief",
+          "evidence": {
+            "attempt": "att_79a6703225124daa",
+            "pr": null,
+            "pr_repo": "bundlebees",
+            "verified_head": "b65cda0681a12bfdf0599f743443c6a6fe18a7d7",
+            "merge_commit": null,
+            "merge_status": "in flight - att_79a67032 on rails/r10-query @ b65cda0"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_79a6703225124daa",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R11",
+      "title": "Rails R11 (S): M1; quality report + intervention export",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R11 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Retry duplicate, stale edit, target missing, clearing preserves history, intervention count distinct, CSV formula injection. python -m unittest discover -s tests -p test_rails_feedback.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "contrib/rizzstack_rails/feedback.py",
+          "contrib/rizzstack_rails/export.py",
+          "tests/test_rails_feedback.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_feedback.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Retry duplicate, stale edit, target missing, clearing preserves history, intervention count distinct, CSV formula injection. python -m unittest discover -s tests -p test_rails_feedback.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R02",
+        "RAILS-R10"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R12",
+      "title": "Rails R12 (M): M1a; proxy + machine query",
+      "project": "orbitdesktop",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R12 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Real HTTP unauthenticated loopback refused; size/Host checks, readonly GET, SSE reconnect/auth expiry/cap, no browser append. python -m unittest discover -s tests -p test_rails_http.py",
+        "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
+        "assigned_files": [
+          "contrib/rails_server/__init__.py",
+          "contrib/rails_server/__main__.py",
+          "contrib/rails_server/http.py",
+          "contrib/rails_server/stream.py",
+          "tests/test_rails_http.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_http.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Real HTTP unauthenticated loopback refused; size/Host checks, readonly GET, SSE reconnect/auth expiry/cap, no browser append. python -m unittest discover -s tests -p test_rails_http.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R04",
+        "RAILS-R10",
+        "RAILS-R11"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R13",
+      "title": "Rails R13 (M): M1a; Observatory + standalone catalog pane",
+      "project": "orbitdesktop",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R13 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Parent/child rails, zoom/pan, ghost/failure/RED distinct, unknown values, keyboard/reduced motion, bounded marks, XSS-safe rendering. node --test tests/rails-ui.test.mjs",
+        "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
+        "assigned_files": [
+          "apps/rizzstack-rails/index.html",
+          "apps/rizzstack-rails/app.js",
+          "apps/rizzstack-rails/rails.js",
+          "apps/rizzstack-rails/styles.css",
+          "apps/rizzstack-rails/inspector.js",
+          "tests/rails-ui.test.mjs"
+        ],
+        "tests": [
+          "node --test tests/rails-ui.test.mjs"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Parent/child rails, zoom/pan, ghost/failure/RED distinct, unknown values, keyboard/reduced motion, bounded marks, XSS-safe rendering. node --test tests/rails-ui.test.mjs"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01",
+        "RAILS-R03"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "dispatched",
+          "at": "2026-11-17T09:25:00Z",
+          "reason": "out-of-band landing adopted: the R13 lane ran as two od PRs - fixtures (rails/r13-fixtures, base deviation fd1b60e781cfda8421c56fed9d7395a06f4b283c per the fixture-port pin, disclosed) and observatory+catalog (rails/r13-observatory) - after attempts att_5ea00d9dacde4c80 (observatory) and att_3bb36196ca0d4e16 (catalog) with review children att_e72563170b974891 (APPROVE, pr45) and att_beae01b1202e4bff (pr44, banked); both branches were branch-updated onto the #42 fix (merge main 99a10c9, conflict-free merge-tree: fixtures 4e3c9ba4, observatory e540ba54); the #44 test-job colab-orchestrator ENOENT flake was rerun GREEN (run 44047174161); compensating coordinator verification: node observatory suite 28/28 at e540ba54; MERGED #44 as 24240ae8ec73b56d0d8bef10927c6efd76743944 and #45 as ffccf927e2ea47f92b970a32d3d8d5d0d678f645 (banked-approval merge divergence disclosed in the campaign record)",
+          "evidence": {
+            "attempt": "att_5ea00d9dacde4c80",
+            "pr": 45,
+            "pr_repo": "orbitdesktop",
+            "verified_head": "e540ba5409ec2ed1f88866361ca198fb70757109",
+            "merge_commit": "ffccf927e2ea47f92b970a32d3d8d5d0d678f645",
+            "merge_status": "merged - od PR #45 merged as ffccf927; companion fixtures PR #44 merged as 24240ae8"
+          }
+        },
+        {
+          "from": "dispatched",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "attempt_id": "att_5ea00d9dacde4c80",
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R14",
+      "title": "Rails R14 (S): M1a; Hermes + reference coordinator",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R14 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Real shared query returns identical IDs via tool/CLI/reference consumer; no arbitrary path or raw prompt fields, caps and typed errors. python -m unittest discover -s tests -p test_rails_consumers.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "bundlebees_plugin/rails_tool.py",
+          "bundlebees_plugin/rails_cli.py",
+          "contrib/reference_coordinator/rails_query_example.py",
+          "tests/test_rails_consumers.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_consumers.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Real shared query returns identical IDs via tool/CLI/reference consumer; no arbitrary path or raw prompt fields, caps and typed errors. python -m unittest discover -s tests -p test_rails_consumers.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R10"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R15",
+      "title": "Rails R15 (M): M2; owner retry + recovery",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R15 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Existing real queue seam: stale fence, duplicate click, revoked authority, crash after accepted request, non-idempotent unknown state held; ghost only after success. python -m unittest discover -s tests -p test_rails_actions.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "bundlebees_plugin/rails_actions.py",
+          "bundlebees_plugin/rails_queue_source.py",
+          "tests/test_rails_actions.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_actions.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Existing real queue seam: stale fence, duplicate click, revoked authority, crash after accepted request, non-idempotent unknown state held; ghost only after success. python -m unittest discover -s tests -p test_rails_actions.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R00",
+        "RAILS-R05",
+        "RAILS-R11"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R16",
+      "title": "Rails R16 (S): M2; feedback + retry",
+      "project": "orbitdesktop",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R16 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Trusted owner dialog; no pane credential leakage; read vs write scope; CSRF, expired session, SSE buffering/reconnect and rollback of optimistic state. node --test tests/rails-proxy.test.mjs tests/rails-feedback.test.mjs",
+        "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
+        "assigned_files": [
+          "server/rails-proxy.mjs",
+          "tests/rails-proxy.test.mjs",
+          "apps/rizzstack-rails/feedback.js",
+          "tests/rails-feedback.test.mjs"
+        ],
+        "tests": [
+          "node --test tests/rails-proxy.test.mjs tests/rails-feedback.test.mjs"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Trusted owner dialog; no pane credential leakage; read vs write scope; CSRF, expired session, SSE buffering/reconnect and rollback of optimistic state. node --test tests/rails-proxy.test.mjs tests/rails-feedback.test.mjs"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R00",
+        "RAILS-R12",
+        "RAILS-R15"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R17A",
+      "title": "Rails R17A (S): M1a; operators + RETURN",
+      "project": "workflow",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R17A per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Missing or wrong interface/evidence links fail contract checks. python -m unittest discover -s tests -p test_rails_contract.py",
+        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+        "assigned_files": [
+          "contrib/rizzstack-observability/README.md",
+          "docs/31-campaign-continuity.md"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_contract.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Missing or wrong interface/evidence links fail contract checks. python -m unittest discover -s tests -p test_rails_contract.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R01",
+        "RAILS-R10"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R17B",
+      "title": "Rails R17B (M): M1a/M2; Hermes + reference operator",
+      "project": "bundlebees",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R17B per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Registered CLI/tool/doctor use real configured query; source cursors survive restart. python -m unittest discover -s tests -p test_rails_registered.py",
+        "source_rev": "b2db04b8c8463cef5cbf25a64dcaf2130edd142e",
+        "assigned_files": [
+          "bundlebees_plugin/tools.py",
+          "bundlebees_plugin/cli.py",
+          "bundlebees_plugin/__init__.py",
+          "plugin.yaml",
+          "README.md",
+          "docs/RAILS.md",
+          "tests/test_rails_registered.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_registered.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Registered CLI/tool/doctor use real configured query; source cursors survive restart. python -m unittest discover -s tests -p test_rails_registered.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R05",
+        "RAILS-R06",
+        "RAILS-R07",
+        "RAILS-R08",
+        "RAILS-R09",
+        "RAILS-R10",
+        "RAILS-R14",
+        "RAILS-R15"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R17C",
+      "title": "Rails R17C (S): M1a; worker + coordinator",
+      "project": "hyvv",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R17C per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Actual launcher records/exports fixture tool sequence on Windows without another service. python -m unittest discover -s tests -p test_rails_native.py",
+        "source_rev": "316bd975e212973837daeefc271a491471ea882c",
+        "assigned_files": [
+          "launcher.py",
+          "contrib/rizzstack_rails/__init__.py",
+          "contrib/rizzstack_rails/ledger.py",
+          "contrib/rizzstack_rails/contracts.py",
+          "contrib/rizzstack_rails/privacy.py",
+          "contrib/rizzstack_rails/vendor-manifest.json",
+          "tests/test_rails_native.py"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_native.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Actual launcher records/exports fixture tool sequence on Windows without another service. python -m unittest discover -s tests -p test_rails_native.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R02",
+        "RAILS-R08"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R17D",
+      "title": "Rails R17D (M): M1a/M2; operator + Observatory",
+      "project": "orbitdesktop",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R17D per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Real owner-authenticated proxy -> pane -> selected mark; browser denies unauthorized feedback. python tests/rails-live.browser.py; npm run check",
+        "source_rev": "8530a14be7ce480ef35dd11890e72de4c89bed09",
+        "assigned_files": [
+          "server/index.mjs",
+          "apps/rizzstack-observatory/app.js",
+          "extensions/rizzstack-observatory/README.md",
+          "extensions/rizzstack-rails/README.md",
+          "tests/rails-live.browser.py",
+          "contrib/rails_server/rails.service",
+          "contrib/rizzstack_rails/__init__.py",
+          "contrib/rizzstack_rails/ledger.py",
+          "contrib/rizzstack_rails/contracts.py",
+          "contrib/rizzstack_rails/privacy.py",
+          "contrib/rizzstack_rails/source.py",
+          "contrib/rizzstack_rails/importer.py",
+          "contrib/rizzstack_rails/query.py",
+          "contrib/rizzstack_rails/projection.py",
+          "contrib/rizzstack_rails/markdown.py",
+          "contrib/rizzstack_rails/shell_labels.py",
+          "contrib/rizzstack_rails/feedback.py",
+          "contrib/rizzstack_rails/export.py",
+          "contrib/rizzstack_rails/vendor-manifest.json"
+        ],
+        "tests": [],
+        "acceptance": {
+          "criteria": [
+            "Real owner-authenticated proxy -> pane -> selected mark; browser denies unauthorized feedback. python tests/rails-live.browser.py; npm run check"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R03",
+        "RAILS-R10",
+        "RAILS-R11",
+        "RAILS-R12",
+        "RAILS-R13",
+        "RAILS-R16",
+        "RAILS-R17B",
+        "RAILS-R17C"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    },
+    {
+      "id": "RAILS-R18",
+      "title": "Rails R18 (S): M1/M2; independent reviewer + RETURN",
+      "project": "workflow",
+      "lane": "rails",
+      "priority": 9,
+      "brief": {
+        "objective": "Rails R18 per the frozen spec (specs/rizzstack-rails-spec.md @ 9850efa). RED-first: Exercise cross-repo real servers and shared queries, restart/disconnect, feedback, wrong-head evidence; report actual limits. python -m unittest discover -s tests -p test_rails_acceptance.py",
+        "source_rev": "9f6aa6dc7a74890ef2284d7aa4432efc9b6a4169",
+        "assigned_files": [
+          "tests/test_rails_acceptance.py",
+          "schemas/rails/fixtures/m1-scenario.json",
+          "specs/rails-rollout.md"
+        ],
+        "tests": [
+          "python -m unittest discover -s tests -p test_rails_acceptance.py"
+        ],
+        "acceptance": {
+          "criteria": [
+            "Exercise cross-repo real servers and shared queries, restart/disconnect, feedback, wrong-head evidence; report actual limits. python -m unittest discover -s tests -p test_rails_acceptance.py"
+          ]
+        }
+      },
+      "gates": [],
+      "depends_on": [
+        "RAILS-R17A",
+        "RAILS-R17B",
+        "RAILS-R17C",
+        "RAILS-R17D"
+      ],
+      "status": "landed",
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "landed",
+          "at": "2026-11-18T03:14:27Z",
+          "reason": "landed_on_main_with_acceptance_evidence",
+          "evidence": {
+            "gate": {
+              "type": "acceptance_run",
+              "run": "mojomast/workflow#44227465033",
+              "conclusion": "success"
+            },
+            "tuple": {
+              "workflow": "db121b504bad65af69f7e2bdc77103a38bda9de2",
+              "bundlebees": "30dd0e792ef52c3f81536b2414141bb16e524d41",
+              "hyvv": "1fcf1039e67ec5fd07e2111cba1808f793c7b5bd",
+              "orbitdesktop": "f20782821e6f366e96c6bdab407d972c67708a00"
+            },
+            "carriers": {
+              "bundlebees": 82,
+              "hyvv": 26,
+              "orbitdesktop": 46
+            },
+            "inventory": {
+              "packages": 22,
+              "missing": [],
+              "vendor_mismatches": []
+            },
+            "note": "The Rails lane landed as bundlebees#82 (e0ee615) with hyvv#26 and orbitdesktop#46; the duplicate worker PRs #77/#78/#79/#80 were closed as covered by #82, and the split attempt #92 closed as superseded (two file-subset slices both failed on cross-module invariants). COVERED_BY_DRAFT was never LANDED - this transition is the landing."
+          }
+        }
+      ],
+      "updated_at": "2026-11-18T03:14:27Z"
+    }
+  ],
+  "transitions": [
+    {
+      "slice": "F5",
+      "from": "planned",
+      "to": "queued",
+      "at": "2026-11-16T15:19:41-05:00",
+      "reason": "gate_repaired_then_historic_dispatch",
+      "evidence": {
+        "gate": {
+          "type": "attempt_succeeded",
+          "attempt": "att_65b4cffc4bca4602"
+        },
+        "note": "campaign \u00a7128: F5 planned->queued executed with a corrected brief; original seeded gate pr_merged pr=60 was unreachable (workflow PR 60 does not exist; bb#60 was closed superseded by bb#65)"
+      }
+    },
+    {
+      "slice": "F5",
+      "from": "queued",
+      "to": "dispatched",
+      "at": "2026-11-16T15:19:41-05:00",
+      "reason": "dispatched_att_65b4cffc4bca4602",
+      "evidence": {
+        "attempt": "att_65b4cffc4bca4602",
+        "state": "succeeded",
+        "landing": "bundlebees#67 merged 88d4bd4 (contract-enforcement followups)"
+      }
+    },
+    {
+      "slice": "RAILS-R00",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T06:10:00Z",
+      "reason": "out-of-band landing adopted (att_57791826 scan-refused; att_a3c2bb45 verified cd1e6870; PR #80 merged b0cd15a)",
+      "evidence": {
+        "attempt": "att_a3c2bb45b386442c",
+        "pr": 80
+      }
+    },
+    {
+      "slice": "RAILS-R01",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T06:55:00Z",
+      "reason": "out-of-band landing adopted (att_fa13d94 F1 zero-commit loss; att_e0cff87d verified 5288abb9; PR #83 merged c7b5ab3)",
+      "evidence": {
+        "attempt": "att_e0cff87d85a644e5",
+        "pr": 83
+      }
+    },
+    {
+      "slice": "RAILS-R03",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T07:31:00Z",
+      "reason": "out-of-band landing adopted: attempt att_4be4db6493c14270 (RAILS-R03, orbitdesktop rails/r03-vendor at seed pin 8530a14) succeeded in-sandbox 02:12 EST with 6/6 self-checks; the coordinator verify REFUSED the payload at the house secret scan (pristine upstream bytes trip the scanner); line-level diagnosis attributed all 11 trips to identifier-shaped token plumbing or prose with zero credential literals; the coordinator APPLIED the payload unmodified (od PR #43 head ca2411a) per the brief's pristine-file rule and the od-r3 att_a26db3aa precedent, with independent byte-identity proof against the upstream pin d5d0f425 (all three tripped files sha256-match the pin blobs); review child att_15d1c1fd APPROVED 9/9; merge pending on the PROVEN-INHERITED od bundle-parity red (identical failures at base - the owner item 23 class) with the od#42 bundle rebuild in flight",
+      "evidence": {
+        "attempt": "att_4be4db6493c14270",
+        "pr": 43,
+        "pr_repo": "orbitdesktop",
+        "verified_head": "ca2411a85fcecba2b31201d2e0b58df5354dbdb4",
+        "merge_status": "pending - od PR #43 held on the proven-inherited bundle-parity red (owner item 23 class); od#42 rebuild in flight"
+      }
+    },
+    {
+      "slice": "RAILS-R02",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T08:05:00Z",
+      "reason": "out-of-band landing adopted: attempt att_f67c7573c44241fc (RAILS-R02 r3, bundlebees rails/r02-ledger at seed pin b2db04b8) succeeded in-sandbox 02:44 EST after two F1 zero-delivery losses (r1 att_7021e06e, r2 att_2e8118ca - owner item 24); the landing cascade verified the 7-file payload (acceptance suite tests/test_rails_ledger.py 35/35 green, secret scanner clean, vendor --check pins green) and applied it as bb PR #70 head 2f8ba100; review child att_87b7215d796c41c7 APPROVED (8/8 checks, no blocking; its sole observation - CI still in_progress at review time - was re-checked SUCCESS at the same head before merge); CI 4/4 SUCCESS at the exact head; MERGED as 9287d91 2026-11-17T07:58:34Z; bb docs-sync companion 2b6289c added the merged-window coverage rows for the unregistered PRs [68, 69, 70] (the bb registry invariant had been RED on bb main since #68 merged - disclosed in the campaign record)",
+      "evidence": {
+        "attempt": "att_f67c7573c44241fc",
+        "pr": 70,
+        "pr_repo": "bundlebees",
+        "verified_head": "2f8ba1004931cdc2cb1c5a873d58177dbe36ea64",
+        "merge_commit": "9287d91578fd8e0cce29b120bd1dfed2650f9569",
+        "merge_status": "merged - bb PR #70 merged as 9287d91; bb main companion 2b6289c"
+      }
+    },
+    {
+      "slice": "RAILS-R03",
+      "from": "dispatched",
+      "to": "dispatched",
+      "at": "2026-11-17T09:25:00Z",
+      "reason": "landing completed: od PR #43 (rails/r03-vendor at the branch-updated head 36e7f7a4f91ff39ce5de9ed38f1303a7bdb04190, review r2 att_2351e8c0189c402c APPROVED 10/10 + coordinator-applied cceab535 on review/pr43-r2) MERGED as 7b8b91e0f10f1b35ad50032ec81696b039ddc75e; CI green at the exact head via run 44045675643 (all jobs pass incl. Workbench/core 11m59s) - the sibling run 44045672072's single failure (test 215 'a detached job keeps running and can be tailed after the orchestrator closes') is a detached-process timing flake proven by the same-sha fully-green duplicate run, disclosed not rewritten; this completes the prior pending transition's promise",
+      "evidence": {
+        "attempt": "att_4be4db6493c14270",
+        "pr": 43,
+        "pr_repo": "orbitdesktop",
+        "verified_head": "36e7f7a4f91ff39ce5de9ed38f1303a7bdb04190",
+        "merge_commit": "7b8b91e0f10f1b35ad50032ec81696b039ddc75e",
+        "merge_status": "merged - od PR #43 merged as 7b8b91e0; completes the pending landing evidence above"
+      }
+    },
+    {
+      "slice": "RAILS-R13",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T09:25:00Z",
+      "reason": "out-of-band landing adopted: the R13 lane ran as two od PRs - fixtures (rails/r13-fixtures, base deviation fd1b60e781cfda8421c56fed9d7395a06f4b283c per the fixture-port pin, disclosed) and observatory+catalog (rails/r13-observatory) - after attempts att_5ea00d9dacde4c80 (observatory) and att_3bb36196ca0d4e16 (catalog) with review children att_e72563170b974891 (APPROVE, pr45) and att_beae01b1202e4bff (pr44, banked); both branches were branch-updated onto the #42 fix (merge main 99a10c9, conflict-free merge-tree: fixtures 4e3c9ba4, observatory e540ba54); the #44 test-job colab-orchestrator ENOENT flake was rerun GREEN (run 44047174161); compensating coordinator verification: node observatory suite 28/28 at e540ba54; MERGED #44 as 24240ae8ec73b56d0d8bef10927c6efd76743944 and #45 as ffccf927e2ea47f92b970a32d3d8d5d0d678f645 (banked-approval merge divergence disclosed in the campaign record)",
+      "evidence": {
+        "attempt": "att_5ea00d9dacde4c80",
+        "pr": 45,
+        "pr_repo": "orbitdesktop",
+        "verified_head": "e540ba5409ec2ed1f88866361ca198fb70757109",
+        "merge_commit": "ffccf927e2ea47f92b970a32d3d8d5d0d678f645",
+        "merge_status": "merged - od PR #45 merged as ffccf927; companion fixtures PR #44 merged as 24240ae8"
+      }
+    },
+    {
+      "slice": "RAILS-R04",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T09:25:00Z",
+      "reason": "dispatched with a recorded loss: r1 att_aa8932b9694b4be8 CANCELLED ~40s after start (coordinator erratum: the brief's section-5 embed was truncated); r2 att_5d9a736239ae4e26 SUCCEEDED but ZERO-DELIVERY (10 tool calls, 0-token usage, only __pycache__ artifacts from running the landed suite, empty patch - diagnosed, loss #1 on the lane, preserved); r3 att_ad65300c35c0424f re-dispatched IN FLIGHT on bundlebees rails/r04-importer at main b65cda0681a12bfdf0599f743443c6a6fe18a7d7 - BASE DEVIATION from the seed pin b2db04b8 disclosed: R02's landed contrib/rizzstack_rails package is the dependency and exists only on bb main; lease exactly source.py + importer.py + test_rails_importer.py, tests gate test_rails_importer + test_rails_ledger, spec section 5 embedded verbatim, anti-F1 turn discipline in the brief",
+      "evidence": {
+        "attempt": "att_ad65300c35c0424f",
+        "pr": null,
+        "pr_repo": "bundlebees",
+        "verified_head": "b65cda0681a12bfdf0599f743443c6a6fe18a7d7",
+        "merge_commit": null,
+        "merge_status": "in flight - r3 att_ad65300c on rails/r04-importer @ b65cda0"
+      }
+    },
+    {
+      "slice": "RAILS-R10",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T09:25:00Z",
+      "reason": "dispatched: att_79a6703225124daa on bundlebees rails/r10-query at main b65cda0681a12bfdf0599f743443c6a6fe18a7d7 - BASE DEVIATION from the seed pin b2db04b8 disclosed (the landed R02 contrib/rizzstack_rails package is the query dependency, read in-repo); lease exactly query.py + projection.py + markdown.py + shell_labels.py + __main__.py + test_rails_query.py, spec sections 5+6 embedded verbatim, R04's zero-delivery turn discipline carried into the brief",
+      "evidence": {
+        "attempt": "att_79a6703225124daa",
+        "pr": null,
+        "pr_repo": "bundlebees",
+        "verified_head": "b65cda0681a12bfdf0599f743443c6a6fe18a7d7",
+        "merge_commit": null,
+        "merge_status": "in flight - att_79a67032 on rails/r10-query @ b65cda0"
+      }
+    },
+    {
+      "slice": "RAILS-R08",
+      "from": "planned",
+      "to": "dispatched",
+      "at": "2026-11-17T09:25:00Z",
+      "reason": "dispatched: att_84c7913c916044b2 on hyvv rails/r08-emission at main 961a8bce501d0ce38922baeb6e5c10347d1f7efd - BASE DEVIATION from the seed pin 316bd975 disclosed (current main carries the deployed worker fixes; all four leased files verified NEW at both pins); environment fact disclosed in the brief: contrib/rizzstack_rails (shared ledger writer) is NOT in hyvv yet (lands with R17C) - the lane implements self-contained with a local seam and records the divergence; lease exactly rails_emitter.py + rails_log_source.py + rails_export.py + tests/test_rails_emission.py, spec sections 4+5 embedded verbatim, R04's zero-delivery turn discipline carried into the brief",
+      "evidence": {
+        "attempt": "att_84c7913c916044b2",
+        "pr": null,
+        "pr_repo": "hyvv",
+        "verified_head": "961a8bce501d0ce38922baeb6e5c10347d1f7efd",
+        "merge_commit": null,
+        "merge_status": "in flight - att_84c7913c on rails/r08-emission @ 961a8bce"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "slice_id": "M2-CANARY-RUN",
+      "decision": "approve",
+      "by": "owner:mojomast \u2014 batch 12 decision 3 (verbatim in campaigns/rizzstack-reliability-2026-11.md, 17:15-labeled entry)",
+      "note": "M2 CANARY: AUTHORIZED NOW \u2014 one bee, fresh smoke project, contracts enforced end-to-end, independent of the #40 chain. Dispatch per the wf#46 packet. (Label drift ~1h per the section-134 convention; content authoritative. Adopted as standing authority in campaign \u00a7136.)",
+      "at": "2026-11-16T17:15:00-05:00"
+    }
+  ],
+  "seed_note": "Seeded 2026-11-16 ~14:25 EST by the campaign coordinator beat (fallback per the heartbeat duty: the gate-watcher bee att_56d09cdf3da74904 landed its CODE (bb#61, in review) but plans/backlog.json did not exist yet in this repo; seeded from the campaign record focused-improvement-2026-11-15.md sections 105-125 gate evaluations. V1 parallel-verify deliberately NOT seeded: the in-flight att_bd46d2356c484dbb feat/verify-workers-shadow lane appears to be that work - seeding it too would double-dispatch; resolve the identity before the watcher wiring goes live. Repair 2026-11-16 ~18:20 EST (coordinator companion, campaign \u00a7136 prescription): the two pr_merged pr=60 gate referents (F5, M2-CANARY-RUN) were unreachable - workflow PR 60 does not exist and bb#60 was closed superseded by bb#65. F5's landing is now expressed as the satisfiable attempt_succeeded probe of att_65b4cffc4bca4602 (which landed as bb#67 88d4bd4) with its historic planned->queued->dispatched transitions recorded; M2-CANARY-RUN's F2 trigger is now the satisfiable attempt_succeeded probe of att_a88f29defbfe4e85 (the F2 content attempt whose verified work landed as bb#65 e50bb11c) and the owner half is recorded in decisions from batch 12 decision 3. The same validation run proved the seeded file was UNLOADABLE by the real gate_watcher (load_backlog raises: six owner-gated slices carried empty assigned_files, violating the brief contract) - those briefs now carry the placeholder lease plans/backlog.json covering only the slice's own record, with the finalize-before-dispatch duty stated in each objective; the r1 review's non-blocking classification is thereby made loadable without inventing any future file set. Structural guard added in the same repair: M2-CANARY-RUN and M1-AC4-AC7 cleared their mechanical gates while their briefs are still placeholder-lease, so each now also carries an attempt_succeeded FACT gate (m2-canary-runbook-step6-reached resp. m1-ac4-ac7-brief-finalized) that the coordinator beat records from the campaign record when the brief is finalized / the runbook reaches its dispatch step. Without it a mechanical beat would auto-dispatch a placeholder lease; with it the slice waits, fail-closed, until the recorded fact exists. Reachable by construction - not a silent stall. R2 repair (review-wf-pr48-r2.md BLOCKING 1): the r2 child proved with the real run_beat that a recorded fact would queue AND dispatch a slice on the placeholder lease plans/backlog.json (project workflow) - the fact gate delayed the placeholder dispatch but did not prevent it, so the placeholder lease is removed as a design. M2-CANARY-RUN now carries its REAL runbook Step-6 brief (project rizzstack-m2-canary; lease exactly the contract's assigned files canary/meter.py + canary/report.py; source_rev = the canary BASE_SHA; contract id+sha in the objective) and its dispatch is structurally fail-closed: the launcher refuses an unregistered project, so the slice cannot dispatch until Step 4b registration exists, the fact m2-canary-runbook-step6-reached is recorded, and the batch-12 approval stands. The five slices whose briefs are genuinely unwritten (M1-AC4-AC7, F3-ECON-ALERTS, RAILS-R02PLUS, REBRAND-EXEC, PACKETS-OPTION-A) are removed from the mechanical backlog: their intents remain recorded in the campaign record (focused-improvement-2026-11-15.md) and their owner questions in its decision queue; each re-enters the backlog only in the same change that first writes its real brief. A brief the writer cannot yet state must not carry a dispatchable lease. R2 repair (review-wf-pr48-r2.md BLOCKING 1): the r2 child proved with the real run_beat that a recorded fact would queue AND dispatch a slice on the placeholder lease plans/backlog.json (project workflow) - the fact gate delayed the placeholder dispatch but did not prevent it, so the placeholder lease is removed as a design. M2-CANARY-RUN now carries its REAL runbook Step-6 brief (project rizzstack-m2-canary; lease exactly the contract's assigned files canary/meter.py + canary/report.py; source_rev = the canary BASE_SHA; contract id+sha in the objective) and its dispatch is structurally fail-closed: the launcher refuses an unregistered project, so the slice cannot dispatch until Step 4b registration exists, the fact m2-canary-runbook-step6-reached is recorded, and the batch-12 approval stands. The five slices whose briefs are genuinely unwritten (M1-AC4-AC7, F3-ECON-ALERTS, RAILS-R02PLUS, REBRAND-EXEC, PACKETS-OPTION-A) are removed from the mechanical backlog: their intents remain recorded in the campaign record (focused-improvement-2026-11-15.md) and their owner questions in its decision queue; each re-enters the backlog only in the same change that first writes its real brief. A brief the writer cannot yet state must not carry a dispatchable lease."
+}

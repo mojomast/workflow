@@ -1,0 +1,114 @@
+{
+  "schema": "resource.snapshot/v1",
+  "schema_version": "v1",
+  "ts": "2026-11-12T21:15:00Z",
+  "source": "orbit",
+  "attempt_id": null,
+  "card_id": null,
+  "run_id": null,
+  "project": null,
+  "role": null,
+  "bee_cap": 12,
+  "resources": [
+    {
+      "kind": "go_allowance",
+      "resource_id": "go-1",
+      "value": 40.0,
+      "unit": "percent",
+      "cap": 100.0,
+      "remaining": 60.0,
+      "reset_at": "2026-11-22T00:00:00Z",
+      "status": "ok"
+    },
+    {
+      "kind": "go_allowance",
+      "resource_id": "go-2",
+      "value": null,
+      "unit": "percent",
+      "cap": 100.0,
+      "remaining": null,
+      "reset_at": "2026-11-22T00:00:00Z",
+      "status": "unavailable"
+    },
+    {
+      "kind": "deepseek_credit",
+      "resource_id": null,
+      "value": 12.5,
+      "unit": "usd",
+      "cap": 100.0,
+      "remaining": 12.5,
+      "reset_at": null,
+      "status": "ok"
+    },
+    {
+      "kind": "google_colab_cu",
+      "resource_id": null,
+      "value": 20.0,
+      "unit": "compute_unit",
+      "cap": null,
+      "remaining": 20.0,
+      "reset_at": null,
+      "status": "ok"
+    },
+    {
+      "kind": "grok_bot_usage",
+      "resource_id": null,
+      "value": null,
+      "unit": "percent",
+      "cap": null,
+      "remaining": null,
+      "reset_at": null,
+      "status": "unavailable"
+    },
+    {
+      "kind": "bees_in_flight",
+      "resource_id": null,
+      "value": 3,
+      "unit": "count",
+      "cap": 12,
+      "remaining": 9,
+      "reset_at": null,
+      "status": "ok"
+    },
+    {
+      "kind": "cursor_cloud_agents",
+      "resource_id": null,
+      "value": 0,
+      "unit": "count",
+      "cap": null,
+      "remaining": null,
+      "reset_at": null,
+      "status": "ok"
+    },
+    {
+      "kind": "hermes_host",
+      "resource_id": "hermes-host",
+      "value": 1,
+      "unit": "count",
+      "cap": null,
+      "remaining": null,
+      "reset_at": null,
+      "status": "ok"
+    },
+    {
+      "kind": "hyvv_host",
+      "resource_id": "hyvv",
+      "value": null,
+      "unit": null,
+      "cap": null,
+      "remaining": null,
+      "reset_at": null,
+      "status": "unavailable"
+    },
+    {
+      "kind": "box_disk",
+      "resource_id": null,
+      "value": 0.72,
+      "unit": "ratio",
+      "cap": 1.0,
+      "remaining": 0.28,
+      "reset_at": null,
+      "status": "ok"
+    }
+  ]
+}
