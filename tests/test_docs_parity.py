@@ -486,6 +486,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "ci-gate aggregate check",
         "keywords": ("ci-gate", "check_ci_gate.py", "main ruleset"),
     },
+    {
+        # T1-MEMQ: the rizzstack.memory/1 query CLI the bundlebees recall client runs
+        # as BUNDLEBEES_MEMORY_QUERY; read-only, fail-closed, MEMORY_ENABLED stays off.
+        "pr": 133,
+        "name": "memory query CLI for lease-time recall",
+        "keywords": ("rizzstack_memory/cli.py", "BUNDLEBEES_MEMORY_QUERY", "MEMORY_ENABLED"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
