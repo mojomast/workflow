@@ -516,6 +516,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         ),
     },
     {
+        # Track 5 release prep (pre-registered in its own PR so the merge leaves main green):
+        # the 0.1.0 candidate section and the untagged-candidate coverage reader.
+        "pr": 132,
+        "name": "CHANGELOG [0.1.0] candidate section",
+        "keywords": ("Release prep (no tag)", "release candidate", "test_docs_parity.py"),
+    },
+    {
         # T4-NOIDX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
         "pr": 137,
         "name": "T4-NOIDX: Rails bench index arms (workflow, T4-NOIDX): `scripts/bench_rails.py",
@@ -591,10 +598,25 @@ def _read_changelog() -> str:
     return CHANGELOG_MD.read_text(encoding="utf-8")
 
 
+#: The untagged release-candidate section(s) whose entries still count as
+#: "Unreleased" for coverage: a dated heading prepared for a tag that does not
+#: exist yet (26-coordinated-release.md). Remove the version once it is tagged.
+UNTAGGED_CANDIDATE_VERSIONS = ("0.1.0",)
+
+
 def _unreleased_section() -> str:
-    match = re.search(r"(?ms)^## Unreleased\s*$\n(.*?)(?=^## |\Z)", _read_changelog())
+    text = _read_changelog()
+    match = re.search(r"(?ms)^## Unreleased\s*$\n(.*?)(?=^## |\Z)", text)
     assert match is not None, "CHANGELOG.md must keep a '## Unreleased' section"
-    return match.group(1)
+    parts = [match.group(1)]
+    for version in UNTAGGED_CANDIDATE_VERSIONS:
+        candidate = re.search(
+            rf"(?ms)^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$\n(.*?)(?=^## |\Z)",
+            text,
+        )
+        if candidate is not None:
+            parts.append(candidate.group(1))
+    return "\n".join(parts)
 
 
 def _in_review_subsection() -> str:
