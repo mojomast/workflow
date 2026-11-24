@@ -46,6 +46,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    131: (
+        "docs-sync companion (the workflow #130 coverage row + its Unreleased bullet: the "
+        "ci-gate aggregate check): a registry bookkeeping change; it carries its own "
+        "exclusion so merging it leaves main green"
+    ),
     123: (
         "docs-sync companion (registry rows + Unreleased bullets for the wave-2 PRs 120/121/122): "
         "a bookkeeping change with no feature content of its own"
@@ -474,6 +479,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 129,
         "name": "ROADMAP status refresh",
         "keywords": ("ROADMAP.md", "done / open PR / planned", "24 November 2026"),
+    },
+    {
+        # ci-gate aggregate job for the main ruleset (rizzstack decision 1).
+        "pr": 130,
+        "name": "ci-gate aggregate check",
+        "keywords": ("ci-gate", "check_ci_gate.py", "main ruleset"),
     },
 )
 
