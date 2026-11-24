@@ -391,6 +391,56 @@ class TestFixtureSnapshot:
                 totals["cost_usd"]) == (None, None, None, None)
         assert totals["unknown_cost_records"] == 0
 
+    def test_tokens_status_scopes_numerator_to_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": None},
+            # An explicit 0/0/0 row is a record, not a request; its zeros must
+            # not inflate the token numerator past the usage-bearing requests.
+            {"ts": "2026-11-16T09:01:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": None},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 1
+        assert body["source"]["record_count"] == 2
+        assert totals["tokens_status"] == "known"
+
+    def test_cost_status_scopes_priced_numerator_to_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            # Priced usage-bearing request.
+            {"ts": "2026-11-16T09:00:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": 0.01},
+            # Unpriced usage-bearing request.
+            {"ts": "2026-11-16T09:01:00Z", "role": "verify",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 20, "output_tokens": 10, "total_tokens": 30,
+             "cost_usd": None},
+            # Zero-token row carrying a numeric cost: it contributes money to
+            # the total but must not make the priced counter claim coverage.
+            {"ts": "2026-11-16T09:02:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": 0.02},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 2
+        assert body["source"]["record_count"] == 3
+        assert totals["unknown_cost_records"] == 1
+        assert totals["cost_status"] == "partial"
+        assert totals["cost_usd"] == 0.03
+
     def test_bucket_requests_still_count_records_seen(self, snapshot: dict) -> None:
         usage = snapshot["usage"]
         totals = usage["totals"]

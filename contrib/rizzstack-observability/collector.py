@@ -1316,7 +1316,11 @@ class Collector:
         parse_errors = 0
         today_prefix = now.astimezone(timezone.utc).strftime("%Y-%m-%d")
         totals = {"input": 0, "output": 0, "total": 0, "cost": 0.0}
+        # known counts rows that carry a value (for publishing totals);
+        # known_usage counts only usage-bearing rows, so status numerators
+        # share the totals.requests denominator.
         known = {"input": 0, "output": 0, "total": 0, "cost": 0}
+        known_usage = {"input": 0, "output": 0, "total": 0, "cost": 0}
         # Two denominators: totals.requests counts usage-bearing records,
         # source.record_count counts every parsed dict record.
         parsed_records = 0
@@ -1368,15 +1372,23 @@ class Collector:
             if inp is not None:
                 totals["input"] += inp
                 known["input"] += 1
+                if usage_bearing:
+                    known_usage["input"] += 1
             if outp is not None:
                 totals["output"] += outp
                 known["output"] += 1
+                if usage_bearing:
+                    known_usage["output"] += 1
             if total is not None:
                 totals["total"] += total
                 known["total"] += 1
+                if usage_bearing:
+                    known_usage["total"] += 1
             if cost is not None:
                 totals["cost"] += cost
                 known["cost"] += 1
+                if usage_bearing:
+                    known_usage["cost"] += 1
 
             http_429 = first_count(record, ("http_429", "http_429_count", "count_429"))
             if isinstance(record.get("http_429"), bool):
@@ -1441,8 +1453,11 @@ class Collector:
             self._usage_accumulate(by_repo[repo], requests_delta=1, inp=inp, outp=outp, total=total, cost=cost)
 
         summary["quota_rows"] = [hint for _, hint in latest_quota.values()]
-        tokens_status = token_status(known, requests)
-        cost_status = "unavailable" if not seen_any else agg_status(known["cost"], requests, seen_any)
+        # Status numerators are scoped to usage-bearing rows so they cannot
+        # regress against the usage-bearing requests denominator, while the
+        # published token/cost totals still include every ledger value.
+        tokens_status = token_status(known_usage, requests)
+        cost_status = "unavailable" if not seen_any else agg_status(known_usage["cost"], requests, seen_any)
         usage_status = "unavailable" if not seen_any else ("known" if parse_errors == 0 else "partial")
         totals_row = {
             "schema": SCHEMA,
