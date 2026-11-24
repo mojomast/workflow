@@ -553,6 +553,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("docs/design/wave-b-worker-contract.md", "rizzstack.brief/1", "rizzstack.attempt/1",),
     },
     {
+        # WA-DEC-CHANGELOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 148,
+        "name": "WA-DEC-CHANGELOG: Design: changelog fragments (`changelog.d/<branch-slug>.md`) counted",
+        "keywords": ("changelog.d/<branch-slug>.md", "docs-parity", "scripts/changelog_assemble.py",),
+    },
+    {
         # WA-DES-D (t1634 merge queue): row rides in its own PR so the merge leaves main green.
         "pr": 142,
         "name": "WA-DES-D: Wave D design (`docs/design/wave-d-core-and-log.md`): one `rizzstack",
