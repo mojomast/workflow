@@ -352,7 +352,7 @@ jobs:
         shell: pwsh
         run: |
           Push-Location contrib/hermes-bees/scripts
-          python -m unittest -v test_bee_watch test_beekeeper_guard
+          python -m unittest -v test_bee_watch test_beekeeper_guard test_make_verify_brief
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Pop-Location
           Push-Location contrib/hermes-bees/skills/bee-verify/scripts
@@ -376,7 +376,7 @@ jobs:
       - name: Python tests (bee-watch, beekeeper guard, replay verify)
         run: |
           cd contrib/hermes-bees/scripts
-          python3 -m unittest -v test_bee_watch test_beekeeper_guard
+          python3 -m unittest -v test_bee_watch test_beekeeper_guard test_make_verify_brief
           cd ../skills/bee-verify/scripts
           python3 -m unittest -v test_replay_verify
 
