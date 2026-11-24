@@ -89,7 +89,7 @@ try {
   for (;;) {
     const cmd=await next();if(cmd.op==='close')break;
     if(cmd.op==='select') {
-      selector='live-'+cmd.window;expected=[cmd.id];cursor=null;
+      selector='live-'+cmd.window;expected=[...cmd.seeded,cmd.id];cursor=null;
       await page.evaluate(([owner,id])=>{window.selectBench(owner,id);},[owner,selector]);
       await dialog.getByRole('button',{name:'Inspect history'}).click();
       await dialog.getByText(/Connected to updates/).waitFor();await missing();
