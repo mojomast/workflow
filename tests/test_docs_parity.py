@@ -610,6 +610,16 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 153,
         "name": "OBS-METRICS: metric fact-record contracts + observability/METRICS.md catalog",
         "keywords": ("observability/METRICS.md", "resource-sample.schema.json", "inference-step.json",),
+        # Metrics contracts (#153 merged without its row; added here so main is green again).
+        "pr": 153,
+        "name": "OBS-METRICS: metrics fact record contracts and METRICS.md catalog",
+        "keywords": ("observability/METRICS.md", "gen_ai.inference/v1", "task.outcome/v1",),
+    },
+    {
+        # Hive Unknowns fix (Kyle t1685u): row rides in its own PR so the merge leaves main green.
+        "pr": 152,
+        "name": "OBS-KANBAN: kanban backlog feed, observed wave jobs, lease-bound fleet identity",
+        "keywords": ("--kanban-board", "kanban_unavailable", "bundlebees.attempt-route/1", "test_obs_attempt_binding.py",),
     },
 )
 
