@@ -1,8 +1,10 @@
 # lessons-check
 
 A small, standard-library-only, advisory checker that turns recurring review
-lessons into deterministic findings. It needs Python 3.12+. It is not wired
-into CI; run it by hand and treat its output as a report.
+lessons into deterministic findings. It needs Python 3.12+. CI runs it as the
+advisory `lessons-check` job in `.github/workflows/ci.yml`: findings are
+reported in the job summary and never block, while a usage error or a failing
+unit test does.
 
 ```sh
 cd tools/lessons-check
