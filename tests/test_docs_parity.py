@@ -46,6 +46,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    140: (
+        "docs-sync companion (the workflow #136 coverage row for the T1-SEED agent-lessons "
+        "memory seeder): a registry bookkeeping change; it carries its own exclusion so "
+        "merging it leaves main green"
+    ),
     138: (
         "docs-sync companion (the workflow #133 coverage row for the T1-MEMQ memory query "
         "CLI): a registry bookkeeping change; it carries its own exclusion so merging it "
@@ -497,6 +502,24 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 133,
         "name": "memory query CLI for lease-time recall",
         "keywords": ("rizzstack_memory/cli.py", "BUNDLEBEES_MEMORY_QUERY", "MEMORY_ENABLED"),
+    },
+    {
+        # T1-SEED: scripts/seed_memory_from_lessons.py projects every L-NN section of
+        # docs/28-agent-lessons.md into one learning memory as agent:lessons-seed
+        # (quarantined until a human grant); idempotent through the stored digest.
+        "pr": 136,
+        "name": "agent-lessons memory seeder",
+        "keywords": (
+            "scripts/seed_memory_from_lessons.py",
+            "docs/28-agent-lessons.md",
+            "agent:lessons-seed",
+        ),
+    },
+    {
+        # T4-NOIDX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 137,
+        "name": "T4-NOIDX: Rails bench index arms (workflow, T4-NOIDX): `scripts/bench_rails.py",
+        "keywords": ("scripts/bench_rails.py", "build_parser()", "rails_local_attempt_scan",),
     },
 )
 

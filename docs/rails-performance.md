@@ -11,7 +11,25 @@ python3 -B workflow/scripts/bench_rails.py \
 
 For a smoke test use `--events 5000 --samples 1 --soak-seconds 60` and a fresh output path. `--soak-seconds 0` skips all browser and stream checks. A report marked `completed` means the workload and identity assertions finished; inspect the numbers separately to decide whether latency targets were met. A failure leaves partial JSON and a nonzero exit. The old v1 [before/after reports](../evidence/rails-bench-linux.md) represent a different workload.
 
-To measure the opt-in indexed configuration, add `--attempt-index`. The harness invokes the pinned BundleBees offline index installer on its new private ledger **before** starting any writers. Thus indexing is included in the write workload. Reports record the option under `config.attempt_index`; measurements on default ledgers and indexed ledgers are not interchangeable. `reads` measures the shared query API, not multi-request HTTP pagination.
+## Index arms
+
+Since bundlebees #84 a new ledger creates the local-attempt index itself, so the default arm is already indexed and `--attempt-index` remains only as a deprecated spelling of it. P1 compares three mutually exclusive arms:
+
+- **default** (no flag): use the ledger as created.
+- **none** (`--no-attempt-index`): drop `rails_local_attempt_scan` before seeding, as the unindexed control.
+- **migrated** (`--migrate-attempt-index`): drop the index, seed without it, then run the pinned BundleBees installer over the existing ledger.
+
+Reports record `config.index_mode` and keep `config.attempt_index` (`false` only for the none arm). Seed stats record `index_mode` and `index_present_after_seed`; the migrated arm also records `migrate_ms`. Measurements from different arms are not interchangeable. `reads` measures the shared query API, not multi-request HTTP pagination.
+
+The P1 shape is five runs per arm, with a fresh output path each time:
+
+```sh
+nice -n 10 ionice -c3 timeout 2h python3 scripts/bench_rails.py \
+  --events 100000 --samples 100 --soak-seconds 0 \
+  [--no-attempt-index|--migrate-attempt-index] --output <fresh path>
+```
+
+Omit the bracket for the default arm; `--soak-seconds 0` skips all browser and stream checks, so P1 needs no Chromium or `node_modules`.
 
 ## What the report measures
 
