@@ -380,6 +380,40 @@ jobs:
           cd ../skills/bee-verify/scripts
           python3 -m unittest -v test_replay_verify
 
+  lessons-check:
+    name: lessons-check (advisory)
+    # Advisory: findings are reported in the job summary and never block, but a
+    # usage error (exit 2) or a failing unit test still fails the job.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: lessons-check unit tests
+        working-directory: tools/lessons-check
+        run: python3 -m unittest discover -s tests -t . -v
+      - name: Report lessons-check findings (advisory)
+        working-directory: tools/lessons-check
+        run: |
+          python3 -m lessons_check check ../.. --report-only > "$RUNNER_TEMP/lessons.txt"
+          findings=$(wc -l < "$RUNNER_TEMP/lessons.txt" | tr -d ' ')
+          {
+            echo "## lessons-check (advisory)"
+            echo
+            echo "Findings: $findings"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/lessons.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/lessons.txt"
+
   ci-gate:
     name: ci-gate
     # The main ruleset requires this one check. It passes only when every job
@@ -401,6 +435,7 @@ jobs:
       - bee-ci-secret-scan
       - hermes-bees-windows
       - hermes-bees-python
+      - lessons-check
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
