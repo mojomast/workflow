@@ -235,7 +235,9 @@ class TestLiveCli:
         # Fields the real rows never carry stay null, never invented.
         assert by_id["att-verif"]["repo"] is None
         assert by_id["att-verif"]["route"] is None
-        assert by_id["att-verif"]["started_at"] is None
+        # The CLI's created_at is the dispatch (lease) time; with no explicit
+        # start it is the attempt's start (owner decision t1685u).
+        assert by_id["att-verif"]["started_at"] == "2026-11-16T09:05:00Z"
         assert by_id["att-verif"]["detail"] is None
 
     def test_counts_come_from_flat_status_payload(self, snapshot: dict) -> None:
