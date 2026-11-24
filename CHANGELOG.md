@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `scripts/seed_memory_from_lessons.py` turns every `### L-NN · Title` section in `docs/28-agent-lessons.md` into one `learning` memory (id `lesson-l-nn`, source `docs/28-agent-lessons.md`) written through `DiskVault.write` as `agent:lessons-seed`, so the records land in that writer's quarantine subtree and still need a human grant to promote; re-runs are idempotent through the stored digest and `--dry-run` lists the ids without bootstrapping or creating the vault. `docs/memory-retention.md` documents the command and the promotion requirement.
 - A `ci-gate` job in `.github/workflows/ci.yml` needs every other CI job and passes only when all of them succeeded, so the main ruleset can require one stable check name. `.github/scripts/check_ci_gate.py` (standard library only) fails if a job is added without being added to `ci-gate`'s `needs`, and the gate runs it first.
 - `ROADMAP.md` is rewritten as done / open PR / planned with every pull request number re-checked on 24 November 2026 (America/Toronto). The 12 November merge order is closed out, and new sections cover Rails (release on hold), the M2 canary (native Windows unconfirmed), the decision queue and risk tiers, quality gates, memory, and releases.
 - slop-lint is now a blocking ratchet in CI (`.github/workflows/slop-lint.yml`): it fails only on findings above `slop-baseline.json` (`--pass-on-unpruned`, stale entries tolerated, shrink with `prune`), the job has the stable name `slop-lint`, and `.github/CODEOWNERS` assigns `slop-baseline.json` to the owner.
