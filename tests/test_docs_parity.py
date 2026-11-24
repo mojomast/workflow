@@ -521,6 +521,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T4-NOIDX: Rails bench index arms (workflow, T4-NOIDX): `scripts/bench_rails.py",
         "keywords": ("scripts/bench_rails.py", "build_parser()", "rails_local_attempt_scan",),
     },
+    {
+        # T1-LESSONS (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 135,
+        "name": "T1-LESSONS: `lessons-check` now runs in CI as the advisory `lessons-check (advis",
+        "keywords": ("lessons-check", "lessons-check (advisory)", ".github/workflows/ci.yml",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
