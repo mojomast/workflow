@@ -469,6 +469,11 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 127,
         "name": "fork-safe PR summary comment",
         "keywords": ("pr-summary-comment", "workflow_run", "pr_comment.py"),
+    },    {
+        # ROADMAP.md rewrite: done / open PR / planned as of 24 Nov, PR numbers re-verified.
+        "pr": 129,
+        "name": "ROADMAP status refresh",
+        "keywords": ("ROADMAP.md", "done / open PR / planned", "24 November 2026"),
     },
 )
 

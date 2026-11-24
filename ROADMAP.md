@@ -1,181 +1,205 @@
 # What's next
 
 Planned and in-flight work on the rizzstack: workflow (method), hyvv (worker
-host), bundlebees (orchestration) and Orbit (control surface), bottom to top. Status is one of **done**, **open PR**, or
-**planned**. Pull request numbers and SHAs were checked against GitHub on
-12 November 2026, America/Toronto. Items that spend resources, merge, tag,
-release, deploy, or change the live hyvv worker-host still need an
-explicit yes from the repository operator before they happen.
+host), bundlebees (orchestration) and Orbit (control surface), bottom to top,
+plus the umbrella repo and the two newer Hermes plugins. Status is one of
+**done**, **open PR**, or **planned**. Pull request numbers, states and merge
+commits were checked against GitHub on 24 November 2026, America/Toronto. Items
+that spend resources, merge, tag, release, deploy, or change the live hyvv
+worker host still need an explicit yes from the repository operator before
+they happen.
 
-## Merge order
+The day-by-day history is in the umbrella repo's
+[NEWS.md](https://github.com/mojomast/rizzstack/blob/main/NEWS.md); the
+machine-readable queue is [`plans/backlog.json`](plans/backlog.json).
 
-This follows the dependency order recommended by the independent review on 12
-November. It's a plan, not permission: every merge needs Kyle's own yes.
+## The 12 November merge order
 
-1. **Authority fixes first.** Orbit [#25](https://github.com/mojomast/orbitdesktop/pull/25)
-   requires an explicit, successful approval response. [#28](https://github.com/mojomast/orbitdesktop/pull/28)
-   requires authenticated coordinator ownership. [#26](https://github.com/mojomast/orbitdesktop/pull/26)
-   verifies evidence or uses a verifier-authenticated acceptance report. **Open PR.**
-2. **bundlebees review fixes**, [#12](https://github.com/mojomast/bundlebees/pull/12)
-   (collected test ids, coordinator-recorded reviews, CI jsonschema; #5 is
-   already merged as `2f83ae4`). **Open PR.**
-3. **Artifact protocol:** Orbit #28, then bundlebees #7/#9, rebased on the
-   final bundlebees base. The cross-repo round trip becomes a required CI
-   test. **Open PR.**
-4. **Reconcile bundlebees #8/#10 with #7/#9** (both change the CLI), with a
-   fully accepted combined run inside the real bwrap sandbox; then metrics
-   ([#11](https://github.com/mojomast/bundlebees/pull/11)) and usage parsing
-   ([#6](https://github.com/mojomast/bundlebees/pull/6)). **Open PR.**
-5. **workflow [#5](https://github.com/mojomast/workflow/pull/5)**, pinned to
-   bundlebees `2f83ae4` with ACDD required. Bump the pin on purpose after
-   bundlebees #12. **Open PR.**
-6. **workflow [#6](https://github.com/mojomast/workflow/pull/6)** (stacked on #5). **Open PR.**
-7. **workflow [#7](https://github.com/mojomast/workflow/pull/7)** (Hermes
-   Forge), then **[#8](https://github.com/mojomast/workflow/pull/8)** (this
-   PR). [#9](https://github.com/mojomast/workflow/pull/9) is independent. **Open PR.**
-8. **Orbit #25, then #26** rebased on the final onboarding branch, with the
-   browser matrix re-run after the security fixes. **Open PR.**
-9. **hyvv** ([#1](https://github.com/mojomast/hyvv/pull/1)) is reviewed as its
-   own runtime deliverable once source, installer and `/v1` contract tests are
-   public. Then comes the full four-layer cold-start and real-agent
-   acceptance run. **Open PR.**
+**Done.** Every step of the merge order the 12 November review recommended has
+merged or been superseded by a merged port:
+
+| Step | Status |
+|---|---|
+| Orbit authority fixes [#25](https://github.com/mojomast/orbitdesktop/pull/25), [#26](https://github.com/mojomast/orbitdesktop/pull/26), [#28](https://github.com/mojomast/orbitdesktop/pull/28) | **Done** (merged 12 Nov; #28 as `eddc502`). |
+| bundlebees review fixes #12 | **Done** as a port: #12 was closed and [#14](https://github.com/mojomast/bundlebees/pull/14) landed the same C1/C6 findings (`d82630a`). #5 merged as `2f83ae4`. |
+| Artifact protocol: bundlebees #7, #9 | **Done**: [#9](https://github.com/mojomast/bundlebees/pull/9) merged (`7b77c3d`); #7 closed as superseded by #9. |
+| Self-integration, metrics, usage: bundlebees #8, #10, #11, #6 | **Done**: [#10](https://github.com/mojomast/bundlebees/pull/10) (`cad64bb`) and [#11](https://github.com/mojomast/bundlebees/pull/11) (`39602ff`) merged; #8 closed as superseded by #10, #6 as superseded by #11. |
+| workflow [#5](https://github.com/mojomast/workflow/pull/5), [#6](https://github.com/mojomast/workflow/pull/6), [#8](https://github.com/mojomast/workflow/pull/8), [#9](https://github.com/mojomast/workflow/pull/9) | **Done** (merged 12 Nov). |
+| workflow [#7](https://github.com/mojomast/workflow/pull/7) (Hermes Forge contrib) | **Open PR** (draft since 12 Nov). Candidate to close; that needs the owner's yes. |
+| hyvv [#1](https://github.com/mojomast/hyvv/pull/1) | **Done** (merged as `17a51f7`). |
 
 ## Hardening (P0 and P1)
 
-**Open PR / in review.** These are now open pull requests: artifact retrieval in
-Orbit [#28](https://github.com/mojomast/orbitdesktop/pull/28) and bundlebees
-#7/#9, self-integration in bundlebees #8/#10, metrics in bundlebees #11, and
-collected-test-id validation in bundlebees #12. None of them is merged.
+**Done.** Worker-result retrieval (Orbit #28, bundlebees #9), bundlebees
+self-integration in the sandbox (#10), metrics without double counting and
+with unavailable kept apart from zero (#11), and collected-test-id validation
+(#14) are all on `main`.
 
-- **P0 — Worker-result retrieval.** An authenticated, coordinator-only
-  artifact endpoint. No direct hyvv file reads. Keep attempt identity,
-  revision, patch hash, metadata, and usage. Raw patches stay out of
-  model-visible responses and logs. Validate ownership, state, size, and
-  integrity. Handle pending, missing, disconnected, restarted, malformed,
-  and oversized results. Block path traversal, symlinks, and substitution.
-  Keep it idempotent. Acceptance tests first, including a real round trip.
-- **P0 — bundlebees self-integration.** Remove the dependency on the
-  checkout folder name without renaming `/work` or weakening isolation.
-  Integration runs the regression suite, the contract acceptance tests, and
-  the security tests, and records not-run vs failed vs passed. Show it
-  working inside real `bwrap`. Keep fail-closed behaviour.
-- **P1 — Metrics.** No double counting. Tell environmental failures apart
-  from real regressions. Tell unavailable values apart from zero. Capture
-  per-attempt usage. Use explicit denominators. Represent every approved
-  contract test file. Validate test references against collected test ids (bundlebees #12).
-  Preserve history. Add regression tests.
-- **P1 — Orbit CI and branches.** Separate real regressions from failures
-  that also happen on the base. Use a pinned Playwright or tested runner
-  image, with no whitelisting of failing checks. Keep Orbit #25 separate
-  until it is validated, then reconcile #26 onto it. Orbit stays a
-  read-only evidence consumer. Document the Docker-mode router limitation,
-  and do not mount the Docker socket.
+- **Orbit CI and branches.** The standing constraints still apply: separate
+  real regressions from failures that also happen on the base, no
+  whitelisting of failing checks, Orbit stays a read-only evidence consumer,
+  document the Docker-mode router limitation, and do not mount the Docker
+  socket.
+
+## Rails activity ledger (`rizzstack.rails/1`)
+
+- **Done (code):** the four-repository implementation merged as workflow
+  [#91](https://github.com/mojomast/workflow/pull/91), hyvv
+  [#26](https://github.com/mojomast/hyvv/pull/26), orbitdesktop
+  [#46](https://github.com/mojomast/orbitdesktop/pull/46) and bundlebees
+  [#82](https://github.com/mojomast/bundlebees/pull/82), with the
+  qualification evidence in [#92](https://github.com/mojomast/workflow/pull/92).
+  All 22 `RAILS-*` slices are `landed` in the backlog
+  ([#94](https://github.com/mojomast/workflow/pull/94)).
+- **Planned (release):** the [release decision](evidence/rails-rc/release/DECISION.md)
+  is **HOLD**. It needs the worker-assignment binding chosen and a live
+  Windows canary before `rails_enabled` is turned on anywhere.
+  That record was written at the four draft heads, before they merged, and
+  still calls the attempt index opt-in; since then bundlebees
+  [#84](https://github.com/mojomast/bundlebees/pull/84) (17 Nov) made the
+  index the default for new ledgers. Its paging numbers against the 500 ms
+  p95 target: events 1,614 ms by default, 499.7 ms with the index in that
+  run and 670.7 ms in the prior indexed run. Existing ledgers need the
+  directory migration from #84; multi-host runs are untested.
+
+## M2 canary
+
+**Done (one run).** `M2-CANARY-RUN` is `landed` in the backlog on the accepted
+RETURN `0515b019` and the attributed re-dispatch (#94). Whether it ran on the
+native Windows worker is **unconfirmed**: no committed record names the
+worker host, and [`evidence/rails-rc/windows-canary.md`](evidence/rails-rc/windows-canary.md)
+records the native Windows run as blocked before live preflight.
 
 ## Real-agent dogfood rerun
 
-**Planned.** Runs once hyvv (the current 0.1.15 launcher line) is validated. Needs the operator's
-explicit yes before it starts, and again before any workflow-repo allowlist
-entry is applied. Planned shape: two or more parallel workers, plus a
-deliberate out-of-scope rejection, and a signed integration record. A
-workflow is not accepted if that record says the integration was
-incomplete.
+**Planned.** The multi-worker rerun with a deliberate out-of-scope rejection
+and a signed integration record has no single recorded run on `main`. The
+closest landed evidence is the one-bee M2 canary above and the four-repository
+Rails acceptance run. Needs the operator's yes before it starts.
 
 ## Observability
 
-**Merged to main** (workflow PR #36, merge `84263c1`): the
-`rizzstack.observability/snapshot/1` schema
-(`observability/schemas/snapshot.schema.json`) and the read-only snapshot
-collector (`contrib/rizzstack-observability/collector.py`); nothing in
-this repository deploys it, and the Orbit observatory app on orbitdesktop is not merged, so
-the dashboard stays planned (Phase 6 below).
+Two different snapshot documents now exist; their names are close, so check
+the schema id.
 
-**Open PR (formats) / planned (everything that runs).** Only the record
-formats exist, in this pull request (Phase 1). They're frozen contracts, not
-a working pipeline. **The collectors, the Orbit Observability dashboard, alert
-delivery, board notes and the lifecycle visualization are all planned.**
-Later phases, each needing its own yes:
+- **Done:** `rizzstack.observability/snapshot/1` and the read-only collector
+  ([#36](https://github.com/mojomast/workflow/pull/36), `84263c1`), the Phase 1
+  record formats ([#8](https://github.com/mojomast/workflow/pull/8)), a
+  `decisions` section from the owner-decision queue
+  ([#96](https://github.com/mojomast/workflow/pull/96),
+  [#97](https://github.com/mojomast/workflow/pull/97)), concurrent cold reads
+  ([#107](https://github.com/mojomast/workflow/pull/107)) and the
+  fleet-fallback fixes (#109–#114). The snapshot carries fleet, usage,
+  pipeline, backlog, CI, failures, health, alerts and bottlenecks sections.
+- **Done:** the Orbit Observatory and Hive apps that read it
+  (orbitdesktop `apps/rizzstack-observatory`, `apps/rizzstack-hive`; the Hive
+  via the authenticated extension proxy, orbitdesktop #66, #69, #81, #83).
+- **Done:** `rizzstack.observability/1`, a separate redacted snapshot for
+  Hermes chat cards, and the read-only `rizzobs` plugin
+  ([orbit-control-plane #4](https://github.com/mojomast/orbit-control-plane/pull/4)).
+  Renaming one of the two ids is an open decision.
+- **Planned:** alert delivery to a board note, optional OTLP export, Bifrost
+  labels, and dollar-cost or DeepSeek/OpenRouter usage in the chat cards (each
+  needs its own yes).
 
-1. **Phase 1 — Contracts** (this pull request). Lifecycle, classified
-   failure, VCS, board, and resource snapshot schemas, examples, and tests.
-   Plus a common envelope discriminator and open provider labels (review P1
-   and P3). Usage stays with Hermes Forge (`bee.usage/v1`, now frozen; earlier draft in
-   [contrib/hermes-bees/OBSERVABILITY.md](https://github.com/mojomast/workflow/blob/contrib/hermes-bees/contrib/hermes-bees/OBSERVABILITY.md)
-   on [workflow #7](https://github.com/mojomast/workflow/pull/7)).
-2. **Phase 2 — Snapshot collector.** Pull board, local-workers, and
-   agent-status into append-only JSONL. Include route and fallback. No
-   dashboard yet. **Planned.**
-3. **Phase 3 — Failure class and clean denominators.** Consume the
-   authorized bundlebees P1 metrics fix; do not fork it. **Planned.**
-4. **Phase 4 — Resource snapshots and alerts.** DeepSeek and both OpenCode
-   Go balances (saved keys, never logged), Google Colab compute units, Grok
-   Bot usage, disk, CPU, and RAM. Default thresholds (`alert.thresholds/v1`
-   in this pull request) are: DeepSeek below $5, a Go key at 80% of monthly
-   allowance, 5 Go 429s in a row, a bee stuck 30 minutes, a blocker older
-   than 4 hours, disk below 10% free, bees at 12 of 12, and daily model
-   spend above $10 (this supersedes a $5/day draft). Alerts go to the Orbit
-   dashboard and a board note only (no chat, no Discord). At the shared cap
-   of 12, warn only; pausing non-priority bees is a later phase with its
-   own yes. Operators may override the defaults. Unknown values stay
-   unavailable, never silent zero. The thresholds exist as data only:
-   collectors, alert delivery and board notes remain **planned**.
-5. **Phase 5 — Git, pull request, and CI snapshots** for an allowlisted
-   set of repositories. **Planned.**
-6. **Phase 6 — A new, read-only Orbit Observability view** (dashboard and
-   lifecycle visualization), dark mode,
-   after Orbit #25 is validated and #26 is reconciled onto it, or as a
-   later PR that merges cleanly. No Docker socket. **Planned.**
-7. **Phase 7 — Optional OTLP export, Bifrost labels,** and a decision
-   about the older control-plane dashboard. The Temple of Hermes BBS waits
-   for a later version. **Planned.**
+## Owner decision queue and risk tiers
 
-Version 1 of the dashboard also includes the Hermes host, Cursor cloud
-agents, Grok Bot usage, and Google Colab compute units.
+- **Done:** the `rizzstack.owner-decision/1` queue and schema
+  ([`docs/decision-queue.md`](docs/decision-queue.md)) and the approval surface
+  (orbitdesktop [#41](https://github.com/mojomast/orbitdesktop/pull/41)).
+- **Done:** risk tiers, from derivation and policy table to fail-closed
+  enforcement at dispatch: bundlebees
+  [#241](https://github.com/mojomast/bundlebees/pull/241),
+  [#242](https://github.com/mojomast/bundlebees/pull/242),
+  [#246](https://github.com/mojomast/bundlebees/pull/246),
+  [#247](https://github.com/mojomast/bundlebees/pull/247). Only the floor and
+  the high-tier contract requirement are enforced; human gates, reviewer
+  counts and minimum verifications are still report-only.
+- **Open PR:** a dispatch preflight that runs the same gates without
+  dispatching (bundlebees [#252](https://github.com/mojomast/bundlebees/pull/252)),
+  corrected risk docstrings ([#251](https://github.com/mojomast/bundlebees/pull/251))
+  and the workflow/hyvv pin bump for the Hermes host update
+  ([#253](https://github.com/mojomast/bundlebees/pull/253)).
+
+## Quality gates
+
+- **Done:** slop-lint engine, baseline ratchet and CLI
+  ([#116](https://github.com/mojomast/workflow/pull/116)), blocking on new
+  findings in workflow ([#124](https://github.com/mojomast/workflow/pull/124)),
+  hyvv (#35), bundlebees (#248) and orbitdesktop (#87).
+- **Done:** rework metrics (bundlebees #243, #244; workflow
+  [#120](https://github.com/mojomast/workflow/pull/120); orbit-control-plane #3)
+  and the fork-safe PR summary comment
+  ([#117](https://github.com/mojomast/workflow/pull/117),
+  [#127](https://github.com/mojomast/workflow/pull/127)).
+- **Done, not in CI:** lessons-check
+  ([#122](https://github.com/mojomast/workflow/pull/122)) is report-only.
+- **Planned:** slop-lint and gitleaks for uirizz and orbit-control-plane, a
+  gitleaks job in rizzstack, and lessons-check as an advisory CI job.
+
+## Memory (`rizzstack.memory/1`)
+
+- **Done:** the contract ([#50](https://github.com/mojomast/workflow/pull/50)),
+  the Hindsight trial harness (#82, #88), and the disk vault service with write
+  quarantine, index and retention
+  ([#98](https://github.com/mojomast/workflow/pull/98), #101, #102, #104).
+- **Planned:** a read-only query CLI, a seed loader, capture and recall behind
+  the flag, then a small canary. Not wired into the runtime; `MEMORY_ENABLED`
+  stays off until the owner approves a restart with it on.
 
 ## Orbit onboarding
 
-**Planned** (largely Orbit #25, plus follow-on work that is not in this
-repository).
+- **Done:** minimal install, onboarding wizard, adapters, the opt-in router
+  and SSH hosts ([Orbit #25](https://github.com/mojomast/orbitdesktop/pull/25),
+  [#46](https://github.com/mojomast/orbitdesktop/pull/46)).
+- **Open PR:** the optional connect-GitHub step and repository picker,
+  [Orbit #27](https://github.com/mojomast/orbitdesktop/pull/27) (draft since
+  12 Nov; packet [F12](plans/packets/F12-connect-github-repo-picker.md)). Which
+  repos are tracked stays user-managed; one operator's defaults are data, not
+  a shipped default.
+- **Planned:** packets [F11](plans/packets/F11-runnable-by-anyone.md) and
+  F13–F19 (router profile, evidence wiring, relay, NAT fallback, join probing,
+  revocable tokens, live-host join install) are drafted, not dispatched.
 
-- Minimal install.
-- Bifrost as an opt-in router.
-- SSH hosts.
-- An optional connect-GitHub step (device-flow or a token stored locally,
-  never logged).
-- A repository picker: which repos are tracked is user-managed and part of
-  onboarding. One operator's current defaults are `mojomast/workflow`,
-  `mojomast/bundlebees`, and `mojomast/orbitdesktop`.
+## Releases and tags
 
-## bundlebees release tag
+**Planned.** The only release tags are bundlebees v0.1.0 (11 Nov) and v0.1.1
+(12 Nov, before the hardening merges) and uirizz v0.1.0 (23 Nov). workflow,
+hyvv, orbit-control-plane and rizzstack have no release tags; Orbit's last tags
+are the `hermes-plugin-v0.3.0` line from September. A coordinated release at
+one tested set of revisions needs an explicit yes before tagging.
 
-**Planned.** A release tag after the hardening and ACDD work that should go
-into it, with an explicit yes before tagging.
+## hyvv repo
 
-## hyvv repo (approved, in progress by Hermes Forge; merges and first tag need Kyle's yes)
-
-**Approved, in progress by Hermes Forge.** Merges and the first tag still
-need an explicit yes. hyvv (`mojomast/hyvv`) is the standalone worker-host
-runtime, a fourth layer next to this workflow, bundlebees, and Orbit. It
-owns the versioned `/v1` API contract that Orbit and bundlebees test
-against, plus an install script. Nothing in this pull request starts or
-vendors that work.
+**Done.** hyvv (`mojomast/hyvv`) is the standalone worker-host runtime and owns
+the versioned `/v1` API contract that Orbit and bundlebees test against, plus
+an install script ([#1](https://github.com/mojomast/hyvv/pull/1)). Since then:
+Rails recording (#26), the apply-update deployment receipt on `/v1/health`
+([#31](https://github.com/mojomast/hyvv/pull/31),
+[#32](https://github.com/mojomast/hyvv/pull/32)) and the Windows journal and
+shutdown fixes ([#33](https://github.com/mojomast/hyvv/pull/33)). **Planned:**
+list provisioning and landing export in `contract/v1/STATUS.json`, and a first
+tag (needs a yes).
 
 ## Parking projects
 
-**Open PR.** [workflow #9](https://github.com/mojomast/workflow/pull/9)
-(chapter 18) is the protocol for parking and resuming a project. Parking
-stops new dispatch, lets running bees finish, and moves queued cards to a
-Parked column. A `PARKED.md` snapshot makes resuming auditable. It's a
-protocol spec, not a deployed service. Enforcement in hyvv, the bee
+**Done (spec) / planned (enforcement).**
+[workflow #9](https://github.com/mojomast/workflow/pull/9) (chapter 18) merged
+the protocol for parking and resuming a project. Enforcement in hyvv, the bee
 scripts, Orbit and bundlebees is **planned**.
 
-## Rename bundlebees to swrm
+## Rename
 
-**Planned, not started, pending Kyle.** A proposed rename of the bundlebees
-plugin to **swrm**. Nothing has been renamed, and no repository, package,
-plugin id or doc changes until Kyle decides.
+**Planned, not started, pending the owner.** Two proposals exist: renaming the
+bundlebees plugin to **swrm**, and the wider rebrand whose execution runbook is
+[workflow #58](https://github.com/mojomast/workflow/pull/58), an open PR that
+stays untouched until the owner decides. Nothing has been renamed; no
+repository, package, plugin id or doc changes until then.
 
 ## Hermes Forge usage work
 
-**Done (schema) / open PR.** Hermes Forge froze `bee.usage/v1` (orbitdesktop
-`feat/bee-usage-observability`, `1617ae0`). Workflow #7 carries the handoff. Hermes Forge owns bundlebees usage parsing and the usage record
-fields, and is staging the Orbit adapter pass-through separately.
+**Done (schema) / open PR.** `bee.usage/v1` is frozen, and the usage pipeline
+(launcher receipts, outbox, ingest, pricing snapshots, rollup) reached
+mainline on 16 November. The handoff in
+[workflow #7](https://github.com/mojomast/workflow/pull/7) is still an open
+draft.
