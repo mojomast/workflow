@@ -46,6 +46,16 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    140: (
+        "docs-sync companion (the workflow #136 coverage row for the T1-SEED agent-lessons "
+        "memory seeder): a registry bookkeeping change; it carries its own exclusion so "
+        "merging it leaves main green"
+    ),
+    138: (
+        "docs-sync companion (the workflow #133 coverage row for the T1-MEMQ memory query "
+        "CLI): a registry bookkeeping change; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
     131: (
         "docs-sync companion (the workflow #130 coverage row + its Unreleased bullet: the "
         "ci-gate aggregate check): a registry bookkeeping change; it carries its own "
@@ -486,6 +496,92 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "ci-gate aggregate check",
         "keywords": ("ci-gate", "check_ci_gate.py", "main ruleset"),
     },
+    {
+        # T1-MEMQ: the rizzstack.memory/1 query CLI the bundlebees recall client runs
+        # as BUNDLEBEES_MEMORY_QUERY; read-only, fail-closed, MEMORY_ENABLED stays off.
+        "pr": 133,
+        "name": "memory query CLI for lease-time recall",
+        "keywords": ("rizzstack_memory/cli.py", "BUNDLEBEES_MEMORY_QUERY", "MEMORY_ENABLED"),
+    },
+    {
+        # T1-SEED: scripts/seed_memory_from_lessons.py projects every L-NN section of
+        # docs/28-agent-lessons.md into one learning memory as agent:lessons-seed
+        # (quarantined until a human grant); idempotent through the stored digest.
+        "pr": 136,
+        "name": "agent-lessons memory seeder",
+        "keywords": (
+            "scripts/seed_memory_from_lessons.py",
+            "docs/28-agent-lessons.md",
+            "agent:lessons-seed",
+        ),
+    },
+    {
+        # Track 5 release prep (pre-registered in its own PR so the merge leaves main green):
+        # the 0.1.0 candidate section and the untagged-candidate coverage reader.
+        "pr": 132,
+        "name": "CHANGELOG [0.1.0] candidate section",
+        "keywords": ("Release prep (no tag)", "release candidate", "test_docs_parity.py"),
+    },
+    {
+        # T4-NOIDX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 137,
+        "name": "T4-NOIDX: Rails bench index arms (workflow, T4-NOIDX): `scripts/bench_rails.py",
+        "keywords": ("scripts/bench_rails.py", "build_parser()", "rails_local_attempt_scan",),
+    },
+    {
+        # T1-LESSONS (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 135,
+        "name": "T1-LESSONS: `lessons-check` now runs in CI as the advisory `lessons-check (advis",
+        "keywords": ("lessons-check", "lessons-check (advisory)", ".github/workflows/ci.yml",),
+    },
+    {
+        # T3-RAILSDEC (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 134,
+        "name": "T3-RAILSDEC: `evidence/rails-rc/release/DECISION-2026-11-24-index-default.md` is ",
+        "keywords": ("evidence/rails-rc/release/DECISION-2026-11-24-index-default.md", "rails_local_attempt_scan", "evidence/rails-rc/README.md",),
+    },
+    {
+        # WA-BACKLOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 147,
+        "name": "WA-BACKLOG: `plans/backlog.json` records the 20 wave A slices (`WA-*`) from the ",
+        "keywords": ("plans/backlog.json", ") from the next-level review, with lane ",),
+    },
+    {
+        # T3-ROADMAP (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 144,
+        "name": "T3-ROADMAP: `ROADMAP.md` refreshed after the 24 November merges: workflow #7 (He",
+        "keywords": ("ROADMAP.md", "contrib/hermes-forge.md", "evidence/rails-rc/release/DECISION-2026-11-24-index-default.md",),
+    },
+    {
+        # WA-DES-B (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 141,
+        "name": "WA-DES-B: Wave B design (`docs/design/wave-b-worker-contract.md`): draft `rizz",
+        "keywords": ("docs/design/wave-b-worker-contract.md", "rizzstack.brief/1", "rizzstack.attempt/1",),
+    },
+    {
+        # WA-DEC-CHANGELOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 148,
+        "name": "WA-DEC-CHANGELOG: Design: changelog fragments (`changelog.d/<branch-slug>.md`) counted",
+        "keywords": ("changelog.d/<branch-slug>.md", "docs-parity", "scripts/changelog_assemble.py",),
+    },
+    {
+        # WA-DES-D (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 142,
+        "name": "WA-DES-D: Wave D design (`docs/design/wave-d-core-and-log.md`): one `rizzstack",
+        "keywords": ("docs/design/wave-d-core-and-log.md", "rizzstack_core",),
+    },
+    {
+        # T4-NOIDXFIX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 146,
+        "name": "T4-NOIDXFIX: `scripts/bench_rails.py` settles the P1 index arms after seeding: ev",
+        "keywords": ("scripts/bench_rails.py", "RailsLedger", "rails_local_attempt_scan",),
+    },
+    {
+        # T4-FIXHIST (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 145,
+        "name": "T4-FIXHIST: Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench",
+        "keywords": ("scripts/bench_rails.py", "--soak-seconds", "14400",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
@@ -544,10 +640,25 @@ def _read_changelog() -> str:
     return CHANGELOG_MD.read_text(encoding="utf-8")
 
 
+#: The untagged release-candidate section(s) whose entries still count as
+#: "Unreleased" for coverage: a dated heading prepared for a tag that does not
+#: exist yet (26-coordinated-release.md). Remove the version once it is tagged.
+UNTAGGED_CANDIDATE_VERSIONS = ("0.1.0",)
+
+
 def _unreleased_section() -> str:
-    match = re.search(r"(?ms)^## Unreleased\s*$\n(.*?)(?=^## |\Z)", _read_changelog())
+    text = _read_changelog()
+    match = re.search(r"(?ms)^## Unreleased\s*$\n(.*?)(?=^## |\Z)", text)
     assert match is not None, "CHANGELOG.md must keep a '## Unreleased' section"
-    return match.group(1)
+    parts = [match.group(1)]
+    for version in UNTAGGED_CANDIDATE_VERSIONS:
+        candidate = re.search(
+            rf"(?ms)^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$\n(.*?)(?=^## |\Z)",
+            text,
+        )
+        if candidate is not None:
+            parts.append(candidate.group(1))
+    return "\n".join(parts)
 
 
 def _in_review_subsection() -> str:
