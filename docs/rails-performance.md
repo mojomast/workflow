@@ -37,6 +37,8 @@ Omit the bracket for the default arm; `--soak-seconds 0` skips all browser and s
 
 P2 compares two four-hour soak arms against the live viewport. **Arm A** (no flag) starts the live selector empty and records how memory grows as marks accumulate. **Arm B** (`--fixed-history`) appends 2,000 live events to window 0 before `t=0`, saturating the renderer's 2,000-mark cap, so any memory that still grows in that arm is a leak rather than retained marks. The stream report records `fixed_history_seeded` (the pre-seeded count, 2,000 in a full Arm B run, absent otherwise); reports record `config.fixed_history`. `--soak-seconds` accepts `0..14400` (default 1,800) and `--fixed-history` requires a positive soak. Neither arm may reuse an output path:
 
+**Live view limit (#151).** The live view answers at most `LIVE_VIEW_LIMIT` (100) marks per selector, so each soak window plans at most `LIVE_CYCLES_MAX` (49) cycles (one gap mark plus two probes per cycle). **Arm B is open:** seeding 2,000 events into the window-0 live selector cannot fit a 100-mark view, and `scripts/bench_rails.mjs` still expects only the gap and probe marks, so `--fixed-history` times out in the browser fixture. Until Arm B is redesigned, only Arm A results are valid.
+
 ```sh
 nice -n 10 ionice -c3 timeout 5h python3 scripts/bench_rails.py \
   --soak-seconds 14400 [--fixed-history] --output <fresh path>
