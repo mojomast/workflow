@@ -21,6 +21,11 @@ data, draw a dashboard, or define a usage schema.
 | `vcs.snapshot/v1` | `schemas/vcs-snapshot.schema.json` | Commits, open pull requests, and CI for allowlisted repos |
 | `board.snapshot/v1` | `schemas/board-snapshot.schema.json` | Board status counts and blocker age |
 | `resource.snapshot/v1` | `schemas/resource-snapshot.schema.json` | Credits, allowances, compute units, in-flight bees, host capacity |
+| `gen_ai.inference/v1` | `schemas/inference.schema.json` | One model call inside a bee attempt: timings (TTFT, duration, output tok/s), token counts, route, cost. See [METRICS.md](METRICS.md) |
+| `gen_ai.tool_call/v1` | `schemas/tool-call.schema.json` | One tool call: bounded tool name, duration, status. No arguments or results |
+| `resource.sample/v1` | `schemas/resource-sample.schema.json` | Container or host resource sample (memory, CPU, OOM) or a per-attempt rollup |
+| `task.outcome/v1` | `schemas/task-outcome.schema.json` | One finished task: phase timestamps, attempts, tokens and cost incl. wasted, outcome |
+| `ci.run/v1` | `schemas/ci-run.schema.json` | One CI job and shard: queue and run time, conclusion, flake flag |
 | `rizzstack.observability/snapshot/1` | `schemas/snapshot.schema.json` | One assembled point-in-time view across fleet, usage, pipeline, backlog, ci, failures, health, alerts, and bottlenecks sections, emitted by the read-only collector in `contrib/rizzstack-observability/` |
 
 ## Envelope discriminator
