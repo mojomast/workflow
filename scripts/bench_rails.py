@@ -102,14 +102,39 @@ def producer(path, lane, count, barrier):
         db.close()
 
 
-def seed(path, total, *, attempt_index=False):
+ATTEMPT_INDEX = 'rails_local_attempt_scan'
+
+
+def index_mode(args):
+    if args.migrate_attempt_index: return 'migrated'
+    if args.no_attempt_index: return 'none'
+    return 'default'
+
+
+def has_attempt_index(path):
+    with contextlib.closing(sqlite3.connect(path)) as db:
+        return db.execute("SELECT 1 FROM sqlite_schema WHERE type='index' AND name=?", (ATTEMPT_INDEX,)).fetchone() is not None
+
+
+def drop_attempt_index(path):
+    if not has_attempt_index(path):
+        raise ValueError('local-attempt index is absent')
+    with contextlib.closing(sqlite3.connect(path)) as db:
+        db.execute(f'DROP INDEX {ATTEMPT_INDEX}')
+        db.commit()
+    if has_attempt_index(path):
+        raise ValueError('local-attempt index is still present after drop')
+
+
+def seed(path, total, *, index_mode='default'):
+    if index_mode not in ('default', 'none', 'migrated'):
+        raise ValueError('unknown attempt-index mode')
     with contextlib.closing(RailsLedger(path)) as first:
         ledger_uuid = first.ledger_uuid
-    if attempt_index:
-        installer = ROOT / 'bundlebees/scripts/rails_attempt_index.py'
-        result = subprocess.check_output([sys.executable, '-B', str(installer), str(path),
-                                          '--ledger-uuid', ledger_uuid], text=True, timeout=20).strip()
-        if result != 'installed': raise ValueError('index was not installed on a fresh benchmark ledger')
+    if not has_attempt_index(path):
+        raise ValueError('a new benchmark ledger did not create the local-attempt index')
+    if index_mode in ('none', 'migrated'):
+        drop_attempt_index(path)
     ctx = mp.get_context('spawn')
     barrier = ctx.Barrier(LANES)
     jobs = [ctx.Process(target=producer, args=(path,i,total//LANES,barrier)) for i in range(LANES)]
@@ -127,8 +152,18 @@ def seed(path, total, *, attempt_index=False):
     with contextlib.closing(sqlite3.connect(path)) as db:
         if db.execute('SELECT COUNT(*), COUNT(DISTINCT event_id) FROM event_rows').fetchone() != (total,total):
             raise ValueError('seed count or uniqueness failed')
-    return blocks, dict(elapsed_ms=ms(start), db_bytes=path.stat().st_size, writer_pids=[p.pid for p in jobs],
-                        events_per_lane=[len(b)*BATCH for b in blocks], unique_seed_ids=total, transaction_rows=BATCH)
+    stats = dict(elapsed_ms=ms(start), db_bytes=path.stat().st_size, writer_pids=[p.pid for p in jobs],
+                 events_per_lane=[len(b)*BATCH for b in blocks], unique_seed_ids=total, transaction_rows=BATCH,
+                 index_mode=index_mode)
+    if index_mode == 'migrated':
+        installer = ROOT / 'bundlebees/scripts/rails_attempt_index.py'
+        started = time.monotonic()
+        result = subprocess.check_output([sys.executable, '-B', str(installer), str(path),
+                                          '--ledger-uuid', ledger_uuid], text=True, timeout=20).strip()
+        stats['migrate_ms'] = ms(started)
+        if result != 'installed': raise ValueError('index was not installed on the benchmark ledger')
+    stats['index_present_after_seed'] = has_attempt_index(path)
+    return blocks, stats
 
 
 def reads(path, samples, blocks, save):
@@ -286,17 +321,25 @@ def revisions():
     return result
 
 
-def main():
+def build_parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--events',type=int,default=100000,choices=range(5000,100001,5000),metavar='5000..100000 (multiple of 5000)')
     p.add_argument('--samples',type=int,default=100,choices=range(1,101),metavar='1..100')
     p.add_argument('--soak-seconds',type=int,default=1800,choices=range(0,1801),metavar='0..1800')
     p.add_argument('--node-modules',type=Path,help='existing offline Orbit node_modules (esbuild + playwright-core)')
-    p.add_argument('--attempt-index', action='store_true', help='install the fixed local-attempt index before the ten writers start')
+    arms = p.add_mutually_exclusive_group()
+    arms.add_argument('--attempt-index', action='store_true', help='deprecated: the default; new ledgers create the index')
+    arms.add_argument('--no-attempt-index', action='store_true', help='drop the index before seeding (unindexed control)')
+    arms.add_argument('--migrate-attempt-index', action='store_true', help='drop the index, seed, then install it')
     p.add_argument('--chromium',type=Path,help='existing offline Chromium executable')
     p.add_argument('--temp-parent',type=Path,default=Path('/var/tmp'))
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--tuple',type=Path,help='verify the four full commit IDs against this external JSON object')
+    return p
+
+
+def main():
+    p = build_parser()
     args = p.parse_args()
     if not sys.platform.startswith('linux') or not args.temp_parent.is_dir(): p.error('requires local Linux temp volume')
     if args.soak_seconds:
@@ -314,14 +357,15 @@ def main():
                     affinity_cpus=len(os.sched_getaffinity(0)),ram_bytes=os.sysconf('SC_PHYS_PAGES')*os.sysconf('SC_PAGE_SIZE'),
                     filesystem=get('findmnt','-no','SOURCE,FSTYPE','-T',str(args.temp_parent)),physical_backing='unknown'),
                python=platform.python_version(),sqlite=sqlite3.sqlite_version,
-                config=dict(events=args.events,samples_per_surface=args.samples,soak_seconds=args.soak_seconds,lanes=LANES,attempt_index=args.attempt_index,
+                config=dict(events=args.events,samples_per_surface=args.samples,soak_seconds=args.soak_seconds,lanes=LANES,
+                           attempt_index=(index_mode(args) != 'none'),index_mode=index_mode(args),
                            logical_rows=PAGE,wire_bytes=query.MAX_BYTES,warmups_per_surface=LANES,p95='nearest rank'))
     def update(key,value): doc[key]=value; snapshot(args.output,doc)
     snapshot(args.output,doc)
     try:
         with tempfile.TemporaryDirectory(dir=args.temp_parent.resolve(),prefix='rails-offline-bench-') as tmp:
             path = Path(tmp)/'synthetic.sqlite'
-            blocks, stats = seed(path,args.events,attempt_index=args.attempt_index); update('seed',stats)
+            blocks, stats = seed(path,args.events,index_mode=index_mode(args)); update('seed',stats)
             data, overview = reads(path,args.samples,blocks,lambda d:update('reads',d)); update('reads',data)
             if args.soak_seconds:
                 update('stream',soak(path,args.soak_seconds,overview,args,lambda d:update('stream',d)))
