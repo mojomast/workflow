@@ -594,6 +594,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "CI-MERGEQ: CI and slop-lint run on merge_group",
         "keywords": ("merge_group", "bee-ci/reference",),
     },
+    {
+        # BEST-PRACTICE items 13/14: row rides in its own PR so the merge leaves main green.
+        "pr": 154,
+        "name": "FACTORY-BALANCE + SUPERSEDE-DONT-AMEND playbook rules, snapshot balance section",
+        "keywords": ("FACTORY-BALANCE", "SUPERSEDE-DONT-AMEND", "lane_streak",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- FACTORY-BALANCE and SUPERSEDE-DONT-AMEND (workflow #154, BEST-PRACTICE items 13 and 14): `docs/19-coordinator-playbook.md` §3 sets per-wave capacity shares (≥50% roadmap, ≤30% hardening, ≤20% docs/ops), parks a lane after 3 shrinking merged PRs with one residuals item, and caps a lane at 5 PRs per 24 h; §9 keeps dated records byte-for-byte and supersedes them with new dated records. The observability snapshot gains an optional `balance` section with `feature_share` and per-lane `lane_streak`. Advisory only.
 - `.github/workflows/ci.yml` and `.github/workflows/slop-lint.yml` also run on `merge_group`, so GitHub's native merge queue can test each queued merge commit with the same required checks (`ci-gate`, `gitleaks`, `slop-lint`, `bee-ci/reference`). Check names are unchanged.
 - Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench_rails.py` now accepts `--soak-seconds` up to `14400` (the four-hour P2 soak; the default is still `1800`) and adds `--fixed-history`, which appends `fixed_history_seed(0)` live events to window 0 before `t=0` so the live viewport starts at the `RENDERER_CAP` of `2000` marks. `fixed_history_seed()` saturates the cap and refuses a negative held count, `check_fixed_history()` refuses `--fixed-history` with `--soak-seconds 0`, the stream report records `fixed_history_seeded` and `config` records `fixed_history`. `docs/rails-performance.md` documents P2 Arm A / Arm B and the four-hour command shape. `tests/test_rails_bench_fixed_history.py` is RED at `bb9ae7b` and GREEN at `ea54f6b`.
 
