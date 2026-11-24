@@ -136,10 +136,10 @@ the schema id.
   and the fork-safe PR summary comment
   ([#117](https://github.com/mojomast/workflow/pull/117),
   [#127](https://github.com/mojomast/workflow/pull/127)).
-- **Done, not in CI:** lessons-check
-  ([#122](https://github.com/mojomast/workflow/pull/122)) is report-only.
-- **In progress:** lessons-check is being added as an advisory CI job, still
-  report-only and not a required check.
+- **Done:** lessons-check
+  ([#122](https://github.com/mojomast/workflow/pull/122)) is report-only, and
+  since [#135](https://github.com/mojomast/workflow/pull/135) (merged 24 Nov) it
+  also runs as an advisory `lessons-check` CI job — never a required check.
 - **Planned:** slop-lint and gitleaks for uirizz and orbit-control-plane, and a
   gitleaks job in rizzstack.
 
@@ -149,9 +149,12 @@ the schema id.
   the Hindsight trial harness (#82, #88), and the disk vault service with write
   quarantine, index and retention
   ([#98](https://github.com/mojomast/workflow/pull/98), #101, #102, #104).
-- **In progress:** a read-only query CLI and a lessons seeder. **Planned:**
-  capture and recall behind the flag, then a small canary. Not wired into the
-  runtime; `MEMORY_ENABLED` stays off until the owner turns it on.
+- **Done:** a read-only query CLI
+  ([#133](https://github.com/mojomast/workflow/pull/133), merged `ebc22ca`) and a
+  lessons seeder ([#136](https://github.com/mojomast/workflow/pull/136), merged
+  `70392e5`). **Planned:** capture and recall behind the flag, then a small
+  canary. Not wired into the runtime; `MEMORY_ENABLED` stays off until the owner
+  turns it on.
 
 ## Orbit onboarding
 
@@ -176,8 +179,12 @@ F12/[#27](https://github.com/mojomast/orbitdesktop/pull/27).
 
 ## Releases and tags
 
-**In progress.** Version-bump PRs are being opened for workflow 0.1.0, hyvv
-0.1.18, bundlebees 0.2.0 and orbitdesktop 0.4.0; no tags yet. The only release
+**In progress.** Version-bump prep PRs are open for workflow 0.1.0
+([#132](https://github.com/mojomast/workflow/pull/132)), bundlebees 0.2.0
+([#258](https://github.com/mojomast/bundlebees/pull/258)) and orbitdesktop 0.4.0
+([#91](https://github.com/mojomast/orbitdesktop/pull/91)); hyvv 0.1.18
+([hyvv #41](https://github.com/mojomast/hyvv/pull/41)) merged on 24 Nov. No tags
+yet. The only release
 tags remain bundlebees v0.1.0 (11 Nov) and v0.1.1 (12 Nov, before the hardening
 merges) and uirizz v0.1.0 (23 Nov). workflow, hyvv, orbit-control-plane and
 rizzstack have no release tags; Orbit's last tags are the
