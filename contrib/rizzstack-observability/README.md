@@ -22,8 +22,8 @@ dashboard (or any local consumer) can poll.
 | --- | --- | --- |
 | `fleet` | `hermes bundlebees attempts` and `hermes bundlebees status` (read-only CLI subcommands) | Live attempt states normalized to the lifecycle-aligned state vocabulary; unrecognized labels are carried as `unknown` with the raw label in `detail`. `in_flight` and `bee_cap` come from the CLI's `status` summary; when that call cannot answer, `in_flight` falls back to counting active rows the `attempts` call itself reported, and `bee_cap` stays null. |
 | `usage` | a `bee.usage/v1` JSONL file (`--usage PATH`) | Tokens and cost aggregated by model/provider and by repo. Unknown token or cost values stay null and set the family's status to `partial`/`unknown` — unknown is never folded into 0. |
-| `pipeline` | `jobs/*.json` under `--state-dir` | Task states, escalation reasons (including an awaiting approval gate), and blocker rows for rejected/failed/superseded tasks. Unrecognized task states are skipped: the vocabulary is closed. |
-| `backlog` | `queue.json` | Feature rows and per-status counts. |
+| `pipeline` | `jobs/*.json` under `--state-dir`, plus fresh lease-bound attempts | Task states, escalation reasons (including an awaiting approval gate), and blocker rows for rejected/failed/superseded tasks. Unrecognized task states are skipped: the vocabulary is closed. Wave dispatch writes leases, not job documents, so fresh attempts whose lease names a task, wave and project are added as observed jobs `wave-<wave>-<project>` (one task per task id, newest attempt wins). They add no blockers, the reconciler invariant still reads only job documents, and while any is present the section is `live`. |
+| `backlog` | `queue.json`, plus `--kanban-board SLUG` boards | Feature rows and per-status counts. Each named board is read with `hermes kanban --board SLUG list --json`; open cards become features (ready → `queued`, running → `running`, review → `ready_for_review`, blocked/todo/scheduled → `blocked`, triage → `needs_approval`; done and archived cards are not backlog). When every board answered, the section is `live` and a stale queue file no longer speaks for it; a board that cannot be read never yields `live` (`kanban_unavailable`). |
 | `ci` | `gh pr list` / `gh pr checks` (read-only) | Repos are the union of `--repo OWNER/NAME` flags and the repos named by pipeline jobs. Check names only — never logs or URLs. |
 | `failures` | `verify-results/*.json` | Classified with the closed `failure/v1` class vocabulary; passing verify records produce no row. |
 | `health` | metrics `*.jsonl` + usage quota hints + fleet counts | Scheduler liveness from the newest metrics event age; quota rows in the `resource-snapshot/v1` row shape. |
@@ -53,6 +53,15 @@ list-price estimate; it is never an invoice. Only rows with an amount
 contribute to `cost_usd`; check `cost_status` and `unknown_cost_records`
 before treating that subtotal as complete. Totals reported in `usage_raw.total`
 take precedence over adding input and output, and zero is a real observation.
+
+Fleet rows fill three gaps from the coordinator's own records, read-only and
+only when the CLI row is silent: `task_id` from the dispatch lease
+(`leases/<id>.json`: its `task_id`, else the brief's `task_id` or `label`),
+`route` from a self-consistent bundlebees route record
+(`attempt-routes/<id>.json`, whose route must equal the explicit provider
+prefix of its model), and `repo` from the `project` label only when it names
+exactly one configured `--repo`. `started_at` falls back to the CLI
+`created_at` (the dispatch time). Symlinked or oversized records are ignored.
 
 The fleet section derives from two fixed read-only subcommands. When the CLI
 cannot answer, it degrades with a precise generic cause — `fleet_cli_missing`
