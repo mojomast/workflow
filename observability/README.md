@@ -71,10 +71,12 @@ actually write: job documents are stored as HMAC envelopes
 (`{"body": {...}, "mac": ...}`, `job.py` `_seal`) and are unwrapped
 read-only and keylessly — the body is parsed as the document and the MAC is
 **not** verified here, because a read-only dashboard holds no state key; the
-reconciler, which holds the key, is the verifier of record. An envelope
-whose body is not an object counts as an unreadable job (an owner message),
-never a silent zero, and a record that cannot yield a timing value degrades
-to null with a status marker, never to a fabricated zero.
+reconciler, which holds the key, is the verifier of record. Only the sealed
+envelope shape is read: a document with no envelope (no `body`/`mac` pair)
+and an envelope whose body is not an object are both refused, so a bare
+job document counts as an unreadable job (an owner message), never a
+fabricated row or a silent zero. A record that cannot yield a timing value
+degrades to null with a status marker, never to a fabricated zero.
 
 Under the `rizzstack.observability/snapshot/1` discriminator the section,
 and the ci pull-request `created_at` field, are optional rather than
