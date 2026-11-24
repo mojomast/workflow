@@ -31,6 +31,17 @@ nice -n 10 ionice -c3 timeout 2h python3 scripts/bench_rails.py \
 
 Omit the bracket for the default arm; `--soak-seconds 0` skips all browser and stream checks, so P1 needs no Chromium or `node_modules`.
 
+## Soak arms
+
+P2 compares two four-hour soak arms against the live viewport. **Arm A** (no flag) starts the live selector empty and records how memory grows as marks accumulate. **Arm B** (`--fixed-history`) appends 2,000 live events to window 0 before `t=0`, saturating the renderer's 2,000-mark cap, so any memory that still grows in that arm is a leak rather than retained marks. The stream report records `fixed_history_seeded` (the pre-seeded count, 2,000 in a full Arm B run, absent otherwise); reports record `config.fixed_history`. `--soak-seconds` accepts `0..14400` (default 1,800) and `--fixed-history` requires a positive soak. Neither arm may reuse an output path:
+
+```sh
+nice -n 10 ionice -c3 timeout 5h python3 scripts/bench_rails.py \
+  --soak-seconds 14400 [--fixed-history] --output <fresh path>
+```
+
+Run each arm once for four hours (14,400 s); compare the per-window medians, last windows and peaks within and between arms. The timed loop cadence is unchanged from the shorter soak, and no soak is part of the offline test suite.
+
 ## What the report measures
 
 - **Dataset.** Ten producer processes own separate ledger connections. They rendezvous before each 50-event transaction; SQLite serializes those writes. All appends use the canonical locked hash/dedupe path. Each writer's receipt ranges are checked against the local sequence, distinct-event count and projection results. The 100,000 initial records include ten attempts in one job. Every 500th record in each lane is a declared `source.gap` for `offline-worker`. Soak probes are additional records and do not alter the read benchmark.

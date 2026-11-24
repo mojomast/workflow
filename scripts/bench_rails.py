@@ -26,6 +26,8 @@ BB = ROOT / 'bundlebees/contrib'
 ORBIT = ROOT / 'orbitdesktop'
 LANES, PAGE, BATCH = 10, 500, 50
 MISSING = 'offline-worker'
+RENDERER_CAP = 2000
+FIXED_HISTORY_INDEX_BASE = 1000
 # The service must import Orbit's vendored runtime, not a cached canonical module.
 sys.path.insert(0, str(ORBIT / 'contrib' if sys.argv[1:2] == ['--reader'] else BB))
 from rizzstack_rails import RailsLedger, query
@@ -58,6 +60,12 @@ def snapshot(path, doc):
 def check_ids(actual, expected):
     if len(set(actual)) != len(actual) or actual != expected:
         raise ValueError('duplicate, missing, out-of-order or unexpected event ID')
+
+
+def fixed_history_seed(held):
+    if held < 0:
+        raise ValueError('held marks cannot be negative')
+    return max(0, RENDERER_CAP - held)
 
 
 def schedule(duration):
@@ -268,6 +276,13 @@ def soak(path, duration, overview, args, save):
         out = {'browser':get_message(js), 'cycles':[], 'windows':[], 'reader_start_kib':rss(reader.pid)}
         save(out)
         writer = RailsLedger(path); cleanup.callback(writer.close)
+        if args.fixed_history:
+            seeded = fixed_history_seed(0)
+            for held in range(seeded):
+                receipt = writer.append(**candidate(0, FIXED_HISTORY_INDEX_BASE + held, live=0))
+                if receipt['duplicated']: raise ValueError('duplicate append')
+            out['fixed_history_seeded'] = seeded
+            save(out)
         start = time.monotonic(); previous = None; n = 0
         for window, planned in schedule(duration):
             time.sleep(max(0, start+planned-time.monotonic()))
@@ -325,7 +340,8 @@ def build_parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--events',type=int,default=100000,choices=range(5000,100001,5000),metavar='5000..100000 (multiple of 5000)')
     p.add_argument('--samples',type=int,default=100,choices=range(1,101),metavar='1..100')
-    p.add_argument('--soak-seconds',type=int,default=1800,choices=range(0,1801),metavar='0..1800')
+    p.add_argument('--soak-seconds',type=int,default=1800,choices=range(0,14401),metavar='0..14400')
+    p.add_argument('--fixed-history',action='store_true',help='pre-seed the live viewport to the renderer cap (Arm B)')
     p.add_argument('--node-modules',type=Path,help='existing offline Orbit node_modules (esbuild + playwright-core)')
     arms = p.add_mutually_exclusive_group()
     arms.add_argument('--attempt-index', action='store_true', help='deprecated: the default; new ledgers create the index')
@@ -338,9 +354,16 @@ def build_parser():
     return p
 
 
+def check_fixed_history(p, args):
+    if args.fixed_history and args.soak_seconds == 0:
+        p.error('--fixed-history requires a positive --soak-seconds')
+    return None
+
+
 def main():
     p = build_parser()
     args = p.parse_args()
+    check_fixed_history(p, args)
     if not sys.platform.startswith('linux') or not args.temp_parent.is_dir(): p.error('requires local Linux temp volume')
     if args.soak_seconds:
         if not args.chromium or not os.access(args.chromium,os.X_OK) or not args.node_modules or not (args.node_modules/'playwright-core/index.mjs').is_file():
@@ -359,6 +382,7 @@ def main():
                python=platform.python_version(),sqlite=sqlite3.sqlite_version,
                 config=dict(events=args.events,samples_per_surface=args.samples,soak_seconds=args.soak_seconds,lanes=LANES,
                            attempt_index=(index_mode(args) != 'none'),index_mode=index_mode(args),
+                           fixed_history=args.fixed_history,
                            logical_rows=PAGE,wire_bytes=query.MAX_BYTES,warmups_per_surface=LANES,p95='nearest rank'))
     def update(key,value): doc[key]=value; snapshot(args.output,doc)
     snapshot(args.output,doc)
