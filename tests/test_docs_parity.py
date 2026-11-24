@@ -498,6 +498,18 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "memory query CLI for lease-time recall",
         "keywords": ("rizzstack_memory/cli.py", "BUNDLEBEES_MEMORY_QUERY", "MEMORY_ENABLED"),
     },
+    {
+        # T1-SEED: scripts/seed_memory_from_lessons.py projects every L-NN section of
+        # docs/28-agent-lessons.md into one learning memory as agent:lessons-seed
+        # (quarantined until a human grant); idempotent through the stored digest.
+        "pr": 136,
+        "name": "agent-lessons memory seeder",
+        "keywords": (
+            "scripts/seed_memory_from_lessons.py",
+            "docs/28-agent-lessons.md",
+            "agent:lessons-seed",
+        ),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
