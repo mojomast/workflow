@@ -65,7 +65,9 @@ def last_tool_in_progress(ev_path):
         return False
 
 
-def load_attempts(now):
+def load_attempts(now, unreadable=None):
+    """Recent attempt records. Files that can't be read or parsed are skipped,
+    and their ids are appended to *unreadable* so the caller can report them."""
     rows = []
     if not ATT.exists():
         return rows
@@ -75,7 +77,9 @@ def load_attempts(now):
             continue
         try:
             a = json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, ValueError):
+            if unreadable is not None:
+                unreadable.append(aid)
             continue
         if not isinstance(a, dict):
             continue
@@ -114,61 +118,73 @@ def is_stuck(a, now):
     return (a.get("state") == "running") and age > limit
 
 
-def reconcile(rows, leased, tasks, now, memo, stuck_fn=None):
-    """Return (events, running, seen). Pure; does not write the memo."""
-    wakes = dict(memo.get("wakes") or {})
-    seen_prev = memo.get("attempts") or {}
-    owned_work = set()
+def _owned_work_ids(rows, leased, tasks):
+    """Work (non-verify) attempts we own by lease or by owned task id."""
+    owned = set()
     for a in rows:
         b = a.get("brief") or {}
-        if not (b.get("role") == "verify" or b.get("verify_of")):
-            tid = brief_task_id(b)
-            if a.get("attempt_id") in leased or (tid and tid in tasks):
-                owned_work.add(a.get("attempt_id"))
+        if b.get("role") == "verify" or b.get("verify_of"):
+            continue
+        tid = brief_task_id(b)
+        if a.get("attempt_id") in leased or (tid and tid in tasks):
+            owned.add(a.get("attempt_id"))
+    return owned
 
-    verify_of = {}
+
+def _verify_index(rows):
+    """{work attempt id: [verify attempts]}."""
+    index = {}
     for a in rows:
-        b = a.get("brief") or {}
-        vof = b.get("verify_of")
+        vof = (a.get("brief") or {}).get("verify_of")
         if vof:
-            verify_of.setdefault(vof, []).append(a)
+            index.setdefault(vof, []).append(a)
+    return index
 
-    events, running, seen = [], 0, {}
+
+def _terminal_event(a, kids):
+    """The wake event for an owned attempt in a terminal state, or None."""
+    aid, st = a.get("attempt_id"), a.get("state") or "?"
+    b = a.get("brief") or {}
+    if b.get("verify_of") or b.get("role") == "verify":
+        return "VERIFY_TERMINAL", {"attempt": aid, "state": st, "why": "VERIFY_TERMINAL",
+                                   "verify_of": str(b.get("verify_of") or "")[:40]}
+    if st == "succeeded" and not kids:
+        why = "WORK_NEEDS_VERIFY"
+    elif st in ("failed", "cancelled"):
+        why = "WORK_TERMINAL"
+    else:
+        return None
+    return why, {"attempt": aid, "state": st, "why": why, "task_id": brief_task_id(b)[:40]}
+
+
+def reconcile(rows, leased, tasks, now, memo, stuck_fn=None):
+    """Return (events, running, seen, wakes). Pure; does not write the memo."""
+    wakes = dict(memo.get("wakes") or {})
+    owned_work = _owned_work_ids(rows, leased, tasks)
+    verify_of = _verify_index(rows)
+    stuck_fn = stuck_fn or (lambda a: is_stuck(a, now))
+    events, seen = [], {}
     for a in rows:
-        aid = a.get("attempt_id")
-        st = a.get("state") or "?"
-        b = a.get("brief") or {}
-        interesting = is_owned(a, leased, tasks, owned_work)
-        rec = {"state": st, "stuck": False}
-        is_verify = bool(b.get("verify_of") or b.get("role") == "verify")
-
-        if st not in TERMINAL:
-            running += 1
-            if stuck_fn:
-                stuck = stuck_fn(a)
-            else:
-                stuck = is_stuck(a, now)
-            rec["stuck"] = bool(stuck)
-            if interesting and rec["stuck"]:
-                _maybe_wake(events, wakes, now, aid, "SUSPECT_STUCK",
-                            {"attempt": aid, "state": st, "why": "SUSPECT_STUCK"})
-        elif interesting:
-            if is_verify:
-                ev = {"attempt": aid, "state": st, "why": "VERIFY_TERMINAL",
-                      "verify_of": str(b.get("verify_of") or "")[:40]}
-                _maybe_wake(events, wakes, now, aid, "VERIFY_TERMINAL", ev)
-            else:
-                kids = verify_of.get(aid) or []
-                if st == "succeeded" and not kids:
-                    ev = {"attempt": aid, "state": st, "why": "WORK_NEEDS_VERIFY",
-                          "task_id": brief_task_id(b)[:40]}
-                    _maybe_wake(events, wakes, now, aid, "WORK_NEEDS_VERIFY", ev)
-                elif st in ("failed", "cancelled"):
-                    ev = {"attempt": aid, "state": st, "why": "WORK_TERMINAL",
-                          "task_id": brief_task_id(b)[:40]}
-                    _maybe_wake(events, wakes, now, aid, "WORK_TERMINAL", ev)
+        aid, st = a.get("attempt_id"), a.get("state") or "?"
+        rec = {"state": st, "stuck": st not in TERMINAL and bool(stuck_fn(a))}
+        found = None
+        if is_owned(a, leased, tasks, owned_work):
+            found = _wake_for(a, rec, verify_of.get(aid) or [])
+        if found:
+            _maybe_wake(events, wakes, now, aid, found[0], found[1])
         seen[aid] = rec
+    running = sum(1 for rec in seen.values() if rec["state"] not in TERMINAL)
     return events, running, seen, wakes
+
+
+def _wake_for(a, rec, kids):
+    """(why, event) for an owned attempt that needs the beekeeper, or None."""
+    if rec["state"] in TERMINAL:
+        return _terminal_event(a, kids)
+    if rec["stuck"]:
+        aid = a.get("attempt_id")
+        return "SUSPECT_STUCK", {"attempt": aid, "state": rec["state"], "why": "SUSPECT_STUCK"}
+    return None
 
 
 def _maybe_wake(events, wakes, now, aid, why, ev):
@@ -188,7 +204,12 @@ def main():
         memo = {}
     leased = leased_ids()
     tasks = owned_task_ids()
-    rows = load_attempts(now)
+    unreadable = []
+    rows = load_attempts(now, unreadable)
+    if unreadable:
+        # stdout stays the cron contract; the skip is reported, never silent.
+        print(f"bee-watch: skipped {len(unreadable)} unreadable attempt file(s): "
+              + ", ".join(sorted(unreadable)[:5]), file=sys.stderr)
     events, running, seen, wakes = reconcile(rows, leased, tasks, now, memo)
     seen = {k: v for k, v in seen.items() if (ATT / f"{k}.json").exists()}
     free_gb = round(shutil.disk_usage(str(HOME.anchor or "C:\\")).free / 2**30, 1)
