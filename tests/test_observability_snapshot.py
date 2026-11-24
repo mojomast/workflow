@@ -593,7 +593,9 @@ class TestPipelineTitles:
         )
         plain = title_job_body()
         plain["job_id"] = "job_p2"
-        (jobs / "job_p2.json").write_text(json.dumps(plain), encoding="utf-8")
+        (jobs / "job_p2.json").write_text(
+            json.dumps({"body": plain, "mac": "1" * 64}), encoding="utf-8"
+        )
 
         def runner(argv):
             return 1, "", ""
@@ -635,14 +637,22 @@ class TestPipelineTitles:
         state = tmp_path / "plugin-state"
         jobs = state / "jobs"
         jobs.mkdir(parents=True)
-        (jobs / "job_bare.json").write_text(
-            json.dumps({"job_id": "job_bare", "tasks": [{"task_id": "T1", "state": "pending"}]}),
-            encoding="utf-8",
-        )
+        path = jobs / "job_bare.json"
+        body = {"job_id": "job_bare", "tasks": [{"task_id": "T1", "state": "pending"}]}
+        path.write_text(json.dumps(body), encoding="utf-8")
 
         def runner(argv):
             return 1, "", ""
 
+        snap = delta_collector(state_dir=state, fleet_runner=runner).build_snapshot()
+        validated(snap)
+        # A bare job document is not the sealed envelope shape, so the
+        # reader refuses it instead of treating it as an unwrapped job.
+        assert snap["pipeline"]["jobs"] == []
+
+        # The same body inside the sealed envelope is readable; with no
+        # goal or acceptance criteria its titles stay null.
+        path.write_text(json.dumps({"body": body, "mac": "2" * 64}), encoding="utf-8")
         snap = delta_collector(state_dir=state, fleet_runner=runner).build_snapshot()
         validated(snap)
         job = snap["pipeline"]["jobs"][0]

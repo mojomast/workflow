@@ -477,18 +477,17 @@ def unwrap_job_envelope(data: dict[str, Any]) -> dict[str, Any] | None:
     (docs/22-autonomy-architecture.md: jobs/<job_id>.json, HMAC). This is a
     read-only, keyless collector: when the envelope shape is present the
     body is used as the document and the MAC is NOT verified here - the
-    reconciler, which holds the state key, is the verifier of record. An
-    envelope whose body is not an object yields None (the caller counts the
-    file unreadable, an owner message, never a silent zero); a plain
-    document with neither key passes through so legacy shapes and RETURN
-    reports keep reading.
+    reconciler, which holds the state key, is the verifier of record. Only
+    the sealed envelope shape is readable: every other document - including
+    a plain document with neither key, and an envelope whose body is not an
+    object - yields None so the caller treats the file as unreadable (the
+    pipeline skips it, the invariant counts an owner message, never a silent
+    zero).
     """
     body = data.get("body")
     if isinstance(body, dict):
         return body
-    if "body" in data or "mac" in data:
-        return None
-    return data
+    return None
 
 
 def file_age_s(path: Path, now: datetime) -> int | None:
@@ -2153,8 +2152,9 @@ class Collector:
         ``from->to`` string (job.py transition). An event record that
         cannot yield a transition still counts as seen, so a half-readable
         history degrades to partial or unknown instead of passing as
-        complete. An envelope whose body is not an object counts as an
-        unreadable job.
+        complete. Only the sealed envelope shape is accepted: any other
+        document (a bare job, or an envelope whose body is not an object)
+        counts as an unreadable job.
 
         Returns (documents, unreadable_document_count).
         """

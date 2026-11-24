@@ -130,7 +130,13 @@ def job_document(
 
 
 def write_job_document(state: Path, doc: dict) -> None:
-    (state / "jobs" / f"{doc['job_id']}.json").write_text(json.dumps(doc), encoding="utf-8")
+    """Write the job document as the on-disk HMAC envelope job.py _seal
+    produces; the collector refuses a bare document."""
+    canonical = json.dumps(doc, sort_keys=True, separators=(",", ":"))
+    envelope = {"body": doc, "mac": hashlib.sha256(canonical.encode("utf-8")).hexdigest()}
+    (state / "jobs" / f"{doc['job_id']}.json").write_text(
+        json.dumps(envelope), encoding="utf-8"
+    )
 
 
 def verify_record_slim(attempt_id: str, moment: str, ok: bool = True) -> dict:
@@ -1075,6 +1081,51 @@ class TestBottlenecksSealedEnvelope:
         assert body["status"] == "live", body.get("error")
         assert body["counts"] == {"running": 1}
         assert body["jobs"][0]["task_count"] == 1
+
+    def test_bare_job_document_is_refused_not_unwrapped(self, tmp_path: Path) -> None:
+        state = tmp_path / "state"
+        for subdir in ("jobs", "metrics", "verify-results", "queue", "approvals"):
+            (state / subdir).mkdir(parents=True, exist_ok=True)
+        bare = job_document(
+            "job_bare",
+            "mojomast/workflow",
+            tasks=[task_row("T1", "running", attempts=("a1",))],
+            events=[event_row("T1", "dispatching->running", at(30))],
+        )
+        path = state / "jobs" / "job_bare.json"
+        path.write_text(json.dumps(bare), encoding="utf-8")
+        write_queue(
+            state,
+            {"feat_b": {"repo": "mojomast/workflow", "job_id": "", "title": "b", "depends_on": [], "status": "queued"}},
+        )
+        pin_mtimes(tmp_path)
+        snap = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+            stale_after_s=1800,
+        ).build_snapshot()
+        validated(snap)
+        # A bare document is not the sealed shape: the pipeline skips it
+        # rather than treating it as an unwrapped job.
+        assert snap["pipeline"]["jobs"] == []
+        # The invariant counts the refusal as an owner message, not a zero.
+        assert bottlenecks_of(snap)["invariant"]["blocked_reasons"]["job_unreadable"] == 1
+
+        # The same body wrapped in the sealed envelope still parses.
+        path.write_text(json.dumps(seal_document(bare)), encoding="utf-8")
+        pin_mtimes(tmp_path)
+        snap = collector.Collector(
+            state_dir=state,
+            fleet_runner=lambda argv: (1, "", ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+            stale_after_s=1800,
+        ).build_snapshot()
+        validated(snap)
+        assert [job["job_id"] for job in snap["pipeline"]["jobs"]] == ["job_bare"]
+        assert bottlenecks_of(snap)["invariant"]["blocked_reasons"].get("job_unreadable", 0) == 0
 
     def test_envelope_with_an_unusable_body_is_an_unreadable_job(self, tmp_path: Path) -> None:
         state = tmp_path / "state"
