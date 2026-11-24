@@ -540,6 +540,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T3-RAILSDEC: `evidence/rails-rc/release/DECISION-2026-11-24-index-default.md` is ",
         "keywords": ("evidence/rails-rc/release/DECISION-2026-11-24-index-default.md", "rails_local_attempt_scan", "evidence/rails-rc/README.md",),
     },
+    {
+        # WA-BACKLOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 147,
+        "name": "WA-BACKLOG: `plans/backlog.json` records the 20 wave A slices (`WA-*`) from the ",
+        "keywords": ("plans/backlog.json", ") from the next-level review, with lane ",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
