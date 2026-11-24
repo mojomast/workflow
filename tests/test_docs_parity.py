@@ -527,6 +527,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T1-LESSONS: `lessons-check` now runs in CI as the advisory `lessons-check (advis",
         "keywords": ("lessons-check", "lessons-check (advisory)", ".github/workflows/ci.yml",),
     },
+    {
+        # T3-RAILSDEC (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 134,
+        "name": "T3-RAILSDEC: `evidence/rails-rc/release/DECISION-2026-11-24-index-default.md` is ",
+        "keywords": ("evidence/rails-rc/release/DECISION-2026-11-24-index-default.md", "rails_local_attempt_scan", "evidence/rails-rc/README.md",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
