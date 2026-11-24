@@ -151,5 +151,28 @@ class OwnedCards(unittest.TestCase):
                     os.environ["BEE_WATCH_OWNED"] = old
 
 
+class LoadAttempts(unittest.TestCase):
+    def test_unreadable_attempt_is_skipped_and_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            att = Path(d)
+            (att / "att_aaaaaaaa.json").write_text(json.dumps({"state": "running"}), encoding="utf-8")
+            (att / "att_bbbbbbbb.json").write_text("{not json", encoding="utf-8")
+            (att / "att_cccccccc.json").write_bytes(b"\xff\xfe\x00")
+            mod = _load()
+            mod.ATT = att
+            unreadable = []
+            rows = mod.load_attempts(time.time(), unreadable)
+            self.assertEqual([r["attempt_id"] for r in rows], ["att_aaaaaaaa"])
+            self.assertEqual(sorted(unreadable), ["att_bbbbbbbb", "att_cccccccc"])
+
+    def test_load_attempts_still_works_without_a_report_list(self):
+        with tempfile.TemporaryDirectory() as d:
+            att = Path(d)
+            (att / "att_bbbbbbbb.json").write_text("{not json", encoding="utf-8")
+            mod = _load()
+            mod.ATT = att
+            self.assertEqual(mod.load_attempts(time.time()), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
