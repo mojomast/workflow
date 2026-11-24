@@ -311,14 +311,18 @@ class TestFixtureSnapshot:
 
     def test_usage_aggregates_and_preserves_unknowns(self, snapshot: dict) -> None:
         totals = snapshot["usage"]["totals"]
-        assert totals["requests"] == 5
+        # Five parsed records, but att_2 has every token field null: it is a
+        # record, not a usage-bearing request.
+        assert totals["requests"] == 4
+        assert snapshot["usage"]["source"]["record_count"] == 5
         assert totals["input_tokens"] == 1700
         assert totals["output_tokens"] == 850
         assert totals["total_tokens"] == 2550
         assert totals["cost_usd"] == 0.02
-        assert totals["tokens_status"] == "partial"
+        assert totals["tokens_status"] == "known"
         assert totals["cost_status"] == "partial"
-        assert totals["unknown_cost_records"] == 4
+        # Three usage-bearing rows carry no cost; att_2 is zero-token and null-cost.
+        assert totals["unknown_cost_records"] == 3
         assert totals["http_429_count"] == 2
         assert totals["fallback_count"] == 1
         assert snapshot["usage"]["source"]["parse_errors"] == 1
@@ -335,6 +339,121 @@ class TestFixtureSnapshot:
         assert by_repo["mojomast/workflow"]["requests"] == 3
         # Records without a repository slug are preserved under one sentinel.
         assert by_repo["unknown/unknown"]["requests"] == 1
+
+    def test_totals_requests_counts_only_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": None, "output_tokens": None, "total_tokens": None,
+             "cost_usd": None},
+            {"ts": "2026-11-16T09:01:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": None},
+            {"ts": "2026-11-16T09:02:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": None, "output_tokens": 0, "total_tokens": None,
+             "cost_usd": None},
+            {"ts": "2026-11-16T09:03:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": 0.01, "repo": "mojomast/workflow"},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert body["status"] == "live"
+        assert totals["requests"] == 1
+        assert body["source"]["record_count"] == 4
+        # Zero-token rows are records, not unpriced requests.
+        assert totals["unknown_cost_records"] == 0
+        # The one usage-bearing row's totals are unchanged.
+        assert (totals["input_tokens"], totals["output_tokens"], totals["total_tokens"],
+                totals["cost_usd"]) == (10, 5, 15, 0.01)
+
+    def test_totals_requests_zero_for_an_all_zero_token_ledger(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": f"2026-11-16T09:0{i}:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": None, "output_tokens": None, "total_tokens": None,
+             "cost_usd": None}
+            for i in range(5)
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert body["status"] == "live"
+        assert totals["requests"] == 0
+        assert body["source"]["record_count"] == 5
+        assert (totals["input_tokens"], totals["output_tokens"], totals["total_tokens"],
+                totals["cost_usd"]) == (None, None, None, None)
+        assert totals["unknown_cost_records"] == 0
+
+    def test_tokens_status_scopes_numerator_to_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": None},
+            # An explicit 0/0/0 row is a record, not a request; its zeros must
+            # not inflate the token numerator past the usage-bearing requests.
+            {"ts": "2026-11-16T09:01:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": None},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 1
+        assert body["source"]["record_count"] == 2
+        assert totals["tokens_status"] == "known"
+
+    def test_cost_status_scopes_priced_numerator_to_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            # Priced usage-bearing request.
+            {"ts": "2026-11-16T09:00:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": 0.01},
+            # Unpriced usage-bearing request.
+            {"ts": "2026-11-16T09:01:00Z", "role": "verify",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 20, "output_tokens": 10, "total_tokens": 30,
+             "cost_usd": None},
+            # Zero-token row carrying a numeric cost: it contributes money to
+            # the total but must not make the priced counter claim coverage.
+            {"ts": "2026-11-16T09:02:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": 0.02},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 2
+        assert body["source"]["record_count"] == 3
+        assert totals["unknown_cost_records"] == 1
+        assert totals["cost_status"] == "partial"
+        assert totals["cost_usd"] == 0.03
+
+    def test_bucket_requests_still_count_records_seen(self, snapshot: dict) -> None:
+        usage = snapshot["usage"]
+        totals = usage["totals"]
+        source = usage["source"]
+        by_model = {(row["model"], row["provider"]): row for row in usage["by_model"]}
+        go_row = by_model[("go-worker-large", "go")]
+        # att_2 is zero-token and null-cost, yet its bucket still counts the record.
+        assert go_row["requests"] == 1
+        assert go_row["total_tokens"] is None
+        # Totals exclude it: the disclosed divergence is deliberate.
+        assert totals["requests"] == 4
+        assert sum(row["requests"] for row in usage["by_model"]) == source["record_count"] == 5
+        assert sum(row["requests"] for row in usage["by_repo"]) == source["record_count"] == 5
 
     def test_alerts_fire_from_thresholds(self, snapshot: dict) -> None:
         keys = {row["key"] for row in snapshot["alerts"]["active"]}
@@ -380,7 +499,9 @@ class TestFixtureSnapshot:
             if r["key"] in ("deepseek_balance_below_usd", "go_allowance_pct_used")
         ]
         assert quota_alerts == [("go_allowance_pct_used", 95)]
-        assert snap["usage"]["totals"]["requests"] == len(records)
+        # Quota hints carry no token counts, so none of these rows is a request.
+        assert snap["usage"]["totals"]["requests"] == 0
+        assert snap["usage"]["source"]["record_count"] == len(records)
 
     def test_orbit_ledger_cost_and_observed_total(self, tmp_path: Path) -> None:
         ledger = tmp_path / "usage.jsonl"
@@ -398,7 +519,8 @@ class TestFixtureSnapshot:
         source = fixture_collector(tmp_path, usage_path=ledger)
         body, summary = source.usage_section()
         assert body["totals"]["cost_usd"] == summary["today_cost_usd"] == 0.125
-        assert body["totals"]["unknown_cost_records"] == 1
+        # The null-cost row resolves total_tokens 0, so it is not usage-bearing.
+        assert body["totals"]["unknown_cost_records"] == 0
         assert [q["value"] for q in summary["quota_rows"]] == [87.5]
         assert body["totals"]["total_tokens"] == 20
         unassigned = next(row for row in body["by_repo"] if row["repo"] == "unknown/unknown")
@@ -423,9 +545,9 @@ class TestDegradation:
                           '{"cost_usd_list":0,"input_tokens":9007199254740993,"output_tokens":0}\n')
         body, _ = collector.Collector(usage_path=ledger).usage_section()
         totals = body["totals"]
-        assert totals["requests"] == 2
-        assert (totals["input_tokens"], totals["output_tokens"], totals["tokens_status"]) == (9007199254740993, 0, "partial")
-        assert (totals["cost_usd"], totals["cost_status"], totals["http_429_count"]) == (0.0, "partial", 0)
+        assert totals["requests"] == 1
+        assert (totals["input_tokens"], totals["output_tokens"], totals["tokens_status"]) == (9007199254740993, 0, "known")
+        assert (totals["cost_usd"], totals["cost_status"], totals["http_429_count"]) == (0.0, "known", 0)
 
     def test_ledger_read_error_does_not_publish_partial_aggregates(self, tmp_path, monkeypatch) -> None:
         def interrupted(_path):
