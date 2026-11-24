@@ -600,6 +600,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "P2-LIVECAP: soak windows inside the live view",
         "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
     },
+    {
+        # row rides in its own PR so the merge leaves main green (docs-sync for #153, which merged at 0194003d without one).
+        "pr": 153,
+        "name": "OBS-METRICS: metric fact-record contracts + observability/METRICS.md catalog",
+        "keywords": ("observability/METRICS.md", "resource-sample.schema.json", "inference-step.json",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
