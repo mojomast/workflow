@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `lessons-check` now runs in CI as the advisory `lessons-check (advisory)` job in `.github/workflows/ci.yml`: its unit tests must pass, `python3 -m lessons_check check ../.. --report-only` writes the finding count and the findings into the job summary and echoes them, findings never fail the job while a usage error (exit 2) does, and `ci-gate` needs the new job so the one stable required check still covers it. `tools/lessons-check/README.md` no longer says it is not wired into CI.
 - A `ci-gate` job in `.github/workflows/ci.yml` needs every other CI job and passes only when all of them succeeded, so the main ruleset can require one stable check name. `.github/scripts/check_ci_gate.py` (standard library only) fails if a job is added without being added to `ci-gate`'s `needs`, and the gate runs it first.
 - `ROADMAP.md` is rewritten as done / open PR / planned with every pull request number re-checked on 24 November 2026 (America/Toronto). The 12 November merge order is closed out, and new sections cover Rails (release on hold), the M2 canary (native Windows unconfirmed), the decision queue and risk tiers, quality gates, memory, and releases.
 - slop-lint is now a blocking ratchet in CI (`.github/workflows/slop-lint.yml`): it fails only on findings above `slop-baseline.json` (`--pass-on-unpruned`, stale entries tolerated, shrink with `prune`), the job has the stable name `slop-lint`, and `.github/CODEOWNERS` assigns `slop-baseline.json` to the owner.
