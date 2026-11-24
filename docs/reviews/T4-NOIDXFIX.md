@@ -1,0 +1,27 @@
+VERDICT: APPROVE
+
+Reviewed the PR head tree against the T4-NOIDXFIX SPEC. `check_arm(index_mode, present)` (`scripts/bench_rails.py:129-133`) rejects an unknown mode and any state that does not equal `index_mode != 'none'`, so it fails closed on every mismatch; the unknown-mode branch precedes the state comparison. `unindex_after_seed(path)` (`scripts/bench_rails.py:136-138`) drops only when `has_attempt_index` is true, so it is idempotent when the index is absent, and it reuses `drop_attempt_index`, which still verifies the drop. `seed()` keeps the pre-seed drop (`scripts/bench_rails.py:148-149`), then, for `none`/`migrated` only and after the producer join (line 158) plus the receipt and count/uniqueness checks (lines 161-166), calls `unindex_after_seed` (lines 167-168); the migrated installer block is unchanged and still requires the literal `installed` (lines 172-178); then `stats['index_present_after_seed']` is set and `check_arm` is called immediately before `return` (lines 179-180). The docs prose matches the code and the P1 command shape is untouched. No dependency, gate, check or test was added, removed, skipped or weakened, the changed hunks contain no secrets, hosts or private absolute paths, and there is no reformatting outside the three leased files.
+
+Acceptance criteria mapping:
+
+- AC-001 — met by `tests/test_rails_bench_arm_settle.py:34-46` (matching states return `None`; six mismatch combinations and an unknown mode raise `ValueError`) and by the implementation at `scripts/bench_rails.py:129-133`.
+- AC-002 — met by `tests/test_rails_bench_arm_settle.py:48-55` (drops a re-created index, then calls it again on the absent index) and `scripts/bench_rails.py:136-138`.
+- AC-003 — met by `tests/test_rails_bench_arm_settle.py:57-63` (join precedes `unindex_after_seed`, which precedes `check_arm`, and the stat is passed) and `scripts/bench_rails.py:158-180`.
+- AC-004 — met by `docs/rails-performance.md:22` (producers re-create the index; none/migrated drop it again after the checks; migrated installs it and must report `installed`; seed timing includes index maintenance in all arms). Verified by reading the docs; no approved test asserts prose.
+
+Findings
+
+1. minor — `tests/test_rails_bench_arm_settle.py:57-63` — AC-003 is asserted by reading `seed`'s source text (`inspect.getsource`) instead of executing it, so a semantic regression that preserves token order (for example guarding the post-seed drop to `none` only, or leaving the migrated installer unguarded) would still pass. Concrete fix, in a follow-up rather than this read-only approved file: stub `RailsLedger` and the spawned producers and assert the returned `stats['index_present_after_seed']`/`index_mode` per arm, with the migrated installer stubbed to return `installed`. Not blocking: the helpers are behaviourally covered and the real path is re-checked by the P1 smoke.
+
+2. minor — `scripts/bench_rails.py:132` — the state comparison is `present != (index_mode != 'none')`, i.e. `!=` against a `bool`, so a truthy non-bool would pass for `default`/`migrated` (no fail-open is possible for the indexed-vs-unindexed decision, and the only caller passes the bool from `has_attempt_index`). Concrete fix: write `if bool(present) != (index_mode != 'none'):` for explicitness. Cosmetic.
+
+3. minor — `scripts/bench_rails.py:285` — with `--soak-seconds > 0`, `soak()` opens a `RailsLedger(path)` writer after seeding, so a soak run re-creates the index for the `none`/`migrated` arms; the settle and `check_arm` guarantee only holds through `seed()`'s return. P1 uses `--soak-seconds 0`, and `reads()` uses `RailsLedger(..., read_only=True)` (line 186), so the unindexed read benchmark is unaffected. Concrete fix, only if the SPEC is extended: re-run `unindex_after_seed` before the soak probes (or record the post-soak index state in the report) and say so in the docs.
+
+Test commands and exit codes
+
+- `timeout 600 python3 -m unittest tests.test_rails_bench_arm_settle tests.test_rails_bench_index_arms` — exit 0: 11 tests, OK. The argparse usage text on stderr is the expected `SystemExit` from the mutual-exclusion and soak-cap tests.
+- `timeout 600 python3 -m unittest tests.test_rails_bench tests.test_rails_bench_arm_settle tests.test_rails_bench_index_arms` — exit 0: 11 tests, OK, 1 skip (`test_rails_bench` skips by design without the four-checkout tuple).
+- `timeout 1800 python3 -m unittest discover -s tests` — exit 1: 643 tests, 0 failures, 15 import errors, 28 skips. The 15 errors are all `ModuleNotFoundError` in unrelated modules: 10 `pytest` and 5 `jsonschema`. None of the erroring modules exercises `bench_rails.py`.
+- `timeout 1800 python3 -m unittest discover -s tests -t .` — exit 1: identical result (643 tests, 15 import errors, 28 skips, 0 failures).
+
+Baseline comparison: the coordinator's source_rev/head runs (852/857 tests, the same 10 `pytest` import errors, 0 failures) were taken in an environment that has `jsonschema`; this image lacks it, which explains the five extra environmental import errors and the lower collected count. There is no assertion failure and no failure in any Rails bench test. The approved `tests/test_rails_bench_arm_settle.py` was read only. The checkout is a single squashed base commit, so byte-identity of the approved test cannot be proven from git history locally; the supplied `t1634-check` result confirms no approved-test edit.
