@@ -126,6 +126,29 @@ def _python_problems(kind: str, document: object, **kwargs: Any) -> list[str]:
     return problems
 
 
+def _run(argv: list[str], *, cwd: Path, timeout: int, what: str) -> subprocess.CompletedProcess[str]:
+    """Run one checker process, asserting on a launch or timeout failure.
+
+    A missing interpreter or a driver that hangs is an environment problem, but
+    it must still surface as an assertion inside the test that needed it: an
+    exception escaping the test body would turn honest RED into an
+    environmental verdict. The return code itself is asserted by the caller.
+    """
+    try:
+        return subprocess.run(
+            argv,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AssertionError(f"{what} did not finish within {timeout}s: {exc}") from exc
+    except OSError as exc:
+        raise AssertionError(f"could not start {what}: {exc}") from exc
+
+
 # --------------------------------------------------------------------------
 # the shared corpus: every case is (name, kind, document, expected verdict)
 # --------------------------------------------------------------------------
@@ -389,13 +412,11 @@ console.log(JSON.stringify(verdicts));
 """,
             encoding="utf-8",
         )
-        result = subprocess.run(
+        result = _run(
             [node, str(driver), str(JS_VALIDATOR), str(cases_path)],
             cwd=work,
-            capture_output=True,
-            text=True,
-            check=False,
             timeout=120,
+            what="the JavaScript validator driver",
         )
     assert result.returncode == 0, (
         "the JavaScript validator driver failed\n"
@@ -540,15 +561,13 @@ def test_the_python_validator_runs_without_site_packages(tmp_path: Path) -> None
         "print(json.dumps([module.validate_brief(minimal), module.validate_brief(high)]))\n",
         encoding="utf-8",
     )
-    result = subprocess.run(
+    result = _run(
         # -I isolates from the environment and user site, -S drops site-packages:
         # a validator that needs jsonschema or any other wheel cannot start.
         [sys.executable, "-I", "-S", str(driver)],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=False,
         timeout=60,
+        what="the Python validator under -I -S",
     )
     assert result.returncode == 0, (
         "the Python validator needs a third-party runtime dependency\n"
