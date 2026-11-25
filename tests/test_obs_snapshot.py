@@ -19,6 +19,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -213,6 +214,35 @@ def write_rails_ledger(path: Path, events) -> None:
             conn.execute(
                 "INSERT INTO event_rows (envelope_json, kind) VALUES (?, ?)",
                 (json.dumps(env), env.get("kind", "usage.observed")),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def write_imported_rails_rows(path: Path, events) -> None:
+    """Write a peer's verbatim envelopes where the launcher ingest stores them.
+
+    A worker's usage receipts never enter this ledger's own event_rows: the
+    remote import commits them to imported_origin_rows as origin evidence.
+    """
+    conn = sqlite3.connect(str(path))
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS event_rows (envelope_json TEXT NOT NULL, kind TEXT NOT NULL)")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS imported_origin_rows"
+            " (chain_id TEXT NOT NULL, seq INTEGER NOT NULL, event_id TEXT NOT NULL,"
+            "  origin_hash TEXT NOT NULL, origin_bytes TEXT NOT NULL,"
+            "  PRIMARY KEY(chain_id, seq))"
+        )
+        next_seq = conn.execute(
+            "SELECT COALESCE(MAX(seq), 0) FROM imported_origin_rows"
+        ).fetchone()[0] + 1
+        for offset, env in enumerate(events):
+            seq = next_seq + offset
+            conn.execute(
+                "INSERT INTO imported_origin_rows VALUES (?, ?, ?, ?, ?)",
+                (env["chain_id"], seq, f"{env['chain_id']}:{seq}", "h" * 64, json.dumps(env)),
             )
         conn.commit()
     finally:
@@ -665,6 +695,34 @@ class TestWorkerUsage:
         }
         assert (body["bee"], body["tokens_per_verified_patch"]) == (None, None)
 
+    def test_role_split_counts_only_usage_bearing_rows(self, tmp_path: Path) -> None:
+        """A role-tagged heartbeat is not a request, and a non-coordinator
+        usage row must land in a bucket: the split reconciles with totals."""
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"role": "coordinator", "input_tokens": 10, "output_tokens": 5,
+             "total_tokens": 15, "cost_usd_list": 0.001},
+            # Quota heartbeat: carries the role, no tokens, no price.
+            {"role": "coordinator", "go_allowance_used_pct": 10.0,
+             "cost_usd_list": None},
+            # A worker-role row in the coordinator ledger must not vanish.
+            {"role": "work", "input_tokens": 7, "output_tokens": 3,
+             "total_tokens": 10, "cost_usd_list": None},
+        ]
+        ledger.write_text("".join(json.dumps(row) + "\n" for row in records), encoding="utf-8")
+        body, _ = collector.Collector(
+            usage_path=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        roles = body["by_role"]
+        assert body["totals"]["requests"] == 2
+        assert (roles["coordinator"]["requests"], roles["coordinator"]["total"],
+                roles["coordinator"]["unknown_cost"]) == (1, 15, 0)
+        assert (roles["unknown"]["requests"], roles["unknown"]["total"],
+                roles["unknown"]["unknown_cost"], roles["unknown"]["priced"]) == (1, 10, 1, 0)
+        worker_requests = roles["worker"]["requests"] or 0
+        assert (roles["coordinator"]["requests"] + roles["unknown"]["requests"]
+                + worker_requests) == body["totals"]["requests"]
+
     def test_bee_sums_models_repos_and_tokens_per_verified_patch(self, tmp_path: Path) -> None:
         state = worker_state(tmp_path)
         write_delivery(state, "a1", "mojomast/workflow")
@@ -730,6 +788,66 @@ class TestWorkerUsage:
         assert (bee["input"], bee["output"], bee["total"]) == (9, 1, 10)
         assert bee["by_model"][0]["requests"] == 1
         assert bee["by_repo"][0]["repo"] == "unknown"
+
+    def test_imported_origin_receipts_are_worker_usage(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        write_delivery(state, "a1", "mojomast/bundlebees")
+        write_verify(state, "a1", ok=True, sha=SHA_A)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [])
+        write_imported_rails_rows(ledger, [
+            rails_usage_envelope("i1", "a1", input_tokens=100, output_tokens=20),
+            rails_usage_envelope("i2", "a2", input_tokens=None, output_tokens=None,
+                                 thinking_tokens=7),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        worker = body["by_role"]["worker"]
+        assert (worker["status"], worker["requests"], worker["input"], worker["output"],
+                worker["thinking"], worker["total"]) == ("known", 2, 100, 20, 7, 127)
+        bee = body["bee"]
+        assert bee["attempts"] == 2
+        by_repo = {row["repo"]: row for row in bee["by_repo"]}
+        assert by_repo["mojomast/bundlebees"]["requests"] == 1
+        assert by_repo["unknown"]["requests"] == 1
+        tpp = body["tokens_per_verified_patch"]
+        assert (tpp["numerator"], tpp["denominator"], tpp["value"]) == (127, 1, 127.0)
+
+    def test_imported_receipt_and_admitted_row_count_once(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:00:00Z",
+                                 input_tokens=5),
+        ])
+        write_imported_rails_rows(ledger, [
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:10:00Z",
+                                 input_tokens=9, output_tokens=1),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        bee = body["bee"]
+        assert (bee["requests"], bee["input"], bee["output"], bee["total"]) == (1, 9, 1, 10)
+
+    def test_long_lived_collector_sees_receipts_imported_after_the_first_read(
+        self, tmp_path: Path
+    ) -> None:
+        state = worker_state(tmp_path)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [])
+        write_imported_rails_rows(ledger, [rails_usage_envelope("i1", "a1", input_tokens=10)])
+        reader = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        )
+        first, _ = reader.usage_section()
+        assert first["by_role"]["worker"]["requests"] == 1
+        time.sleep(0.02)
+        write_imported_rails_rows(ledger, [rails_usage_envelope("i2", "a2", input_tokens=20)])
+        second, _ = reader.usage_section()
+        assert (second["by_role"]["worker"]["requests"],
+                second["by_role"]["worker"]["total"]) == (2, 30)
 
     def test_empty_rails_ledger_is_measured_zero_and_null_ratio(self, tmp_path: Path) -> None:
         ledger = tmp_path / "ledger.sqlite3"
