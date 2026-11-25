@@ -1,0 +1,245 @@
+{
+ "schema": "rizzstack.brief/1",
+ "objective": "Implement wave B slice B6 in workflow: bundlebees_plugin/brief_validation.py, the reference policy that decides what dispatch does with a brief-schema drift. The approved RED tests are tests/test_wave_b_enforcement.py at source_rev 146c089b2f945f8331216ffec6198187311e9af3; read them first and do not edit them. The approved contract is contracts/wave-bc/B6.contract.json, embedded below; the tests are the authority if the two disagree.\n\nThe module is a policy layer, not a validator. It must not import the B3 validator, jsonschema or any third-party module, and it must not validate documents: the dispatch caller runs the validator and passes the problem list to evaluate(violations, *, brief=None, policy=None, record=None). Provide DEFAULT_MODE = \"report\", DEFAULT_TICKET_MODE = False, an immutable BriefValidationPolicy(mode, ticket_mode), an immutable BriefValidationDecision(mode, proceed, refused, ticket_mode, recorded), load_policy(config=None) and evaluate(...). load_policy reads only the exact keys mode and ticket_mode from the mapping: mode defaults to report, accepts only report or enforce, and any other value (including case variants, non-strings and None) raises ValueError; ticket_mode defaults to False and accepts only a bool, with everything else raising ValueError. Unknown keys are ignored, never interpreted as aliases, and the process environment is never read. Only an explicit boolean ticket_mode: true enables it.\n\nevaluate uses load_policy() when policy is None. When ticket_mode is on and the brief has no truthy ticket, it adds the violation brief_ticket_missing before deciding. It calls record exactly once with {\"event\": \"brief_schema_drift\", \"mode\": <mode>, \"violations\": [<the violations it acted on>]} whenever there is at least one violation, in both modes, and does nothing when the list is empty or record is None. Report mode always sets proceed=True. Enforce mode sets proceed=False and refused=True when there is any violation. recorded is the tuple of violation strings. No storage, no I/O, no logging configuration, no dispatch wiring, no ticket signature verification and no other file.\n\nLeave every change uncommitted in the worktree. Do not commit, amend, tag, push, force-push or open a PR. Do not revert or clean files outside your one-file lease. If a test seems wrong, stop and report rather than editing it. Keep the file free of host names, absolute local paths, tokens and internal endpoints. Report the two test commands' output and git diff --stat.",
+ "project": "workflow",
+ "branch": "feat/wave-b-b6",
+ "source_rev": "146c089b2f945f8331216ffec6198187311e9af3",
+ "assigned_files": [
+  "bundlebees_plugin/brief_validation.py"
+ ],
+ "read_only": [
+  "docs/design/wave-b-worker-contract.md",
+  "validators/python/rizzstack_validators.py"
+ ],
+ "acceptance": {
+  "criteria": [
+   "AC-001: brief validation defaults to report mode, an explicit enforce is honoured, and an unknown or non-string mode raises ValueError instead of coercing",
+   "AC-002: a report-mode violation is recorded as brief_schema_drift and dispatch proceeds; the same violation in enforce mode is recorded and refused",
+   "AC-003: a clean brief proceeds in both modes and records nothing",
+   "AC-004: ticket_mode is off by default, no alias key or environment variable turns it on, and only an explicit boolean ticket_mode: true enables it",
+   "AC-005: non-boolean ticket_mode values are refused with ValueError rather than coerced",
+   "AC-006: with ticket_mode on, a missing ticket is recorded as brief_ticket_missing; report proceeds and enforce refuses, while a ticketed brief proceeds in enforce mode",
+   "AC-007: the module contains no validation logic, imports no validator and no third-party module, and a dispatch caller can pass the B3 problem list plus its own recorder without changing the default behavior",
+   "AC-008: the full tests/ suite passes with no new failures beyond the pre-existing environmental set, and no dispatch caller, schema, CI or changelog file is modified"
+  ],
+  "commands": [
+   "python3 -m pytest -q tests/test_wave_b_enforcement.py",
+   "python3 -m pytest -q tests/"
+  ],
+  "tests": [
+   "tests/test_wave_b_enforcement.py"
+  ]
+ },
+ "tests": [
+  "tests/test_wave_b_enforcement.py"
+ ],
+ "commands": [
+  "python3 -m pytest -q tests/test_wave_b_enforcement.py",
+  "python3 -m pytest -q tests/"
+ ],
+ "budget": {
+  "timeout_s": 1800,
+  "max_tool_calls": 60
+ },
+ "risk": {
+  "tier": "high",
+  "reasons": [
+   "the default mode decides whether a malformed brief stops every dispatch or merely produces a drift record",
+   "ticket_mode is an admission-control switch for Wave C; an implicit enable would refuse work that has no ticket",
+   "the policy is vendored into bundlebees, so a wrong default propagates to the executor every bee crosses"
+  ],
+  "blast_radius": "bundlebees dispatch admission for every project, and the Wave C ticket rollout in hyvv and Orbit"
+ },
+ "contract": {
+  "contract_version": "acdd/1",
+  "id": "wave-b-b6",
+  "title": "Gate brief-validation drift in report mode and keep ticket_mode off",
+  "outcome": {
+   "summary": "Wave B ships enforcement as a policy decision, not as a new behavior: bundlebees_plugin/brief_validation.py defaults to report mode, records a brief_schema_drift event carrying the violations and lets the dispatch proceed, and refuses the same dispatch only in enforce mode. ticket_mode is off by default and can be turned on only by an explicit boolean ticket_mode: true; no alias key, environment variable or truthy string changes it. Unknown modes and non-boolean ticket_mode values raise ValueError instead of coercing. The module validates nothing itself: the B3 validator produces the problem list and the dispatch caller passes it in, so this slice has no import dependency on B3 and changes no dispatch behavior until a later slice wires it.",
+   "observable_behavior": [
+    "load_policy() and load_policy({}) return mode=report and ticket_mode=False",
+    "load_policy({'mode': 'enforce'}) returns enforce; an unknown, non-string or case-variant mode raises ValueError",
+    "evaluate(violations) under report mode calls the record sink once with {'event': 'brief_schema_drift', 'mode': 'report', 'violations': [...]} and returns proceed=True, refused=False",
+    "evaluate(violations) under enforce mode records the same event and returns proceed=False, refused=True",
+    "evaluate([]) returns proceed=True in both modes and records nothing",
+    "ticket_mode defaults to False; only the exact key ticket_mode with a boolean true enables it, while ticket-mode, tickets, require_ticket, ticketMode, ticket, wave_c and nested objects leave it False",
+    "a non-boolean ticket_mode (string, integer, null, list, object) raises ValueError",
+    "with ticket_mode on and no ticket, evaluate adds brief_ticket_missing; report still proceeds and records it, enforce refuses",
+    "no environment variable changes mode or ticket_mode"
+   ]
+  },
+  "interfaces": [
+   {
+    "name": "bundlebees_plugin.brief_validation.load_policy",
+    "kind": "function",
+    "change": "add",
+    "notes": "load_policy(config: Mapping[str, object] | None = None) -> BriefValidationPolicy; exact keys mode and ticket_mode; unknown keys ignored; unknown mode or non-boolean ticket_mode raises ValueError; never reads the environment"
+   },
+   {
+    "name": "bundlebees_plugin.brief_validation.evaluate",
+    "kind": "function",
+    "change": "add",
+    "notes": "evaluate(violations, *, brief=None, policy=None, record=None) -> BriefValidationDecision; default policy is load_policy(); record is called once with the brief_schema_drift event whenever there is at least one violation; report always proceeds, enforce refuses on any violation"
+   },
+   {
+    "name": "bundlebees_plugin.brief_validation.BriefValidationPolicy",
+    "kind": "class",
+    "change": "add",
+    "notes": "immutable value carrying mode (report|enforce) and ticket_mode (bool); DEFAULT_MODE='report' and DEFAULT_TICKET_MODE=False are module constants"
+   },
+   {
+    "name": "bundlebees_plugin.brief_validation.BriefValidationDecision",
+    "kind": "class",
+    "change": "add",
+    "notes": "immutable result carrying mode, proceed, refused, ticket_mode and recorded (tuple of violation strings)"
+   }
+  ],
+  "acceptance_criteria": [
+   {
+    "id": "AC-001",
+    "statement": "brief validation defaults to report mode, an explicit enforce is honoured, and an unknown or non-string mode raises ValueError instead of coercing",
+    "verification": "test",
+    "tests": [
+     "tests/test_wave_b_enforcement.py::test_brief_validation_defaults_to_report_mode",
+     "tests/test_wave_b_enforcement.py::test_an_unknown_mode_is_refused_rather_than_coerced",
+     "tests/test_wave_b_enforcement.py::test_evaluate_uses_the_report_default_when_no_policy_is_given"
+    ]
+   },
+   {
+    "id": "AC-002",
+    "statement": "a report-mode violation is recorded as brief_schema_drift and dispatch proceeds; the same violation in enforce mode is recorded and refused",
+    "verification": "test",
+    "tests": [
+     "tests/test_wave_b_enforcement.py::test_report_mode_records_the_drift_and_dispatch_proceeds",
+     "tests/test_wave_b_enforcement.py::test_enforce_mode_records_the_drift_and_refuses_the_dispatch"
+    ]
+   },
+   {
+    "id": "AC-003",
+    "statement": "a clean brief proceeds in both modes and records nothing",
+    "verification": "test",
+    "tests": [
+     "tests/test_wave_b_enforcement.py::test_a_clean_brief_proceeds_in_both_modes_and_records_nothing"
+    ]
+   },
+   {
+    "id": "AC-004",
+    "statement": "ticket_mode is off by default, no alias key or environment variable turns it on, and only an explicit boolean ticket_mode: true enables it",
+    "verification": "test",
+    "tests": [
+     "tests/test_wave_b_enforcement.py::test_ticket_mode_is_off_by_default",
+     "tests/test_wave_b_enforcement.py::test_no_config_alias_turns_ticket_mode_on",
+     "tests/test_wave_b_enforcement.py::test_the_environment_cannot_turn_on_enforcement_or_tickets"
+    ]
+   },
+   {
+    "id": "AC-005",
+    "statement": "non-boolean ticket_mode values are refused with ValueError rather than coerced",
+    "verification": "test",
+    "tests": [
+     "tests/test_wave_b_enforcement.py::test_garbage_ticket_mode_values_are_refused_rather_than_coerced"
+    ]
+   },
+   {
+    "id": "AC-006",
+    "statement": "with ticket_mode on, a missing ticket is recorded as brief_ticket_missing; report proceeds and enforce refuses, while a ticketed brief proceeds in enforce mode",
+    "verification": "test",
+    "tests": [
+     "tests/test_wave_b_enforcement.py::test_ticket_mode_adds_a_violation_and_report_still_proceeds",
+     "tests/test_wave_b_enforcement.py::test_ticket_mode_on_refuses_a_brief_without_a_ticket_under_enforce"
+    ]
+   },
+   {
+    "id": "AC-007",
+    "statement": "the module contains no validation logic, imports no validator and no third-party module, and a dispatch caller can pass the B3 problem list plus its own recorder without changing the default behavior",
+    "verification": "review"
+   },
+   {
+    "id": "AC-008",
+    "statement": "the full tests/ suite passes with no new failures beyond the pre-existing environmental set, and no dispatch caller, schema, CI or changelog file is modified",
+    "verification": "integration",
+    "regression": true
+   }
+  ],
+  "assumptions": [
+   "B3 lands separately and its validator produces the problem list; this module evaluates that list and deliberately does not import the validator, which keeps B6 independently testable and lets bundlebees vendor the policy without the schema files",
+   "the record argument is a callable sink supplied by dispatch (logger, event store, or a test list); this slice adds no storage and no I/O",
+   "ticket_mode on is itself only a violation source: report mode records brief_ticket_missing and proceeds, enforce mode refuses it; enabling tickets alone does not switch enforcement on",
+   "no configuration path outside load_policy exists in this slice; the process environment is never read, so an operator cannot enable enforcement or tickets by exporting a variable",
+   "nothing calls evaluate yet, so the default behavior of every dispatch path is unchanged by this slice; the wiring, including calling the B3 validator first, belongs to a later slice",
+   "a non-boolean ticket_mode is treated as a configuration error and raises ValueError, matching the fail-closed rule for modes"
+  ],
+  "scope": {
+   "assigned_files": [
+    "bundlebees_plugin/brief_validation.py"
+   ],
+   "test_files": [
+    "tests/test_wave_b_enforcement.py"
+   ],
+   "read_only": [
+    "docs/design/wave-b-worker-contract.md",
+    "validators/python/rizzstack_validators.py"
+   ],
+   "prohibited": [
+    "tests/test_wave_b_enforcement.py",
+    "tests",
+    "validators",
+    "bundlebees_plugin/decision_queue.py",
+    ".github/workflows/ci.yml",
+    "CHANGELOG.md"
+   ]
+  },
+  "source_rev": "146c089b2f945f8331216ffec6198187311e9af3",
+  "tdd": {
+   "applicable": true,
+   "test_first": true
+  },
+  "verification": {
+   "independent": true,
+   "commands": [
+    "python3 -m pytest -q tests/test_wave_b_enforcement.py",
+    "python3 -m pytest -q tests/"
+   ],
+   "integration": false
+  },
+  "evidence_required": [
+   "red",
+   "green",
+   "review"
+  ],
+  "authorization": {
+   "human_gates": [
+    "merge",
+    "tag",
+    "release",
+    "deploy",
+    "publish"
+   ],
+   "not_authorized": [
+    "merge",
+    "tag",
+    "release",
+    "deploy",
+    "publish",
+    "restart",
+    "force-push",
+    "branch deletion",
+    "editing the approved tests"
+   ]
+  },
+  "risk": {
+   "tier": "high",
+   "reasons": [
+    "the default mode decides whether a malformed brief stops every dispatch or merely produces a drift record",
+    "ticket_mode is an admission-control switch for Wave C; an implicit enable would refuse work that has no ticket",
+    "the policy is vendored into bundlebees, so a wrong default propagates to the executor every bee crosses"
+   ],
+   "blast_radius": "bundlebees dispatch admission for every project, and the Wave C ticket rollout in hyvv and Orbit"
+  },
+  "review": {
+   "status": "draft"
+  }
+ },
+ "wave": "B",
+ "deps": []
+}
