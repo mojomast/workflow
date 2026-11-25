@@ -10,7 +10,9 @@
       "docs/32-lease-tamper-gate.md",
       "docs/CI.md",
       ".rizzstack/leases/workflow-lease-tamper-gate.json",
-      "README.md"
+      "README.md",
+      ".rizzstack/leases/**",
+      ".rizzstack/leases/wave-b-b3.json"
     ],
     "test_files": [],
     "prohibited": []
