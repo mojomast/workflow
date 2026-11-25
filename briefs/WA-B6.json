@@ -8,8 +8,7 @@
   "bundlebees_plugin/brief_validation.py"
  ],
  "read_only": [
-  "docs/design/wave-b-worker-contract.md",
-  "validators/python/rizzstack_validators.py"
+  "docs/design/wave-b-worker-contract.md"
  ],
  "acceptance": {
   "criteria": [
@@ -177,8 +176,7 @@
     "tests/test_wave_b_enforcement.py"
    ],
    "read_only": [
-    "docs/design/wave-b-worker-contract.md",
-    "validators/python/rizzstack_validators.py"
+    "docs/design/wave-b-worker-contract.md"
    ],
    "prohibited": [
     "tests/test_wave_b_enforcement.py",
