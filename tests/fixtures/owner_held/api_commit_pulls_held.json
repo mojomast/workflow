@@ -1,0 +1,13 @@
+[
+  {
+    "number": 42,
+    "state": "open",
+    "title": "fixture: queued pull request carries the hold",
+    "labels": [
+      {"name": "ci"},
+      {"name": "owner-held"}
+    ],
+    "head": {"sha": "3f7c1a9d2b4e5f60718293a4b5c6d7e8f9012345"},
+    "base": {"ref": "main"}
+  }
+]
