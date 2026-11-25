@@ -46,6 +46,107 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    140: (
+        "docs-sync companion (the workflow #136 coverage row for the T1-SEED agent-lessons "
+        "memory seeder): a registry bookkeeping change; it carries its own exclusion so "
+        "merging it leaves main green"
+    ),
+    138: (
+        "docs-sync companion (the workflow #133 coverage row for the T1-MEMQ memory query "
+        "CLI): a registry bookkeeping change; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
+    131: (
+        "docs-sync companion (the workflow #130 coverage row + its Unreleased bullet: the "
+        "ci-gate aggregate check): a registry bookkeeping change; it carries its own "
+        "exclusion so merging it leaves main green"
+    ),
+    123: (
+        "docs-sync companion (registry rows + Unreleased bullets for the wave-2 PRs 120/121/122): "
+        "a bookkeeping change with no feature content of its own"
+    ),
+    118: (
+        "docs-sync companion (registry rows + Unreleased bullets for the slop-lint wave-1 PRs "
+        "115/116/117): a bookkeeping change with no feature content of its own"
+    ),
+    119: (
+        "docs-sync companion of 118: carries its own exclusion for 118 so merging it leaves "
+        "main green"
+    ),
+    99: (
+        "docs-sync companion (the workflow #98 coverage row + its Unreleased bullet: the "
+        "memory vault service DiskVault landing with its 89-test disk suite) - same class "
+        "as 37/56/62/64/67/72/73/77/78/79/81/84/85/86/87/89: a registry bookkeeping change "
+        "whose only content is this exclusion plus the #98 coverage row; it carries its "
+        "own exclusion so merging it leaves main green"
+    ),
+    89: (
+        "docs-sync companion (the workflow #88 coverage row + its Unreleased bullet: the "
+        "trial-harness arms/report landing with the att_f9e680d217bb458b repair and the "
+        "att_b9ad60999d524dbd round-2 APPROVE evidence) - same class as 84/85/86/87: a "
+        "registry bookkeeping change whose only content is this exclusion plus the #88 "
+        "coverage row; it carries its own exclusion so merging it leaves main green"
+    ),
+    87: (
+        "docs-sync companion (the rails landing batch adoption: R03-done completion, R13 "
+        "two-PR lane, R04/R10/R08 dispatch transitions with the recorded zero-delivery loss "
+        "and base-deviation disclosures) - same class as 84/85/86: a registry bookkeeping "
+        "change whose only content is this exclusion plus the adoption transitions; it "
+        "carries its own exclusion so merging it leaves main green"
+    ),
+    86: (
+        "docs-sync companion (the RAILS-R02 backlog adoption: planned->dispatched with the "
+        "att_f67c7573 / bb PR 70 merged-as-9287d91 evidence chain) - same class as 81/84/85: a "
+        "registry bookkeeping change whose only content is this exclusion plus the adoption "
+        "transition; it carries its own exclusion so merging it leaves main green"
+    ),
+    85: (
+        "docs-sync companion (the RAILS-R03 backlog adoption: planned->dispatched with the "
+        "att_4be4db64 / od PR 43 coordinator-apply evidence chain) - same class as 81/84: a "
+        "registry bookkeeping change whose only content is this exclusion plus the adoption "
+        "transition; it carries its own exclusion so merging it leaves main green"
+    ),
+    84: (
+        "docs-sync companion (the PR 82 + PR 83 coverage rows, their merged-window bullets and "
+        "the RAILS-R01 backlog adoption) - same class: a registry bookkeeping change whose only "
+        "content is this exclusion plus the #82/#83 registry rows, bullets and the R01 adoption; it "
+        "carries its own exclusion so merging it leaves main green"
+    ),
+    81: (
+        "docs-sync companion (the PR 80 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #80 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
+    79: (
+        "docs-sync companion (the PR 74 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #74 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
+    78: (
+        "docs-sync companion (the PR 70 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #70 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
+    77: (
+        "docs-sync companion (the PR 75 coverage row + its merged-window bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #75 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
+    73: (
+        "docs-sync companion (the PR 69 coverage row + its Unreleased bullet) - same "
+        "class: a registry bookkeeping change whose only content is this exclusion plus "
+        "the #69 registry row and bullet; it carries its own exclusion so merging it "
+        "leaves main green"
+    ),
+    72: (
+        "docs-sync companion (the PR 68 coverage row) - same class: a registry "
+        "bookkeeping change whose only content is this exclusion plus the #68 "
+        "registry row; it carries its own exclusion so merging it leaves main green"
+    ),
     67: (
         "docs-sync companion (the main Unreleased-heading repair after the #57 self-"
         "registration mangle) - same class: a changelog-truth repair whose own coverage "
@@ -235,6 +336,286 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "rails R00/R01 conversion r3",
         "keywords": ("rails-w2-conversions", "re-dispatch remedy", "destruction evidence"),
     },
+    {
+        # docs/coordinator-failure-report-2026-11-16: the failure report + packaged
+        # evidence (merged e356b3d).
+        "pr": 68,
+        "name": "coordinator failure report 2026-11-16",
+        "keywords": ("coordinator-failure-report-2026-11-16", "failure-evidence-2026-11-16"),
+    },
+    {
+        # contrib/obs-fleet-delta: the observability fleet delta ported onto the
+        # main collector (merged 77f98cb).
+        "pr": 69,
+        "name": "observability fleet delta port",
+        "keywords": ("lease-store fallback", "clock-type normalization", "empty-state contract"),
+    },
+    {
+        # contrib/rizzstack-observability: /obs-snapshot alias for deploy parity
+        # (merged a9e1ffd).
+        "pr": 75,
+        "name": "collector obs-snapshot alias",
+        "keywords": ("obs-snapshot", "alias", "deploy parity", "auth bypass"),
+    },
+    {
+        # docs/coordination-reliability-research: the FC-1..FC-6
+        # coordination-reliability research doc with the D-1 correction: the
+        # pinned launcher's diff base is the recorded seed commit, not sandbox
+        # HEAD (verified in review against hyvv@5bee1a87 and hyvv main).
+        "pr": 70,
+        "name": "coordination-reliability research doc",
+        "keywords": ("coordination-reliability", "FC-1", "seed commit", "5bee1a87"),
+    },
+    {
+        # docs/rails-wave2-backlog: the 22-slice RAILS wave-2 seed - the real
+        # loader accepts it (24 slices, budget lanes:7/bees:8) and dependency
+        # gating rides exact RAILS-* depends_on edges (r3 canonicalization).
+        "pr": 74,
+        "name": "rails wave-2 backlog seed",
+        "keywords": ("RAILS-R00", "depends_on", "load_backlog", "vendor-manifest.json"),
+    },
+    {
+        # rails R00 feasibility: pinned source matrix + sanitized trace/shape
+        # descriptors + file+line hook citations (Q2 explicitly UNRESOLVED),
+        # RED-first suite 15/15; review mutation-proved the RED property.
+        "pr": 80,
+        "name": "rails R00 feasibility slice",
+        "keywords": ("RAILS-R00", "rails-feasibility", "source-matrix", "UNRESOLVED"),
+    },
+    {
+        # docs/hindsight-trial-harness: trial-harness PART 1 (fixtures +
+        # evaluator + tests) - the F1 per-file-commit remedy delivery,
+        # coordinator-reconciled after the staleness window; PART 2 follows
+        # against the same branch.
+        "pr": 82,
+        "name": "trial harness PART 1 fixtures + evaluator + tests",
+        "keywords": ("trial-harness", "test_trial_harness", "att_e1f3fb747b354685", "PART 1"),
+    },
+    {
+        # rails/r01-contract: the RAILS-R01 contract layer (schemas + hash
+        # vectors + RED-first contract tests) - the F1-remedy attempt 2,
+        # coordinator-reconciled after the staleness window.
+        "pr": 83,
+        "name": "rails R01 contract layer",
+        "keywords": ("RAILS-R01", "test_rails_contract", "att_e0cff87d85a644e5", "hash-vectors"),
+    },
+    {
+        # docs/hindsight-trial-harness-arms: the Hindsight trial harness PART 2
+        # (three deterministic arms + the report layer) landed after one RED-first
+        # worker repair (att_f9e680d217bb458b: B1 baseline pairing restored to
+        # ARM_B, B2 single evaluator call, M8-mirror hack removed) and an
+        # independent round-2 re-review (att_b9ad60999d524dbd, APPROVE zero
+        # blocking; CI 14/14 at the repaired head).
+        "pr": 88,
+        "name": "trial harness PART 2 arms + report",
+        "keywords": ("arms.py", "evaluate_trial", "H123_BASELINE", "exit 0/1/2"),
+    },
+    {
+        # feat/memory-vault-service: the disk-backed vault service for the
+        # rizzstack.memory/1 contract - DiskVault(root) over the contract
+        # layout, append-only log.md receipts with sequence numbers, vault_rev
+        # advancing on every accepted write; query is honest grep (M2 owns the
+        # index); no runtime wiring, MEMORY_ENABLED stays off.
+        "pr": 98,
+        "name": "memory vault service M1",
+        "keywords": ("rizzstack_memory", "DiskVault", "vault_rev", "test_memory_vault_disk"),
+    },
+    {
+        # docs/readme-visuals: the README poster redrawn from main's code as a
+        # Night Hive render, with the HTML source and the render script shipped
+        # beside the PNG and the alt text, caption and mermaid flow updated.
+        "pr": 100,
+        "name": "workflow poster redraw",
+        "keywords": ("Night Hive", "render.mjs", "workflow-map.html"),
+    },
+    {
+        # perf/collector-parallel-cli: the collector's independent CLI reads
+        # (fleet attempts/status, per-repo gh) run in a thread pool, so a cold
+        # snapshot costs the slowest read instead of their sum (~10.8 s -> ~3.6 s);
+        # --cli-workers 1 restores strictly sequential reads.
+        "pr": 107,
+        "name": "collector independent CLI reads concurrent",
+        "keywords": ("independent CLI reads", "test_obs_parallel_reads", "concurrently"),
+    },
+    {
+        # tools/slop-lint: stdlib slop linter with a per-file+rule baseline ratchet (wave 1).
+        "pr": 116,
+        "name": "slop-lint engine, baseline ratchet and CLI",
+        "keywords": ("slop-lint", "baseline ratchet", "swallowed-exception"),
+    },
+    {
+        # .github/workflows/slop-lint.yml: report-only CI job for slop-lint (wave 1).
+        "pr": 115,
+        "name": "slop-lint report-only workflow",
+        "keywords": ("slop-lint.yml", "report-only", "job summary"),
+    },
+    {
+        # contrib/bee-ci/report/pr_summary.py: escaped, redacted PR summary renderer (wave 1).
+        "pr": 117,
+        "name": "PR summary renderer",
+        "keywords": ("pr_summary", "render_pr_summary", "GAP"),
+    },
+    {
+        # schemas/tdd-evidence.schema.json: optional metrics object synced from bundlebees (wave 2).
+        "pr": 120,
+        "name": "evidence schema optional metrics object",
+        "keywords": ("tdd-evidence.schema.json", "optional `metrics` object", "review_findings"),
+    },
+    {
+        # slop-baseline.json + CI path fix: report-only baseline adoption (wave 2).
+        "pr": 121,
+        "name": "slop-lint baseline adoption",
+        "keywords": ("slop-baseline.json", "repo root", "report-only baseline"),
+    },
+    {
+        # tools/lessons-check: recurring review findings as deterministic checks (wave 2).
+        "pr": 122,
+        "name": "lessons-check",
+        "keywords": ("lessons-check", "contract-test-ref", "evidence-absolute-path"),
+    },
+    {
+        # slop-lint becomes a blocking ratchet (owner approved): stable job name, CODEOWNERS.
+        "pr": 124,
+        "name": "slop-lint blocking ratchet",
+        "keywords": ("blocking ratchet", "--pass-on-unpruned", "CODEOWNERS"),
+    },
+    {
+        # fork-safe PR summary comment: build workflow + privileged workflow_run commenter (wave 2).
+        "pr": 127,
+        "name": "fork-safe PR summary comment",
+        "keywords": ("pr-summary-comment", "workflow_run", "pr_comment.py"),
+    },    {
+        # ROADMAP.md rewrite: done / open PR / planned as of 24 Nov, PR numbers re-verified.
+        "pr": 129,
+        "name": "ROADMAP status refresh",
+        "keywords": ("ROADMAP.md", "done / open PR / planned", "24 November 2026"),
+    },
+    {
+        # ci-gate aggregate job for the main ruleset (rizzstack decision 1).
+        "pr": 130,
+        "name": "ci-gate aggregate check",
+        "keywords": ("ci-gate", "check_ci_gate.py", "main ruleset"),
+    },
+    {
+        # T1-MEMQ: the rizzstack.memory/1 query CLI the bundlebees recall client runs
+        # as BUNDLEBEES_MEMORY_QUERY; read-only, fail-closed, MEMORY_ENABLED stays off.
+        "pr": 133,
+        "name": "memory query CLI for lease-time recall",
+        "keywords": ("rizzstack_memory/cli.py", "BUNDLEBEES_MEMORY_QUERY", "MEMORY_ENABLED"),
+    },
+    {
+        # T1-SEED: scripts/seed_memory_from_lessons.py projects every L-NN section of
+        # docs/28-agent-lessons.md into one learning memory as agent:lessons-seed
+        # (quarantined until a human grant); idempotent through the stored digest.
+        "pr": 136,
+        "name": "agent-lessons memory seeder",
+        "keywords": (
+            "scripts/seed_memory_from_lessons.py",
+            "docs/28-agent-lessons.md",
+            "agent:lessons-seed",
+        ),
+    },
+    {
+        # Track 5 release prep (pre-registered in its own PR so the merge leaves main green):
+        # the 0.1.0 candidate section and the untagged-candidate coverage reader.
+        "pr": 132,
+        "name": "CHANGELOG [0.1.0] candidate section",
+        "keywords": ("Release prep (no tag)", "release candidate", "test_docs_parity.py"),
+    },
+    {
+        # T4-NOIDX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 137,
+        "name": "T4-NOIDX: Rails bench index arms (workflow, T4-NOIDX): `scripts/bench_rails.py",
+        "keywords": ("scripts/bench_rails.py", "build_parser()", "rails_local_attempt_scan",),
+    },
+    {
+        # T1-LESSONS (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 135,
+        "name": "T1-LESSONS: `lessons-check` now runs in CI as the advisory `lessons-check (advis",
+        "keywords": ("lessons-check", "lessons-check (advisory)", ".github/workflows/ci.yml",),
+    },
+    {
+        # T3-RAILSDEC (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 134,
+        "name": "T3-RAILSDEC: `evidence/rails-rc/release/DECISION-2026-11-24-index-default.md` is ",
+        "keywords": ("evidence/rails-rc/release/DECISION-2026-11-24-index-default.md", "rails_local_attempt_scan", "evidence/rails-rc/README.md",),
+    },
+    {
+        # WA-BACKLOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 147,
+        "name": "WA-BACKLOG: `plans/backlog.json` records the 20 wave A slices (`WA-*`) from the ",
+        "keywords": ("plans/backlog.json", ") from the next-level review, with lane ",),
+    },
+    {
+        # T3-ROADMAP (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 144,
+        "name": "T3-ROADMAP: `ROADMAP.md` refreshed after the 24 November merges: workflow #7 (He",
+        "keywords": ("ROADMAP.md", "contrib/hermes-forge.md", "evidence/rails-rc/release/DECISION-2026-11-24-index-default.md",),
+    },
+    {
+        # WA-DES-B (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 141,
+        "name": "WA-DES-B: Wave B design (`docs/design/wave-b-worker-contract.md`): draft `rizz",
+        "keywords": ("docs/design/wave-b-worker-contract.md", "rizzstack.brief/1", "rizzstack.attempt/1",),
+    },
+    {
+        # WA-DEC-CHANGELOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 148,
+        "name": "WA-DEC-CHANGELOG: Design: changelog fragments (`changelog.d/<branch-slug>.md`) counted",
+        "keywords": ("changelog.d/<branch-slug>.md", "docs-parity", "scripts/changelog_assemble.py",),
+    },
+    {
+        # WA-DES-D (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 142,
+        "name": "WA-DES-D: Wave D design (`docs/design/wave-d-core-and-log.md`): one `rizzstack",
+        "keywords": ("docs/design/wave-d-core-and-log.md", "rizzstack_core",),
+    },
+    {
+        # T4-NOIDXFIX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 146,
+        "name": "T4-NOIDXFIX: `scripts/bench_rails.py` settles the P1 index arms after seeding: ev",
+        "keywords": ("scripts/bench_rails.py", "RailsLedger", "rails_local_attempt_scan",),
+    },
+    {
+        # T4-FIXHIST (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 145,
+        "name": "T4-FIXHIST: Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench",
+        "keywords": ("scripts/bench_rails.py", "--soak-seconds", "14400",),
+    },
+    {
+        # WA-A12A (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 149,
+        "name": "WA-A12A: bee-landed dataschema identity (workflow #149, WA-A12A): `tools/bee_",
+        "keywords": ("tools/bee_landed.py", "DATASCHEMA", "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json",),
+    },
+    {
+        # Speed-up C (merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 150,
+        "name": "CI-MERGEQ: CI and slop-lint run on merge_group",
+        "keywords": ("merge_group", "bee-ci/reference",),
+    },
+    {
+        # P2 harness fix (Kyle 15:02 ET): row rides in its own PR so the merge leaves main green.
+        "pr": 151,
+        "name": "P2-LIVECAP: soak windows inside the live view",
+        "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
+    },
+    {
+        # BEST-PRACTICE items 13/14: row rides in its own PR so the merge leaves main green.
+        "pr": 154,
+        "name": "FACTORY-BALANCE + SUPERSEDE-DONT-AMEND playbook rules, snapshot balance section",
+        "keywords": ("FACTORY-BALANCE", "SUPERSEDE-DONT-AMEND", "lane_streak",),
+        # Metrics contracts (#153 merged without its row; added here so main is green again).
+        "pr": 153,
+        "name": "OBS-METRICS: metrics fact record contracts and METRICS.md catalog",
+        "keywords": ("observability/METRICS.md", "gen_ai.inference/v1", "task.outcome/v1",),
+    },
+    {
+        # Hive Unknowns fix (Kyle t1685u): row rides in its own PR so the merge leaves main green.
+        "pr": 152,
+        "name": "OBS-KANBAN: kanban backlog feed, observed wave jobs, lease-bound fleet identity",
+        "keywords": ("--kanban-board", "kanban_unavailable", "bundlebees.attempt-route/1", "test_obs_attempt_binding.py",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
@@ -293,10 +674,25 @@ def _read_changelog() -> str:
     return CHANGELOG_MD.read_text(encoding="utf-8")
 
 
+#: The untagged release-candidate section(s) whose entries still count as
+#: "Unreleased" for coverage: a dated heading prepared for a tag that does not
+#: exist yet (26-coordinated-release.md). Remove the version once it is tagged.
+UNTAGGED_CANDIDATE_VERSIONS = ("0.1.0",)
+
+
 def _unreleased_section() -> str:
-    match = re.search(r"(?ms)^## Unreleased\s*$\n(.*?)(?=^## |\Z)", _read_changelog())
+    text = _read_changelog()
+    match = re.search(r"(?ms)^## Unreleased\s*$\n(.*?)(?=^## |\Z)", text)
     assert match is not None, "CHANGELOG.md must keep a '## Unreleased' section"
-    return match.group(1)
+    parts = [match.group(1)]
+    for version in UNTAGGED_CANDIDATE_VERSIONS:
+        candidate = re.search(
+            rf"(?ms)^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$\n(.*?)(?=^## |\Z)",
+            text,
+        )
+        if candidate is not None:
+            parts.append(candidate.group(1))
+    return "\n".join(parts)
 
 
 def _in_review_subsection() -> str:

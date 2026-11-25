@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Build workflow — Kyle Durepos</title>
+<style>
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-normal-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-normal-500.woff2") format("woff2");
+  font-weight: 500; font-style: normal;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-normal-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-italic-400.woff2") format("woff2");
+  font-weight: 400; font-style: italic;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/IBMPlexMono-normal-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/IBMPlexMono-normal-500.woff2") format("woff2");
+  font-weight: 500; font-style: normal;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("fonts/InstrumentSerif-normal-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("fonts/InstrumentSerif-italic-400.woff2") format("woff2");
+  font-weight: 400; font-style: italic;
+}
+
+:root {
+  --bg: #0B0C0F;
+  --panel: #14161B;
+  --panel-2: #1A1D24;
+  --line: #2C303A;
+  --line-2: #3C414C;
+  --text: #EDEAE4;
+  --muted: #8D919A;
+  --dim: #5E636D;
+  --gold: #C6A56A;
+  --gold-dim: #8F7544;
+  --teal: #7D9B96;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IBM Plex Sans", sans-serif;
+  font-weight: 400;
+  width: 3200px;
+  height: 2480px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  position: relative;
+  width: 3200px;
+  height: 2480px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.kicker {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.section-label {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.num {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+.card-title {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+  margin: 6px 0 12px;
+}
+.card p, .card li {
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.card p + p { margin-top: 8px; }
+.card ul { list-style: none; margin-top: 10px; }
+.card li {
+  padding-left: 14px;
+  position: relative;
+  margin-top: 4px;
+}
+.card li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 9px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+}
+.mono {
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #D5D2CB;
+  letter-spacing: 0.01em;
+}
+.card ul + p { margin-top: 14px; }
+
+.card {
+  position: absolute;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 22px 24px 20px;
+}
+.card.inner {
+  background: var(--panel-2);
+}
+.card.gate { border-color: #4A3F2A; }
+.band {
+  position: absolute;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+}
+
+.pill {
+  position: absolute;
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 100px;
+  background: var(--bg);
+  white-space: nowrap;
+  line-height: 1;
+  z-index: 4;
+}
+
+.wires {
+  position: absolute;
+  inset: 0;
+  width: 3200px;
+  height: 2480px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.header-kicker { position: absolute; left: 80px; top: 52px; }
+.header-source {
+  position: absolute;
+  right: 80px; top: 52px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.header-title {
+  position: absolute;
+  left: 80px; top: 88px;
+  font-family: "Instrument Serif", serif;
+  font-size: 86px;
+  font-weight: 400;
+  line-height: 1;
+  color: #F2EFE8;
+  letter-spacing: -0.02em;
+}
+.header-who {
+  position: absolute;
+  right: 80px; top: 104px;
+  text-align: right;
+}
+.header-who .name {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.header-who .when {
+  margin-top: 6px;
+  font-size: 17px;
+  color: var(--muted);
+}
+.header-deck {
+  position: absolute;
+  left: 80px; top: 192px;
+  font-size: 20px;
+  color: var(--muted);
+  letter-spacing: -0.01em;
+}
+.rule {
+  position: absolute;
+  left: 80px;
+  width: 3040px;
+  height: 1px;
+  background: var(--line-2);
+}
+
+.worker .card-title { font-size: 22px; margin: 4px 0 8px; }
+.worker p { font-size: 16px; line-height: 1.38; }
+.ship .card-title { font-size: 22px; margin: 4px 0 8px; }
+.ship p { font-size: 16px; line-height: 1.38; }
+
+.col-title {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 18px;
+}
+
+.loop-step {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.loop-step:last-child { border-bottom: 0; }
+.loop-n {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--teal);
+  padding-top: 2px;
+}
+.loop-step h3 {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+}
+.loop-step p {
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.pipe-row {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.pipe-row:last-child { border-bottom: 0; }
+.pipe-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+.pipe-io {
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.infra-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.infra-cell {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px 15px;
+}
+.infra-cell h3 {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.infra-cell p {
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.gate-list {
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.gate-note {
+  margin-top: 14px;
+  font-size: 17px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.lesson-item {
+  padding: 8px 0 8px 16px;
+  position: relative;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.lesson-item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 15px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+.footer {
+  position: absolute;
+  left: 80px;
+  right: 80px;
+  bottom: 56px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+.caption {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  z-index: 4;
+  background: var(--bg);
+  padding: 0 8px;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker header-kicker">mojomast  ·  workflow</div>
+  <div class="header-source">public documentation</div>
+  <div class="header-title">Build workflow</div>
+  <div class="header-who">
+    <div class="name">Kyle Durepos</div>
+    <div class="when">mid-October – mid-November 2026</div>
+  </div>
+  <div class="header-deck">How an idea becomes a researched plan, a verified patch, a tagged release, a catalog entry and a reversible deploy.</div>
+  <div class="rule" style="top: 240px;"></div>
+
+  <div class="section-label" style="position:absolute; left:80px; top:262px;">01  The shipping path</div>
+
+  <!-- 01 Idea -->
+  <div class="card" style="left:80px; top:300px; width:500px; height:210px;">
+    <div class="num">01</div>
+    <div class="card-title">Idea</div>
+    <p>Kyle describes the outcome in plain words, often with a reference — a video, a repo or a screenshot.</p>
+  </div>
+
+  <!-- 02 Plan -->
+  <div class="card" style="left:80px; top:548px; width:500px; height:340px;">
+    <div class="num">02</div>
+    <div class="card-title">Plan &amp; spec</div>
+    <p>An agent reads current docs and source, then writes a <span class="mono">PLAN.md</span> or <span class="mono">SPEC.md</span> with numbered tasks, defaults and open questions.</p>
+    <ul>
+      <li>Contracts first (Slice 0)</li>
+      <li>Non-overlapping file leases</li>
+      <li>Dependent work in waves</li>
+      <li>One integration PR</li>
+    </ul>
+    <p>Kyle approves a scoped plan: it names what is allowed and what is not.</p>
+  </div>
+
+  <!-- 03 Orchestrator -->
+  <div class="card" style="left:840px; top:300px; width:2280px; height:210px;">
+    <div class="num">03</div>
+    <div class="card-title">Orchestrator</div>
+    <p>A Grok Bot coordinates the work. <strong style="color:#EDEAE4;font-weight:500;">MR.INDIA</strong> is the general orchestrator. Specialists: Hermes Forge and Hermes Plugin Builder. Project bots: Cheese, BABA BOOEY, DOLAN, hammy. Codex sessions contribute research, review and creative packs. Hermes and Pi run as agents in Orbit. Briefs are self-contained: hard rules first, approved and not-approved scope, measurable acceptance, and the evidence to bring back.</p>
+  </div>
+
+  <!-- 04 Workers -->
+  <div class="card worker inner" style="left:840px; top:528px; width:558px; height:360px;">
+    <div class="num">04a</div>
+    <div class="card-title">DeepSeek bees</div>
+    <p>Cua sandboxes on Kyle’s Windows PC, reached through the Orbit launcher. The bulk of leased coding since early November. Briefs are self-contained. Up to six bees at once. Heavy work stays on the PC, not the box.</p>
+  </div>
+  <div class="card worker inner" style="left:1414px; top:528px; width:558px; height:360px;">
+    <div class="num">04b</div>
+    <div class="card-title">Executor subagents</div>
+    <p>Short-lived Grok Bot workers on the box: plan folds, screenshot sets, film plans, merges and documentation.</p>
+  </div>
+  <div class="card worker inner" style="left:1988px; top:528px; width:558px; height:360px;">
+    <div class="num">04c</div>
+    <div class="card-title">Cursor cloud agents</div>
+    <p>Opus, Sonnet, Gemini or Grok. Used for contract slices, audits, hard features and one coherent PR. Last resort — only when Kyle asks.</p>
+  </div>
+  <div class="card worker inner" style="left:2562px; top:528px; width:558px; height:360px;">
+    <div class="num">04d</div>
+    <div class="card-title">Asset pipelines</div>
+    <p>GenerateImage, Google Colab with a CU cap, ComfyUI, Remotion on CPU (zero CU), and HyperFrames. Game assets are original, with provenance. Hermes and EOH shots are always dark mode. No slop&#8209;style graphics.</p>
+  </div>
+
+  <!-- 05 Verify -->
+  <div class="card" style="left:80px; top:980px; width:820px; height:270px;">
+    <div class="num">05</div>
+    <div class="card-title">Verify <span class="mono" style="font-size:16px;color:#8D919A;font-weight:400;">verify.sh</span></div>
+    <p>Lock; fast-forward the feature branch; reject any file outside <span class="mono" style="font-size:15px;">assigned_files</span>; run the task’s tests, then the suite, under <span class="mono" style="font-size:15px;">nice</span> and <span class="mono" style="font-size:15px;">ionice</span>; measure the schema budget; secret-scan; commit and push the feature branch only.</p>
+    <p>Worker claims are self-reported — only what verify reproduces counts.</p>
+  </div>
+
+  <!-- 06 PR -->
+  <div class="card" style="left:980px; top:980px; width:440px; height:270px;">
+    <div class="num">06</div>
+    <div class="card-title">Feature branch + PR</div>
+    <p>One integration PR from the feature branch to main, with a summary and a question card for Kyle.</p>
+  </div>
+
+  <!-- 07 Merge -->
+  <div class="card gate" style="left:1620px; top:980px; width:1500px; height:92px; padding:18px 24px;">
+    <div style="display:flex; align-items:baseline; gap:18px;">
+      <div class="num">07</div>
+      <div class="card-title" style="margin:0; font-size:26px;">Merge  →  tag  →  release</div>
+      <p style="margin:0; font-size:16px;">Each step needs its own yes. Merge style follows the repo.</p>
+    </div>
+  </div>
+
+  <!-- 08a Deploy -->
+  <div class="card ship gate" style="left:1620px; top:1090px; width:484px; height:160px; padding:16px 20px;">
+    <div class="num">08a</div>
+    <div class="card-title">Deploy</div>
+    <p>moltussy-1, the public VPS, or GitHub Pages. Backup first; record the rollback. Restart only what is needed. Verify the real path.</p>
+  </div>
+  <div class="card ship gate" style="left:2120px; top:1090px; width:484px; height:160px; padding:16px 20px;">
+    <div class="num">08b</div>
+    <div class="card-title">Nous catalog</div>
+    <p>YAML-only PR, full SHA, images pinned to it, at most six screenshots. Change requests: fix, patch release, repin, point-by-point reply.</p>
+  </div>
+  <div class="card ship gate" style="left:2620px; top:1090px; width:500px; height:160px; padding:16px 20px;">
+    <div class="num">08c</div>
+    <div class="card-title">Demo, post, form</div>
+    <p>Demo under 90 seconds, 1080p30. X post drafted as a card; Kyle posts. Typeform filled to Submit; send only on yes.</p>
+  </div>
+
+  <!-- Pills sitting on connector gaps -->
+  <div class="pill" style="left:612px; top:706px;">Kyle approves the plan</div>
+  <div class="pill" style="left:1428px; top:1014px;">Kyle’s explicit yes</div>
+
+  <div class="caption" style="left:1288px; top:908px;">result manifest · feature branch only</div>
+  <div class="caption" style="left:2120px; top:1262px;">change requests return to the orchestrator</div>
+
+  <!-- ===================== 02 / 03 / 04 ===================== -->
+  <div class="rule" style="top:1320px;"></div>
+
+  <div class="band" style="left:80px; top:1352px; width:980px; height:700px; padding:28px 32px 24px;">
+    <div class="col-title">02  Reproducible collaboration</div>
+    <p style="font-size:17px; color:var(--muted); line-height:1.4; margin:-4px 0 12px;">Roles, not a required set of agents. The unit of progress is an accepted artifact with evidence. Existing publication and deployment gates still apply.</p>
+    <div class="loop-step">
+      <div class="loop-n">01</div>
+      <div>
+        <h3>Define the outcome</h3>
+        <p>Kyle sets the outcome and constraints. Restate them, read current sources, and name uncertainties.</p>
+      </div>
+    </div>
+    <div class="loop-step">
+      <div class="loop-n">02</div>
+      <div>
+        <h3>Package</h3>
+        <p>A versioned spec or <span style="font-family:'IBM Plex Sans',sans-serif;font-size:15px;font-weight:500;color:#D5D2CB;">HANDOFF.md</span>: baseline, decisions, inputs, checks, return format.</p>
+      </div>
+    </div>
+    <div class="loop-step">
+      <div class="loop-n">03</div>
+      <div>
+        <h3>Produce</h3>
+        <p>Build the agreed slice. Preserve editable sources. Return the artifact plus <span style="font-family:'IBM Plex Sans',sans-serif;font-size:15px;font-weight:500;color:#D5D2CB;">RETURN.md</span> evidence.</p>
+      </div>
+    </div>
+    <div class="loop-step">
+      <div class="loop-n">04</div>
+      <div>
+        <h3>Review evidence</h3>
+        <p>Check acceptance against the actual artifact. Reproduce consequential findings. Label checks passed, failed, not run, or blocked.</p>
+      </div>
+    </div>
+    <div class="loop-step">
+      <div class="loop-n">05</div>
+      <div>
+        <h3>Revise or integrate</h3>
+        <p>A specific correction returns to the package. Accepted work is integrated only within authorization.</p>
+      </div>
+    </div>
+    <div class="loop-step">
+      <div class="loop-n">06</div>
+      <div>
+        <h3>Save the lesson</h3>
+        <p>Record the resulting revision and a reusable lesson or template. It feeds back into research, skills and the next brief.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="band" style="left:1110px; top:1352px; width:980px; height:700px; padding:28px 32px 24px;">
+    <div class="col-title">03  Pipelines</div>
+    <p style="font-size:17px; color:var(--muted); line-height:1.4; margin:-4px 0 10px;">Flows we built or ran inside the shipping path.</p>
+    <div class="pipe-row"><div class="pipe-name">Bees</div><div class="pipe-io">Brief JSON → verified commit on a feature branch</div></div>
+    <div class="pipe-row"><div class="pipe-name">Plugin zero → listed</div><div class="pipe-io">Idea → released plugin + YAML catalog entry, SHA-pinned</div></div>
+    <div class="pipe-row"><div class="pipe-name">Catalog review-fix</div><div class="pipe-io">Maintainer review → fix PR, patch release, repin, reply</div></div>
+    <div class="pipe-row"><div class="pipe-name">Hackathon submission</div><div class="pipe-io">Released plugin → demo video, X draft, Typeform</div></div>
+    <div class="pipe-row"><div class="pipe-name">Comfyrizz film</div><div class="pipe-io">Chat brief → narrated motion-graphics MP4</div></div>
+    <div class="pipe-row"><div class="pipe-name">Remotion CPU films</div><div class="pipe-io">Timeline + local assets → MP4 at zero Google Colab CU</div></div>
+    <div class="pipe-row"><div class="pipe-name">Google Colab GPU</div><div class="pipe-io">Hashed jobs → stills and plates, under a CU cap</div></div>
+    <div class="pipe-row"><div class="pipe-name">HyperFrames promos</div><div class="pipe-io">HTML/CSS motion scenes + voiceover → MP4</div></div>
+    <div class="pipe-row"><div class="pipe-name">assetrizz</div><div class="pipe-io">Style packs × taxonomy → catalogued original PNGs</div></div>
+    <div class="pipe-row"><div class="pipe-name">Shortrizz</div><div class="pipe-io">Long video → captioned 9:16 shorts</div></div>
+    <div class="pipe-row"><div class="pipe-name">photo-to-part evals</div><div class="pipe-io">Real photos + sealed evals → scored rounds per release</div></div>
+    <div class="pipe-row"><div class="pipe-name">Temple of Hermes ISO</div><div class="pipe-io">HolyC sources → verified ISO, qcow2 and SHA256SUMS</div></div>
+    <div class="pipe-row"><div class="pipe-name">Deploy with rollback</div><div class="pipe-io">Approved tag → running host, with backup and ROLLBACK.sh</div></div>
+    <div class="pipe-row"><div class="pipe-name">Independent review</div><div class="pipe-io">Pinned revision + report → reproduction, fix, revised evidence</div></div>
+    <div class="pipe-row"><div class="pipe-name">Creative pack handoff</div><div class="pipe-io">Selected direction → editable source, exports, preview, brief</div></div>
+  </div>
+
+  <div class="band" style="left:2140px; top:1352px; width:980px; height:700px; padding:28px 32px 24px;">
+    <div class="col-title">04  Infrastructure</div>
+    <p style="font-size:17px; color:var(--muted); line-height:1.4; margin:-4px 0 16px;">Where the work runs. Private hosts and URLs are omitted. Ask before any deploy or restart. Back up first; deploy the approved tag; verify the real path; keep a recorded rollback.</p>
+    <div class="infra-grid">
+      <div class="infra-cell">
+        <h3>The box</h3>
+        <p>Shared Linux workspace for every Grok Bot. Orbit, coordinators, verify and git live here. Services are controlled with boxctl. Heavy work uses nice/ionice, or is sent to bees.</p>
+      </div>
+      <div class="infra-cell">
+        <h3>Kyle’s Windows PC</h3>
+        <p>Docker Desktop and Cua. The bee launcher runs here. The model key stays on the PC. A launcher restart needs Kyle’s OK.</p>
+      </div>
+      <div class="infra-cell">
+        <h3>moltussy-1</h3>
+        <p>Hermes test host. Dashboard and gateway run as user services; plugins are git checkouts. Every deploy records a backup and rollback.</p>
+      </div>
+      <div class="infra-cell">
+        <h3>Public VPS</h3>
+        <p>nginx, Docker and systemd. Public sites and the Temple of Hermes BBS. Isolated TLS, one published app port, previous container kept until accepted.</p>
+      </div>
+      <div class="infra-cell">
+        <h3>GitHub</h3>
+        <p>Repos, releases and Pages. Catalog work uses a fork branch. Secret-scan before every push. No force-push or history rewrite without a yes.</p>
+      </div>
+      <div class="infra-cell">
+        <h3>Google Colab</h3>
+        <p>GPU runtimes for ComfyUI. Ask before any spend. Every run has a CU cap, is torn down afterwards, and has its spend logged.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== 05 GATES + 06 LESSONS ===================== -->
+  <div class="band" style="left:80px; top:2120px; width:2010px; height:252px; padding:28px 36px 24px; border-color:#4A3F2A;">
+    <div class="col-title">05  Approval gates  ·  only Kyle’s own words count</div>
+    <div class="gate-list">merge  ·  tag  ·  release  ·  catalog PR, open or repin  ·  deploy or restart (Orbit, moltussy-1, VPS, PC launcher)  ·  upstream comments  ·  X posts (Kyle posts himself)  ·  form submits  ·  GitHub Pages  ·  Google Colab spend  ·  deleting anything  ·  force-push, branch deletion, history rewrite  ·  Cursor cloud agents</div>
+    <div class="gate-note">A checklist, a sibling bot’s relay, or an ambiguous “go ahead” is not permission. Confirm relayed approvals with Kyle. Stop or hold means stop now — don’t restart until he asks.</div>
+  </div>
+
+  <div class="band" style="left:2140px; top:2120px; width:980px; height:252px; padding:28px 32px 24px;">
+    <div class="col-title" style="color:var(--teal);">06  Lessons that feed back</div>
+    <div class="lesson-item">Contracts first, then leased parallel slices, then one integration PR.</div>
+    <div class="lesson-item">Measure tool-schema cost on every change. Smoke-test on a real Hermes before tagging a review fix.</div>
+    <div class="lesson-item">Keep evidence in new folders; never overwrite earlier sets. Secret-scan before every push.</div>
+    <div class="lesson-item">Record every deploy’s backup path and rollback. Promote a correction only at its proper scope, into a skill or template.</div>
+  </div>
+
+  <div class="footer">
+    <div>Documented from what shipped, mid-October to mid-November 2026  ·  facts from mojomast/workflow</div>
+    <div>No secrets, tailnet hosts, private IPs or private URLs</div>
+  </div>
+
+  <svg class="wires" viewBox="0 0 3200 2480" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#5E636D" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+      </marker>
+      <marker id="arrow-gold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#C6A56A" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+      </marker>
+      <marker id="arrow-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#7D9B96" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+      </marker>
+    </defs>
+
+    <!-- Idea bottom 510 to Plan top 548, x center 330 -->
+    <path d="M 330 510 L 330 548" fill="none" stroke="#5E636D" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+    <!-- Plan right 580, mid ~718 to workers / orch left 700 -->
+    <path d="M 580 718 L 832 718" fill="none" stroke="#C6A56A" stroke-width="1.8" marker-end="url(#arrow-gold)"/>
+
+    <!-- Orchestrator down to workers: 300+210=510, workers at 528, mid x of orch ~1910. Subtle, optional. Skip — adjacency is clear. -->
+
+    <!-- Workers bottom (888) down, left rail, into Verify top (980). -->
+    <!-- Workers span 700–3120, center 1910. Verify center 490. -->
+    <path d="M 1980 888 L 1980 920 L 490 920 L 490 972" fill="none" stroke="#5E636D" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+    <!-- Verify right 900 to PR left 980, cy 1115 -->
+    <path d="M 900 1115 L 972 1115" fill="none" stroke="#5E636D" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+    <!-- PR right 1420 to Merge left 1540. Merge is only 92px tall (980–1072), so aim at 1026. -->
+    <!-- Pill is at 1360, 1096 — slightly below merge center, in the gap toward ship cards. Move arrow to 1026 and place pill on it. -->
+    <path d="M 1420 1026 L 1612 1026" fill="none" stroke="#C6A56A" stroke-width="1.8" marker-end="url(#arrow-gold)"/>
+
+    <!-- Merge bottom 1072 to ship cards 1090. Centers: 1794, 2318, 2854 -->
+    <path d="M 1862 1072 L 1862 1088" fill="none" stroke="#C6A56A" stroke-width="1.6" marker-end="url(#arrow-gold)"/>
+    <path d="M 2362 1072 L 2362 1088" fill="none" stroke="#C6A56A" stroke-width="1.6" marker-end="url(#arrow-gold)"/>
+    <path d="M 2870 1072 L 2870 1088" fill="none" stroke="#C6A56A" stroke-width="1.6" marker-end="url(#arrow-gold)"/>
+
+    <!-- Lessons feed back: from lessons panel left (2140, 2210 mid) is far. From loop bottom-left up the margin into Plan. -->
+    <!-- Loop is 80,1352. Plan left is 80,548–888. Rail at x=64. -->
+    <path d="M 64 2240 L 64 718 L 78 718" fill="none" stroke="#7D9B96" stroke-width="1.6" marker-end="url(#arrow-teal)"/>
+    <text x="54" y="1400" fill="#7D9B96" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="500" letter-spacing="0.18em" transform="rotate(-90,54,1400)">LESSONS FEED BACK</text>
+  </svg>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,98 @@
+name: Four-repository Rails acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundlebees_sha:
+        description: Reviewed BundleBees commit (40 lowercase hex characters)
+        required: true
+      hyvv_sha:
+        description: Reviewed Hyvv commit
+        required: true
+      orbitdesktop_sha:
+        description: Reviewed Orbit Desktop commit
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  rails-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Require exact sibling revisions
+        env:
+          BUNDLEBEES_SHA: ${{ inputs.bundlebees_sha }}
+          HYVV_SHA: ${{ inputs.hyvv_sha }}
+          ORBIT_SHA: ${{ inputs.orbitdesktop_sha }}
+        run: |
+          for ref in "$BUNDLEBEES_SHA" "$HYVV_SHA" "$ORBIT_SHA"; do
+            [[ "$ref" =~ ^[0-9a-f]{40}$ ]] || { echo 'Expected a full commit SHA'; exit 1; }
+          done
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: workflow
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: mojomast/bundlebees
+          ref: ${{ inputs.bundlebees_sha }}
+          path: bundlebees
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: mojomast/hyvv
+          ref: ${{ inputs.hyvv_sha }}
+          path: hyvv
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: mojomast/orbitdesktop
+          ref: ${{ inputs.orbitdesktop_sha }}
+          path: orbitdesktop
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.1' # match Orbit's native-dependency CI
+          package-manager-cache: false
+      - name: Install Python prerequisites and the checksummed patch scanner
+        run: |
+          python -m pip install 'jsonschema==4.23.0' 'pytest==8.4.2' 'PyYAML==6.0.2' 'setuptools==78.1.1' 'hatchling==1.33.0'
+          cd "$RUNNER_TEMP"
+          mkdir scanner
+          curl -fsSL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          echo '5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba  gitleaks.tgz' | sha256sum -c -
+          tar -xzf gitleaks.tgz -C scanner gitleaks
+          echo "$RUNNER_TEMP/scanner" >> "$GITHUB_PATH"
+      - name: Check exact clean tuple, install locked Orbit, build and run all Rails cases
+        env:
+          WORKFLOW_SHA: ${{ github.sha }}
+          BUNDLEBEES_SHA: ${{ inputs.bundlebees_sha }}
+          HYVV_SHA: ${{ inputs.hyvv_sha }}
+          ORBIT_SHA: ${{ inputs.orbitdesktop_sha }}
+        run: |
+          jq -n '{workflow:env.WORKFLOW_SHA,bundlebees:env.BUNDLEBEES_SHA,hyvv:env.HYVV_SHA,orbitdesktop:env.ORBIT_SHA}' > "$RUNNER_TEMP/tuple.json"
+          python -B workflow/scripts/rails_tuple.py --ci-install --tuple "$RUNNER_TEMP/tuple.json" --out "$RUNNER_TEMP/rails-evidence"
+      - name: Archive the original fixture filenames and bytes
+        if: always()
+        run: |
+          if test -d "$RUNNER_TEMP/rails-evidence"; then
+            tar -czf "$RUNNER_TEMP/rails-evidence.tar.gz" -C "$RUNNER_TEMP" rails-evidence
+            (cd "$RUNNER_TEMP" && sha256sum rails-evidence.tar.gz > rails-evidence.tar.gz.sha256)
+          fi
+      - name: Retain JUnit, digests and disposable fixture handoffs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rails-tuple-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/rails-evidence.tar.gz
+            ${{ runner.temp }}/rails-evidence.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7

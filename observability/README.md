@@ -21,11 +21,16 @@ data, draw a dashboard, or define a usage schema.
 | `vcs.snapshot/v1` | `schemas/vcs-snapshot.schema.json` | Commits, open pull requests, and CI for allowlisted repos |
 | `board.snapshot/v1` | `schemas/board-snapshot.schema.json` | Board status counts and blocker age |
 | `resource.snapshot/v1` | `schemas/resource-snapshot.schema.json` | Credits, allowances, compute units, in-flight bees, host capacity |
+| `gen_ai.inference/v1` | `schemas/inference.schema.json` | One model call inside a bee attempt: timings (TTFT, duration, output tok/s), token counts, route, cost. See [METRICS.md](METRICS.md) |
+| `gen_ai.tool_call/v1` | `schemas/tool-call.schema.json` | One tool call: bounded tool name, duration, status. No arguments or results |
+| `resource.sample/v1` | `schemas/resource-sample.schema.json` | Container or host resource sample (memory, CPU, OOM) or a per-attempt rollup |
+| `task.outcome/v1` | `schemas/task-outcome.schema.json` | One finished task: phase timestamps, attempts, tokens and cost incl. wasted, outcome |
+| `ci.run/v1` | `schemas/ci-run.schema.json` | One CI job and shard: queue and run time, conclusion, flake flag |
 | `rizzstack.observability/snapshot/1` | `schemas/snapshot.schema.json` | One assembled point-in-time view across fleet, usage, pipeline, backlog, ci, failures, health, alerts, and bottlenecks sections, emitted by the read-only collector in `contrib/rizzstack-observability/` |
 
 ## Envelope discriminator
 
-Every record names its type as `<name>/v<major>`, so a consumer reading a mixed
+Most records name their type as `<name>/v<major>`, so a consumer reading a mixed
 JSONL stream can tell records apart. These records carry it in `schema`
 (`agent.lifecycle/v1`) and keep `schema_version: "v1"` as a version-only field.
 The Hermes Forge usage record is **frozen** as `bee.usage/v1` with its type in
@@ -38,7 +43,8 @@ ingestion normalizes both shapes with `envelope.record_type()` /
 | this package (lifecycle, failure, vcs, board, resource) and the assembled snapshot | `agent.lifecycle/v1` …; `rizzstack.observability/snapshot/1` for the snapshot | `v1`; absent for the snapshot (the rizzstack.* family carries its major version in the discriminator itself) | `schema` |
 | Hermes Forge usage (frozen) | absent | `bee.usage/v1` | `schema_version` |
 
-A record whose two fields contradict each other is refused.
+A record whose two fields contradict each other is refused. The assembled
+snapshot keeps its published discriminator verbatim and has no `schema_version`.
 
 ## Stable vocabulary vs provider labels
 
@@ -58,25 +64,28 @@ in `examples/`.
 The snapshot carries a `bottlenecks` section so a dashboard can show where
 work is piling up. It is computed read-only from records in the plugin state
 directory (job documents, the feature queue file, the live claim records,
-the recorded approval decisions, verify results, scheduler metrics) and from
-the fleet and pull-request sections the collector already reads — no new
-external data source. Every metric reads the record shapes the producers
+the recorded approval decisions, verify results, scheduler metrics), from
+the fleet and pull-request sections the collector already reads, and from
+read-only deploy-parity inputs (local Git revisions, deployed file bytes and
+the hyvv deploy marker). Every metric reads the record shapes the producers
 actually write: job documents are stored as HMAC envelopes
 (`{"body": {...}, "mac": ...}`, `job.py` `_seal`) and are unwrapped
 read-only and keylessly — the body is parsed as the document and the MAC is
 **not** verified here, because a read-only dashboard holds no state key; the
-reconciler, which holds the key, is the verifier of record. An envelope
-whose body is not an object counts as an unreadable job (an owner message),
-never a silent zero, and a record that cannot yield a timing value degrades
-to null with a status marker, never to a fabricated zero.
+reconciler, which holds the key, is the verifier of record. Only the sealed
+envelope shape is read: a document with no envelope (no `body`/`mac` pair)
+and an envelope whose body is not an object are both refused, so a bare
+job document counts as an unreadable job (an owner message), never a
+fabricated row or a silent zero. A record that cannot yield a timing value
+degrades to null with a status marker, never to a fabricated zero.
 
 Under the `rizzstack.observability/snapshot/1` discriminator the section,
-and the ci pull-request `created_at` field, are optional rather than
-required: both are new in this revision, no document emitted before this
-change contains them, and snapshots emitted earlier must keep validating
-without a discriminator bump. No old consumer expects the section, so
-optionality is the compatible path; the collector always emits both when it
-runs.
+its `open_prs` and `deploy_debt` fields, and the ci pull-request `created_at`
+field are optional rather than required: they are additive, no document
+emitted before their respective changes contains them, and snapshots emitted
+earlier must keep validating without a discriminator bump. No old consumer
+expects the additions, so optionality is the compatible path; the collector
+always emits them when it runs.
 
 Per pipeline stage, one row each for `verify`, `review`, `integrate` and
 `deploy`:
@@ -86,7 +95,35 @@ Per pipeline stage, one row each for `verify`, `review`, `integrate` and
 | `verify` | job tasks in the `verifying` state | the recorded transition into `verifying`, else the scheduler dispatch record for the task's attempt |
 | `review` | action-queue features in `ready_for_review` | the newest passing verify record among the linked job's attempts |
 | `integrate` | job tasks in the `verified` or `integrating` states | the recorded transition into `verified`, else the task's verify record, else the dispatch record |
-| `deploy` | open pull requests | the pull request `createdAt` reported by the CLI |
+| `deploy` | deployed surfaces in drift from merged main | no deploy-drift timestamp is recorded, so age is null |
+
+`bottlenecks.open_prs` is the independent open-pull-request count from CI;
+open pull requests are not deploy debt and never contribute to the deploy
+stage's `queue_depth` or the invariant's `awaiting_deploy`. The same count is
+echoed as `deploy_debt.open_prs` for consumers that read one object. A null
+count means at least one contributing repository count was unreadable.
+
+`deploy_debt` compares exactly four surfaces with merged `origin/main`:
+
+| Surface | Deployed source | Merged source and comparison |
+| --- | --- | --- |
+| `plugin` | `git rev-parse HEAD` in the installed plugin checkout | `git rev-parse origin/main` in the plugin repository; full 40-character hexadecimal revisions |
+| `collector` | SHA-256 of the running collector's deployed bytes | SHA-256 of the `origin/main:contrib/rizzstack-observability/collector.py` blob; the first 12 lowercase hexadecimal characters are reported and compared |
+| `obs_app` | SHA-256 of the deployed Observatory `app.js` bytes | SHA-256 of the `origin/main:apps/rizzstack-observatory/app.js` blob in the Orbit repository; the first 12 lowercase hexadecimal characters are reported and compared |
+| `hyvv` | the `hyvv-deployed-sha` marker | `git rev-parse origin/main` in the hyvv repository; full 40-character hexadecimal revisions |
+
+Revision and marker reads are case-insensitive and surrounding whitespace is
+stripped; emitted revisions are lowercase. A missing repository, deployed
+file or marker, an unreadable Git object, or a malformed, non-hex or truncated
+marker makes that row `unknown` with both revisions null. Unknown is never
+parity, drift or zero. When all four rows are readable, `status` is `known`
+and `debt` is the number of `drift` rows. When some are readable, `status` is
+`partial` and `debt` is null; when none are readable, `status` is
+`unavailable` and `debt` is null. The parity rows carry no deployment or
+drift timestamps, so deploy oldest-item age, dwell and throughput stay
+unknown rather than borrowing pull-request timestamps. `gateway_loaded` is
+not one of these four surfaces: checkout parity does not prove that a running
+gateway has loaded the installed code.
 
 Each row also carries dwell-time median and p95 over completed stays
 reconstructed from recorded job transitions: a stay opens on a transition
@@ -98,10 +135,11 @@ and integrate. Throughput reads `known` only when job documents were read
 and at least one recorded transition parsed; with tasks present and no
 parsed transition it reads `unknown` — unknown is never folded into 0.0.
 Review and deploy have no record of completed stays, so their dwell and
-throughput stay `unknown`; the only timing observable there is
-`oldest_item_age_s`, and the row's `state` still reflects dwell against the
-target, so it stays `unknown` for those stages too — a dashboard that wants
-an age-based signal reads `oldest_item_age_s` directly. The verify stage
+throughput stay `unknown`. Review's only timing observable is
+`oldest_item_age_s`; deploy parity records no drift time, so its age is null.
+Their `state` still reflects dwell against the target and therefore stays
+`unknown` — a dashboard that wants a review-age signal reads
+`oldest_item_age_s` directly. The verify stage
 carries the bees at work (`wip`) against the shared bee cap (`capacity`,
 with `capacity_source` of `bee_cap`).
 
@@ -148,7 +186,8 @@ false when the invariant genuinely does not hold, and null when any input
 it needs is unknown; unknown is never resolved into a confident answer.
 Supporting counts: `total_outstanding` (non-terminal features, or
 non-terminal job tasks when the queue is unreadable), `awaiting_review`,
-`awaiting_deploy`, `blocked_with_reason` plus `blocked_reasons`,
+`awaiting_deploy` (the deploy-debt count, null unless every parity surface is
+readable), `blocked_with_reason` plus `blocked_reasons`,
 `last_auto_progress_at` and its age (the newest recorded transition whose
 destination is an automatic forward state, or a dispatch, verify, or
 integrate scheduler event; human interventions and recovery decisions do

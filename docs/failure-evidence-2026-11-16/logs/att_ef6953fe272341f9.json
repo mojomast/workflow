@@ -1,0 +1,24 @@
+{
+  "at": "2026-11-16T23:15:00Z",
+  "attempt_id": "att_ef6953fe272341f9",
+  "branch": "feat/rails-r00-readiness",
+  "evidence": {
+    "diffstat": {
+      "added": 1462,
+      "deleted": 0,
+      "files": 11
+    },
+    "source_rev": "9850efaf6fb8309d03cdd9d0b1a9a0afb54215ac"
+  },
+  "files": [
+    "contrib/rizzstack-rails/provenance",
+    "contrib/rizzstack-rails/source_fixtures",
+    "docs/rails-r00-readiness.md",
+    "tests/test_rails_r00.py"
+  ],
+  "ok": false,
+  "sha": null,
+  "tests": [
+    "tests/test_rails_r00.py"
+  ]
+}

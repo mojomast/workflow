@@ -1,0 +1,25 @@
+{
+  "accepted": true,
+  "at": "2026-11-17T22:32:46Z",
+  "attempts": [
+    "att_0000000000000018"
+  ],
+  "head_sha": "0b6d871ae14531260cdeb21469d8263d71ea9608",
+  "problems": {},
+  "regressions": 0,
+  "suite": {
+    "backend": "local-synthetic",
+    "blocking": false,
+    "exit_code": 0,
+    "failed_tests": [],
+    "junit": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 1
+    },
+    "tail": "",
+    "timed_out": false
+  },
+  "wave_id": "r18-coding.w1"
+}

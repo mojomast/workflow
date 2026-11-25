@@ -1,0 +1,108 @@
+{
+  "acceptance": [
+    {
+      "evidence": [
+        "evidence/r18-score/0002-green.json",
+        "verify-results/att_0000000000000018.json",
+        "jobs/r18-coding/rails-evidence.json#sha256=5d3a2eceefa96a7a5d1925f7b2777e45a311b968b353d7062f3adc424d963e5e"
+      ],
+      "id": "AC-001",
+      "statement": "An empty input scores zero",
+      "status": "PASS",
+      "tests": [
+        "test_score.py::test_empty_score"
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "att_0000000000000018",
+      "project": "fixture/r18",
+      "source_rev": "fc2daa14691317bac173f165d3feee70e2068365",
+      "state": "accepted"
+    }
+  ],
+  "authorization": {
+    "approved_at": "2026-11-17T22:32:43Z",
+    "approved_by": "synthetic-test-intent",
+    "authority": "m1-authorization",
+    "reference": "authorizations/r18-coding.json"
+  },
+  "contract": {
+    "id": "r18-score",
+    "sha256": "59a04b52191e8c0973940a621d88bbd13d4ae91005ef62490ae8c6f76c4aeb3f"
+  },
+  "descendant": null,
+  "evidence_digest": "ca5a7af942d30f491cb283b03e9b8aa2bf6d235c33510be77d62ef94194b527d",
+  "feature_id": "empty-score",
+  "integration": {
+    "accepted_wave_digest": "fef02a3c93a92a190ab9a70f940b8e6cd27fc2a51cafd9011dff2f57c0f15f5f",
+    "commit": "0b6d871ae14531260cdeb21469d8263d71ea9608",
+    "evidence": "waves/r18-coding.w1.json",
+    "wave": "r18-coding.w1"
+  },
+  "job_id": "r18-coding",
+  "limitations": [
+    "The authorization reference names a sealed local record; BundleBees does not authenticate the person.",
+    "receiver_decision stays pending: bundlebees records the producer's evidence, never the receiver's decision",
+    "worker claims are self-reported; only verification, wave and transport records count as evidence"
+  ],
+  "packet_digest": "93a5d6805821f90da44cc29380026e17cdf811ed7a4eb20a7478cc2b584d2d3c",
+  "pending_approvals": [
+    "deploy",
+    "merge",
+    "publish",
+    "release"
+  ],
+  "receiver_decision": {
+    "decided_at": null,
+    "decided_by": null,
+    "note": null,
+    "status": "pending"
+  },
+  "red_green": {
+    "green": {
+      "phase": "green",
+      "record_path": "evidence/r18-score/0002-green.json",
+      "revision": "5195f7c5ddad867e5cddc7a6f029c075c328cd26",
+      "sha256": "7d8ed7e87c4c31e32c22861347a8d5476476d5b953765429e7b2aa979cf418a1"
+    },
+    "red": {
+      "phase": "red",
+      "record_path": "evidence/r18-score/0001-red.json",
+      "revision": "fc2daa14691317bac173f165d3feee70e2068365",
+      "sha256": "5565ea9ecacd7924bbd2909cdc29ff96c5b094decbac101160c5e65937a9ccec"
+    },
+    "test_first": true
+  },
+  "repository": {
+    "identity": "fixture/r18",
+    "source_rev": "fc2daa14691317bac173f165d3feee70e2068365"
+  },
+  "schema": "rizzstack.return/1",
+  "transport": null,
+  "unrun": [
+    "transport receipt"
+  ],
+  "verification": {
+    "base_rev": "fc2daa14691317bac173f165d3feee70e2068365",
+    "commit": "5195f7c5ddad867e5cddc7a6f029c075c328cd26",
+    "files": [
+      "score.py"
+    ],
+    "gitleaks": {
+      "result": "PASS"
+    },
+    "record_path": "verify-results/att_0000000000000018.json",
+    "suite": {
+      "command": [
+        "/var/tmp/rails-rc-unv0bamz/tooling/bin/python",
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "result": "PASS"
+    }
+  },
+  "workflow_ref": "8f9f283f98beb01aa2d0b722085eefdc24ce0b37"
+}

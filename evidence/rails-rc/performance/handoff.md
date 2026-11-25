@@ -1,0 +1,22 @@
+# Authenticated R12 HTTP page measurement
+
+One candidate: a covering expression index matching the **existing local attempt selector** and ingest-sequence ordering. It was applied only to the private synthetic SQLite backup in this directory. No R12, credential, cursor, response, cache or validation changes.
+
+Fixture: SQLite online backup from the synthetic candidate-soak run; 100,000 unique seed events from ten writers plus 106 soak events already committed at backup. `lane-*.json` are the seed transaction receipts. Closed private file / ephemeral token; independent random credential, authenticated numeric loopback `GET` for every physical response, 401 without bearer, new request and server's usual short read-only connection/transaction for every wire page. No contact with the running soak server or its credential. R12 from clean detached Orbit `43a3cb61b8e5f9822c3bcc1431afe850b8ca0c3e` (reported runtime revision `adf8b3d77f5f657188b4be14c39ebc1d5c5007f0`).
+
+`measure.py` warms ten first-page requests per surface. Logical time measures all round trips through reading the complete response body, including IDs/cursor handling. Checks exact expected IDs and order against writer receipts, source gap and partial coverage, 32,768-byte cap, row caps and `X-Rails-Next-Cursor` progress. For the profiled A/B, whole response-and-cursor hashes agree for all ten lanes on each surface (view clock normalized).
+
+| Diagnostic p95, ten 500-row samples, ms | Events | View |
+|---|---:|---:|
+| Existing R12 (`red.json`) | 1481.543 | 690.446 |
+| With index (`indexed.json`) | 631.511 | 174.503 |
+
+Only `--profile` wraps the five named runtime functions with a wall timer. Old events median 1273.614 ms: median scan time 894 ms, envelope read/validation 198 ms, projection 107 ms, wire JSON 32 ms. Indexed median 438.271 ms: scans 62 ms, envelope read/validation 202 ms, projection 112 ms, wire JSON 31 ms. Both versions still perform ten physical authenticated reads for the first 500 events; the first reads 501 envelopes including lookahead and subsequent reads verify overlapping windows. The index does not remove that work. `index-cost.json` shows one 715.9 ms DDL statement and 15,212,544 additional DB bytes on this copy. SQLite 3.46.1 selected the new index under the normal hardened `trusted_schema=OFF` reader configuration. An existing populated DB would need a write transaction proportional to existing rows; this measurement does not justify an automatic on-open migration.
+
+Commands on the copy: `python3 -B measure.py red --profile`, `python3 -B measure.py indexed --add-index --profile`, `python3 -B measure.py indexed-100 --samples 100`. The final uninstrumented run takes the nearest-rank p95 across 100 logical pages per surface with a separate advancing cursor per lane (offsets 0 through 4500).
+
+**Uninstrumented 100 logical samples per surface, status completed:** events p95 **470.575 ms**, max **483.997 ms**; view p95 **184.800 ms**, max **192.238 ms** (`indexed-100.json`). All physical requests were authenticated. This is the indexed local-attempt configuration; the 10-sample profiled tail and default unindexed red are retained. Index-only change, one candidate. Bounds, expiry/rotation behavior, credential scopes, fresh connections and snapshot/canonical-envelope validation are unchanged by construction.
+
+**Pin/soak handoff:** canonical B `6d3d7101c0534e3e1a26c4ae010832a084f9afde` provides the standalone opt-in offline installer, test, and documentation (`docs/rails-attempt-index.md`). No vendor-listed runtime bytes changed. Focused test passes, including identity/lock/size, append with hardened schema mode, read parity, and repeat-install checks. Dropped the experimental index on the private copy, used the committed installer to build it and repeated it: `installed`, `already installed`; sqlite_schema SQL matches the measured index exactly. The snapshot and clean worktrees remain in this scratch directory for rechecks. No other ledgers or soak runs modified.
+
+For a final **indexed** soak, record the B commit and index SQL/installer outcome, and explicitly invoke the installer on the private initialized ledger before measurements (before seeding to include per-append overhead). Record authenticated HTTP samples as well as direct reader samples. Reuse of the older default/unindexed soak is not evidence of indexed write latency or indexed browser/stream performance. No need to restart that original run to preserve its results. Any tuple/qualification repins remain with the parent.

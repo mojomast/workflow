@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/ci-run.schema.json",
+  "title": "One CI job run (ci.run/v1)",
+  "description": "One row per GitHub Actions job (and shard) on an allowlisted repo, read with gh. Names and timings only, never logs or URLs. flake is true when a failed job passed on a re-run of the same commit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "repo",
+    "workflow",
+    "job",
+    "sha",
+    "run_attempt",
+    "event",
+    "conclusion"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ci.run/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "ts": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$"
+    },
+    "workflow": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,99}$"
+    },
+    "job": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._()/,-]{0,99}$"
+    },
+    "shard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 256
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "run_attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event": {
+      "enum": [
+        "push",
+        "pull_request",
+        "merge_group",
+        "schedule",
+        "workflow_dispatch",
+        "other"
+      ]
+    },
+    "conclusion": {
+      "enum": [
+        "success",
+        "failure",
+        "cancelled",
+        "skipped",
+        "timed_out",
+        "neutral",
+        "action_required",
+        "startup_failure",
+        "unknown",
+        null
+      ]
+    },
+    "queued_s": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "duration_s": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "flake": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "mq_wait_s": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "pr_number": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  }
+}

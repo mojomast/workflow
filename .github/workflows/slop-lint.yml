@@ -1,0 +1,50 @@
+name: slop-lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # GitHub merge queue: the same required checks run on the queued merge commit.
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slop-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  slop-lint:
+    name: slop-lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # Blocking ratchet: fails on findings above the committed baseline (new or
+      # higher counts) and on a missing or invalid baseline. Entries that no longer
+      # occur are tolerated (--pass-on-unpruned); shrink the baseline with `prune`.
+      - name: Run slop-lint against the baseline
+        shell: bash
+        env:
+          PYTHONPATH: tools/slop-lint
+        run: python3 -m slop_lint check . --baseline slop-baseline.json --pass-on-unpruned | tee "$RUNNER_TEMP/slop.txt"
+      - name: Append the report to the job summary
+        if: always()
+        run: |
+          {
+            echo "## slop-lint"
+            echo
+            if [ -s "$RUNNER_TEMP/slop.txt" ]; then
+              echo '```'
+              cat "$RUNNER_TEMP/slop.txt"
+              echo '```'
+            else
+              echo "No findings above the baseline."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

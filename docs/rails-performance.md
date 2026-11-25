@@ -1,0 +1,54 @@
+# Measuring the frozen §8 workload
+
+`scripts/bench_rails.py` builds a private local SQLite ledger. It records the actual four Git SHAs and refuses attached or dirty checkouts. Arrange four detached worktrees under a common parent named `workflow`, `bundlebees`, `hyvv`, and `orbitdesktop`; put the report and scratch **outside** them. Use a locally installed Chromium and an existing Orbit `node_modules` with Playwright Core and esbuild. No package installation is part of the run.
+
+```sh
+python3 -B workflow/scripts/bench_rails.py \
+  --tuple "$FOUR_SHA_JSON" --temp-parent "$SCRATCH" --output "$SCRATCH/new-report.json" \
+  --node-modules "$OFFLINE_ORBIT_MODULES" --chromium "$CHROMIUM_EXECUTABLE" \
+  --events 100000 --samples 100 --soak-seconds 1800
+```
+
+For a smoke test use `--events 5000 --samples 1 --soak-seconds 60` and a fresh output path. `--soak-seconds 0` skips all browser and stream checks. A report marked `completed` means the workload and identity assertions finished; inspect the numbers separately to decide whether latency targets were met. A failure leaves partial JSON and a nonzero exit. The old v1 [before/after reports](../evidence/rails-bench-linux.md) represent a different workload.
+
+## Index arms
+
+Since bundlebees #84 a new ledger creates the local-attempt index itself, so the default arm is already indexed and `--attempt-index` remains only as a deprecated spelling of it. P1 compares three mutually exclusive arms:
+
+- **default** (no flag): use the ledger as created.
+- **none** (`--no-attempt-index`): drop `rails_local_attempt_scan` before seeding, as the unindexed control.
+- **migrated** (`--migrate-attempt-index`): drop the index, seed without it, then run the pinned BundleBees installer over the existing ledger.
+
+Every `RailsLedger` writer open re-creates the index, so the ten producers bring it back during seeding. After they join and the receipt/count checks pass, the none and migrated arms drop it again; the migrated arm then installs it on the existing ledger and must report `installed`. `seed` checks the resulting state with `check_arm` and fails closed if it does not match the arm. Seed timing therefore includes index maintenance in all arms.
+
+Reports record `config.index_mode` and keep `config.attempt_index` (`false` only for the none arm). Seed stats record `index_mode` and `index_present_after_seed`; the migrated arm also records `migrate_ms`. Measurements from different arms are not interchangeable. `reads` measures the shared query API, not multi-request HTTP pagination.
+
+The P1 shape is five runs per arm, with a fresh output path each time:
+
+```sh
+nice -n 10 ionice -c3 timeout 2h python3 scripts/bench_rails.py \
+  --events 100000 --samples 100 --soak-seconds 0 \
+  [--no-attempt-index|--migrate-attempt-index] --output <fresh path>
+```
+
+Omit the bracket for the default arm; `--soak-seconds 0` skips all browser and stream checks, so P1 needs no Chromium or `node_modules`.
+
+## Soak arms
+
+P2 compares two four-hour soak arms against the live viewport. **Arm A** (no flag) starts the live selector empty and records how memory grows as marks accumulate. **Arm B** (`--fixed-history`) appends 2,000 live events to window 0 before `t=0`, saturating the renderer's 2,000-mark cap, so any memory that still grows in that arm is a leak rather than retained marks. The stream report records `fixed_history_seeded` (the pre-seeded count, 2,000 in a full Arm B run, absent otherwise); reports record `config.fixed_history`. `--soak-seconds` accepts `0..14400` (default 1,800) and `--fixed-history` requires a positive soak. Neither arm may reuse an output path:
+
+```sh
+nice -n 10 ionice -c3 timeout 5h python3 scripts/bench_rails.py \
+  --soak-seconds 14400 [--fixed-history] --output <fresh path>
+```
+
+Run each arm once for four hours (14,400 s); compare the per-window medians, last windows and peaks within and between arms. The timed loop cadence is unchanged from the shorter soak, and no soak is part of the offline test suite.
+
+## What the report measures
+
+- **Dataset.** Ten producer processes own separate ledger connections. They rendezvous before each 50-event transaction; SQLite serializes those writes. All appends use the canonical locked hash/dedupe path. Each writer's receipt ranges are checked against the local sequence, distinct-event count and projection results. The 100,000 initial records include ten attempts in one job. Every 500th record in each lane is a declared `source.gap` for `offline-worker`. Soak probes are additional records and do not alter the read benchmark.
+- **Queries.** Against the canonical BundleBees reader, discard one 500-limit warm-up per lane and surface. Then rotate through ten attempts in order, advancing a snapshot cursor for each. For both events and view, record 100 warm single-query timings (the first 500-limit call per logical page, including JSON serialization). The **separate** logical-500 metric includes all continuations, serialization, and ID checks to assemble exactly 500 records. Request only the remaining rows; never increase the 32 KiB result cap. Record every wire response's size, count and elapsed time. If the first-call p95 meets 500 ms but the 500-row p95 does not, state both. A single 500-item wire response is not supported for these records at this cap.
+- **Viewport stress.** Feed five real, assembled 500-mark lane projections into the Orbit sandbox renderer. Verify exactly the first 2,000 distinct IDs as SVG marks and as table rows, 500 hidden, and the visible missing-source warning. This is a cap test, not a claim of 2,000 simultaneously unobscured glyphs or a production shell that accumulates pages.
+- **Live browser.** A loopback-only fixture hosts the actual `openRailsShell` read module, actual Orbit read proxy, vendored R12 reader in its own process, and actual opaque renderer iframe. The write-only feedback UI is disabled. It does not launch the rest of the Orbit workspace. Browser requests use fresh synthetic credentials. Each five-minute window follows a new small job with one gap and 60 sequential probes against the same 100k ledger; the shell can render its entire subscribed job on its default page. This measures an active, bounded selector, **not** a tail-following 10k-mark attempt. A separate cap test uses the large projections above. A public event ID is used only to verify the selector's refetched body and DOM, never as a shortcut query.
+- **Visibility and replay.** For each connected append, observe an actual browser HTTP body through the proxy, then wait for the exact rendered mark across two animation frames. Check its center hit-tests to that mark and to the enclosing iframe, check all expected IDs in order, and assert no reconnect occurred. The parent's monotonic clock measures from before append to each acknowledgement, including driver/IPC overhead. This is an observed Chromium viewport rendering opportunity, not optical display latency. Separately break the SSE connection, wait for the disconnected UI, append while disconnected, reopen, verify the exact previous cursor in `Last-Event-ID`, and repeat the body/DOM checks. Report connected and replay p95 separately; use **connected browser-visible** p95 for the 3 s target.
+- **Soak and memory.** One browser and one R12 process remain alive over all six fixed windows. A full run schedules 30 append/reconnect pairs per five-minute window (one every ten seconds) and waits to the full 1,800 s deadline. Inspect actual start/finish times for missed cadence. Record R12 and fixture Node RSS/HWM plus Chromium process-set PSS (shared pages apportioned), and medians per window. Compare the six medians, last windows and peaks; one observation cannot prove a general leak bound. Physical SSD backing is not inferred from guest timings. Remote transport, mixed imported/local queries, skewed clocks, production coordinator hardware, and a physical display are outside this workload.

@@ -14,10 +14,12 @@ import importlib.util
 import json
 import os
 import shutil
+import sqlite3
 import stat
 import subprocess
 import sys
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -92,11 +94,14 @@ def fixture_collector(tmp_path: Path, **overrides):
     status_payload = {"in_flight": 2, "bee_cap": 12}
 
     def fleet_runner(argv):
-        assert argv[1:] == ["bundlebees", "attempts"] or argv[1:] == [
-            "bundlebees",
-            "status",
-        ], argv
-        if "attempts" in argv[1:]:
+        # The collector's ported CLI contract: the two read-only packet-1
+        # subcommands, each scoped by exactly the state directory the
+        # collector was given. A runner that would see a subcommand other
+        # than these - or a state directory the collector was never handed -
+        # must refuse, so a wrong invocation shape still fails the suite.
+        assert argv[1] == "bundlebees" and argv[2] in ("attempts", "status"), argv
+        assert argv[-2:] == ["--state-dir", str(state)], argv
+        if argv[2] == "attempts":
             return 0, json.dumps(fleet_payload), ""
         return 0, json.dumps(status_payload), ""
 
@@ -144,8 +149,125 @@ def fixture_collector(tmp_path: Path, **overrides):
     return collector.Collector(**defaults)
 
 
+SHA_A = "a" * 40
+SHA_B = "b" * 40
+
+
+def worker_state(tmp_path: Path) -> Path:
+    state = tmp_path / "worker-state"
+    (state / "deliveries").mkdir(parents=True, exist_ok=True)
+    (state / "verify-results").mkdir(parents=True, exist_ok=True)
+    return state
+
+
+def write_delivery(state: Path, attempt_id: str, repo: str) -> None:
+    (state / "deliveries" / f"{attempt_id}.json").write_text(
+        json.dumps({"schema": "rizzstack.delivery/1", "attempt_id": attempt_id, "repo": repo}),
+        encoding="utf-8",
+    )
+
+
+def write_verify(state: Path, attempt_id: str, *, ok, sha) -> None:
+    (state / "verify-results" / f"{attempt_id}.json").write_text(
+        json.dumps({"attempt_id": attempt_id, "ok": ok, "sha": sha}),
+        encoding="utf-8",
+    )
+
+
+def rails_usage_envelope(
+    dedupe_key: str,
+    attempt_id: str,
+    *,
+    chain_id: str = "worker-1.ledger-test",
+    recorded_at: str = "2026-11-16T09:00:00Z",
+    model: str = "deepseek-v4.1-flash",
+    provider: str = "deepseek",
+    input_tokens=None,
+    output_tokens=None,
+    thinking_tokens=None,
+) -> dict:
+    return {
+        "schema": "rizzstack.rails/1",
+        "chain_id": chain_id,
+        "dedupe_key": dedupe_key,
+        "recorded_at": recorded_at,
+        "kind": "usage.observed",
+        "scope": {"attempt_id": attempt_id},
+        "payload": {
+            "usage_record_id": dedupe_key,
+            "metric_scope": attempt_id,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "thinking_tokens": thinking_tokens,
+            "usage_basis": "final",
+            "provider": provider,
+            "model": model,
+        },
+    }
+
+
+def write_rails_ledger(path: Path, events) -> None:
+    conn = sqlite3.connect(str(path))
+    try:
+        conn.execute("CREATE TABLE event_rows (envelope_json TEXT NOT NULL, kind TEXT NOT NULL)")
+        for env in events:
+            conn.execute(
+                "INSERT INTO event_rows (envelope_json, kind) VALUES (?, ?)",
+                (json.dumps(env), env.get("kind", "usage.observed")),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def write_imported_rails_rows(path: Path, events) -> None:
+    """Write a peer's verbatim envelopes where the launcher ingest stores them.
+
+    A worker's usage receipts never enter this ledger's own event_rows: the
+    remote import commits them to imported_origin_rows as origin evidence.
+    """
+    conn = sqlite3.connect(str(path))
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS event_rows (envelope_json TEXT NOT NULL, kind TEXT NOT NULL)")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS imported_origin_rows"
+            " (chain_id TEXT NOT NULL, seq INTEGER NOT NULL, event_id TEXT NOT NULL,"
+            "  origin_hash TEXT NOT NULL, origin_bytes TEXT NOT NULL,"
+            "  PRIMARY KEY(chain_id, seq))"
+        )
+        next_seq = conn.execute(
+            "SELECT COALESCE(MAX(seq), 0) FROM imported_origin_rows"
+        ).fetchone()[0] + 1
+        for offset, env in enumerate(events):
+            seq = next_seq + offset
+            conn.execute(
+                "INSERT INTO imported_origin_rows VALUES (?, ?, ?, ?, ?)",
+                (env["chain_id"], seq, f"{env['chain_id']}:{seq}", "h" * 64, json.dumps(env)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def validated(doc) -> None:
     VALIDATOR.validate(doc, VALIDATOR.load(SNAPSHOT_SCHEMA))
+
+
+def assert_worker_unavailable_without_degrading(snap: dict) -> None:
+    """A non-sqlite rails ledger keeps usage live but marks the worker unavailable."""
+    assert snap["usage"]["status"] == "live"
+    assert "usage" not in snap["degraded"]
+    worker = snap["usage"]["by_role"]["worker"]
+    assert worker["status"] == "unavailable"
+    assert worker["error"] == "rails_ledger_unreadable"
+    assert worker["requests"] is None and worker["total"] is None
+
+
+def assert_optional_usage_fields(schema: dict) -> None:
+    usage = schema["$defs"]["usage_section"]
+    for name in ("by_role", "bee", "tokens_per_verified_patch"):
+        assert name in usage["properties"], name
+        assert name not in usage["required"], name
 
 
 # --------------------------------------------------------------------- schema
@@ -155,17 +277,22 @@ class TestSnapshotSchema:
     def test_schema_contract_loads_and_ids_correctly(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
         assert schema["properties"]["schema"]["const"] == "rizzstack.observability/snapshot/1"
-        for section in (
-            "fleet",
-            "usage",
-            "pipeline",
-            "backlog",
-            "ci",
-            "failures",
-            "health",
-            "alerts",
-        ):
-            assert section in schema["properties"], section
+        # The live contract is the collector's own section list: ten
+        # sections, read dynamically so a section added to the collector
+        # must reach the schema (and this test) in the same change - a
+        # hardcoded tuple drifted the moment bottlenecks shipped.
+        assert len(collector.SECTION_NAMES) == 10
+        for name in collector.SECTION_NAMES:
+            assert name in schema["properties"], name
+        # The schema requires exactly the live ten minus bottlenecks and
+        # decisions: both are always emitted by this collector but stay
+        # optional in the schema for documents emitted before they existed.
+        required = set(schema["required"]) - {"schema", "generated_at", "collector", "degraded"}
+        assert required <= set(collector.SECTION_NAMES), required - set(collector.SECTION_NAMES)
+        optional = set(collector.SECTION_NAMES) - required
+        assert optional == {"bottlenecks", "decisions"}, optional
+        assert all(name in schema["properties"] for name in optional)
+        assert_optional_usage_fields(schema)
 
     def test_every_record_carries_schema_and_generated_at(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
@@ -187,13 +314,22 @@ class TestSnapshotSchema:
         assert_envelope(schema)
 
     def test_all_unavailable_snapshot_validates(self, tmp_path: Path) -> None:
-        snap = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
+        snap = collector.Collector(
+            fleet_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW,
+        ).build_snapshot()
         validated(snap)
         assert snap["degraded"] == list(collector.SECTION_NAMES)
+        emitted = set(snap) - {"schema", "generated_at", "collector", "degraded"}
+        assert emitted == set(collector.SECTION_NAMES)
         for name in collector.SECTION_NAMES:
             body = snap[name]
-            assert body["status"] == "unavailable"
-            assert body["error"]
+            # The strict never-live-with-empty invariant: a section with no
+            # source is unavailable with a non-empty error - never live,
+            # never silently empty.
+            assert body["status"] == "unavailable", (name, body)
+            assert body["error"], (name, body)
+        assert all(snap[name]["status"] != "live" for name in collector.SECTION_NAMES)
 
     def test_unrecognized_section_or_row_is_rejected(self) -> None:
         base = collector.Collector(now_fn=lambda: FIXED_NOW).build_snapshot()
@@ -231,8 +367,14 @@ class TestFixtureSnapshot:
         # An unrecognized CLI label normalizes to unknown and keeps its label.
         assert by_id["att_9"]["state"] == "unknown"
         assert by_id["att_9"]["detail"] == "warp-drive"
-        assert snapshot["fleet"]["in_flight"] == 2
-        assert snapshot["fleet"]["bee_cap"] == 12
+        # In-flight is the collector's own count over the rows it read:
+        # att_1 is the only active row (att_9 is unknown), so the CLI
+        # status tally of 2 is never parroted over rows that contradict it.
+        assert snapshot["fleet"]["in_flight"] == 1
+        # The CLI status bee_cap is launcher configuration, not an observed
+        # fleet fact: the fleet section never surfaces it, even though the
+        # status payload reported 12 this run.
+        assert snapshot["fleet"]["bee_cap"] is None
 
     def test_pipeline_reflects_task_states_and_reasons(self, snapshot: dict) -> None:
         counts = snapshot["pipeline"]["counts"]
@@ -282,19 +424,25 @@ class TestFixtureSnapshot:
         go = next(r for r in snapshot["health"]["quota"] if r["kind"] == "go_allowance")
         assert go["value"] == 82.0
         assert go["status"] == "low"
-        assert snapshot["health"]["bees_in_flight"] == 2
+        # Health keeps deriving from the row-derived fleet count and from
+        # the CLI status bee_cap the fleet section itself never surfaces.
+        assert snapshot["health"]["bees_in_flight"] == 1
         assert snapshot["health"]["bee_cap"] == 12
 
     def test_usage_aggregates_and_preserves_unknowns(self, snapshot: dict) -> None:
         totals = snapshot["usage"]["totals"]
-        assert totals["requests"] == 5
+        # Five parsed records, but att_2 has every token field null: it is a
+        # record, not a usage-bearing request.
+        assert totals["requests"] == 4
+        assert snapshot["usage"]["source"]["record_count"] == 5
         assert totals["input_tokens"] == 1700
         assert totals["output_tokens"] == 850
         assert totals["total_tokens"] == 2550
         assert totals["cost_usd"] == 0.02
-        assert totals["tokens_status"] == "partial"
+        assert totals["tokens_status"] == "known"
         assert totals["cost_status"] == "partial"
-        assert totals["unknown_cost_records"] == 4
+        # Three usage-bearing rows carry no cost; att_2 is zero-token and null-cost.
+        assert totals["unknown_cost_records"] == 3
         assert totals["http_429_count"] == 2
         assert totals["fallback_count"] == 1
         assert snapshot["usage"]["source"]["parse_errors"] == 1
@@ -312,6 +460,121 @@ class TestFixtureSnapshot:
         # Records without a repository slug are preserved under one sentinel.
         assert by_repo["unknown/unknown"]["requests"] == 1
 
+    def test_totals_requests_counts_only_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": None, "output_tokens": None, "total_tokens": None,
+             "cost_usd": None},
+            {"ts": "2026-11-16T09:01:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": None},
+            {"ts": "2026-11-16T09:02:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": None, "output_tokens": 0, "total_tokens": None,
+             "cost_usd": None},
+            {"ts": "2026-11-16T09:03:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": 0.01, "repo": "mojomast/workflow"},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert body["status"] == "live"
+        assert totals["requests"] == 1
+        assert body["source"]["record_count"] == 4
+        # Zero-token rows are records, not unpriced requests.
+        assert totals["unknown_cost_records"] == 0
+        # The one usage-bearing row's totals are unchanged.
+        assert (totals["input_tokens"], totals["output_tokens"], totals["total_tokens"],
+                totals["cost_usd"]) == (10, 5, 15, 0.01)
+
+    def test_totals_requests_zero_for_an_all_zero_token_ledger(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": f"2026-11-16T09:0{i}:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": None, "output_tokens": None, "total_tokens": None,
+             "cost_usd": None}
+            for i in range(5)
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert body["status"] == "live"
+        assert totals["requests"] == 0
+        assert body["source"]["record_count"] == 5
+        assert (totals["input_tokens"], totals["output_tokens"], totals["total_tokens"],
+                totals["cost_usd"]) == (None, None, None, None)
+        assert totals["unknown_cost_records"] == 0
+
+    def test_tokens_status_scopes_numerator_to_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": None},
+            # An explicit 0/0/0 row is a record, not a request; its zeros must
+            # not inflate the token numerator past the usage-bearing requests.
+            {"ts": "2026-11-16T09:01:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": None},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 1
+        assert body["source"]["record_count"] == 2
+        assert totals["tokens_status"] == "known"
+
+    def test_cost_status_scopes_priced_numerator_to_usage_bearing_rows(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            # Priced usage-bearing request.
+            {"ts": "2026-11-16T09:00:00Z", "role": "work",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+             "cost_usd": 0.01},
+            # Unpriced usage-bearing request.
+            {"ts": "2026-11-16T09:01:00Z", "role": "verify",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 20, "output_tokens": 10, "total_tokens": 30,
+             "cost_usd": None},
+            # Zero-token row carrying a numeric cost: it contributes money to
+            # the total but must not make the priced counter claim coverage.
+            {"ts": "2026-11-16T09:02:00Z", "role": "coordinator",
+             "served_model": "deepseek-v4.1-flash", "route": "deepseek",
+             "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+             "cost_usd": 0.02},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 2
+        assert body["source"]["record_count"] == 3
+        assert totals["unknown_cost_records"] == 1
+        assert totals["cost_status"] == "partial"
+        assert totals["cost_usd"] == 0.03
+
+    def test_bucket_requests_still_count_records_seen(self, snapshot: dict) -> None:
+        usage = snapshot["usage"]
+        totals = usage["totals"]
+        source = usage["source"]
+        by_model = {(row["model"], row["provider"]): row for row in usage["by_model"]}
+        go_row = by_model[("go-worker-large", "go")]
+        # att_2 is zero-token and null-cost, yet its bucket still counts the record.
+        assert go_row["requests"] == 1
+        assert go_row["total_tokens"] is None
+        # Totals exclude it: the disclosed divergence is deliberate.
+        assert totals["requests"] == 4
+        assert sum(row["requests"] for row in usage["by_model"]) == source["record_count"] == 5
+        assert sum(row["requests"] for row in usage["by_repo"]) == source["record_count"] == 5
+
     def test_alerts_fire_from_thresholds(self, snapshot: dict) -> None:
         keys = {row["key"] for row in snapshot["alerts"]["active"]}
         assert "go_allowance_pct_used" in keys
@@ -320,9 +583,69 @@ class TestFixtureSnapshot:
         # One alert per threshold key and resource label, not one per record.
         deepseek_alerts = [r for r in snapshot["alerts"]["active"] if r["key"] == "deepseek_balance_below_usd"]
         assert len(deepseek_alerts) == 1
+        assert deepseek_alerts[0]["observed"] == 3.4  # latest of two balance readings
         go_alert = next(r for r in snapshot["alerts"]["active"] if r["key"] == "go_allowance_pct_used")
         assert go_alert["observed"] == 82.0
         assert go_alert["threshold"] == 80
+
+    def test_quota_recovery_clears_only_the_recovered_resource(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"ts": "2026-11-16T09:00:00Z", "go_label": "go-1", "go_allowance_used_pct": 90,
+             "deepseek_balance_usd": 2},
+            {"ts": "2026-11-16T09:20:00Z", "go_label": "go-1", "go_allowance_used_pct": 89},
+            {"ts": "2026-11-16T09:20:00Z", "go_label": "go-1", "go_allowance_used_pct": 5,
+             "deepseek_balance_usd": 12},
+            # Late arrival and undated hint must not replace a newer dated observation.
+            {"ts": "2026-11-16T09:10:00Z", "go_label": "go-1", "go_allowance_used_pct": 85},
+            {"deepseek_balance_usd": 1},
+            # Without timestamps, use the last reading for this label.
+            {"go_label": "go-2", "go_allowance_used_pct": 10},
+            {"go_label": "go-2", "go_allowance_used_pct": 95},
+        ]
+        ledger.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        snap = fixture_collector(tmp_path, usage_path=ledger).build_snapshot()
+        validated(snap)
+
+        hints = [
+            (r["kind"], r["resource_id"], r["value"]) for r in snap["health"]["quota"]
+            if r["kind"] != "bees_in_flight"
+        ]
+        assert sorted(hints) == [
+            ("deepseek_credit", None, 12), ("go_allowance", "go-1", 5), ("go_allowance", "go-2", 95)
+        ]
+        quota_alerts = [
+            (r["key"], r["observed"]) for r in snap["alerts"]["active"]
+            if r["key"] in ("deepseek_balance_below_usd", "go_allowance_pct_used")
+        ]
+        assert quota_alerts == [("go_allowance_pct_used", 95)]
+        # Quota hints carry no token counts, so none of these rows is a request.
+        assert snap["usage"]["totals"]["requests"] == 0
+        assert snap["usage"]["source"]["record_count"] == len(records)
+
+    def test_orbit_ledger_cost_and_observed_total(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"schema_version": "bee.usage/v1", "cost_usd_list": 0.125, "cost_status": "estimated",
+             "usage_status": "known", "ts_end": "2026-11-16T09:00:00Z", "usage_raw": {"total": 20},
+             "go_allowance": {"pct_used": 87.5, "pct_source": "opencode.allowance"},
+             "input_tokens": 10, "output_tokens": 5, "project": "mojomast/workflow"},
+            {"schema_version": "bee.usage/v1", "cost_usd_list": None, "cost_status": "unknown",
+             "input_tokens": None, "output_tokens": None, "usage_status": "partial", "usage_raw": {"total": 0},
+             "ts_end": "2026-11-16T09:30:00Z", "go_allowance": {"pct_used": 0.05, "pct_source": "derived_list_price"},
+             "project": "another-feature"},
+        ]
+        ledger.write_text("\n".join(map(json.dumps, records)))
+        source = fixture_collector(tmp_path, usage_path=ledger)
+        body, summary = source.usage_section()
+        assert body["totals"]["cost_usd"] == summary["today_cost_usd"] == 0.125
+        # The null-cost row resolves total_tokens 0, so it is not usage-bearing.
+        assert body["totals"]["unknown_cost_records"] == 0
+        assert [q["value"] for q in summary["quota_rows"]] == [87.5]
+        assert body["totals"]["total_tokens"] == 20
+        unassigned = next(row for row in body["by_repo"] if row["repo"] == "unknown/unknown")
+        assert (unassigned["total_tokens"], unassigned["tokens_status"]) == (0, "partial")
+        assert unassigned["input_tokens"] is None and unassigned["cost_usd"] is None
 
     def test_snapshot_contains_no_credential_shaped_material(self, snapshot: dict) -> None:
         dumped = json.dumps(snapshot)
@@ -330,20 +653,296 @@ class TestFixtureSnapshot:
             assert marker not in dumped
 
 
+EXPECTED_USAGE_AT_BASE = json.loads(r"""
+{"by_model":[{"cost_status":"partial","cost_usd":0.02,"generated_at":"2026-11-16T09:30:00Z","input_tokens":1700,"model":"deepseek-v4.1-flash","output_tokens":850,"provider":"deepseek","requests":4,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":2550},{"cost_status":"unknown","cost_usd":null,"generated_at":"2026-11-16T09:30:00Z","input_tokens":null,"model":"go-worker-large","output_tokens":null,"provider":"go","requests":1,"schema":"rizzstack.observability/snapshot/1","tokens_status":"unknown","total_tokens":null}],"by_repo":[{"cost_status":"unknown","cost_usd":null,"generated_at":"2026-11-16T09:30:00Z","input_tokens":400,"output_tokens":200,"repo":"mojomast/bundlebees","requests":1,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":600},{"cost_status":"partial","cost_usd":0.02,"generated_at":"2026-11-16T09:30:00Z","input_tokens":1100,"output_tokens":550,"repo":"mojomast/workflow","requests":3,"schema":"rizzstack.observability/snapshot/1","tokens_status":"partial","total_tokens":1650},{"cost_status":"unknown","cost_usd":null,"generated_at":"2026-11-16T09:30:00Z","input_tokens":200,"output_tokens":100,"repo":"unknown/unknown","requests":1,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":300}],"collected_at":"2026-11-16T09:30:00Z","error":null,"source":{"generated_at":"2026-11-16T09:30:00Z","parse_errors":1,"record_count":5,"schema":"rizzstack.observability/snapshot/1","usage_status":"partial"},"status":"live","totals":{"cost_status":"partial","cost_usd":0.02,"fallback_count":1,"generated_at":"2026-11-16T09:30:00Z","http_429_count":2,"input_tokens":1700,"output_tokens":850,"requests":4,"schema":"rizzstack.observability/snapshot/1","tokens_status":"known","total_tokens":2550,"unknown_cost_records":3}}
+""")
+
+
+class TestWorkerUsage:
+    def test_coordinator_only_usage_and_unavailable_worker(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"role": "coordinator", "input_tokens": 100, "output_tokens": 40,
+             "total_tokens": 140, "cost_usd": 0.01, "cache_read_tokens": 7},
+            {"role": "coordinator", "input_tokens": 10, "output_tokens": None,
+             "total_tokens": None, "cost_usd": None},
+        ]
+        ledger.write_text("".join(json.dumps(row) + "\n" for row in records), encoding="utf-8")
+        body, _ = collector.Collector(
+            usage_path=ledger, now_fn=lambda: FIXED_NOW, stale_after_s=1800
+        ).usage_section()
+        totals = body["totals"]
+        coordinator = body["by_role"]["coordinator"]
+        assert (coordinator["requests"], coordinator["input"], coordinator["output"],
+                coordinator["total"], coordinator["cost_usd"], coordinator["unknown_cost"],
+                coordinator["priced"], coordinator["cache_read"], coordinator["source"]) == (
+            totals["requests"], totals["input_tokens"], totals["output_tokens"],
+            totals["total_tokens"], totals["cost_usd"], totals["unknown_cost_records"],
+            1, 7, "bee.usage/v1")
+        assert body["by_role"]["unknown"]["requests"] == 0
+        assert body["by_role"]["worker"] == {
+            "status": "unavailable",
+            "source": "rizzstack-rails/usage.observed",
+            "requests": None,
+            "input": None,
+            "output": None,
+            "thinking": None,
+            "total": None,
+            "cost_usd": None,
+            "priced": 0,
+            "unknown_cost": 0,
+            "cache_read": None,
+        }
+        assert (body["bee"], body["tokens_per_verified_patch"]) == (None, None)
+
+    def test_role_split_counts_only_usage_bearing_rows(self, tmp_path: Path) -> None:
+        """A role-tagged heartbeat is not a request, and a non-coordinator
+        usage row must land in a bucket: the split reconciles with totals."""
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"role": "coordinator", "input_tokens": 10, "output_tokens": 5,
+             "total_tokens": 15, "cost_usd_list": 0.001},
+            # Quota heartbeat: carries the role, no tokens, no price.
+            {"role": "coordinator", "go_allowance_used_pct": 10.0,
+             "cost_usd_list": None},
+            # A worker-role row in the coordinator ledger must not vanish.
+            {"role": "work", "input_tokens": 7, "output_tokens": 3,
+             "total_tokens": 10, "cost_usd_list": None},
+        ]
+        ledger.write_text("".join(json.dumps(row) + "\n" for row in records), encoding="utf-8")
+        body, _ = collector.Collector(
+            usage_path=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        roles = body["by_role"]
+        assert body["totals"]["requests"] == 2
+        assert (roles["coordinator"]["requests"], roles["coordinator"]["total"],
+                roles["coordinator"]["unknown_cost"]) == (1, 15, 0)
+        assert (roles["unknown"]["requests"], roles["unknown"]["total"],
+                roles["unknown"]["unknown_cost"], roles["unknown"]["priced"]) == (1, 10, 1, 0)
+        worker_requests = roles["worker"]["requests"] or 0
+        assert (roles["coordinator"]["requests"] + roles["unknown"]["requests"]
+                + worker_requests) == body["totals"]["requests"]
+
+    def test_bee_sums_models_repos_and_tokens_per_verified_patch(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        write_delivery(state, "a1", "mojomast/workflow")
+        write_delivery(state, "a2", "mojomast/workflow")
+        write_delivery(state, "a3", "mojomast/bundlebees")
+        write_verify(state, "v1", ok=True, sha=SHA_A)
+        write_verify(state, "v2", ok="true", sha=SHA_B)
+        write_verify(state, "v3", ok=False, sha=SHA_A)
+        write_verify(state, "v4", ok=True, sha=None)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            rails_usage_envelope("e1", "a1", input_tokens=10, output_tokens=5, thinking_tokens=2,
+                                 model="model-a", provider="provider-a"),
+            rails_usage_envelope("e2", "a2", input_tokens=20, output_tokens=None, thinking_tokens=3,
+                                 model="model-a", provider="provider-a"),
+            rails_usage_envelope("e3", "a3", input_tokens=None, output_tokens=7, thinking_tokens=None,
+                                 model="model-b", provider="provider-b"),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        bee = body["bee"]
+        assert (bee["status"], bee["source"], bee["attempts"], bee["requests"]) == (
+            "known", "rizzstack-rails/usage.observed", 3, 3)
+        assert (bee["input"], bee["output"], bee["thinking"], bee["total"],
+                bee["cost_usd"], bee["priced"], bee["unknown_cost"]) == (30, 12, 5, 47, None, 0, 3)
+        worker = body["by_role"]["worker"]
+        assert (worker["requests"], worker["input"], worker["output"], worker["thinking"],
+                worker["total"], worker["unknown_cost"]) == (3, 30, 12, 5, 47, 3)
+        by_model = {(row["model"], row["provider"]): row for row in bee["by_model"]}
+        assert ((by_model[("model-a", "provider-a")]["requests"],
+                 by_model[("model-a", "provider-a")]["total"],
+                 by_model[("model-a", "provider-a")]["unknown_cost"]),
+                by_model[("model-b", "provider-b")]["total"]) == ((2, 40, 2), 7)
+        by_repo = {row["repo"]: row for row in bee["by_repo"]}
+        assert (set(by_repo),
+                (by_repo["mojomast/workflow"]["attempts"],
+                 by_repo["mojomast/workflow"]["requests"],
+                 by_repo["mojomast/workflow"]["total"]),
+                (by_repo["mojomast/bundlebees"]["attempts"],
+                 by_repo["mojomast/bundlebees"]["total"])) == (
+            {"mojomast/workflow", "mojomast/bundlebees"}, (2, 2, 40), (1, 7))
+        tpp = body["tokens_per_verified_patch"]
+        assert (tpp["numerator"], tpp["denominator"], tpp["value"], tpp["unit"],
+                tpp["scope"], tpp["cost"]["status"], "input+output+thinking" in tpp["basis"]) == (
+            47, 2, 23.5, "tokens", "all time", "partial", True)
+
+    def test_duplicate_usage_observed_counts_once(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:00:00Z",
+                                 input_tokens=5),
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:10:00Z",
+                                 input_tokens=9, output_tokens=1),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        bee = body["bee"]
+        assert bee["requests"] == 1
+        assert bee["attempts"] == 1
+        assert (bee["input"], bee["output"], bee["total"]) == (9, 1, 10)
+        assert bee["by_model"][0]["requests"] == 1
+        assert bee["by_repo"][0]["repo"] == "unknown"
+
+    def test_imported_origin_receipts_are_worker_usage(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        write_delivery(state, "a1", "mojomast/bundlebees")
+        write_verify(state, "a1", ok=True, sha=SHA_A)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [])
+        write_imported_rails_rows(ledger, [
+            rails_usage_envelope("i1", "a1", input_tokens=100, output_tokens=20),
+            rails_usage_envelope("i2", "a2", input_tokens=None, output_tokens=None,
+                                 thinking_tokens=7),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        worker = body["by_role"]["worker"]
+        assert (worker["status"], worker["requests"], worker["input"], worker["output"],
+                worker["thinking"], worker["total"]) == ("known", 2, 100, 20, 7, 127)
+        bee = body["bee"]
+        assert bee["attempts"] == 2
+        by_repo = {row["repo"]: row for row in bee["by_repo"]}
+        assert by_repo["mojomast/bundlebees"]["requests"] == 1
+        assert by_repo["unknown"]["requests"] == 1
+        tpp = body["tokens_per_verified_patch"]
+        assert (tpp["numerator"], tpp["denominator"], tpp["value"]) == (127, 1, 127.0)
+
+    def test_imported_receipt_and_admitted_row_count_once(self, tmp_path: Path) -> None:
+        state = worker_state(tmp_path)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:00:00Z",
+                                 input_tokens=5),
+        ])
+        write_imported_rails_rows(ledger, [
+            rails_usage_envelope("same", "a1", recorded_at="2026-11-16T09:10:00Z",
+                                 input_tokens=9, output_tokens=1),
+        ])
+        body, _ = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        bee = body["bee"]
+        assert (bee["requests"], bee["input"], bee["output"], bee["total"]) == (1, 9, 1, 10)
+
+    def test_long_lived_collector_sees_receipts_imported_after_the_first_read(
+        self, tmp_path: Path
+    ) -> None:
+        state = worker_state(tmp_path)
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [])
+        write_imported_rails_rows(ledger, [rails_usage_envelope("i1", "a1", input_tokens=10)])
+        reader = collector.Collector(
+            state_dir=state, rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        )
+        first, _ = reader.usage_section()
+        assert first["by_role"]["worker"]["requests"] == 1
+        time.sleep(0.02)
+        write_imported_rails_rows(ledger, [rails_usage_envelope("i2", "a2", input_tokens=20)])
+        second, _ = reader.usage_section()
+        assert (second["by_role"]["worker"]["requests"],
+                second["by_role"]["worker"]["total"]) == (2, 30)
+
+    def test_empty_rails_ledger_is_measured_zero_and_null_ratio(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "ledger.sqlite3"
+        write_rails_ledger(ledger, [
+            {"chain_id": "worker-1.ledger-test", "dedupe_key": "open", "kind": "lane.open",
+             "recorded_at": "2026-11-16T09:00:00Z", "scope": {"attempt_id": "a1"}, "payload": {}},
+        ])
+        body, _ = collector.Collector(
+            rails_ledger=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        worker = body["by_role"]["worker"]
+        assert worker["status"] == "empty"
+        assert (worker["requests"], worker["input"], worker["output"], worker["thinking"],
+                worker["total"], worker["unknown_cost"]) == (0, 0, 0, 0, 0, 0)
+        bee = body["bee"]
+        assert bee["status"] == "empty"
+        assert bee["attempts"] == 0 and bee["requests"] == 0
+        assert (bee["input"], bee["output"], bee["thinking"], bee["total"]) == (0, 0, 0, 0)
+        assert bee["by_model"] == [] and bee["by_repo"] == []
+        assert body["tokens_per_verified_patch"] is None
+
+    def test_non_sqlite_rails_ledger_is_unavailable_without_degrading(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        state = state_root / "state"
+        bad = tmp_path / "not-a-ledger.sqlite3"
+        bad.write_text("this is not sqlite\n", encoding="utf-8")
+        snap = fixture_collector(tmp_path, rails_ledger=bad).build_snapshot()
+        validated(snap)
+        assert_worker_unavailable_without_degrading(snap)
+        assert snap["usage"]["bee"] is None
+        assert snap["usage"]["tokens_per_verified_patch"] is None
+        assert snap["usage"]["totals"]["requests"] == 4
+        assert snap["usage"]["source"]["record_count"] == 5
+
+    def test_new_usage_shapes_are_optional_schema_properties(self) -> None:
+        schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
+        usage = schema["$defs"]["usage_section"]
+        for name in ("by_role", "bee", "tokens_per_verified_patch"):
+            assert name in usage["properties"]
+            assert name not in usage["required"]
+        assert usage["required"] == [
+            "status", "error", "collected_at", "source", "totals", "by_model", "by_repo"
+        ]
+
+    def test_usage_section_before_new_fields_matches_base_revision(self, tmp_path: Path) -> None:
+        snap = fixture_collector(tmp_path).build_snapshot()
+        validated(snap)
+        usage = copy.deepcopy(snap["usage"])
+        for name in ("by_role", "bee", "tokens_per_verified_patch"):
+            usage.pop(name, None)
+        assert usage == EXPECTED_USAGE_AT_BASE
+
+
 # ------------------------------------------------------------------ degradation
 
 
 class TestDegradation:
+    def test_invalid_usage_number_does_not_discard_other_observations(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "usage.jsonl"
+        # A JSON exponent outside the float range, a fractional count, and
+        # a large but valid integer must not break or round the snapshot.
+        ledger.write_text('{"cost_usd_list":1e999,"http_429_count":1e999,"input_tokens":-1,"output_tokens":0.5}\n'
+                          '{"cost_usd_list":0,"input_tokens":9007199254740993,"output_tokens":0}\n')
+        body, _ = collector.Collector(usage_path=ledger).usage_section()
+        totals = body["totals"]
+        assert totals["requests"] == 1
+        assert (totals["input_tokens"], totals["output_tokens"], totals["tokens_status"]) == (9007199254740993, 0, "known")
+        assert (totals["cost_usd"], totals["cost_status"], totals["http_429_count"]) == (0.0, "known", 0)
+
+    def test_ledger_read_error_does_not_publish_partial_aggregates(self, tmp_path, monkeypatch) -> None:
+        def interrupted(_path):
+            yield {"cost_usd_list": 1, "go_allowance_used_pct": 95}
+            raise OSError("fixture stream interrupted")
+
+        monkeypatch.setattr(collector, "jsonl_rows", interrupted)
+        body, summary = collector.Collector(usage_path=tmp_path / "usage.jsonl").usage_section()
+        assert (body["status"], body["error"]) == ("unavailable", "source_unreadable")
+        assert body["totals"]["cost_usd"] is None and not summary["quota_rows"]
+
     def test_missing_sources_degrade_with_stale_markers(self, tmp_path: Path) -> None:
         empty = tmp_path / "empty-state"
         empty.mkdir()
         snap = collector.Collector(
             state_dir=empty,
             usage_path=tmp_path / "nope.jsonl",
+            fleet_runner=lambda argv: (1, "", ""),
             now_fn=lambda: FIXED_NOW,
         ).build_snapshot()
         validated(snap)
-        assert set(snap["degraded"]) == set(collector.SECTION_NAMES)
+        # Every source is missing so every source-backed section degrades.
+        # decisions is the deliberate exception: an absent decisions
+        # directory is a genuine zero (no request raised), so it stays live
+        # with an empty requests list instead of pretending to be unknown.
+        assert set(snap["degraded"]) == set(collector.SECTION_NAMES) - {"decisions"}
+        assert (snap["decisions"]["status"], snap["decisions"]["requests"]) == ("live", [])
         assert snap["pipeline"]["error"] == "source_missing"
         assert snap["pipeline"]["jobs"] == []
         assert snap["failures"]["error"] == "source_missing"
@@ -449,9 +1048,120 @@ class TestFleetCli:
         validated(snap)
         assert snap["fleet"]["status"] == "live"
         assert snap["fleet"]["in_flight"] == 1
-        assert snap["fleet"]["bee_cap"] == 12
+        # The real status payload reported bee_cap 12; the fleet section
+        # never surfaces launcher configuration. The value still feeds the
+        # health quota row (asserted in the fixture-snapshot tests).
+        assert snap["fleet"]["bee_cap"] is None
         # verifying normalizes into the lifecycle-aligned working state
         assert snap["fleet"]["attempts"][0]["state"] == "working"
+
+
+# ------------------------------------------------------------- injected clocks
+
+
+class TestInjectedClock:
+    """A non-datetime injected clock must never crash the build.
+
+    The HTTP surface answers 500 when ``build_snapshot`` raises, and the
+    pre-fix failure was real: an int epoch hit ``utc_now_string``'s
+    ``astimezone`` as an ``AttributeError`` and the int-datetime mismatch
+    raised ``TypeError`` at the ``_fleet_row`` staleness arithmetic. The
+    collector normalizes the clock once instead (``as_utc_moment``): epoch
+    seconds, naive and aware datetimes all become an aware UTC moment, and a
+    value that is not a clock at all falls back to the real UTC clock.
+    """
+
+    @staticmethod
+    def row_payload() -> dict:
+        return {
+            "attempts": [
+                {
+                    "attempt_id": "att_clock",
+                    "state": "running",
+                    "updated_at": "2026-11-16T09:00:00Z",
+                }
+            ]
+        }
+
+    def test_epoch_seconds_clock_builds_a_validating_snapshot(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_EPOCH,
+        ).build_snapshot()
+        validated(snap)
+        assert snap["generated_at"] == "2026-11-16T09:30:00Z"
+        # Staleness ran against the normalized clock: the 30-minute-old row
+        # is exactly at the threshold, so it stays running and live.
+        assert snap["fleet"]["status"] == "live"
+        assert snap["fleet"]["attempts"][0]["state"] == "running"
+
+    def test_naive_datetime_clock_is_read_as_utc(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: FIXED_NOW.replace(tzinfo=None),
+        ).build_snapshot()
+        validated(snap)
+        assert snap["generated_at"] == "2026-11-16T09:30:00Z"
+        assert snap["fleet"]["status"] == "live"
+
+    def test_aware_non_utc_clock_is_normalized_to_utc(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        shifted = FIXED_NOW.astimezone(timezone(timedelta(hours=2)))
+        assert shifted.utcoffset() == timedelta(hours=2)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: shifted,
+        ).build_snapshot()
+        validated(snap)
+        assert snap["generated_at"] == "2026-11-16T09:30:00Z"
+
+    def test_non_clock_value_falls_back_to_the_real_utc_clock(self, tmp_path: Path) -> None:
+        state_root = freeze_state(tmp_path)
+        before = datetime.now(timezone.utc)
+        snap = collector.Collector(
+            state_dir=state_root / "state",
+            usage_path=state_root / "usage" / "usage.jsonl",
+            fleet_runner=lambda argv: (0, json.dumps(self.row_payload()), ""),
+            gh_runner=lambda argv: (1, "", ""),
+            now_fn=lambda: "not-a-clock",
+        ).build_snapshot()
+        after = datetime.now(timezone.utc)
+        validated(snap)
+        generated = collector.parse_ts(snap["generated_at"])
+        assert generated is not None
+        assert before - timedelta(seconds=1) <= generated <= after + timedelta(seconds=1)
+
+    def test_fleet_row_boundary_normalizes_the_clock(self) -> None:
+        c = collector.Collector(now_fn=lambda: FIXED_NOW)
+        raw = {
+            "attempt_id": "att_clock",
+            "state": "running",
+            "updated_at": "2026-11-16T07:00:00Z",
+        }
+        # Epoch seconds and a naive datetime each reach the staleness
+        # arithmetic through the boundary normalization: both demote the
+        # 2.5-hour-old active row exactly as the aware clock does, instead
+        # of raising TypeError on the subtraction.
+        for moment in (FIXED_EPOCH, FIXED_NOW.replace(tzinfo=None)):
+            row = c._fleet_row(raw, "2026-11-16T09:30:00Z", moment)
+            assert row["state"] == "unknown", moment
+            assert row["detail"] == "running", moment
+        fresh = c._fleet_row(
+            dict(raw, updated_at="2026-11-16T09:29:00Z"), "2026-11-16T09:30:00Z", FIXED_EPOCH
+        )
+        assert fresh["state"] == "running"
+        assert fresh["detail"] is None
 
 
 # ---------------------------------------------------------------------- ci/gh

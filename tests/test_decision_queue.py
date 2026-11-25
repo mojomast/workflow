@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -528,8 +529,13 @@ class TestCollectorCompat:
     def test_all_unavailable_collector_snapshot_validates(self) -> None:
         snapshot = collector.Collector(now_fn=lambda: FIXED_DT).build_snapshot()
         VALIDATOR.validate(snapshot, VALIDATOR.load(SNAPSHOT_SCHEMA))
-        assert "decisions" not in snapshot
-        assert "decisions" not in collector.SECTION_NAMES
+        # decisions is now a real collector section: with no state directory
+        # it degrades unavailable rather than being absent from the document,
+        # and the snapshot still validates against the same discriminator.
+        assert "decisions" in collector.SECTION_NAMES
+        assert snapshot["decisions"]["status"] == "unavailable"
+        assert snapshot["decisions"]["error"]
+        assert snapshot["decisions"]["requests"] == []
 
 
 # ------------------------------------------------------------------------ CLI
@@ -656,6 +662,556 @@ class TestRecordIdentityIsTheFileName:
             queue.get("odq_copy_1")
         assert excinfo.value.code == "bad_record_file"
 
+
+
+# ----------------------------------------------------- owner-decision receipts
+
+
+RECEIPT_TEST_KEY = hashlib.sha256(b"decision-receipt-test-vector").digest()
+RECEIPT_KEY_ENV = "ODQ_RECEIPT_TEST_KEY"
+
+
+def receipt_decision(request: dict, **overrides) -> dict:
+    body = {
+        "schema": "rizzstack.owner-decision/1",
+        "record": "decision",
+        "request_id": request["request_id"],
+        "request_digest": request["request_digest"],
+        "decision_nonce": request["decision_nonce"],
+        "decided_by": "owner",
+        "decided_at": "2026-11-16T10:00:00Z",
+        "outcome": "approve",
+        "approval_receipt_ref": "approvals/odj_1.release-gate.json",
+        "rationale": "The gate criteria are met and the evidence references check out.",
+    }
+    body.update(overrides)
+    if overrides.get("outcome", "approve") != "approve":
+        body["approval_receipt_ref"] = None
+    body["decision_digest"] = decision_queue.decision_digest(body)
+    return body
+
+
+def signed_receipt(request: dict, decision: dict, key: bytes, **overrides) -> dict:
+    body = {
+        "schema": decision_queue.RECEIPT_SCHEMA,
+        "request_id": request["request_id"],
+        "request_digest": request["request_digest"],
+        "decision_nonce": request["decision_nonce"],
+        "outcome": decision["outcome"],
+        "decided_by": "owner",
+        "decided_at": decision["decided_at"],
+        "decision_digest": decision["decision_digest"],
+    }
+    body.update(overrides)
+    return decision_queue.sign_receipt(body, key)
+
+
+class TestReceiptCanonicalVector:
+    def test_canonical_bytes_are_pinned_cross_language(self) -> None:
+        receipt = {
+            "schema": "rizzstack.owner-decision-receipt/1",
+            "signature": "f" * 64,
+            "request_id": "odq_gate_1",
+            "decision_nonce": "c" * 32,
+            "request_digest": "a" * 64,
+            "outcome": "approve",
+            "decided_by": "owner",
+            "decided_at": "2026-11-24T20:21:52Z",
+            "decision_digest": "b" * 64,
+            "note": "café ✓",
+        }
+        expected = (
+            '{"decided_at":"2026-11-24T20:21:52Z","decided_by":"owner",'
+            '"decision_digest":"' + "b" * 64 + '","decision_nonce":"' + "c" * 32 + '",'
+            '"note":"caf\\u00e9 \\u2713","outcome":"approve",'
+            '"request_digest":"' + "a" * 64 + '","request_id":"odq_gate_1",'
+            '"schema":"rizzstack.owner-decision-receipt/1"}'
+        )
+        assert decision_queue.canonical_receipt(receipt) == expected
+        assert "signature" not in decision_queue.canonical_receipt(receipt)
+
+
+class TestReceiptSigning:
+    def test_sign_and_verify_round_trip_with_a_runtime_key(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        assert len(receipt["signature"]) == 64
+        assert receipt["signature"] == decision_queue.receipt_signature(receipt, RECEIPT_TEST_KEY)
+        checked = decision_queue.verify_receipt(
+            receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY
+        )
+        assert checked == receipt
+        assert decision_queue.sign_receipt(receipt, RECEIPT_TEST_KEY) == receipt
+
+    @pytest.mark.parametrize(
+        "field, value, code",
+        [
+            ("schema", "rizzstack.owner-decision-receipt/2", "receipt_bad_version"),
+            ("request_id", "not a valid id", "receipt_bad_id"),
+            ("decision_nonce", "not-a-nonce", "receipt_bad_id"),
+            ("request_digest", "not-a-digest", "receipt_bad_digest"),
+            ("decision_digest", "not-a-digest", "receipt_bad_digest"),
+            ("decided_at", "2026-11-16 10:00:00", "receipt_bad_timestamp"),
+            ("outcome", "defer", "receipt_bad_outcome"),
+            ("decided_by", "agent", "receipt_not_owner"),
+            ("signature", "not-a-signature", "receipt_signature_invalid"),
+        ],
+    )
+    def test_each_tampered_field_names_its_rule(self, field: str, value: str, code: str) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        receipt[field] = value
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == code
+        assert RECEIPT_TEST_KEY.hex() not in str(excinfo.value)
+        assert str(value) not in str(excinfo.value)
+
+    def test_a_signed_receipt_with_an_offset_decided_at_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(
+            request,
+            decision,
+            RECEIPT_TEST_KEY,
+            decided_at="2026-11-16T10:00:00+05:00",
+        )
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_bad_timestamp"
+
+    def test_a_mapping_receipt_is_accepted(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+
+        class ReceiptMapping(Mapping):
+            def __init__(self, body):
+                self._body = body
+
+            def __getitem__(self, key):
+                return self._body[key]
+
+            def __iter__(self):
+                return iter(self._body)
+
+            def __len__(self):
+                return len(self._body)
+
+        checked = decision_queue.verify_receipt(
+            ReceiptMapping(receipt), request=request, decision=decision, key=RECEIPT_TEST_KEY
+        )
+        assert checked == receipt
+
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("request_id", "odq_gate_2"),
+            ("request_digest", "d" * 64),
+            ("decision_nonce", "d" * 32),
+            ("outcome", "deny"),
+            ("decided_at", "2026-11-16T10:00:01Z"),
+            ("decision_digest", "d" * 64),
+        ],
+    )
+    def test_an_unsigned_change_to_a_signed_field_breaks_the_signature(
+        self, field: str, value: str
+    ) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        receipt[field] = value
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_signature_invalid"
+
+    def test_a_different_key_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        other_key = hashlib.sha256(b"another-decision-receipt-test-vector").digest()
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=other_key)
+        assert excinfo.value.code == "receipt_signature_invalid"
+
+    def test_extra_field_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        receipt["note"] = "extra"
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_unknown_field"
+
+    def test_missing_field_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        del receipt["outcome"]
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_missing_field"
+
+    def test_a_missing_key_is_refused_without_echoing_anything(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=None)
+        assert excinfo.value.code == "receipt_key_missing"
+        assert receipt["signature"] not in str(excinfo.value)
+
+
+class TestReceiptBindings:
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("request_id", "odq_gate_2"),
+            ("request_digest", "d" * 64),
+            ("decision_nonce", "d" * 32),
+        ],
+    )
+    def test_a_receipt_for_another_request_is_refused(self, field: str, value: str) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY, **{field: value})
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_binding_mismatch"
+
+    def test_the_same_receipt_against_a_second_request_is_refused(self) -> None:
+        request = gate_request()
+        other = gate_request(request_id="odq_gate_2", subject="merge-gate")
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=other, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_binding_mismatch"
+
+    def test_a_receipt_for_a_different_outcome_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        other = receipt_decision(request, outcome="deny")
+        receipt = signed_receipt(request, other, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_decision_mismatch"
+
+    def test_a_receipt_for_a_different_decided_at_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY, decided_at="2026-11-16T10:00:01Z")
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_decision_mismatch"
+
+    def test_an_offset_decision_with_a_z_receipt_is_refused(self) -> None:
+        request = gate_request()
+        decision = receipt_decision(request, decided_at="2026-11-16T10:00:00+05:00")
+        receipt = signed_receipt(
+            request,
+            decision,
+            RECEIPT_TEST_KEY,
+            decided_at="2026-11-16T10:00:00Z",
+        )
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_decision_mismatch"
+
+
+class TestDecisionReceiptWiring:
+    def test_a_valid_receipt_is_evidence_and_is_not_persisted(self, queue: decision_queue.DecisionQueue, tmp_path: Path) -> None:
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        record = queue.record_decision(
+            "odq_gate_1",
+            outcome="approve",
+            decided_by="owner",
+            decided_at=decision["decided_at"],
+            rationale=decision["rationale"],
+            approval_receipt_ref=decision["approval_receipt_ref"],
+            receipt=receipt,
+            key=RECEIPT_TEST_KEY,
+        )
+        assert queue.status(record) == "decided"
+        assert record["decision"]["approval_receipt_ref"] == decision["approval_receipt_ref"]
+        stored = json.loads((tmp_path / "decisions" / "odq_gate_1.json").read_text(encoding="utf-8"))
+        assert "receipt" not in stored
+        assert "signature" not in stored["decision"]
+        assert stored["decision"] == record["decision"]
+
+    def test_a_forged_signature_refuses_before_any_write(self, queue: decision_queue.DecisionQueue, tmp_path: Path) -> None:
+        queue.raise_request(gate_request())
+        path = tmp_path / "decisions" / "odq_gate_1.json"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        receipt["signature"] = "0" * 64
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="approve",
+                decided_by="owner",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref=decision["approval_receipt_ref"],
+                receipt=receipt,
+                key=RECEIPT_TEST_KEY,
+            )
+        assert excinfo.value.code == "receipt_signature_invalid"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    @pytest.mark.parametrize("missing_key", [None, ""])
+    def test_a_receipt_without_a_key_refuses_before_any_write(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path, missing_key
+    ) -> None:
+        queue.raise_request(gate_request())
+        path = tmp_path / "decisions" / "odq_gate_1.json"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="approve",
+                decided_by="owner",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref=decision["approval_receipt_ref"],
+                receipt=receipt,
+                key=missing_key,
+            )
+        assert excinfo.value.code == "receipt_key_missing"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_deny_with_the_legacy_receipt_ref_still_refuses_unexpected_receipt(self, queue: decision_queue.DecisionQueue) -> None:
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, outcome="deny")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="deny",
+                decided_by="owner",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref="approvals/odj_1.release-gate.json",
+                receipt=receipt,
+                key=RECEIPT_TEST_KEY,
+            )
+        assert excinfo.value.code == "unexpected_receipt"
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_receipt_for_an_agent_decision_is_refused_before_any_write(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        queue.raise_request(gate_request())
+        path = tmp_path / "decisions" / "odq_gate_1.json"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, decided_by="agent")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            decision_queue.verify_receipt(receipt, request=request, decision=decision, key=RECEIPT_TEST_KEY)
+        assert excinfo.value.code == "receipt_decision_mismatch"
+        assert "decided_by" in str(excinfo.value)
+        with pytest.raises(decision_queue.QueueError) as record_excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="approve",
+                decided_by="agent",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref=decision["approval_receipt_ref"],
+                receipt=receipt,
+                key=RECEIPT_TEST_KEY,
+            )
+        assert record_excinfo.value.code == "receipt_decision_mismatch"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_deny_with_a_forged_signed_receipt_is_refused(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        queue.raise_request(gate_request())
+        path = tmp_path / "decisions" / "odq_gate_1.json"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, outcome="deny")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        receipt["signature"] = "0" * 64
+        with pytest.raises(decision_queue.QueueError) as excinfo:
+            queue.record_decision(
+                "odq_gate_1",
+                outcome="deny",
+                decided_by="owner",
+                decided_at=decision["decided_at"],
+                rationale=decision["rationale"],
+                approval_receipt_ref=None,
+                receipt=receipt,
+                key=RECEIPT_TEST_KEY,
+            )
+        assert excinfo.value.code == "receipt_signature_invalid"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
+
+    def test_a_valid_signed_deny_receipt_is_accepted_and_records_no_receipt_ref(
+        self, queue: decision_queue.DecisionQueue, tmp_path: Path
+    ) -> None:
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request, outcome="deny")
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY)
+        record = queue.record_decision(
+            "odq_gate_1",
+            outcome="deny",
+            decided_by="owner",
+            decided_at=decision["decided_at"],
+            rationale=decision["rationale"],
+            approval_receipt_ref=None,
+            receipt=receipt,
+            key=RECEIPT_TEST_KEY,
+        )
+        assert queue.status(record) == "decided"
+        assert record["decision"]["outcome"] == "deny"
+        assert record["decision"]["approval_receipt_ref"] is None
+        stored = json.loads((tmp_path / "decisions" / "odq_gate_1.json").read_text(encoding="utf-8"))
+        assert "receipt" not in stored
+        assert stored["decision"]["approval_receipt_ref"] is None
+
+
+class TestReceiptCli:
+    @pytest.fixture()
+    def state(self, tmp_path: Path) -> Path:
+        state = tmp_path / "state"
+        queue = decision_queue.DecisionQueue(state, now=lambda: FIXED_NOW)
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        queue.record_decision(
+            "odq_gate_1",
+            outcome="approve",
+            decided_by="owner",
+            decided_at=decision["decided_at"],
+            rationale=decision["rationale"],
+            approval_receipt_ref=decision["approval_receipt_ref"],
+        )
+        return state
+
+    def run(self, state: Path, *argv: str, env: dict | None = None) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(MODULE_PATH), "--state-dir", str(state), *argv],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(ROOT),
+            env=env,
+        )
+
+    def key_env(self) -> dict:
+        env = dict(os.environ)
+        env[RECEIPT_KEY_ENV] = RECEIPT_TEST_KEY.hex()
+        return env
+
+    def test_verify_receipt_exits_zero_and_reports_ok(self, state: Path, tmp_path: Path) -> None:
+        request = decision_queue.DecisionQueue(state).get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY.hex())
+        path = tmp_path / "receipt.json"
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+        proc = self.run(
+            state,
+            "verify-receipt",
+            "--request-id",
+            "odq_gate_1",
+            "--file",
+            str(path),
+            "--key-env",
+            RECEIPT_KEY_ENV,
+            env=self.key_env(),
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert json.loads(proc.stdout) == {"ok": True, "request_id": "odq_gate_1", "outcome": "approve"}
+        assert "Traceback" not in proc.stderr
+
+    def test_verify_receipt_refuses_a_tampered_file_without_a_traceback(self, state: Path, tmp_path: Path) -> None:
+        request = decision_queue.DecisionQueue(state).get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY.hex())
+        receipt["outcome"] = "deny"
+        path = tmp_path / "receipt.json"
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+        proc = self.run(
+            state,
+            "verify-receipt",
+            "--request-id",
+            "odq_gate_1",
+            "--file",
+            str(path),
+            "--key-env",
+            RECEIPT_KEY_ENV,
+            env=self.key_env(),
+        )
+        assert proc.returncode == 2
+        assert json.loads(proc.stderr)["code"] == "receipt_signature_invalid"
+        assert "Traceback" not in proc.stderr
+        assert proc.stdout == ""
+
+    def test_record_accepts_a_receipt_and_key_pair(self, tmp_path: Path) -> None:
+        state = tmp_path / "state"
+        queue = decision_queue.DecisionQueue(state, now=lambda: FIXED_NOW)
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY.hex())
+        decision_path = tmp_path / "decision.json"
+        receipt_path = tmp_path / "receipt.json"
+        decision_path.write_text(json.dumps(decision), encoding="utf-8")
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        proc = self.run(
+            state,
+            "record",
+            "--request-id",
+            "odq_gate_1",
+            "--file",
+            str(decision_path),
+            "--receipt",
+            str(receipt_path),
+            "--key-env",
+            RECEIPT_KEY_ENV,
+            env=self.key_env(),
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert json.loads(proc.stdout)["decision"]["outcome"] == "approve"
+
+    def test_record_refuses_a_half_supplied_receipt_pair(self, tmp_path: Path) -> None:
+        state = tmp_path / "state"
+        queue = decision_queue.DecisionQueue(state, now=lambda: FIXED_NOW)
+        queue.raise_request(gate_request())
+        request = queue.get("odq_gate_1")["request"]
+        decision = receipt_decision(request)
+        receipt = signed_receipt(request, decision, RECEIPT_TEST_KEY.hex())
+        decision_path = tmp_path / "decision.json"
+        receipt_path = tmp_path / "receipt.json"
+        decision_path.write_text(json.dumps(decision), encoding="utf-8")
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        base = ["record", "--request-id", "odq_gate_1", "--file", str(decision_path)]
+        only_key = self.run(state, *base, "--key-env", RECEIPT_KEY_ENV, env=self.key_env())
+        assert only_key.returncode == 2
+        assert json.loads(only_key.stderr)["code"] == "receipt_bad_file"
+        only_receipt = self.run(state, *base, "--receipt", str(receipt_path), env=self.key_env())
+        assert only_receipt.returncode == 2
+        assert json.loads(only_receipt.stderr)["code"] == "receipt_key_missing"
+        assert queue.status(queue.get("odq_gate_1")) == "pending"
 
 
 if __name__ == "__main__":

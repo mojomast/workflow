@@ -1,41 +1,73 @@
 {
-  "job_id": "job_20261113_b",
-  "authorization": {"ref": "authorizations/job_20261113_b.json", "sha256": "1111111111111111111111111111111111111111111111111111111111111111"},
-  "goal": {
-    "summary": "synthetic fixture job: descend from the accepted slice",
-    "repo": "mojomast/bundlebees",
-    "base_rev": "0a1b2c3d4e5f60718a9b0cad1e2f3a4b5c6d7e8f"
-  },
-  "tasks": [
-    {
-      "task_id": "T1",
-      "objective": "synthetic fixture task: running slice",
-      "lease": ["contrib/bee-ci/poll.py"],
-      "depends_on": [],
-      "state": "running",
-      "attempts": [],
-      "verify": null,
-      "intent": null
+  "body": {
+    "job_id": "job_20261113_b",
+    "authorization": {
+      "ref": "authorizations/job_20261113_b.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
     },
-    {
-      "task_id": "T2",
-      "objective": "synthetic fixture task: rejected slice",
-      "lease": ["contrib/bee-ci/compare.py"],
-      "depends_on": ["T1"],
-      "state": "rejected",
-      "attempts": [
-        {"attempt_id": "att_3", "state": "rejected", "outcome": "rejected", "reason": "patch touched a file outside the assigned lease", "ts": "2026-11-16T09:02:00Z"}
-      ],
-      "verify": null,
-      "intent": null
-    }
-  ],
-  "integration": {"wave": "w1", "state": "pending", "evidence": null},
-  "recovery_policy": {},
-  "approval_gate": {"required": true, "for": "merge", "state": "awaiting_approval"},
-  "injected_failures": [],
-  "escalations": [],
-  "events": [
-    {"kind": "task_state", "task_id": "T2", "from": "verifying", "to": "rejected", "ts": "2026-11-16T09:02:00Z"}
-  ]
+    "goal": {
+      "summary": "synthetic fixture job: descend from the accepted slice",
+      "repo": "mojomast/bundlebees",
+      "base_rev": "0a1b2c3d4e5f60718a9b0cad1e2f3a4b5c6d7e8f"
+    },
+    "tasks": [
+      {
+        "task_id": "T1",
+        "objective": "synthetic fixture task: running slice",
+        "lease": [
+          "contrib/bee-ci/poll.py"
+        ],
+        "depends_on": [],
+        "state": "running",
+        "attempts": [],
+        "verify": null,
+        "intent": null
+      },
+      {
+        "task_id": "T2",
+        "objective": "synthetic fixture task: rejected slice",
+        "lease": [
+          "contrib/bee-ci/compare.py"
+        ],
+        "depends_on": [
+          "T1"
+        ],
+        "state": "rejected",
+        "attempts": [
+          {
+            "attempt_id": "att_3",
+            "state": "rejected",
+            "outcome": "rejected",
+            "reason": "patch touched a file outside the assigned lease",
+            "ts": "2026-11-16T09:02:00Z"
+          }
+        ],
+        "verify": null,
+        "intent": null
+      }
+    ],
+    "integration": {
+      "wave": "w1",
+      "state": "pending",
+      "evidence": null
+    },
+    "recovery_policy": {},
+    "approval_gate": {
+      "required": true,
+      "for": "merge",
+      "state": "awaiting_approval"
+    },
+    "injected_failures": [],
+    "escalations": [],
+    "events": [
+      {
+        "kind": "task_state",
+        "task_id": "T2",
+        "from": "verifying",
+        "to": "rejected",
+        "ts": "2026-11-16T09:02:00Z"
+      }
+    ]
+  },
+  "mac": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 }

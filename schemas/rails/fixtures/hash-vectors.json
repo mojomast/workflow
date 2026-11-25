@@ -1,0 +1,568 @@
+{
+  "schema": "rizzstack.rails-hash-vectors/1",
+  "provenance": {
+    "spec": "specs/rizzstack-rails-spec.md section 4 (canonical bytes and tamper evidence)",
+    "canonicalization": "C(x) = json.dumps(x, sort_keys=True, separators=(',',':'), ensure_ascii=True, allow_nan=False).encode('ascii') with the envelope value domain (strings, booleans, null, lists, objects, integers within +/-2**53-1) enforced first; floats, duplicate keys and lone Unicode surrogates are rejected before serialization",
+    "origin_hash": "SHA256(b'rizzstack.rails/1\\n' + prev_hash.encode('ascii') + b'\\n' + C(envelope without hash)); prev_hash is 'genesis' only for seq 1, otherwise 64 lowercase hex",
+    "upstream_pin": {
+      "repo": "vibeline (listeningpost/vibeline)",
+      "revision": "d5d0f425a64906ae1a50c1222314a5420da404d5",
+      "file": "ledger.py",
+      "license": "MIT, copyright 2026 ListeningPost",
+      "usage": "legacy compatibility hash algorithm and _CHAIN_KEYS column projection only; values below are synthetic, not upstream data"
+    },
+    "synthetic": true
+  },
+  "canonical": [
+    {
+      "name": "unicode_escaped_ascii",
+      "input": {
+        "k": "caf\u00e9 \u2602 \u2014 \u00e9\u4e2d\u6587"
+      },
+      "expected": "{\"k\":\"caf\\u00e9 \\u2602 \\u2014 \\u00e9\\u4e2d\\u6587\"}"
+    },
+    {
+      "name": "nulls_and_nested_nulls",
+      "input": {
+        "a": null,
+        "b": [
+          null,
+          "x"
+        ],
+        "c": {
+          "d": null
+        }
+      },
+      "expected": "{\"a\":null,\"b\":[null,\"x\"],\"c\":{\"d\":null}}"
+    },
+    {
+      "name": "reorder_invariance",
+      "input": {
+        "k1": "v",
+        "k2": {
+          "y": 2,
+          "x": 1
+        },
+        "k3": [
+          1,
+          2,
+          {
+            "z": null
+          }
+        ]
+      },
+      "expected": "{\"k1\":\"v\",\"k2\":{\"x\":1,\"y\":2},\"k3\":[1,2,{\"z\":null}]}",
+      "also_input": {
+        "k3": [
+          1,
+          2,
+          {
+            "z": null
+          }
+        ],
+        "k1": "v",
+        "k2": {
+          "x": 1,
+          "y": 2
+        }
+      },
+      "also_expected": "{\"k1\":\"v\",\"k2\":{\"x\":1,\"y\":2},\"k3\":[1,2,{\"z\":null}]}"
+    },
+    {
+      "name": "integer_boundary_max",
+      "input": {
+        "n": 9007199254740991,
+        "tag": "max"
+      },
+      "expected": "{\"n\":9007199254740991,\"tag\":\"max\"}"
+    },
+    {
+      "name": "integer_boundary_min",
+      "input": {
+        "n": -9007199254740991,
+        "tag": "min"
+      },
+      "expected": "{\"n\":-9007199254740991,\"tag\":\"min\"}"
+    }
+  ],
+  "origin_chain": {
+    "description": "Synthetic three-event origin chain covering Unicode payload text, null fields, and an in-range large integer. Recompute with SHA256(b'rizzstack.rails/1\\n' + prev_hash + b'\\n' + C(envelope_without_hash)).",
+    "envelopes": [
+      {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 1,
+        "event_id": "worker-1.ledger-vector:1",
+        "dedupe_key": "vector.case",
+        "source": {
+          "adapter": "launcher-log",
+          "instance": "worker-1",
+          "record_id": "vector.case.1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": null,
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "tool.start",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "worker_report",
+        "payload": {
+          "call_id": "call-1",
+          "tool_name": "terminal",
+          "command_family": "pytest",
+          "outcome": "pending",
+          "summary": "Named test command started \u2713",
+          "evidence_ref": null
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "genesis",
+        "hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e"
+      },
+      {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 2,
+        "event_id": "worker-1.ledger-vector:2",
+        "dedupe_key": "vector.case.2",
+        "source": {
+          "adapter": "bundlebees",
+          "instance": "coordinator-1",
+          "record_id": "verify-run-vector-1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "verification.result",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "verifier_record",
+        "payload": {
+          "ac_id": "AC-1",
+          "contract_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "run_id": "run-vector-1",
+          "phase": "green",
+          "verdict": "PASS",
+          "evidence_refs": [
+            "verify-artifact-vector-1"
+          ],
+          "reason": ""
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e",
+        "hash": "4a8f6722dc03c25ef5bfe6528814d5ec9bce0e9b9802d22640b2985c559c245f"
+      },
+      {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 3,
+        "event_id": "worker-1.ledger-vector:3",
+        "dedupe_key": "vector.case.3",
+        "source": {
+          "adapter": "launcher-log",
+          "instance": "worker-1",
+          "record_id": "vector.case.1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": null,
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "usage.observed",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "worker_report",
+        "payload": {
+          "usage_record_id": "usage-vector-1",
+          "metric_scope": "att-vector",
+          "input_tokens": 9007199253740991,
+          "output_tokens": null,
+          "thinking_tokens": null,
+          "usage_basis": "delta",
+          "provider": "provider-x",
+          "model": "model-x"
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "4a8f6722dc03c25ef5bfe6528814d5ec9bce0e9b9802d22640b2985c559c245f",
+        "hash": "11aee1ab5f2b26b308b2c2228d4d2b0bc550613761f3970979d7040f0b42326b"
+      }
+    ],
+    "expected_hashes": [
+      "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e",
+      "4a8f6722dc03c25ef5bfe6528814d5ec9bce0e9b9802d22640b2985c559c245f",
+      "11aee1ab5f2b26b308b2c2228d4d2b0bc550613761f3970979d7040f0b42326b"
+    ]
+  },
+  "negative": [
+    {
+      "name": "tampered_payload_byte",
+      "prev_hash": "genesis",
+      "envelope": {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 1,
+        "event_id": "worker-1.ledger-vector:1",
+        "dedupe_key": "vector.case",
+        "source": {
+          "adapter": "launcher-log",
+          "instance": "worker-1",
+          "record_id": "vector.case.1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": null,
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "tool.start",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "worker_report",
+        "payload": {
+          "call_id": "call-1",
+          "tool_name": "terminal",
+          "command_family": "pytest",
+          "outcome": "pending",
+          "summary": "Named test command started \u2713!",
+          "evidence_ref": null
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "genesis"
+      },
+      "claimed_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e"
+    },
+    {
+      "name": "wrong_prev_hash",
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "envelope": {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 2,
+        "event_id": "worker-1.ledger-vector:2",
+        "dedupe_key": "vector.case.2",
+        "source": {
+          "adapter": "bundlebees",
+          "instance": "coordinator-1",
+          "record_id": "verify-run-vector-1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "verification.result",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "verifier_record",
+        "payload": {
+          "ac_id": "AC-1",
+          "contract_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "run_id": "run-vector-1",
+          "phase": "green",
+          "verdict": "PASS",
+          "evidence_refs": [
+            "verify-artifact-vector-1"
+          ],
+          "reason": ""
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e"
+      },
+      "claimed_hash": "4a8f6722dc03c25ef5bfe6528814d5ec9bce0e9b9802d22640b2985c559c245f"
+    },
+    {
+      "name": "unexpected_field_added",
+      "prev_hash": "genesis",
+      "envelope": {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 1,
+        "event_id": "worker-1.ledger-vector:1",
+        "dedupe_key": "vector.case",
+        "source": {
+          "adapter": "launcher-log",
+          "instance": "worker-1",
+          "record_id": "vector.case.1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": null,
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "tool.start",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "worker_report",
+        "payload": {
+          "call_id": "call-1",
+          "tool_name": "terminal",
+          "command_family": "pytest",
+          "outcome": "pending",
+          "summary": "Named test command started \u2713",
+          "evidence_ref": null
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "genesis",
+        "unexpected_field": "added"
+      },
+      "claimed_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e"
+    },
+    {
+      "name": "changed_seq",
+      "prev_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e",
+      "envelope": {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 9,
+        "event_id": "worker-1.ledger-vector:9",
+        "dedupe_key": "vector.case.2",
+        "source": {
+          "adapter": "bundlebees",
+          "instance": "coordinator-1",
+          "record_id": "verify-run-vector-1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "verification.result",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "verifier_record",
+        "payload": {
+          "ac_id": "AC-1",
+          "contract_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "run_id": "run-vector-1",
+          "phase": "green",
+          "verdict": "PASS",
+          "evidence_refs": [
+            "verify-artifact-vector-1"
+          ],
+          "reason": ""
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e"
+      },
+      "claimed_hash": "4a8f6722dc03c25ef5bfe6528814d5ec9bce0e9b9802d22640b2985c559c245f"
+    },
+    {
+      "name": "changed_case_in_summary",
+      "prev_hash": "genesis",
+      "envelope": {
+        "schema": "rizzstack.rails/1",
+        "chain_id": "worker-1.ledger-vector",
+        "seq": 1,
+        "event_id": "worker-1.ledger-vector:1",
+        "dedupe_key": "vector.case",
+        "source": {
+          "adapter": "launcher-log",
+          "instance": "worker-1",
+          "record_id": "vector.case.1",
+          "revision": "r1"
+        },
+        "scope": {
+          "repo": "mojomast/hyvv",
+          "campaign_id": "campaign-vector",
+          "job_id": "job-vector",
+          "task_id": "task-vector",
+          "attempt_id": "att-vector",
+          "session_id": null,
+          "action_id": null,
+          "contract_sha256": null,
+          "code_rev": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "lane_id": "worker-1.att-vector",
+        "parent_lane_id": "coordinator-1.job-vector",
+        "parent_event_id": null,
+        "kind": "tool.start",
+        "occurred_at": "2026-11-16T12:00:00.000000Z",
+        "recorded_at": "2026-11-16T12:00:01.000000Z",
+        "duration_ms": 2100,
+        "timing_quality": "measured",
+        "authority": "worker_report",
+        "payload": {
+          "call_id": "call-1",
+          "tool_name": "terminal",
+          "command_family": "pytest",
+          "outcome": "pending",
+          "summary": "Named test command STARTED \u2713",
+          "evidence_ref": null
+        },
+        "redaction_policy": "rails-safe/1",
+        "prev_hash": "genesis"
+      },
+      "claimed_hash": "1ebf9bb0af1ef36991ec620fb22fa16518be33ae3d727eb3e4f458dacfd2db7e"
+    }
+  ],
+  "legacy": {
+    "source_pin": "vibeline ledger.py at d5d0f425a64906ae1a50c1222314a5420da404d5",
+    "source_file": "ledger.py",
+    "algorithm": "SHA256(prev.encode() + json.dumps({k: row.get(k) for k in chain_keys}, sort_keys=True, default=str).encode()) with json.dumps defaults (separators (', ', ': '), ensure_ascii=True); prev starts 'genesis' and chains in local ingest order; note prev_hash itself is one of chain_keys and is therefore part of the hashed projection",
+    "chain_keys": [
+      "ts",
+      "task_id",
+      "actor",
+      "parent",
+      "kind",
+      "ac_id",
+      "result",
+      "why",
+      "tokens_in",
+      "tokens_out",
+      "sha",
+      "prev_hash"
+    ],
+    "rows": [
+      {
+        "row": {
+          "id": 1,
+          "ts": "2026-11-16T12:00:00.000000Z",
+          "task_id": "task-vector",
+          "actor": "worker-1",
+          "parent": null,
+          "kind": "tool",
+          "ac_id": null,
+          "result": "ok",
+          "why": "ran the named test command",
+          "tokens_in": 1200,
+          "tokens_out": 340,
+          "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "prev_hash": "genesis",
+          "hash": "c68e5fbf587a875370f49f7b87083f50eb167ccad8669adf988badff4bbe3508"
+        },
+        "prev": "genesis",
+        "expected": "c68e5fbf587a875370f49f7b87083f50eb167ccad8669adf988badff4bbe3508"
+      },
+      {
+        "row": {
+          "id": 2,
+          "ts": "2026-11-16T12:00:05.000000Z",
+          "task_id": "task-vector",
+          "actor": "worker-1",
+          "parent": 1,
+          "kind": "decision",
+          "ac_id": null,
+          "result": "recorded",
+          "why": "{\"kind\":\"decision.recorded\",\"note\":\"why is canonical bytes\",\"payload\":{\"summary\":\"chose option A\"},\"schema\":\"rizzstack.rails/1\"}",
+          "tokens_in": null,
+          "tokens_out": null,
+          "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "prev_hash": "c68e5fbf587a875370f49f7b87083f50eb167ccad8669adf988badff4bbe3508",
+          "hash": "18f7a943684465ebea97b69181a58f690cae1937ee9541fea07f5f7e310c84e1"
+        },
+        "prev": "c68e5fbf587a875370f49f7b87083f50eb167ccad8669adf988badff4bbe3508",
+        "expected": "18f7a943684465ebea97b69181a58f690cae1937ee9541fea07f5f7e310c84e1"
+      },
+      {
+        "row": {
+          "id": 3,
+          "ts": "2026-11-16T12:00:10.000000Z",
+          "task_id": "t\u00e2che-v\u00e9ctor",
+          "actor": "worker-1",
+          "parent": 2,
+          "kind": "review",
+          "ac_id": "AC-1",
+          "result": "approved",
+          "why": "independent re-run of the named suite",
+          "tokens_in": 4321,
+          "tokens_out": 876,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "prev_hash": "18f7a943684465ebea97b69181a58f690cae1937ee9541fea07f5f7e310c84e1",
+          "hash": "36c6045573b601f536e14f974ac1bf7024b25385bd6b9d724c2d7bcc36b6771f"
+        },
+        "prev": "18f7a943684465ebea97b69181a58f690cae1937ee9541fea07f5f7e310c84e1",
+        "expected": "36c6045573b601f536e14f974ac1bf7024b25385bd6b9d724c2d7bcc36b6771f"
+      }
+    ]
+  }
+}
