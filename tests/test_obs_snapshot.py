@@ -223,6 +223,16 @@ def validated(doc) -> None:
     VALIDATOR.validate(doc, VALIDATOR.load(SNAPSHOT_SCHEMA))
 
 
+def assert_worker_unavailable_without_degrading(snap: dict) -> None:
+    """A non-sqlite rails ledger keeps usage live but marks the worker unavailable."""
+    assert snap["usage"]["status"] == "live"
+    assert "usage" not in snap["degraded"]
+    worker = snap["usage"]["by_role"]["worker"]
+    assert worker["status"] == "unavailable"
+    assert worker["error"] == "rails_ledger_unreadable"
+    assert worker["requests"] is None and worker["total"] is None
+
+
 def assert_optional_usage_fields(schema: dict) -> None:
     usage = schema["$defs"]["usage_section"]
     for name in ("by_role", "bee", "tokens_per_verified_patch"):
@@ -748,12 +758,7 @@ class TestWorkerUsage:
         bad.write_text("this is not sqlite\n", encoding="utf-8")
         snap = fixture_collector(tmp_path, rails_ledger=bad).build_snapshot()
         validated(snap)
-        assert snap["usage"]["status"] == "live"
-        assert "usage" not in snap["degraded"]
-        worker = snap["usage"]["by_role"]["worker"]
-        assert worker["status"] == "unavailable"
-        assert worker["error"] == "rails_ledger_unreadable"
-        assert worker["requests"] is None and worker["total"] is None
+        assert_worker_unavailable_without_degrading(snap)
         assert snap["usage"]["bee"] is None
         assert snap["usage"]["tokens_per_verified_patch"] is None
         assert snap["usage"]["totals"]["requests"] == 4
