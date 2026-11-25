@@ -365,6 +365,19 @@
         "by_repo": {
           "type": "array",
           "items": { "$ref": "#/$defs/usage_by_repo" }
+        },
+        "by_role": { "$ref": "#/$defs/usage_by_role" },
+        "bee": {
+          "anyOf": [
+            { "$ref": "#/$defs/usage_bee" },
+            { "type": "null" }
+          ]
+        },
+        "tokens_per_verified_patch": {
+          "anyOf": [
+            { "$ref": "#/$defs/tokens_per_verified_patch" },
+            { "type": "null" }
+          ]
         }
       }
     },
@@ -426,6 +439,145 @@
         "cost_usd": { "$ref": "#/$defs/cost_usd" },
         "tokens_status": { "$ref": "#/$defs/agg_status" },
         "cost_status": { "$ref": "#/$defs/agg_status" }
+      }
+    },
+    "usage_role_status": {
+      "description": "Worker usage completeness. empty is a measured zero (the ledger was read and held no usage.observed rows); unavailable means the source could not be read.",
+      "enum": ["known", "partial", "unknown", "empty", "unavailable"]
+    },
+    "usage_source": {
+      "enum": ["bee.usage/v1", "rizzstack-rails/usage.observed"]
+    },
+    "usage_role_bucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source", "requests", "input", "output", "total", "cost_usd", "priced", "unknown_cost", "cache_read"],
+      "properties": {
+        "status": { "$ref": "#/$defs/usage_role_status" },
+        "source": { "$ref": "#/$defs/usage_source" },
+        "error": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input": { "$ref": "#/$defs/tokens" },
+        "output": { "$ref": "#/$defs/tokens" },
+        "thinking": { "$ref": "#/$defs/tokens" },
+        "total": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "$ref": "#/$defs/cost_usd" },
+        "priced": { "$ref": "#/$defs/nullable_count" },
+        "unknown_cost": { "$ref": "#/$defs/nullable_count" },
+        "cache_read": { "$ref": "#/$defs/tokens" }
+      }
+    },
+    "usage_by_role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coordinator", "worker", "unknown"],
+      "properties": {
+        "coordinator": { "$ref": "#/$defs/usage_role_bucket" },
+        "worker": { "$ref": "#/$defs/usage_role_bucket" },
+        "unknown": { "$ref": "#/$defs/usage_role_bucket" }
+      }
+    },
+    "usage_bee_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "provider", "requests", "input", "output", "thinking", "total", "cost_usd", "priced", "unknown_cost"],
+      "properties": {
+        "model": { "$ref": "common.schema.json#/$defs/id_token" },
+        "provider": { "$ref": "common.schema.json#/$defs/provider_label" },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input": { "$ref": "#/$defs/tokens" },
+        "output": { "$ref": "#/$defs/tokens" },
+        "thinking": { "$ref": "#/$defs/tokens" },
+        "total": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "$ref": "#/$defs/cost_usd" },
+        "priced": { "$ref": "#/$defs/nullable_count" },
+        "unknown_cost": { "$ref": "#/$defs/nullable_count" }
+      }
+    },
+    "usage_bee_repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "attempts", "requests", "input", "output", "thinking", "total"],
+      "properties": {
+        "repo": {
+          "anyOf": [
+            { "const": "unknown" },
+            { "$ref": "#/$defs/repo_slug" }
+          ]
+        },
+        "attempts": { "$ref": "#/$defs/nullable_count" },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input": { "$ref": "#/$defs/tokens" },
+        "output": { "$ref": "#/$defs/tokens" },
+        "thinking": { "$ref": "#/$defs/tokens" },
+        "total": { "$ref": "#/$defs/tokens" }
+      }
+    },
+    "usage_bee": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source", "attempts", "requests", "input", "output", "thinking", "total", "cost_usd", "priced", "unknown_cost", "by_model", "by_repo"],
+      "properties": {
+        "status": { "$ref": "#/$defs/usage_role_status" },
+        "source": { "const": "rizzstack-rails/usage.observed" },
+        "attempts": { "$ref": "#/$defs/nullable_count" },
+        "requests": { "$ref": "#/$defs/nullable_count" },
+        "input": { "$ref": "#/$defs/tokens" },
+        "output": { "$ref": "#/$defs/tokens" },
+        "thinking": { "$ref": "#/$defs/tokens" },
+        "total": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "$ref": "#/$defs/cost_usd" },
+        "priced": { "$ref": "#/$defs/nullable_count" },
+        "unknown_cost": { "$ref": "#/$defs/nullable_count" },
+        "by_model": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/usage_bee_model" }
+        },
+        "by_repo": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/usage_bee_repo" }
+        }
+      }
+    },
+    "tokens_per_verified_patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "numerator", "denominator", "unit", "denominator_rule", "basis", "scope", "cost"],
+      "properties": {
+        "value": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "numerator": { "$ref": "#/$defs/tokens" },
+        "denominator": { "$ref": "#/$defs/nullable_count" },
+        "unit": { "const": "tokens" },
+        "denominator_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "scope": { "const": "all time" },
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "note"],
+          "properties": {
+            "status": { "const": "partial" },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        }
       }
     },
     "pipeline_section": {
