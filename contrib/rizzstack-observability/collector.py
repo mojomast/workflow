@@ -62,8 +62,9 @@ import hmac
 import json
 import math
 import os
-import stat
 import re
+import sqlite3
+import stat
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -199,6 +200,11 @@ BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 CHECK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .,_()/-]{0,119}$")
 HEX_REV_RE = re.compile(r"^[0-9a-f]{40,64}$")
 ID_TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+ROLE_RE = re.compile(r"^[a-z_]{1,24}$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+USAGE_SOURCE = "bee.usage/v1"
+RAILS_USAGE_SOURCE = "rizzstack-rails/usage.observed"
+WORKER_ROLES = frozenset({"work", "verify", "worker"})
 PROVIDER_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # Routes a bundlebees route record may name (explicit launcher model prefixes).
 REPORTED_ROUTES = frozenset({"go", "deepseek", "zoo", "kimi", "nous"})
@@ -422,6 +428,247 @@ def first_count(record: Mapping[str, Any], keys: Sequence[str]) -> int | None:
         if isinstance(value, float) and value >= 0 and value.is_integer():
             return int(value)
     return None
+
+
+def role_name(value: Any) -> str:
+    """Bucket a usage row's role: coordinator, worker, or unknown."""
+    if not isinstance(value, str) or ROLE_RE.match(value) is None:
+        return "unknown"
+    if value == "coordinator":
+        return "coordinator"
+    if value in WORKER_ROLES:
+        return "worker"
+    return "unknown"
+
+
+def _new_usage_counter() -> dict[str, Any]:
+    return {
+        "requests": 0,
+        "input": 0,
+        "output": 0,
+        "thinking": 0,
+        "total": 0,
+        "cost": 0.0,
+        "cache_read": 0,
+        "has_input": False,
+        "has_output": False,
+        "has_thinking": False,
+        "has_total": False,
+        "has_cache_read": False,
+        "priced": 0,
+        "unknown_cost": 0,
+        "attempts": set(),
+    }
+
+
+def _add_usage_counter(
+    counter: dict[str, Any],
+    *,
+    inp: int | None,
+    outp: int | None,
+    total: int | None,
+    cost: float | None,
+    cache: int | None = None,
+    thinking: int | None = None,
+) -> None:
+    counter["requests"] += 1
+    if inp is not None:
+        counter["input"] += inp
+        counter["has_input"] = True
+    if outp is not None:
+        counter["output"] += outp
+        counter["has_output"] = True
+    if thinking is not None:
+        counter["thinking"] += thinking
+        counter["has_thinking"] = True
+    if total is not None:
+        counter["total"] += total
+        counter["has_total"] = True
+    if cost is None:
+        counter["unknown_cost"] += 1
+    else:
+        counter["cost"] += cost
+        counter["priced"] += 1
+    if cache is not None:
+        counter["cache_read"] += cache
+        counter["has_cache_read"] = True
+
+
+def _add_worker_event(counter: dict[str, Any], event: Mapping[str, Any]) -> None:
+    counter["requests"] += 1
+    inp = event.get("input")
+    outp = event.get("output")
+    thinking = event.get("thinking")
+    row_total = 0
+    any_token = False
+    for key, value in (("input", inp), ("output", outp), ("thinking", thinking)):
+        if value is not None:
+            counter[key] += value
+            counter["has_" + key] = True
+            row_total += value
+            any_token = True
+    if any_token:
+        counter["total"] += row_total
+        counter["has_total"] = True
+        counter["unknown_cost"] += 1
+        if event.get("attempt"):
+            counter["attempts"].add(event["attempt"])
+
+
+def _counter_value(counter: Mapping[str, Any], name: str, *, zero: bool = False) -> int | None:
+    if zero:
+        return 0
+    return counter[name] if counter.get("has_" + name) else None
+
+
+def _usage_role_row(
+    counter: Mapping[str, Any],
+    status: str,
+    source: str,
+    *,
+    zero: bool = False,
+    include_thinking: bool = False,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "status": status,
+        "source": source,
+        "requests": 0 if zero else counter["requests"],
+        "input": _counter_value(counter, "input", zero=zero),
+        "output": _counter_value(counter, "output", zero=zero),
+        "total": _counter_value(counter, "total", zero=zero),
+        "cost_usd": round(counter["cost"], 6) if counter["priced"] and not zero else None,
+        "priced": 0 if zero else counter["priced"],
+        "unknown_cost": 0 if zero else counter["unknown_cost"],
+        "cache_read": _counter_value(counter, "cache_read", zero=zero),
+    }
+    if include_thinking:
+        row["thinking"] = _counter_value(counter, "thinking", zero=zero)
+    return row
+
+
+def _unavailable_worker_row(error: str | None = None) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "status": "unavailable",
+        "source": RAILS_USAGE_SOURCE,
+        "requests": None,
+        "input": None,
+        "output": None,
+        "thinking": None,
+        "total": None,
+        "cost_usd": None,
+        "priced": 0,
+        "unknown_cost": 0,
+        "cache_read": None,
+    }
+    if error:
+        row["error"] = error
+    return row
+
+
+def _json_role_status(seen_any: bool, counter: Mapping[str, Any]) -> str:
+    if not seen_any:
+        return "unavailable"
+    return "known" if counter["requests"] else "unknown"
+
+
+def _worker_event(envelope: Mapping[str, Any]) -> dict[str, Any]:
+    payload = envelope.get("payload")
+    payload = payload if isinstance(payload, dict) else {}
+    scope = envelope.get("scope")
+    scope = scope if isinstance(scope, dict) else {}
+    attempt = scope.get("attempt_id")
+    if not attempt:
+        attempt = payload.get("metric_scope")
+    return {
+        "attempt": id_token(attempt),
+        "input": first_count(payload, ("input_tokens",)),
+        "output": first_count(payload, ("output_tokens",)),
+        "thinking": first_count(payload, ("thinking_tokens",)),
+        "model": id_token(payload.get("model")) or "unknown",
+        "provider": provider_label(payload.get("provider")) or "unknown",
+    }
+
+
+def dedupe_rails_events(rows: Iterable[Any]) -> list[Any]:
+    """Keep the latest envelope per (chain_id, dedupe_key)."""
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    chosen: dict[tuple[Any, Any], tuple[datetime, Any]] = {}
+    for index, raw in enumerate(rows):
+        try:
+            envelope = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(envelope, dict):
+            continue
+        key = (
+            envelope.get("chain_id"),
+            envelope.get("dedupe_key") or envelope.get("event_id") or f"row{index}",
+        )
+        moment = parse_ts(envelope.get("recorded_at")) or oldest
+        previous = chosen.get(key)
+        if previous is None or moment >= previous[0]:
+            chosen[key] = (moment, envelope)
+    return [envelope for _, envelope in chosen.values()]
+
+
+def _worker_bee_row(
+    counter: Mapping[str, Any], status: str, *, zero: bool = False
+) -> dict[str, Any]:
+    row = _usage_role_row(counter, status, RAILS_USAGE_SOURCE, zero=zero, include_thinking=True)
+    row.pop("cache_read")
+    row["attempts"] = 0 if zero else len(counter["attempts"])
+    row["by_model"] = []
+    row["by_repo"] = []
+    return row
+
+
+def _worker_model_row(key: tuple[str, str], counter: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "model": key[0],
+        "provider": key[1],
+        "requests": counter["requests"],
+        "input": _counter_value(counter, "input"),
+        "output": _counter_value(counter, "output"),
+        "thinking": _counter_value(counter, "thinking"),
+        "total": _counter_value(counter, "total"),
+        "cost_usd": None,
+        "priced": 0,
+        "unknown_cost": counter["unknown_cost"],
+    }
+
+
+def _worker_repo_row(repo: str, counter: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "repo": repo,
+        "attempts": len(counter["attempts"]),
+        "requests": counter["requests"],
+        "input": _counter_value(counter, "input"),
+        "output": _counter_value(counter, "output"),
+        "thinking": _counter_value(counter, "thinking"),
+        "total": _counter_value(counter, "total"),
+    }
+
+
+def _tokens_per_patch(numerator: int | None, denominator: int) -> dict[str, Any]:
+    value = None
+    if numerator is not None and denominator > 0:
+        value = round(numerator / denominator, 1)
+    return {
+        "value": value,
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": "tokens",
+        "denominator_rule": (
+            "distinct attempt ids whose verify-results/<attempt_id>.json has ok true "
+            "and sha matching ^[0-9a-f]{40}$"
+        ),
+        "basis": "worker usage.observed receipts: input+output+thinking tokens",
+        "scope": "all time",
+        "cost": {
+            "status": "partial",
+            "note": "launcher receipts carry no cost; worker cost_usd is null",
+        },
+    }
 
 
 def first_bool(record: Mapping[str, Any], keys: Sequence[str]) -> bool | None:
@@ -819,6 +1066,7 @@ class Collector:
         *,
         state_dir: Path | None = None,
         usage_path: Path | None = None,
+        rails_ledger: Path | None = None,
         repos: Sequence[str] = (),
         stale_after_s: int = 1800,
         bundlebees_bin: str = "hermes",
@@ -835,6 +1083,7 @@ class Collector:
     ) -> None:
         self.state_dir = Path(state_dir) if state_dir else None
         self.usage_path = Path(usage_path) if usage_path else None
+        self.rails_ledger = Path(rails_ledger) if rails_ledger else None
         self.extra_repos = [slug for slug in (repo_slug(r) for r in repos) if slug]
         self.stale_after_s = stale_after_s
         self.bundlebees_bin = bundlebees_bin
@@ -1300,16 +1549,155 @@ class Collector:
         }
         summary: dict[str, Any] = {"today_cost_usd": 0.0, "today_known": 0, "quota_rows": []}
         error = "source_missing"
+        body = None
         if self.usage_path is not None:
             try:
-                return self._aggregate_usage(now, generated, jsonl_rows(self.usage_path))
+                body, summary = self._aggregate_usage(now, generated, jsonl_rows(self.usage_path))
             except FileNotFoundError:
                 pass
             except OSError:
                 # Discard even the subtotal if the ledger failed halfway through.
                 error = "source_unreadable"
-        return section(now, "unavailable", error, source=empty_source, totals=empty_totals,
-                       by_model=[], by_repo=[]), summary
+        if body is None:
+            body = section(now, "unavailable", error, source=empty_source, totals=empty_totals,
+                           by_model=[], by_repo=[], by_role=self._empty_by_role())
+        return self._with_worker_usage(body), summary
+
+    def _empty_by_role(self) -> dict[str, dict[str, Any]]:
+        empty = _new_usage_counter()
+        return {
+            "coordinator": _usage_role_row(empty, "unavailable", USAGE_SOURCE),
+            "worker": _unavailable_worker_row(),
+            "unknown": _usage_role_row(empty, "unavailable", USAGE_SOURCE),
+        }
+
+    def _with_worker_usage(self, body: dict[str, Any]) -> dict[str, Any]:
+        worker, bee, ratio = self._worker_usage()
+        body["by_role"]["worker"] = worker
+        body["bee"] = bee
+        body["tokens_per_verified_patch"] = ratio
+        return body
+
+    def _worker_usage(self) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
+        if self.rails_ledger is None:
+            return _unavailable_worker_row(), None, None
+        try:
+            envelopes = self._read_rails_events()
+        except (OSError, sqlite3.Error, ValueError):
+            return _unavailable_worker_row("rails_ledger_unreadable"), None, None
+        events = [_worker_event(envelope) for envelope in dedupe_rails_events(envelopes)]
+        zero = not events
+        if zero:
+            # A measured empty ledger needs no attempt join; a missing state
+            # directory only means the verify ratio has no denominator.
+            try:
+                denominator = self._verified_attempt_count()
+            except (OSError, ValueError):
+                denominator = 0
+            repos: dict[str, str] = {}
+        else:
+            try:
+                repos = self._read_delivery_repos()
+                denominator = self._verified_attempt_count()
+            except (OSError, ValueError):
+                return _unavailable_worker_row("state_unreadable"), None, None
+        bee, counter = self._build_worker_bee(events, repos)
+        worker = _usage_role_row(
+            counter,
+            "empty" if zero else "known",
+            RAILS_USAGE_SOURCE,
+            zero=zero,
+            include_thinking=True,
+        )
+        numerator = counter["total"] if counter["has_total"] or zero else None
+        ratio = _tokens_per_patch(numerator, denominator) if denominator > 0 else None
+        return worker, bee, ratio
+
+    def _build_worker_bee(
+        self, events: Sequence[Mapping[str, Any]], repos: Mapping[str, str]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        counter = _new_usage_counter()
+        by_model: dict[tuple[str, str], dict[str, Any]] = {}
+        by_repo: dict[str, dict[str, Any]] = {}
+        for event in events:
+            _add_worker_event(counter, event)
+            model_key = (event["model"], event["provider"])
+            by_model.setdefault(model_key, _new_usage_counter())
+            _add_worker_event(by_model[model_key], event)
+            # attempt -> delivery join: <state-dir>/deliveries/<attempt_id>.json
+            # carries the delivery's repo; an attempt with no delivery record
+            # is counted in the literal "unknown" bucket, never guessed.
+            repo = repos.get(event.get("attempt"), "unknown") or "unknown"
+            by_repo.setdefault(repo, _new_usage_counter())
+            _add_worker_event(by_repo[repo], event)
+        zero = not events
+        bee = _worker_bee_row(counter, "empty" if zero else "known", zero=zero)
+        bee["by_model"] = sorted(
+            (_worker_model_row(key, value) for key, value in by_model.items()),
+            key=lambda row: (
+                -(row["total"] if row["total"] is not None else -1),
+                row["model"],
+                row["provider"],
+            ),
+        )
+        bee["by_repo"] = sorted(
+            (_worker_repo_row(repo, value) for repo, value in by_repo.items()),
+            key=lambda row: row["repo"],
+        )
+        return bee, counter
+
+    def _worker_state_dirs(self) -> tuple[Path, Path]:
+        if self.state_dir is None:
+            raise OSError("state directory unavailable")
+        deliveries = self.state_dir / "deliveries"
+        verify = self.state_dir / "verify-results"
+        if not deliveries.is_dir() or not verify.is_dir():
+            raise OSError("worker state directory unavailable")
+        return deliveries, verify
+
+    def _read_rails_events(self) -> list[Any]:
+        if self.rails_ledger is None:
+            return []
+        connection = sqlite3.connect(f"file:{self.rails_ledger}?mode=ro", uri=True)
+        try:
+            connection.execute("PRAGMA query_only=ON")
+            rows = connection.execute(
+                "SELECT envelope_json FROM event_rows WHERE kind='usage.observed'"
+            ).fetchall()
+        finally:
+            connection.close()
+        return [row[0] for row in rows]
+
+    def _read_delivery_repos(self) -> dict[str, str]:
+        deliveries, _ = self._worker_state_dirs()
+        repos: dict[str, str] = {}
+        for path in deliveries.glob("*.json"):
+            data = read_json_dict(path)
+            if data is None:
+                continue
+            attempt = id_token(first_str(data, ("attempt_id",))) or id_token(path.stem)
+            repo = repo_slug(first_str(data, ("repo", "repository", "project")))
+            if attempt and repo:
+                repos[attempt] = repo
+        return repos
+
+    def _verified_attempt_count(self) -> int:
+        _, verify = self._worker_state_dirs()
+        seen: set[str] = set()
+        for path in verify.glob("*.json"):
+            data = read_json_dict(path)
+            if data is None:
+                continue
+            ok = data.get("ok")
+            sha = data.get("sha")
+            if not (ok is True or ok == "true"):
+                continue
+            if not isinstance(sha, str) or SHA_RE.match(sha) is None:
+                continue
+            attempt = id_token(first_str(data, ("attempt_id",))) or id_token(path.stem)
+            if attempt:
+                seen.add(attempt)
+        return len(seen)
 
     def _aggregate_usage(self, now: datetime, generated: str, records: Iterable[Any]) -> tuple[dict, dict]:
         summary: dict[str, Any] = {"today_cost_usd": 0.0, "today_known": 0, "quota_rows": []}
@@ -1330,6 +1718,7 @@ class Collector:
         fallback_count = 0
         by_model: dict[tuple[str, str], dict[str, Any]] = {}
         by_repo: dict[str, dict[str, Any]] = {}
+        role_counters = {"coordinator": _new_usage_counter(), "unknown": _new_usage_counter()}
         seen_any = False
         latest_quota: dict[tuple[str, str | None], tuple[datetime | None, dict[str, Any]]] = {}
 
@@ -1353,6 +1742,7 @@ class Collector:
             inp = first_count(record, ("input_tokens", "prompt_tokens"))
             outp = first_count(record, ("output_tokens", "completion_tokens"))
             total = first_count(record, ("total_tokens", "tokens"))
+            cache = first_count(record, ("cache_read_tokens", "cache_read_input_tokens", "cache_read"))
             # Orbit keeps the producer's total in usage_raw for extension-only
             # events. Cache/thinking semantics vary; prefer the reported total.
             if total is None and isinstance(record.get("usage_raw"), dict):
@@ -1389,6 +1779,13 @@ class Collector:
                 known["cost"] += 1
                 if usage_bearing:
                     known_usage["cost"] += 1
+
+            role = role_name(record.get("role"))
+            role_counter = role_counters.get(role)
+            if role_counter is not None:
+                _add_usage_counter(
+                    role_counter, inp=inp, outp=outp, total=total, cost=cost, cache=cache
+                )
 
             http_429 = first_count(record, ("http_429", "http_429_count", "count_429"))
             if isinstance(record.get("http_429"), bool):
@@ -1486,6 +1883,19 @@ class Collector:
             age = file_age_s(self.usage_path, now)
             if age is not None and age > self.stale_after_s:
                 status, error = "stale", "ledger_older_than_threshold"
+        by_role = {
+            "coordinator": _usage_role_row(
+                role_counters["coordinator"],
+                _json_role_status(seen_any, role_counters["coordinator"]),
+                USAGE_SOURCE,
+            ),
+            "worker": _unavailable_worker_row(),
+            "unknown": _usage_role_row(
+                role_counters["unknown"],
+                _json_role_status(seen_any, role_counters["unknown"]),
+                USAGE_SOURCE,
+            ),
+        }
         body = section(
             now,
             status,
@@ -1500,6 +1910,7 @@ class Collector:
             totals=totals_row,
             by_model=model_rows,
             by_repo=repo_rows,
+            by_role=by_role,
         )
         return body, summary
 
@@ -3689,6 +4100,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--state-dir", type=Path, default=None, help="plugin local state directory")
     parser.add_argument("--usage", type=Path, default=None, dest="usage_path", help="bee.usage/v1 JSONL path")
+    parser.add_argument("--rails-ledger", type=Path, default=None, dest="rails_ledger", help="rizzstack-rails SQLite ledger (read-only)")
     parser.add_argument("--repo", action="append", default=[], metavar="OWNER/NAME", help="repo for the ci section (repeatable)")
     parser.add_argument("--stale-after-s", type=int, default=1800, help="freshness threshold in seconds")
     parser.add_argument("--bundlebees-bin", default="hermes", help="Hermes CLI binary for the fleet section")
@@ -3713,6 +4125,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     collector = Collector(
         state_dir=args.state_dir,
         usage_path=args.usage_path,
+        rails_ledger=args.rails_ledger,
         repos=args.repo,
         stale_after_s=args.stale_after_s,
         bundlebees_bin=args.bundlebees_bin,
