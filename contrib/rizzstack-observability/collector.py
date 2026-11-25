@@ -1122,6 +1122,24 @@ def _wave_job(job_id: str, group: Mapping[str, Any], generated: str, counts: dic
     }
 
 
+def _deploy_path_overrides(overrides: Mapping[str, Path | str] | None) -> dict[str, Path]:
+    paths = dict(DEFAULT_DEPLOY_PATHS)
+    if overrides:
+        for key in DEFAULT_DEPLOY_PATHS:
+            if key in overrides:
+                paths[key] = Path(overrides[key])
+    return paths
+
+
+def _threshold_overrides(overrides: Mapping[str, float] | None) -> dict[str, float]:
+    thresholds = dict(DEFAULT_THRESHOLDS)
+    if overrides:
+        for key, value in overrides.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                thresholds[key] = value
+    return thresholds
+
+
 class Collector:
     """Read-only snapshot builder. Every read degrades independently."""
 
@@ -1161,11 +1179,7 @@ class Collector:
         self.kanban_boards = [b for b in (id_token(x) for x in kanban_boards) if b]
         self.kanban_bin = kanban_bin or bundlebees_bin
         self._kanban_runner = kanban_runner
-        self.deploy_paths = dict(DEFAULT_DEPLOY_PATHS)
-        if deploy_paths:
-            for key in DEFAULT_DEPLOY_PATHS:
-                if key in deploy_paths:
-                    self.deploy_paths[key] = Path(deploy_paths[key])
+        self.deploy_paths = _deploy_path_overrides(deploy_paths)
         self._deploy_runner = deploy_runner
         self._lease_cache: dict[str, tuple[int, int, dict[str, Any]]] = {}
         self._now_fn = now_fn or (lambda: datetime.now(timezone.utc))
@@ -1173,11 +1187,7 @@ class Collector:
         # repo) run concurrently, so a snapshot costs the slowest read rather than
         # their sum. 1 restores strictly sequential reads.
         self.cli_workers = max(1, int(cli_workers))
-        self.thresholds = dict(DEFAULT_THRESHOLDS)
-        if thresholds:
-            for key, value in thresholds.items():
-                if isinstance(value, (int, float)) and not isinstance(value, bool):
-                    self.thresholds[key] = value
+        self.thresholds = _threshold_overrides(thresholds)
 
     # ------------------------------------------------------------------ time
     def now(self) -> datetime:

@@ -1530,6 +1530,76 @@ def deploy_surface(body: dict, name: str) -> dict:
     return rows[name]
 
 
+def _assert_drift_surfaces(body: dict) -> None:
+    assert body["open_prs"] == 3
+    assert body["deploy_debt"]["status"] == "known"
+    assert body["deploy_debt"]["debt"] == 2
+    assert stage_of(body, "deploy")["queue_depth"] == 2
+    assert body["invariant"]["awaiting_deploy"] == 2
+    assert body["invariant"]["status"] == "known"
+    assert deploy_surface(body, "plugin") == {
+        "surface": "plugin", "merged": HEX_B, "deployed": HEX_A, "verdict": "drift"
+    }
+    assert deploy_surface(body, "hyvv") == {
+        "surface": "hyvv", "merged": HEX_A, "deployed": HEX_C, "verdict": "drift"
+    }
+
+
+def _assert_open_pr_count_independent(body: dict, changed_prs: dict) -> None:
+    assert deploy_surface(body, "collector")["verdict"] == "parity"
+    assert deploy_surface(body, "obs_app")["verdict"] == "parity"
+    assert changed_prs["open_prs"] == 7
+    assert changed_prs["deploy_debt"]["open_prs"] == 7
+    assert changed_prs["deploy_debt"]["debt"] == 2
+    assert stage_of(changed_prs, "deploy")["queue_depth"] == 2
+    assert changed_prs["invariant"]["awaiting_deploy"] == 2
+    assert changed_prs["deploy_debt"]["surfaces"] == body["deploy_debt"]["surfaces"]
+
+
+def _assert_partial_debt(body: dict) -> None:
+    assert body["open_prs"] == 26
+    assert body["deploy_debt"]["status"] == "partial"
+    assert body["deploy_debt"]["debt"] is None
+    assert stage_of(body, "deploy")["queue_depth"] is None
+    assert body["invariant"]["awaiting_deploy"] is None
+
+
+def _assert_one_unknown_surface(body: dict, surface: str) -> None:
+    assert body["invariant"]["status"] == "partial"
+    unknown = deploy_surface(body, surface)
+    assert unknown["verdict"] == "unknown"
+    assert unknown["deployed"] is None
+    assert unknown["merged"] is None
+    assert sum(row["verdict"] == "unknown" for row in body["deploy_debt"]["surfaces"]) == 1
+
+
+def _assert_revision_parity(body: dict, fixture: DeployFixture) -> None:
+    assert body["deploy_debt"]["status"] == "known"
+    assert body["deploy_debt"]["debt"] == 0
+    assert deploy_surface(body, "plugin")["deployed"] == HEX_A
+    assert deploy_surface(body, "hyvv")["deployed"] == HEX_A
+    for surface, content in (("collector", fixture.collector_bytes), ("obs_app", fixture.obs_app_bytes)):
+        row = deploy_surface(body, surface)
+        expected = hashlib.sha256(content).hexdigest()[:12]
+        assert row["deployed"] == expected
+        assert row["merged"] == expected
+        assert row["verdict"] == "parity"
+
+
+def _assert_prefix_drift(drifted: dict) -> None:
+    assert deploy_surface(drifted, "plugin")["verdict"] == "drift"
+    assert drifted["deploy_debt"]["debt"] == 1
+
+
+def _assert_file_digest_drift(file_drift: dict, fixture: DeployFixture) -> None:
+    row = deploy_surface(file_drift, "collector")
+    assert row["verdict"] == "drift"
+    assert row["deployed"] == hashlib.sha256(b"collector fixture\n").hexdigest()[:12]
+    assert row["merged"] == hashlib.sha256(fixture.collector_bytes).hexdigest()[:12]
+    assert file_drift["deploy_debt"]["debt"] == 1
+    assert all("71cf42c3" not in " ".join(call) for call in fixture.calls)
+
+
 class TestDeployDebt:
     def test_source_rev_red_proof_and_26_open_prs_are_not_deploy_debt(self, tmp_path: Path) -> None:
         # The source-revision RED proof is recorded in the delivery report.
@@ -1553,28 +1623,10 @@ class TestDeployDebt:
         fixture.revisions[(str(fixture.paths["plugin_repo"]), "origin/main")] = HEX_B
         fixture.paths["hyvv_marker"].write_text(HEX_C, encoding="utf-8")
         body = bottlenecks_of(fixture.snapshot(tmp_path, open_prs=3))
-        assert body["open_prs"] == 3
-        assert body["deploy_debt"]["status"] == "known"
-        assert body["deploy_debt"]["debt"] == 2
-        assert stage_of(body, "deploy")["queue_depth"] == 2
-        assert body["invariant"]["awaiting_deploy"] == 2
-        assert body["invariant"]["status"] == "known"
-        assert deploy_surface(body, "plugin") == {
-            "surface": "plugin", "merged": HEX_B, "deployed": HEX_A, "verdict": "drift"
-        }
-        assert deploy_surface(body, "hyvv") == {
-            "surface": "hyvv", "merged": HEX_A, "deployed": HEX_C, "verdict": "drift"
-        }
-        assert deploy_surface(body, "collector")["verdict"] == "parity"
-        assert deploy_surface(body, "obs_app")["verdict"] == "parity"
+        _assert_drift_surfaces(body)
 
         changed_prs = bottlenecks_of(fixture.snapshot(tmp_path, open_prs=7))
-        assert changed_prs["open_prs"] == 7
-        assert changed_prs["deploy_debt"]["open_prs"] == 7
-        assert changed_prs["deploy_debt"]["debt"] == 2
-        assert stage_of(changed_prs, "deploy")["queue_depth"] == 2
-        assert changed_prs["invariant"]["awaiting_deploy"] == 2
-        assert changed_prs["deploy_debt"]["surfaces"] == body["deploy_debt"]["surfaces"]
+        _assert_open_pr_count_independent(body, changed_prs)
 
     @pytest.mark.parametrize(
         ("case", "surface"),
@@ -1601,50 +1653,26 @@ class TestDeployDebt:
         else:
             fixture.paths["hyvv_marker"].write_text(HEX_A[:12], encoding="utf-8")
         body = bottlenecks_of(fixture.snapshot(tmp_path, open_prs=26))
-        assert body["open_prs"] == 26
-        assert body["deploy_debt"]["status"] == "partial"
-        assert body["deploy_debt"]["debt"] is None
-        assert stage_of(body, "deploy")["queue_depth"] is None
-        assert body["invariant"]["awaiting_deploy"] is None
-        assert body["invariant"]["status"] == "partial"
-        unknown = deploy_surface(body, surface)
-        assert unknown["verdict"] == "unknown"
-        assert unknown["deployed"] is None
-        assert unknown["merged"] is None
-        assert sum(row["verdict"] == "unknown" for row in body["deploy_debt"]["surfaces"]) == 1
+        _assert_partial_debt(body)
+        _assert_one_unknown_surface(body, surface)
 
     def test_full_revisions_and_file_digest_prefixes_match_deploy_parity(self, tmp_path: Path) -> None:
         fixture = DeployFixture(tmp_path / "deploy-fixture")
         fixture.revisions[(str(fixture.paths["plugin_dir"]), "HEAD")] = "  " + HEX_A.upper() + "\n"
         fixture.paths["hyvv_marker"].write_text("\t" + HEX_A.upper() + "  \n", encoding="utf-8")
         body = bottlenecks_of(fixture.snapshot(tmp_path))
-        assert body["deploy_debt"]["status"] == "known"
-        assert body["deploy_debt"]["debt"] == 0
-        assert deploy_surface(body, "plugin")["deployed"] == HEX_A
-        assert deploy_surface(body, "hyvv")["deployed"] == HEX_A
-        for surface, content in (("collector", fixture.collector_bytes), ("obs_app", fixture.obs_app_bytes)):
-            row = deploy_surface(body, surface)
-            expected = hashlib.sha256(content).hexdigest()[:12]
-            assert row["deployed"] == expected
-            assert row["merged"] == expected
-            assert row["verdict"] == "parity"
+        _assert_revision_parity(body, fixture)
 
         same_prefix_drift = HEX_A[:12] + "0" * 28
         assert same_prefix_drift != HEX_A
         fixture.revisions[(str(fixture.paths["plugin_repo"]), "origin/main")] = same_prefix_drift
         drifted = bottlenecks_of(fixture.snapshot(tmp_path))
-        assert deploy_surface(drifted, "plugin")["verdict"] == "drift"
-        assert drifted["deploy_debt"]["debt"] == 1
+        _assert_prefix_drift(drifted)
 
         fixture.revisions[(str(fixture.paths["plugin_repo"]), "origin/main")] = HEX_A
         fixture.paths["collector_deployed"].write_bytes(b"collector fixture\n")
         file_drift = bottlenecks_of(fixture.snapshot(tmp_path))
-        row = deploy_surface(file_drift, "collector")
-        assert row["verdict"] == "drift"
-        assert row["deployed"] == hashlib.sha256(b"collector fixture\n").hexdigest()[:12]
-        assert row["merged"] == hashlib.sha256(fixture.collector_bytes).hexdigest()[:12]
-        assert file_drift["deploy_debt"]["debt"] == 1
-        assert all("71cf42c3" not in " ".join(call) for call in fixture.calls)
+        _assert_file_digest_drift(file_drift, fixture)
 
 
 # ------------------------------------------------------------------ read-only
