@@ -88,9 +88,69 @@
         { "$ref": "#/$defs/decisions_requests_section" },
         { "$ref": "#/$defs/legacy_decisions_requests_section" }
       ]
+    },
+    "balance": {
+      "description": "Optional extension section: FACTORY-BALANCE metrics (docs/19 §3). feature_share and each lane's lane_streak show when bee capacity drifts away from roadmap work. Advisory only: nothing gates on it. Absent when the producing run has no source of classified merged PRs; the section is not required.",
+      "$ref": "#/$defs/balance_section"
     }
   },
   "$defs": {
+    "balance_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "error", "collected_at", "window_hours", "feature_share", "shares", "lanes", "thresholds"],
+      "properties": {
+        "status": { "$ref": "#/$defs/section_status" },
+        "error": { "type": ["string", "null"], "maxLength": 200 },
+        "collected_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "window_hours": { "type": "integer", "minimum": 1 },
+        "feature_share": {
+          "description": "Fraction of merged PRs in the window that were roadmap or packet work; null when none merged.",
+          "$ref": "#/$defs/balance_share"
+        },
+        "shares": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["feature", "hardening", "docs_ops"],
+          "properties": {
+            "feature": { "$ref": "#/$defs/balance_share" },
+            "hardening": { "$ref": "#/$defs/balance_share" },
+            "docs_ops": { "$ref": "#/$defs/balance_share" }
+          }
+        },
+        "lanes": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/balance_lane" } },
+        "thresholds": {
+          "description": "The FACTORY-BALANCE thresholds in force, echoed from configuration.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["feature_min", "hardening_max", "docs_ops_max", "park_after", "small_change_lines", "lane_daily_cap"],
+          "properties": {
+            "feature_min": { "type": "number", "minimum": 0, "maximum": 1 },
+            "hardening_max": { "type": "number", "minimum": 0, "maximum": 1 },
+            "docs_ops_max": { "type": "number", "minimum": 0, "maximum": 1 },
+            "park_after": { "type": "integer", "minimum": 1 },
+            "small_change_lines": { "type": "integer", "minimum": 0 },
+            "lane_daily_cap": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "balance_share": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "balance_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "lane_streak", "prs_24h", "parked"],
+      "properties": {
+        "lane": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "lane_streak": {
+          "description": "Consecutive merged PRs in this lane that meet a FACTORY-BALANCE shrinking condition.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "prs_24h": { "type": "integer", "minimum": 0 },
+        "parked": { "type": "boolean" }
+      }
+    },
     "section_status": {
       "description": "Per-section degradation marker. live: the source was read this run. stale: the source was read but its newest record is older than the freshness threshold. unavailable: the source is missing, unreadable, or the reader refused; rows are then empty and error may name the generic cause (never a path with credential material).",
       "enum": ["live", "stale", "unavailable"]

@@ -133,6 +133,18 @@ Bees are the default coding labour. Cloud coding agents are a last resort becaus
 - When dispatch is paused (by the approver, by a parked project ([18](https://github.com/mojomast/workflow/pull/9)), or by a host-side switch), don't dispatch, unpause or change the pause from any lane.
 - Resuming needs the approver's explicit yes for that resume. A general "keep going" isn't one.
 
+### Factory balance (FACTORY-BALANCE)
+
+Bees will happily feed on their own reviews: each test-only PR's review finds the next test-only PR, and features wait. Adopted 2026-11-24 (memo 31, option A) after the Nov 20–22 run of 51 PRs with no feature work. These are first thresholds; review them after two waves.
+
+1. **Capacity share per wave.** Of a wave's bee slices, at least 50% go to roadmap or packet items (features, or anything user-visible), at most 30% to hardening and at most 20% to docs and ops. A hardening-only wave needs a named incident or an outside finding, plus the owner's yes.
+2. **Diminishing-returns stop, per lane** (a lane is one module family or branch-prefix family). A lane parks after 3 consecutive merged PRs that each have no product-source change (test-only or doc-only), or fewer than 30 changed product-source lines, or a finding that came from reviewing the lane's own previous PR (review-chain depth 3 or more).
+3. **When a lane parks**, write one residuals backlog item: the open findings, the residual risk in five lines, and one consolidated fix slice. The lane resumes only on the owner's yes, a new outside finding, or an incident.
+4. **Lane rate cap:** at most 5 PRs per lane per 24 h.
+5. **Make it visible.** The observability snapshot's optional `balance` section carries `feature_share` and each lane's `lane_streak`, so the Hive shows imbalance live.
+
+This is coordinator discipline, not a gate: nothing refuses a dispatch yet. Hard enforcement in the gate watcher comes only after a week of data, with an owner override for incidents.
+
 ### Kyle-specific: bee values
 
 | Setting | Value (as of Nov 12, 2026) |
@@ -229,7 +241,7 @@ Order is proven by signed sequence numbers and the previous record's hash, not g
 | Tag or create a release | Yes, per tag | No tag is implied by a merge |
 | Publish a package (PyPI, npm and so on) | Yes | |
 | Catalog submissions or edits (e.g. the Nous plugin catalog) | Yes | |
-| Deploy or restart a production system or shared host | Yes, per deploy | Take a backup and record the rollback SHA first |
+| Deploy or restart a production system or shared host | Yes, per deploy | Take a backup and record the rollback SHA first; follow DEPLOY-CADENCE in [deployment-runbook.md](deployment-runbook.md) |
 | Change live worker-host or launcher configuration, or credentials | Yes | Only the owning agent applies it |
 | Unpause worker dispatch | Yes | |
 | Delete anything: branches, folders, files, repos | Yes, per item | Check it's pushed first. No branch deletion or history rewrite without a yes |
@@ -287,6 +299,7 @@ The coordinator can be swapped out mid-day. Everything it knows has to be on dis
 - **Todo queue.** Every task has an id, a state (pending, in progress, blocked, done, superseded), an owner lane and its branch.
 - **Reconcile on every wake.** Before acting, re-read the queue, re-fetch PR heads, CI and bee counts, and mark anything that changed. If memory and the forge disagree, the forge wins.
 - **Handoff file.** Keep a single current handoff using [`templates/HANDOFF.md`](../templates/HANDOFF.md). It holds the standing rules, outstanding approvals and their scopes, lanes, branches with head SHAs, open PRs, the hands-off list, blockers and the next step. Update it at each milestone.
+- **Supersede, don't amend (SUPERSEDE-DONT-AMEND).** Dated evidence and decision records stay byte-for-byte once accepted; hashed or cited evidence must keep its checksum. A correction is a new dated record that names what it supersedes and why, and the old record is pointed to it ("superseded by") from ROADMAP and the evidence index, never edited. Example: `evidence/rails-rc/release/DECISION.md` still matches its published checksum, and `DECISION-2026-11-24-index-default.md` records that the attempt index became the default.
 - **Standing rules are verbatim.** Copy them word for word into memory and the handoff file. Paraphrase drifts.
 
 ---

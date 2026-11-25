@@ -12,6 +12,25 @@ the read surfaces people look at, the plugin decides *what* runs, and the launch
 A defect therefore surfaces on the least dangerous surface first, and nothing that dispatches
 work changes until the observation layer is proven.
 
+## Cadence (DEPLOY-CADENCE)
+
+Owner decision (2026-11-24, BEST-PRACTICE item 15). The Hermes host is a single host, so there is
+no canary population; the canary is a Hermes test profile plus the deployment receipt.
+
+- **Window.** Deploys go out in at most one batched deploy window per day. A batch is at most one day's merges, so a
+  rollback stays small.
+- **Source.** Deploy only green `main` or tagged SHAs, never branch heads (rule 1 below).
+- **Every deploy:** a backup and a written `ROLLBACK.sh` first; a rehearsal of the same SHAs on a
+  Hermes test profile; then the deploy; then capture `/v1/health` and run
+  `scripts/check_deploy_receipt.py --health <saved response> --expect-rev <deployed SHA>` plus the
+  stage's smoke check. Keep the receipt-check record and the smoke result as deploy evidence.
+- **Approval.** Each deploy is still the owner's typed yes for that deploy; this cadence never
+  grants one.
+- **Freeze.** Any rollback freezes deploys until a written cause is filed and the owner lifts the
+  freeze.
+- **Exceptions.** Security fixes may go out of window with the owner's yes; the rest of the
+  checklist still applies.
+
 ## 0. Rules that apply to every stage
 
 1. **Merged tuple only.** Deploy from commits that are on each repository's authoritative branch.
