@@ -100,6 +100,62 @@ The rules the queue enforces mechanically:
 5. No timeout ever turns silence into approval. A pending request is pending
    until a human answers or the pipeline withdraws it.
 
+## Decision receipts
+
+An approval may be accompanied by a frozen **owner-decision receipt**
+(`rizzstack.owner-decision-receipt/1`) signed on a trusted route. The receipt
+is evidence only; the queue validates it and never persists it in the queue
+entry.
+
+The shape is exactly these fields and nothing else. `RECEIPT_FIELDS` is the
+canonical field list and order; it is not an input-order requirement, and
+the order of keys in a JSON object is irrelevant:
+
+| Field | Meaning |
+|---|---|
+| `schema` | the literal `rizzstack.owner-decision-receipt/1` |
+| `request_id` | the request the receipt answers |
+| `request_digest` | the request's sealed digest |
+| `decision_nonce` | the request's nonce, echoed by the receipt |
+| `outcome` | `approve` or `deny` |
+| `decided_by` | the literal `owner` |
+| `decided_at` | RFC 3339 UTC timestamp with second precision, ending in `Z`; numeric offsets are refused |
+| `decision_digest` | the sealed decision's digest |
+| `signature` | 64 lowercase hex characters |
+
+A valid signed `approve` or `deny` receipt is accepted as evidence and verifies
+exactly the same way. The legacy `approval_receipt_ref` on a decision remains
+approve-only: a `deny` decision that carries it is still refused with
+`unexpected_receipt`. A receipt's `decided_at` must be a UTC timestamp ending
+in `Z`; a numeric offset is refused with `receipt_bad_timestamp`.
+
+The canonical signing domain is `canonical_json` of the receipt **without**
+the `signature` field: sorted keys, compact separators, ASCII escapes. The
+signature is HMAC-SHA256 over those canonical bytes, keyed with the
+owner-held `BUNDLEBEES_APPROVAL_SECRET`. The key is supplied by the caller,
+for example from that environment variable; the queue never reads the secret
+itself and never writes it to disk.
+
+`verify_receipt` checks the shape first, then the signature with a
+constant-time comparison, then the request and decision bindings. Refusals
+name the rule:
+
+- shape: `receipt_unknown_field`, `receipt_missing_field`,
+  `receipt_bad_version`, `receipt_bad_id`, `receipt_bad_digest`,
+  `receipt_bad_timestamp`, `receipt_bad_outcome`, `receipt_not_owner`;
+- key and signature: `receipt_key_missing`, `receipt_signature_invalid`;
+- bindings: `receipt_binding_mismatch` (the request id, request digest or
+  nonce differs) and `receipt_decision_mismatch` (the decision digest,
+  outcome, decision time or `decided_by` differs).
+
+`DecisionQueue.record_decision` accepts an optional `receipt` and `key`. It
+validates the decision first, then verifies the receipt against that decision
+and its request, and raises before any write if verification fails; the
+on-disk record stays byte-identical. A verified receipt is mechanical
+evidence, not authority: the queue never performs the human act, and neither
+recording nor verifying a receipt applies a decision. Applying remains the
+consumer's act.
+
 ## What the queue deliberately does not do
 
 It never performs the human act. Applying an approved gate request records
@@ -153,12 +209,18 @@ A small read-and-record surface exists for operators:
 python3 bundlebees_plugin/decision_queue.py --state-dir DIR pending
 python3 bundlebees_plugin/decision_queue.py --state-dir DIR show --request-id ID
 python3 bundlebees_plugin/decision_queue.py --state-dir DIR record --request-id ID --file decision.json
+python3 bundlebees_plugin/decision_queue.py --state-dir DIR record --request-id ID --file decision.json --receipt receipt.json --key-env BUNDLEBEES_APPROVAL_SECRET
+python3 bundlebees_plugin/decision_queue.py --state-dir DIR verify-receipt --request-id ID --file receipt.json --key-env BUNDLEBEES_APPROVAL_SECRET
 python3 bundlebees_plugin/decision_queue.py --state-dir DIR apply
 ```
 
 `record` takes a decision document as JSON, validates it against the stored
 request and refuses anything the queue would refuse; refusals exit 2 with the
-error code on stderr as JSON.
+error code on stderr as JSON. `--receipt` and `--key-env` must be supplied
+together; the receipt is read as JSON and passed to `record_decision`.
+`verify-receipt` loads the stored final decision, reads the key from the named
+environment variable, verifies the receipt, and prints
+`{"ok": true, "request_id": ..., "outcome": ...}` on success.
 
 ## Tests
 
@@ -166,7 +228,8 @@ error code on stderr as JSON.
 request and decision validation, kind payload rules, the full queue lifecycle
 (raise, defer, decide, apply, withdraw, tamper), the observability section
 inside a real collector snapshot, schema agreement between the queue and
-`owner-decision.schema.json`, collector compatibility, and the CLI.
+`owner-decision.schema.json`, collector compatibility, the receipt canonical
+vector, signing, tamper and binding refusals, and the CLI.
 `observability/tests/test_schemas.py` covers the record contract and the
 optional snapshot extension, including extension labels. The required local
 check is:

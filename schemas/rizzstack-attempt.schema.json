@@ -1,9 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mojomast/workflow/schemas/rizzstack-attempt.schema.json",
-  "title": "rizzstack.attempt/1 (draft)",
-  "description": "DRAFT, wave B. One attempt record and one state enum for hyvv, bundlebees, Orbit and the control plane. Not referenced by any code yet.",
-  "x-status": "draft",
+  "title": "rizzstack.attempt/1",
+  "description": "One attempt record and one state enum for hyvv, bundlebees, Orbit and the control plane. Not referenced by any code yet.",
   "type": "object",
   "required": ["schema", "attempt_id", "state", "project", "created_at", "updated_at"],
   "additionalProperties": false,
