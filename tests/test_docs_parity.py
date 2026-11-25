@@ -46,7 +46,7 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
-    154: (
+    171: (
         "wave C slice C1 (rizzstack.ticket/1 claims schema + one synthetic example): "
         "a schema-only contract registration with no runtime behavior; its acceptance gate "
         "is tests/test_ticket_schema.py and the frozen slice permits no changelog history change"
