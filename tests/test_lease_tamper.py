@@ -686,6 +686,18 @@ class LeaseSourceTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("bootstrap mode", proc.stdout)
 
+    def test_path_and_hash_together_must_agree(self):
+        fixture = self.build(name="path-and-hash")
+        head = fixture.verify
+        body = (
+            "Lease-Contract: .rizzstack/leases/slice.json\n"
+            "Lease-Contract-Sha256: " + lease_hash(fixture.lease) + "\n"
+        )
+
+        proc = self.run_gate(fixture.repo, fixture.base, head, body=body, verify=head)
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
     def test_named_contract_hash_that_does_not_match_the_base_lease_fails(self):
         fixture = self.build(name="mismatch")
         head = fixture.verify
