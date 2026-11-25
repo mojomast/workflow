@@ -46,13 +46,20 @@ aggregate over the matrix legs, so a failed or cancelled leg fails
 
 ## Lease/tamper
 
-`lease-tamper` is a required member of `ci-gate`. It reads the pull request's
-slice contract (label, PR body or `.rizzstack/lease.json`) and fails if any
-commit after the verify boundary touches a file outside
-`scope.assigned_files` or a frozen test in `scope.test_files` /
-`scope.prohibited` / `scope.read_only`. A missing contract fails closed. The
-rule applies to every author, including the coordinator and triage lanes;
-triage lanes have no test edit rights. Full behavior and the failure text:
+`lease-tamper` is a required member of `ci-gate`. It classifies the pull
+request first: a **slice** is a PR that a frozen lease committed on the base
+branch names (by `pull_request`, `branch` or `slice`/`id`, or by a
+`lease-contract:` label / `Lease-Contract:` body line naming a base lease);
+a **non-slice** PR is any other change and passes only with an independent
+review at its exact head (`APPROVED`, or a `COMMENTED` review whose first line
+starts `APPROVE` and names an independent review). A slice is then judged
+against its lease: any commit after the verify boundary that touches a file
+outside `scope.assigned_files`, or a frozen test in `scope.test_files` /
+`scope.prohibited` / `scope.read_only`, fails. A lease that exists only on the
+PR branch fails `lease_not_on_base`; a non-slice PR without a review at its
+head fails `non_slice_requires_independent_review`. The rule applies to every
+author, including the coordinator and triage lanes; triage lanes have no test
+edit rights. Full behavior and the failure text:
 [`32-lease-tamper-gate.md`](32-lease-tamper-gate.md).
 
 ## Boundaries

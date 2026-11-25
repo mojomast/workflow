@@ -44,10 +44,47 @@ The gate resolves the contract path in this order:
    ```
 
    `Contract-Path:` is accepted as an alias;
-4. the repository convention `.rizzstack/lease.json`, read at the base
+4. the frozen slice store `.rizzstack/leases/*.json` on the **base** branch,
+   matched to the pull request by the lease's own `pull_request`/`pr`,
+   `branch` or `slice`/`id` field;
+5. the repository convention `.rizzstack/lease.json`, read at the base
    revision first and the head revision second.
 
-If none of these resolves, the job fails closed. There is no "no lease" pass.
+If none of these resolves the pull request is **not a slice**, and the
+independent-review rule below applies. There is no "no lease" pass.
+
+## Slice or non-slice
+
+The classification is explicit and lives on the base branch:
+
+- A pull request is a **slice** when a frozen lease/contract committed on the
+  **base** branch names it — by number (`"pull_request": 64`), by branch
+  (`"branch": "feat/wave-b-b1"`), by slice name (`"slice"`/`"id"` equal to the
+  branch's last path segment, case-insensitively), or by a coordinator
+  `lease-contract:` label / `Lease-Contract:` body line that names a lease
+  already committed to the base branch.
+- The shape of the branch name is **never** a classifier: `feat/`, `fix/` or
+  any other prefix proves nothing, and a lease that does not name the pull
+  request does not apply to it.
+- A lease that exists only on the pull-request branch never classifies it and
+  fails closed with `lease_not_on_base`: a pull request may not supply or edit
+  the lease it is judged by.
+- A lease whose `review.status` is anything other than `approved` or `frozen`
+  (a draft) does not classify a slice.
+
+A **non-slice** pull request — a docs fix, a release chore, a gate change with
+no slice lease — passes only with an independent review recorded at its exact
+head commit:
+
+- a review whose `state` is `APPROVED`, or
+- a `COMMENTED` review whose first line starts `APPROVE`, names an
+  `independent review`, and (when it quotes a sha) quotes the head.
+
+The review's `commit_id` must equal the head being checked: an approval at an
+older head proves nothing about the code that would merge. With no such review
+the job fails closed with the named reason
+`non_slice_requires_independent_review`. The job needs `pull-requests: read`
+to read the reviews; without a token it fails closed rather than skipping.
 
 **Keep the default path out of long-lived `main`.** Once a slice-specific
 `.rizzstack/lease.json` is merged, every later pull request inherits it (the
@@ -116,8 +153,12 @@ pass.
   base is ignored. Conflict resolutions and evil merges are still inspected
   when a path differs from both parents; a resolution that rewrites a frozen
   test fails.
-- The contract file and `.rizzstack/lease.json` are metadata and are exempt
-  from the lease check, so recording the verify SHA does not fail the slice.
+- The contract file, `.rizzstack/lease.json` and every file under
+  `.rizzstack/leases/` are metadata and are exempt from the lease check: the
+  gate reads the lease store from the base branch, so a branch that edits it
+  does not change the verdict, and a lease-landing PR changes no code. Recording
+  the verify SHA therefore never fails the slice, and landing a lease never
+  needs a lease to cover the lease store.
 - A clean history (no commits after the boundary) passes.
 
 ## Merge queue
@@ -162,6 +203,11 @@ the queue drops the stale group and rebuilds on the new head.
 
 The job fails, rather than skipping, when:
 
+- no frozen lease on the base branch names the pull request (by number,
+  branch, slice, label or body line) **and** no independent review exists at
+  the exact head (`non_slice_requires_independent_review`);
+- a lease names the pull request only on the head branch
+  (`lease_not_on_base`);
 - no contract is named and `.rizzstack/lease.json` is absent at head and base;
 - the contract is not valid JSON, is not an object, or has no
   `scope.assigned_files`;
@@ -184,16 +230,24 @@ lease-tamper: FAILED: 2 violation(s) after verify sha 667dfe8d39bf7ec649794be629
 An unresolvable contract gets:
 
 ```text
-lease-tamper: FAILED: no slice contract for PR #123 (head abcdef012345): no 'lease-contract:<path>' label, no 'Lease-Contract: <path>' body line, and no .rizzstack/lease.json at head or base. Add the lease before opening the pull request.
+lease-tamper: FAILED: no frozen lease on base 123456789abc names PR #123 (head abcdef012345, branch feat/x): no 'pull_request'/'branch'/'slice' match in .rizzstack/leases/*.json, no lease-contract label or body line, and no .rizzstack/lease.json at head or base.
+```
+
+A non-slice pull request without a review at the head gets:
+
+```text
+lease-tamper: FAILED (reason=non_slice_requires_independent_review): PR #123 is not a slice: no frozen lease on base 123456789abc names it ... A non-slice pull request passes only with an independent review at its exact head abcdef012345 ...
 ```
 
 ## Adding a lease to a pull request
 
 1. Write the contract (or lease record) at a named path such as
-   `.rizzstack/leases/<slice>.json` and either commit it to the base branch,
-   commit it in the slice, or keep it in the slice branch and name it from the
-   PR body with `Lease-Contract: <path>`. Do not merge a slice-specific
-   `.rizzstack/lease.json`: later PRs inherit it.
+   `.rizzstack/leases/<slice>.json` and **commit it to the base branch** in a
+   small coordinator PR before the slice PR needs it. Name the pull request in
+   the lease (`"pull_request": <N>`, `"branch": "<branch>"` or
+   `"slice": "<slice>"`) so the gate can classify the PR without any label.
+   A label/body line naming an already-committed lease also works. Do not merge
+   a slice-specific `.rizzstack/lease.json`: later PRs inherit it.
 2. List every file the slice may change in `scope.assigned_files`.
 3. List every test file the slice must not edit in `scope.test_files`; add
    `scope.prohibited` patterns for generated or frozen trees.
@@ -203,10 +257,9 @@ lease-tamper: FAILED: no slice contract for PR #123 (head abcdef012345): no 'lea
    after changing the label or lease; the check reads the event's labels and
    the checkout at the PR head.
 
-A one-commit documentation PR still needs a lease. The minimal form is a named
-lease file (for example `.rizzstack/leases/<slice>.json`) in the PR with
-`source_rev` set to the base commit and `assigned_files` listing the files the
-PR adds or edits, named from the PR body with `Lease-Contract: <path>`.
+A one-commit documentation PR is a **non-slice** pull request: it needs no
+lease, but it passes only with an independent review at its head. Land the
+review (or a small frozen lease that names the PR) before re-running the check.
 
 ## Tests
 
@@ -216,6 +269,19 @@ history, a missing contract (fail closed), a malformed contract, an
 unresolvable verify SHA, label/body contract resolution, a base-branch lease,
 a merge of the base (ignored), and a conflict resolution that rewrites a
 frozen test (fails).
+
+The store is metadata: a branch may add a lease file without a lease covering
+it, and such an edit never exempts a code path in the same commit.
+
+Its `SliceClassificationTests` class covers the classification rule: a base
+lease naming the PR number, the branch or the slice classifies a slice (and the
+lease is then enforced); a `feat/` branch shape alone does not; a lease naming
+a different slice does not; a draft lease does not; a lease naming the PR only
+on the head fails `lease_not_on_base`; and a non-slice pull request fails
+`non_slice_requires_independent_review` without a review at its exact head,
+while passing with an `APPROVED` review or an `APPROVE (independent review ...)`
+comment at the head, and failing with that review at an older head or with
+`CHANGES REQUESTED`.
 
 Its `MergeGroupTests` class covers the queue path against a loopback stand-in
 for the GitHub API (real HTTP through urllib): a single-PR group passes, a
