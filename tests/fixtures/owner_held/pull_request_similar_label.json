@@ -1,0 +1,16 @@
+{
+  "action": "opened",
+  "number": 44,
+  "pull_request": {
+    "number": 44,
+    "state": "open",
+    "title": "fixture: near-miss label only",
+    "head": {"sha": "5b9e3c1f4d607182939405a6b7c8d9e0f0123457", "ref": "feat/similar"},
+    "base": {"ref": "main", "sha": "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"},
+    "labels": [
+      {"name": "owner-held-adjacent"},
+      {"name": "not-owner-held"}
+    ]
+  },
+  "repository": {"full_name": "mojomast/fixture", "default_branch": "main"}
+}
