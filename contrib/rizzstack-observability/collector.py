@@ -1096,6 +1096,10 @@ class Collector:
         self.kanban_bin = kanban_bin or bundlebees_bin
         self._kanban_runner = kanban_runner
         self._lease_cache: dict[str, tuple[int, int, dict[str, Any]]] = {}
+        # The rails ledger keeps a peer's verbatim envelopes in
+        # imported_origin_rows; selecting them costs a scan of a multi-GB
+        # file, so the last read is reused until the database changes.
+        self._rails_usage_cache: tuple[tuple[int, ...], list[str]] | None = None
         self._now_fn = now_fn or (lambda: datetime.now(timezone.utc))
         # Independent read-only CLI reads (fleet attempts/status, one gh read per
         # repo) run concurrently, so a snapshot costs the slowest read rather than
@@ -1655,18 +1659,65 @@ class Collector:
             raise OSError("worker state directory unavailable")
         return deliveries, verify
 
+    def _ledger_stamp(self) -> tuple[int, ...] | None:
+        """Identity of the ledger bytes, including a WAL that holds commits."""
+        ledger = self.rails_ledger
+        if ledger is None:
+            return None
+        try:
+            main = ledger.stat()
+        except OSError:
+            return None
+        stamp = [main.st_mtime_ns, main.st_size]
+        try:
+            wal = Path(str(ledger) + "-wal").stat()
+        except OSError:
+            stamp.extend((0, 0))
+        else:
+            stamp.extend((wal.st_mtime_ns, wal.st_size))
+        return tuple(stamp)
+
     def _read_rails_events(self) -> list[Any]:
         if self.rails_ledger is None:
             return []
+        stamp = self._ledger_stamp()
+        cached = self._rails_usage_cache
+        if cached is not None and stamp is not None and cached[0] == stamp:
+            return list(cached[1])
         connection = sqlite3.connect(f"file:{self.rails_ledger}?mode=ro", uri=True)
         try:
             connection.execute("PRAGMA query_only=ON")
             rows = connection.execute(
                 "SELECT envelope_json FROM event_rows WHERE kind='usage.observed'"
             ).fetchall()
+            rows.extend(self._imported_usage_rows(connection))
         finally:
             connection.close()
-        return [row[0] for row in rows]
+        envelopes = [row[0] for row in rows]
+        if stamp is not None:
+            self._rails_usage_cache = (stamp, envelopes)
+        return envelopes
+
+    @staticmethod
+    def _imported_usage_rows(connection: sqlite3.Connection) -> list[tuple[Any]]:
+        """A peer's receipts arrive in imported_origin_rows, not event_rows.
+
+        The launcher ingest commits the worker's verbatim ``rizzstack.rails/1``
+        envelopes to the origin store (the same evidence the Rails query
+        projection reads), so worker usage never appears in this ledger's own
+        event_rows. A ledger written before that store existed has no table and
+        contributes nothing; LIKE narrows the scan and the parsed kind decides.
+        """
+        present = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='imported_origin_rows'"
+        ).fetchone()
+        if not present:
+            return []
+        rows = connection.execute(
+            "SELECT origin_bytes FROM imported_origin_rows"
+            " WHERE json_extract(origin_bytes,'$.kind')='usage.observed'"
+        ).fetchall()
+        return [(row[0],) for row in rows]
 
     def _read_delivery_repos(self) -> dict[str, str]:
         deliveries, _ = self._worker_state_dirs()
