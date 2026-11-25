@@ -47,6 +47,14 @@ The gate resolves the contract path in this order:
 
 If none of these resolves, the job fails closed. There is no "no lease" pass.
 
+**Keep the default path out of long-lived `main`.** Once a slice-specific
+`.rizzstack/lease.json` is merged, every later pull request inherits it (the
+file is present in their head tree) and is judged against the wrong lease. Put
+slice leases at a named path such as `.rizzstack/leases/<slice>.json` and name
+that path from the PR body or a label. Reserve the default
+`.rizzstack/lease.json` for a repository-wide lease policy that genuinely
+applies to every pull request, if such a policy is ever adopted.
+
 The contract is an `acdd/1` contract or a lease record with the same shape:
 
 ```json
@@ -141,9 +149,11 @@ lease-tamper: FAILED: no slice contract for PR #123 (head abcdef012345): no 'lea
 
 ## Adding a lease to a pull request
 
-1. Write the contract (or lease record) and either commit it to the base
-   branch, commit it in the slice, or keep it in the slice branch and name it
-   from the PR body with `Lease-Contract: <path>`.
+1. Write the contract (or lease record) at a named path such as
+   `.rizzstack/leases/<slice>.json` and either commit it to the base branch,
+   commit it in the slice, or keep it in the slice branch and name it from the
+   PR body with `Lease-Contract: <path>`. Do not merge a slice-specific
+   `.rizzstack/lease.json`: later PRs inherit it.
 2. List every file the slice may change in `scope.assigned_files`.
 3. List every test file the slice must not edit in `scope.test_files`; add
    `scope.prohibited` patterns for generated or frozen trees.
@@ -153,9 +163,10 @@ lease-tamper: FAILED: no slice contract for PR #123 (head abcdef012345): no 'lea
    after changing the label or lease; the check reads the event's labels and
    the checkout at the PR head.
 
-A one-commit documentation PR still needs a lease. The minimal form is a
-`.rizzstack/lease.json` in the PR with `source_rev` set to the base commit and
-`assigned_files` listing the files the PR adds or edits.
+A one-commit documentation PR still needs a lease. The minimal form is a named
+lease file (for example `.rizzstack/leases/<slice>.json`) in the PR with
+`source_rev` set to the base commit and `assigned_files` listing the files the
+PR adds or edits, named from the PR body with `Lease-Contract: <path>`.
 
 ## Tests
 
