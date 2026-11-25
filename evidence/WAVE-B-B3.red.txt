@@ -1,0 +1,41 @@
+WAVE-B B3 RED — validators for bundlebees/hyvv (Python) and Orbit/control plane (JS)
+base: 6fed14c08464ab846c93b09603a9d508d7188693
+branch: red/wave-b-b3
+command: python3 -m pytest -q tests/test_wave_b_validators.py
+result: 26 failed in 0.47s
+why red: validators/python/rizzstack_validators.py and validators/js/rizzstack-validators.mjs do not exist on origin/main.
+
+--- failure lines ---
+FAILED tests/test_wave_b_validators.py::test_python_validator_accepts_the_minimal_brief
+FAILED tests/test_wave_b_validators.py::test_python_validator_accepts_the_minimal_attempt
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[schema]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[objective]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[project]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[source_rev]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[assigned_files]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[acceptance]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field[risk]
+FAILED tests/test_wave_b_validators.py::test_python_validator_refuses_a_high_tier_brief_without_contract
+FAILED tests/test_wave_b_validators.py::test_js_validator_accepts_the_minimal_brief
+FAILED tests/test_wave_b_validators.py::test_js_validator_accepts_the_minimal_attempt
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[schema]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[objective]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[project]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[source_rev]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[assigned_files]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[acceptance]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field[risk]
+FAILED tests/test_wave_b_validators.py::test_js_validator_refuses_a_high_tier_brief_without_contract
+FAILED tests/test_wave_b_validators.py::test_python_validator_reads_the_frozen_schema_it_is_given
+FAILED tests/test_wave_b_validators.py::test_both_validators_match_the_frozen_schemas_on_the_shared_corpus
+FAILED tests/test_wave_b_validators.py::test_the_validators_ship_no_dependency_manifest
+FAILED tests/test_wave_b_validators.py::test_the_python_validator_imports_only_the_standard_library
+FAILED tests/test_wave_b_validators.py::test_the_javascript_validator_has_no_imports
+FAILED tests/test_wave_b_validators.py::test_the_python_validator_runs_without_site_packages
+
+--- representative failure ---
+
+    def _load_python_validator():
+>       assert PY_VALIDATOR.is_file(), (
+            f"{PY_VALIDATOR.relative_to(ROOT)} is missing; B3 has not landed"
+        )
