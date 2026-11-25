@@ -60,12 +60,17 @@ class ExamplesValidateTests(unittest.TestCase):
                 "alert-thresholds-override.schema.json",
                 "alert-thresholds.schema.json",
                 "board-snapshot.schema.json",
+                "ci-run.schema.json",
                 "common.schema.json",
                 "failure.schema.json",
+                "inference.schema.json",
                 "lifecycle.schema.json",
                 "owner-decision.schema.json",
+                "resource-sample.schema.json",
                 "resource-snapshot.schema.json",
                 "snapshot.schema.json",
+                "task-outcome.schema.json",
+                "tool-call.schema.json",
                 "vcs-snapshot.schema.json",
             ],
         )
@@ -614,6 +619,66 @@ class SnapshotDecisionsExtensionTests(unittest.TestCase):
         with self.assertRaises(SchemaError):
             self.validator.validate_file(doc, "snapshot.schema.json")
 
+
+
+class SnapshotBalanceExtensionTests(unittest.TestCase):
+    """FACTORY-BALANCE metrics: an optional, backward-compatible snapshot section."""
+
+    def setUp(self) -> None:
+        self.validator = Validator(SCHEMAS)
+        self.schema = self.validator.load("snapshot.schema.json")
+
+    @staticmethod
+    def _section(**over) -> dict:
+        section = {
+            "status": "live",
+            "error": None,
+            "collected_at": "2026-11-24T20:00:00Z",
+            "window_hours": 24,
+            "feature_share": 0.5,
+            "shares": {"feature": 0.5, "hardening": 0.3, "docs_ops": 0.2},
+            "lanes": [
+                {"lane": "verify-argv", "lane_streak": 3, "prs_24h": 5, "parked": True},
+                {"lane": "onboarding", "lane_streak": 0, "prs_24h": 1, "parked": False},
+            ],
+            "thresholds": {"feature_min": 0.5, "hardening_max": 0.3, "docs_ops_max": 0.2,
+                           "park_after": 3, "small_change_lines": 30, "lane_daily_cap": 5},
+        }
+        section.update(over)
+        return section
+
+    def _doc(self, section: dict) -> dict:
+        doc = _unavailable_snapshot("2026-11-24T20:00:00Z")
+        doc["balance"] = section
+        return doc
+
+    def test_section_is_optional(self) -> None:
+        self.assertIn("balance", self.schema["properties"])
+        self.assertNotIn("balance", self.schema["required"])
+
+    def test_live_section_validates(self) -> None:
+        self.validator.validate_file(self._doc(self._section()), "snapshot.schema.json")
+
+    def test_no_merged_prs_means_null_shares(self) -> None:
+        doc = self._doc(self._section(feature_share=None, shares={"feature": None, "hardening": None,
+                                                                  "docs_ops": None}, lanes=[]))
+        self.validator.validate_file(doc, "snapshot.schema.json")
+
+    def test_out_of_range_and_unknown_fields_are_rejected(self) -> None:
+        bad_sections = (
+            self._section(feature_share=1.5),
+            self._section(feature_share=-0.1),
+            self._section(lanes=[{"lane": "x", "lane_streak": -1, "prs_24h": 0, "parked": False}]),
+            self._section(lanes=[{"lane": "x", "lane_streak": 1, "prs_24h": 0, "parked": "no"}]),
+            self._section(extra=1),
+        )
+        for section in bad_sections:
+            with self.subTest(section=section), self.assertRaises(SchemaError):
+                self.validator.validate_file(self._doc(section), "snapshot.schema.json")
+        missing = self._section()
+        del missing["thresholds"]
+        with self.assertRaises(SchemaError):
+            self.validator.validate_file(self._doc(missing), "snapshot.schema.json")
 
 if __name__ == "__main__":
     unittest.main()

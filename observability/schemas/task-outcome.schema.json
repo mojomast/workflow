@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/task-outcome.schema.json",
+  "title": "Finished task outcome (task.outcome/v1)",
+  "description": "One row when a task reaches a terminal state. Phase timestamps are null when the phase did not happen or was not observed. tokens_wasted splits tokens spent on attempts that did not land, by cause; unknown stays null.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "task_id",
+    "outcome",
+    "phases",
+    "attempts",
+    "tokens_wasted",
+    "cost_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "task.outcome/v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "ts": {
+      "$ref": "common.schema.json#/$defs/utc_timestamp"
+    },
+    "task_id": {
+      "$ref": "common.schema.json#/$defs/id_token"
+    },
+    "job_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "card_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "project": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "trace_id": {
+      "$ref": "common.schema.json#/$defs/nullable_id"
+    },
+    "outcome": {
+      "enum": [
+        "merged",
+        "abandoned",
+        "superseded",
+        "blocked",
+        "failed"
+      ]
+    },
+    "risk_tier": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        null
+      ]
+    },
+    "model_lane": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/provider_label"
+        }
+      ]
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created",
+        "contract_frozen",
+        "red_recorded",
+        "first_dispatch",
+        "green",
+        "verify_pass",
+        "pr_opened",
+        "ci_green",
+        "mq_enter",
+        "merged"
+      ],
+      "properties": {
+        "created": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "contract_frozen": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "red_recorded": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "first_dispatch": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "green": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "verify_pass": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "pr_opened": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "ci_green": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "mq_enter": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        },
+        "merged": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/utc_timestamp"
+            }
+          ]
+        }
+      }
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "review_rounds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "first_pass": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "tokens_total": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "tokens_wasted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failed",
+        "superseded",
+        "retry",
+        "fallback",
+        "verify_rerun"
+      ],
+      "properties": {
+        "failed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "superseded": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "retry": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fallback": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "verify_rerun": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "cost_total_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cost_wasted_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cost_status": {
+      "enum": [
+        "estimated",
+        "actual",
+        "unknown"
+      ]
+    },
+    "rework_14d": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  }
+}
