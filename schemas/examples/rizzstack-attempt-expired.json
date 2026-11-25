@@ -1,0 +1,11 @@
+{
+  "schema": "rizzstack.attempt/1",
+  "attempt_id": "att_expired_001",
+  "run_id": "run_example_001",
+  "project": "workflow",
+  "state": "failed",
+  "reason": "expired",
+  "created_at": "2026-11-24T00:00:00Z",
+  "updated_at": "2026-11-24T00:15:00Z",
+  "budget_s": 900
+}
