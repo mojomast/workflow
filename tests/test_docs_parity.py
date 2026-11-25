@@ -601,6 +601,10 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
     },
     {
+        # BEST-PRACTICE items 13/14: row rides in its own PR so the merge leaves main green.
+        "pr": 154,
+        "name": "FACTORY-BALANCE + SUPERSEDE-DONT-AMEND playbook rules, snapshot balance section",
+        "keywords": ("FACTORY-BALANCE", "SUPERSEDE-DONT-AMEND", "lane_streak",),
         # Metrics contracts (#153 merged without its row; added here so main is green again).
         "pr": 153,
         "name": "OBS-METRICS: metrics fact record contracts and METRICS.md catalog",
