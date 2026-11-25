@@ -1,0 +1,7 @@
+{
+  "ref": "refs/heads/main",
+  "before": "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567",
+  "after": "1b2c3d4e5f60718293a4b5c6d7e8f9012345678ab",
+  "head_commit": {"id": "1b2c3d4e5f60718293a4b5c6d7e8f9012345678ab"},
+  "repository": {"full_name": "mojomast/fixture", "default_branch": "main"}
+}

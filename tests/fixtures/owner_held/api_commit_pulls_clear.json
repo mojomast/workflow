@@ -1,0 +1,12 @@
+[
+  {
+    "number": 43,
+    "state": "open",
+    "title": "fixture: queued pull request has no hold",
+    "labels": [
+      {"name": "ci"}
+    ],
+    "head": {"sha": "4a8d2b0e3c5f6172839405a6b7c8d9e0f0123456"},
+    "base": {"ref": "main"}
+  }
+]

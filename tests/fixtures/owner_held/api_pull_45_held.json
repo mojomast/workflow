@@ -1,0 +1,10 @@
+{
+  "number": 45,
+  "state": "open",
+  "title": "fixture: queue ref fallback resolves a held pull request",
+  "labels": [
+    {"name": "owner-held"}
+  ],
+  "head": {"sha": "6c0f4d2a5e718293a4b5c6d7e8f9012345678abc"},
+  "base": {"ref": "main"}
+}
