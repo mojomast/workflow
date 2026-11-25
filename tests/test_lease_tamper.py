@@ -5,6 +5,7 @@ the checks are proven against git history rather than mocked diffs.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -399,10 +400,14 @@ class LeaseTamperTests(unittest.TestCase):
         event = self.tmp / "push-event.json"
         event.write_text(json.dumps({"ref": "refs/heads/main", "after": base}))
 
+        env = dict(os.environ)
+        env.pop("GITHUB_EVENT_NAME", None)
+        env.pop("GITHUB_EVENT_PATH", None)
         proc = subprocess.run(
             [sys.executable, str(SCRIPT), "--repo", str(repo.path), str(event)],
             capture_output=True,
             text=True,
+            env=env,
         )
 
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

@@ -9,7 +9,8 @@
       "tests/test_lease_tamper.py",
       "docs/32-lease-tamper-gate.md",
       "docs/CI.md",
-      ".rizzstack/lease.json"
+      ".rizzstack/lease.json",
+      "README.md"
     ],
     "test_files": [],
     "prohibited": []
