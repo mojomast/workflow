@@ -1,0 +1,14 @@
+{
+  "brief_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "project": "example-project",
+  "source_rev": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "assigned_files_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "risk_tier": "low",
+  "contract_sha256": null,
+  "assignment": null,
+  "aud": "hyvv",
+  "iat": 1764000000,
+  "exp": 1764000600,
+  "jti": "0123456789abcdef0123456789abcdef",
+  "kid": "example-issuer-2026-11"
+}
