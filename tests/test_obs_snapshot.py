@@ -665,6 +665,34 @@ class TestWorkerUsage:
         }
         assert (body["bee"], body["tokens_per_verified_patch"]) == (None, None)
 
+    def test_role_split_counts_only_usage_bearing_rows(self, tmp_path: Path) -> None:
+        """A role-tagged heartbeat is not a request, and a non-coordinator
+        usage row must land in a bucket: the split reconciles with totals."""
+        ledger = tmp_path / "usage.jsonl"
+        records = [
+            {"role": "coordinator", "input_tokens": 10, "output_tokens": 5,
+             "total_tokens": 15, "cost_usd_list": 0.001},
+            # Quota heartbeat: carries the role, no tokens, no price.
+            {"role": "coordinator", "go_allowance_used_pct": 10.0,
+             "cost_usd_list": None},
+            # A worker-role row in the coordinator ledger must not vanish.
+            {"role": "work", "input_tokens": 7, "output_tokens": 3,
+             "total_tokens": 10, "cost_usd_list": None},
+        ]
+        ledger.write_text("".join(json.dumps(row) + "\n" for row in records), encoding="utf-8")
+        body, _ = collector.Collector(
+            usage_path=ledger, now_fn=lambda: FIXED_NOW
+        ).usage_section()
+        roles = body["by_role"]
+        assert body["totals"]["requests"] == 2
+        assert (roles["coordinator"]["requests"], roles["coordinator"]["total"],
+                roles["coordinator"]["unknown_cost"]) == (1, 15, 0)
+        assert (roles["unknown"]["requests"], roles["unknown"]["total"],
+                roles["unknown"]["unknown_cost"], roles["unknown"]["priced"]) == (1, 10, 1, 0)
+        worker_requests = roles["worker"]["requests"] or 0
+        assert (roles["coordinator"]["requests"] + roles["unknown"]["requests"]
+                + worker_requests) == body["totals"]["requests"]
+
     def test_bee_sums_models_repos_and_tokens_per_verified_patch(self, tmp_path: Path) -> None:
         state = worker_state(tmp_path)
         write_delivery(state, "a1", "mojomast/workflow")

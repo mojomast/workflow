@@ -1781,8 +1781,12 @@ class Collector:
                     known_usage["cost"] += 1
 
             role = role_name(record.get("role"))
-            role_counter = role_counters.get(role)
-            if role_counter is not None:
+            if usage_bearing:
+                # The split must reconcile with totals.requests: a role-tagged
+                # quota heartbeat is not a request. A role this ledger does not
+                # bucket (work/verify) lands in unknown instead of vanishing;
+                # the worker bucket is the Rails receipts block, not this file.
+                role_counter = role_counters.get(role, role_counters["unknown"])
                 _add_usage_counter(
                     role_counter, inp=inp, outp=outp, total=total, cost=cost, cache=cache
                 )
