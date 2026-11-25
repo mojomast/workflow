@@ -1,0 +1,17 @@
+{
+  "id": "workflow-lease-tamper-gate",
+  "lease_version": "rizzstack.lease/1",
+  "source_rev": "6465e6e00d2bc5aef9684568682d15c93dbc20b7",
+  "scope": {
+    "assigned_files": [
+      ".github/scripts/lease_tamper.py",
+      ".github/workflows/ci.yml",
+      "tests/test_lease_tamper.py",
+      "docs/32-lease-tamper-gate.md",
+      "docs/CI.md",
+      ".rizzstack/lease.json"
+    ],
+    "test_files": [],
+    "prohibited": []
+  }
+}
