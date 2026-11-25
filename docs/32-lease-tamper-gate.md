@@ -33,21 +33,52 @@ coordinator exception in the script.
 
 ## Where the contract comes from
 
-The gate resolves the contract path in this order:
+**A pull request never supplies the lease it is judged by.** The branch can be
+edited by the PR author, so a lease committed only on the branch (or a lease
+edited on the branch) could widen itself. The gate resolves the lease only from
+trusted sources, in this order:
 
-1. `--contract` (local runs and tests);
-2. a pull-request label `lease-contract:<path>` (`lease:<path>` also works);
+1. `--contract` / `--contract-sha256` (local runs and tests);
+2. a pull-request label `lease-contract:<path>` (`lease:<path>` also works) or
+   `lease-contract-sha256:<64-hex>` (`contract-sha256:<64-hex>` also works);
 3. a pull-request body line:
 
    ```text
-   Lease-Contract: .rizzstack/contracts/my-slice.json
+   Lease-Contract: .rizzstack/leases/my-slice.json
+   Lease-Contract-Sha256: <64-hex contract hash>
    ```
 
-   `Contract-Path:` is accepted as an alias;
-4. the repository convention `.rizzstack/lease.json`, read at the base
-   revision first and the head revision second.
+   `Contract-Path:` / `Contract-SHA256:` are accepted aliases;
+4. by contract hash: a lease under `.rizzstack/leases/*.json` on the **base
+   branch** (the base tip, then the merge-base), or a frozen contract in a
+   contract store keyed by hash — `BUNDLEBEES_CONTRACT_STORE` (path-separator
+   separated), `--contract-store`, `~/.hermes/plugin-data/bundlebees/contracts`
+   and `rizzstack-t1634/contracts`. A store entry is
+   `<root>/<sha256>.json` or any `*.json` under the root whose
+   `contract_sha256`/computed hash matches;
+5. the repository convention `.rizzstack/lease.json` on the base branch.
 
-If none of these resolves, the job fails closed. There is no "no lease" pass.
+A lease that exists only on the pull-request branch fails closed with the named
+reason `lease_not_on_base`:
+
+```text
+lease-tamper: FAILED (reason=lease_not_on_base): contract
+'.rizzstack/leases/my-slice.json' (from PR body) exists only on PR head abcdef012345,
+not on base 123456abcdef or its merge-base. A pull request may not supply or edit
+the lease it is judged by; land the lease on the base branch (or in the frozen
+contract store) first.
+```
+
+**Bootstrap exception.** A repository whose base branch does not contain
+`.github/scripts/lease_tamper.py` yet is introducing the gate with this pull
+request; there is no gate on the base to weaken, so the branch lease is
+accepted and the run prints `lease-tamper: NOTE: ... (bootstrap mode)`. Once
+the script is on the base branch, every later pull request must name a lease
+that already exists there.
+
+If no trusted source resolves, the job fails closed. There is no "no lease"
+pass.
+
 
 **Keep the default path out of long-lived `main`.** Once a slice-specific
 `.rizzstack/lease.json` is merged, every later pull request inherits it (the
@@ -113,11 +144,16 @@ pass.
   `git diff-tree --no-renames`, so a rename is checked as a delete plus an
   add (both paths must be leased).
 - Merge commits are not authored changes. A merge whose parent is on the PR
-  base is ignored. Conflict resolutions and evil merges are still inspected
-  when a path differs from both parents; a resolution that rewrites a frozen
-  test fails.
-- The contract file and `.rizzstack/lease.json` are metadata and are exempt
-  from the lease check, so recording the verify SHA does not fail the slice.
+  base brings base content, not a slice edit: it passes when the paths it
+  brings are neither leased nor frozen. A frozen test, `scope.prohibited` or
+  `scope.read_only` path that the merge introduces still fails, because a
+  frozen test may never change in the PR's history. Conflict resolutions and
+  evil merges are inspected as well: a path that differs from both parents
+  (a resolution that rewrites a frozen test, or adds an unleased file) fails.
+- The contract file, `.rizzstack/lease.json` and `.rizzstack/leases/**` are
+  metadata and are exempt from the lease check. That is safe because the gate
+  reads the lease from the base branch or the frozen store, never from the
+  branch: editing a lease on the branch cannot change the lease that applies.
 - A clean history (no commits after the boundary) passes.
 
 ## Merge queue
@@ -162,7 +198,12 @@ the queue drops the stale group and rebuilds on the new head.
 
 The job fails, rather than skipping, when:
 
-- no contract is named and `.rizzstack/lease.json` is absent at head and base;
+- no contract is named and no lease is found on the base branch or in the
+  frozen contract store;
+- the contract is named or found only on the pull-request branch
+  (`lease_not_on_base`);
+- the lease the branch names does not hash to the contract hash the pull
+  request names;
 - the contract is not valid JSON, is not an object, or has no
   `scope.assigned_files`;
 - the boundary or a PR SHA is not a full lowercase 40/64-hex commit in the
@@ -190,9 +231,13 @@ lease-tamper: FAILED: no slice contract for PR #123 (head abcdef012345): no 'lea
 ## Adding a lease to a pull request
 
 1. Write the contract (or lease record) at a named path such as
-   `.rizzstack/leases/<slice>.json` and either commit it to the base branch,
-   commit it in the slice, or keep it in the slice branch and name it from the
-   PR body with `Lease-Contract: <path>`. Do not merge a slice-specific
+   `.rizzstack/leases/<slice>.json` and **land it on the base branch before
+   the slice pull request**. The gate reads only trusted storage: a lease that
+   exists only on the slice branch fails `lease_not_on_base`. The one
+   exception is the pull request that introduces the gate into a repository
+   whose base has no `.github/scripts/lease_tamper.py` yet (bootstrap).
+   Alternatively put the contract in the frozen contract store and name its
+   `Lease-Contract-Sha256`. Do not merge a slice-specific
    `.rizzstack/lease.json`: later PRs inherit it.
 2. List every file the slice may change in `scope.assigned_files`.
 3. List every test file the slice must not edit in `scope.test_files`; add

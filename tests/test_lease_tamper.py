@@ -4,6 +4,7 @@ Every case builds a real temporary git repository and drives the real CLI, so
 the checks are proven against git history rather than mocked diffs.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -438,6 +439,288 @@ class LeaseTamperTests(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("no pull request in this event", proc.stdout)
+
+
+# -- lease source: base branch or frozen store, never the PR branch ---------
+
+
+def lease_hash(document):
+    """The frozen-contract identity: sorted compact JSON without ``review``."""
+    body = {key: value for key, value in document.items() if key != "review"}
+    text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+class LeaseSourceTests(unittest.TestCase):
+    """The lease is judged from trusted storage, not from the pull request.
+
+    A pull request can edit any file on its branch, including its lease, so the
+    gate resolves the lease from the base branch (tip or merge-base) or from a
+    frozen contract store keyed by contract hash.  A branch-only lease fails
+    with ``lease_not_on_base``.  The only exception is a repository whose base
+    has no gate yet: the pull request that introduces the gate bootstraps.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="lease-source-test-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def build(
+        self,
+        name="repo",
+        gate_on_base=True,
+        lease_on_base=True,
+        assigned=("src/slice.py", "src/other_leased.py"),
+        test_files=("tests/test_frozen.py",),
+    ):
+        """Base commit(s), a slice branch, and the hashes the tests need."""
+        repo = new_git_repo(self.tmp / name)
+        repo.write("src/slice.py", "base\n")
+        repo.write("src/other_leased.py", "base\n")
+        repo.write("tests/test_frozen.py", "base\n")
+        repo.write("src/unleased.py", "base\n")
+        repo.write("README.md", "base\n")
+        if gate_on_base:
+            repo.write(".github/scripts/lease_tamper.py", "# the gate already exists on base\n")
+        root = repo.commit("base")
+
+        lease = {
+            "id": "slice",
+            "source_rev": root,
+            "scope": {
+                "assigned_files": list(assigned),
+                "test_files": list(test_files),
+            },
+        }
+        base = root
+        if lease_on_base:
+            repo.write(".rizzstack/leases/slice.json", json.dumps(lease, indent=2) + "\n")
+            base = repo.commit("land the slice lease on base")
+
+        repo.checkout("-b", "slice")
+        repo.write("src/slice.py", "implementation\n")
+        verify = repo.commit("implement the slice")
+        return types.SimpleNamespace(
+            repo=repo, root=root, base=base, verify=verify, lease=lease
+        )
+
+    def run_gate(self, repo, base, head, body=None, labels=None, verify=None, stores=None):
+        command = [
+            sys.executable,
+            str(SCRIPT),
+            "--repo",
+            str(repo.path),
+            "--base",
+            base,
+            "--head",
+            head,
+        ]
+        if body:
+            command += ["--body", body]
+        if labels:
+            command += ["--labels", labels]
+        if verify:
+            command += ["--verify-sha", verify]
+        for store in stores or []:
+            command += ["--contract-store", str(store)]
+        env = dict(os.environ)
+        env.pop("BUNDLEBEES_CONTRACT_STORE", None)
+        env.pop("GITHUB_EVENT_PATH", None)
+        env.pop("GITHUB_EVENT_NAME", None)
+        return subprocess.run(command, capture_output=True, text=True, env=env)
+
+    # -- the five required behaviours -------------------------------------
+
+    def test_lease_on_base_passes(self):
+        fixture = self.build()
+        repo = fixture.repo
+        repo.write("src/other_leased.py", "follow-up inside the lease\n")
+        head = repo.commit("follow-up inside the lease")
+
+        proc = self.run_gate(
+            repo,
+            fixture.base,
+            head,
+            body="Lease-Contract: .rizzstack/leases/slice.json\n",
+            verify=fixture.verify,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+        self.assertIn(".rizzstack/leases/slice.json", proc.stdout)
+
+    def test_lease_only_on_branch_fails_lease_not_on_base(self):
+        fixture = self.build(name="branch-only", lease_on_base=False)
+        repo = fixture.repo
+        # The slice adds its own lease to the branch, exactly what the rule forbids.
+        repo.write(".rizzstack/leases/slice.json", json.dumps(fixture.lease, indent=2) + "\n")
+        head = repo.commit("add the lease on the branch")
+
+        proc = self.run_gate(
+            repo,
+            fixture.base,
+            head,
+            body="Lease-Contract: .rizzstack/leases/slice.json\n",
+            verify=fixture.verify,
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=lease_not_on_base", proc.stdout)
+        self.assertIn("exists only on PR head", proc.stdout)
+        self.assertIn("may not supply or edit the lease", proc.stdout)
+
+    def test_frozen_store_resolves_lease_by_contract_hash(self):
+        fixture = self.build(name="store", lease_on_base=False)
+        store = self.tmp / "frozen-contracts"
+        store.mkdir()
+        digest = lease_hash(fixture.lease)
+        (store / (digest + ".json")).write_text(
+            json.dumps(fixture.lease, indent=2) + "\n", encoding="utf-8"
+        )
+        repo = fixture.repo
+        head = fixture.verify
+
+        proc = self.run_gate(
+            repo,
+            fixture.base,
+            head,
+            body="Lease-Contract-Sha256: " + digest + "\n",
+            stores=[store],
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+        self.assertIn("frozen contract store", proc.stdout)
+
+    def test_merge_from_base_touching_nothing_leased_passes(self):
+        fixture = self.build(name="merge-clean")
+        repo = fixture.repo
+        branch_tip = fixture.verify
+
+        repo.checkout("main")
+        repo.write("src/other_leased.py", "main moved a leased file\n")
+        repo.write("src/unleased.py", "main moved an unleased file\n")
+        repo.write("README.md", "main moved the readme\n")
+        new_base = repo.commit("main moves on")
+
+        repo.checkout("slice")
+        repo.git("merge", "--no-ff", "-m", "merge main into slice", "main")
+        head = repo.rev()
+        self.assertEqual(repo.rev("HEAD^1"), branch_tip)
+
+        proc = self.run_gate(
+            repo,
+            new_base,
+            head,
+            body="Lease-Contract: .rizzstack/leases/slice.json\n",
+            verify=branch_tip,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+
+    def test_merge_from_base_touching_a_frozen_test_fails(self):
+        fixture = self.build(name="merge-frozen")
+        repo = fixture.repo
+        branch_tip = fixture.verify
+
+        repo.checkout("main")
+        repo.write("tests/test_frozen.py", "main relaxes the frozen test\n")
+        new_base = repo.commit("main edits the frozen test")
+
+        repo.checkout("slice")
+        repo.git("merge", "--no-ff", "-m", "merge main into slice", "main")
+        head = repo.rev()
+
+        proc = self.run_gate(
+            repo,
+            new_base,
+            head,
+            body="Lease-Contract: .rizzstack/leases/slice.json\n",
+            verify=branch_tip,
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("frozen test file 'tests/test_frozen.py'", proc.stdout)
+        self.assertIn("by merge commit " + head[:12], proc.stdout)
+
+    # -- the security property behind the rule ---------------------------
+
+    def test_a_lease_edited_on_the_branch_is_ignored_and_the_base_lease_applies(self):
+        fixture = self.build(name="edited")
+        repo = fixture.repo
+        widened = dict(fixture.lease)
+        widened["scope"] = dict(fixture.lease["scope"])
+        widened["scope"]["assigned_files"] = ["src/slice.py", "src/unleased.py"]
+        repo.write(".rizzstack/leases/slice.json", json.dumps(widened, indent=2) + "\n")
+        repo.write("src/unleased.py", "sneaky follow-up\n")
+        head = repo.commit("widen the lease on the branch and use it")
+
+        proc = self.run_gate(
+            repo,
+            fixture.base,
+            head,
+            body="Lease-Contract: .rizzstack/leases/slice.json\n",
+            verify=fixture.verify,
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("'src/unleased.py' is outside the slice lease", proc.stdout)
+
+    def test_bootstrap_branch_lease_passes_when_base_has_no_gate(self):
+        fixture = self.build(name="bootstrap", gate_on_base=False, lease_on_base=False)
+        repo = fixture.repo
+        repo.write(".rizzstack/leases/slice.json", json.dumps(fixture.lease, indent=2) + "\n")
+        head = repo.commit("introduce the gate and its lease")
+
+        proc = self.run_gate(
+            repo,
+            fixture.base,
+            head,
+            body="Lease-Contract: .rizzstack/leases/slice.json\n",
+            verify=fixture.verify,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("bootstrap mode", proc.stdout)
+
+    def test_named_contract_hash_that_does_not_match_the_base_lease_fails(self):
+        fixture = self.build(name="mismatch")
+        head = fixture.verify
+        wrong = "0" * 64
+
+        proc = self.run_gate(
+            repo=fixture.repo,
+            base=fixture.base,
+            head=head,
+            body="Lease-Contract-Sha256: " + wrong + "\n",
+            verify=fixture.verify,
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("no matching lease", proc.stdout)
+
+    def test_frozen_store_file_named_by_hash_must_hash_to_that_name(self):
+        fixture = self.build(name="store-mismatch", lease_on_base=False)
+        store = self.tmp / "frozen-mismatch"
+        store.mkdir()
+        wrong = "f" * 64
+        (store / (wrong + ".json")).write_text(
+            json.dumps(fixture.lease, indent=2) + "\n", encoding="utf-8"
+        )
+
+        proc = self.run_gate(
+            repo=fixture.repo,
+            base=fixture.base,
+            head=fixture.verify,
+            body="Lease-Contract-Sha256: " + wrong + "\n",
+            stores=[store],
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("is not the contract with hash", proc.stdout)
 
 
 # -- merge_queue -----------------------------------------------------------
