@@ -1,0 +1,40 @@
+{
+  "id": "wave-b-b3",
+  "lease_version": "rizzstack.lease/1",
+  "slice": "wave-b-b3",
+  "pull_request": 177,
+  "branch": "feat/wave-b-b3",
+  "contract_id": "wave-b-b3",
+  "contract_sha256": "9b971bd3e91f138af656c06c4f49f7edcbd85dcde0d8c82964b2d48f7a10f7ae",
+  "source_rev": "a330f7d3fa7a817cb3e8a5a3465048890d2d07a6",
+  "scope": {
+    "assigned_files": [
+      "validators/python/rizzstack_validators.py",
+      "validators/js/rizzstack-validators.mjs"
+    ],
+    "test_files": [
+      "tests/test_wave_b_validators.py"
+    ],
+    "prohibited": [
+      "tests/test_wave_b_validators.py",
+      "bundlebees_plugin",
+      ".github/workflows/ci.yml",
+      "CHANGELOG.md",
+      "pyproject.toml",
+      "requirements.txt",
+      "package.json"
+    ],
+    "read_only": [
+      "schemas/rizzstack-brief.schema.json",
+      "schemas/rizzstack-attempt.schema.json",
+      "schemas/examples",
+      "docs/design/wave-b-worker-contract.md",
+      "observability/validate.py"
+    ]
+  },
+  "derived_from": {
+    "contract": "rizzstack-t1634/contracts/wave-bc/B3.contract.json",
+    "approved_by": "owner priority: B3 RED classification fix, 2026-11-25",
+    "approved_at": "2026-11-25T17:51:36Z"
+  }
+}

@@ -242,8 +242,8 @@ class LeaseTamperTests(unittest.TestCase):
         proc = self.run_gate(repo, base, head, verify=head)
 
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
-        self.assertIn("lease-tamper: FAILED: no slice contract", proc.stdout)
-        self.assertIn(".rizzstack/lease.json", proc.stdout)
+        self.assertIn("reason=non_slice_requires_independent_review", proc.stdout)
+        self.assertIn("no frozen lease on base", proc.stdout)
 
     def test_malformed_contract_fails_closed(self):
         repo = self.new_repo()
@@ -440,6 +440,279 @@ class LeaseTamperTests(unittest.TestCase):
         self.assertIn("no pull request in this event", proc.stdout)
 
 
+class SliceClassificationTests(unittest.TestCase):
+    """A PR is a slice iff a frozen lease on BASE names it; else it needs a review at head."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="lease-tamper-class-"))
+        self.api = FakeGitHubApi()
+        self.api.pulls[12] = {"number": 12, "head": {}, "base": {}, "labels": [], "body": ""}
+
+    def tearDown(self):
+        self.api.close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    # -- fixtures ---------------------------------------------------------
+
+    def build(self, name="class", lease_extra=None, store_name="slice.json", on_base=True):
+        """Base carries a store lease; the branch implements one leased file.
+
+        Returns (repo, base, head, lease_path).
+        """
+        repo = new_git_repo(self.tmp / name)
+        repo.write("src/slice.py", "base\n")
+        repo.write("src/unleased.py", "base\n")
+        repo.write("tests/test_frozen.py", "base\n")
+        base = repo.commit("base")
+        lease = {
+            "id": "wave-x-x1",
+            "lease_version": "rizzstack.lease/1",
+            "source_rev": base,
+            "scope": {
+                "assigned_files": ["src/slice.py"],
+                "test_files": ["tests/test_frozen.py"],
+            },
+        }
+        lease.update(lease_extra or {})
+        path = ".rizzstack/leases/" + store_name
+        repo.write(path, json.dumps(lease, indent=2) + "\n")
+        if on_base:
+            base = repo.commit("land the slice lease on main")
+            repo.checkout("-b", "feat/wave-x-x1")
+            repo.write("src/slice.py", "implementation\n")
+            head = repo.commit("implement the slice")
+        else:
+            repo.checkout("-b", "feat/wave-x-x1")
+            repo.write("src/slice.py", "implementation\n")
+            head = repo.commit("implement the slice")
+        return repo, base, head, path
+
+    def run_gate(
+        self, repo, base, head, number="12", branch="feat/wave-x-x1", env=None, labels=None, body=None
+    ):
+        command = [
+            sys.executable,
+            str(SCRIPT),
+            "--repo",
+            str(repo.path),
+            "--base",
+            base,
+            "--head",
+            head,
+            "--branch",
+            branch,
+        ]
+        if number:
+            command += ["--pull-request", str(number)]
+        if labels:
+            command += ["--labels", labels]
+        if body:
+            command += ["--body", body]
+        run_env = dict(os.environ)
+        run_env.pop("GITHUB_REPOSITORY", None)
+        run_env.pop("GITHUB_TOKEN", None)
+        run_env.update(env or {})
+        return subprocess.run(command, capture_output=True, text=True, env=run_env)
+
+    def api_env(self):
+        return {
+            "GITHUB_REPOSITORY": QUEUE_REPO,
+            "GITHUB_API_URL": self.api.url,
+            "GITHUB_TOKEN": "test-token",
+        }
+
+    # -- slice classification ---------------------------------------------
+
+    def test_lease_naming_the_pull_request_classifies_a_slice(self):
+        repo, base, head, _path = self.build(lease_extra={"pull_request": 12})
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+
+    def test_lease_naming_the_pull_request_enforces_the_lease(self):
+        repo, base, head, _path = self.build(lease_extra={"pull_request": 12})
+        repo.write("src/unleased.py", "tamper\n")
+        head = repo.commit("step outside the lease")
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("'src/unleased.py' is outside the slice lease", proc.stdout)
+
+    def test_lease_naming_the_branch_classifies_a_slice(self):
+        repo, base, head, _path = self.build(lease_extra={"branch": "feat/wave-x-x1"})
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+
+    def test_lease_naming_the_slice_case_insensitively_classifies_a_slice(self):
+        repo, base, head, _path = self.build(lease_extra={"id": "WAVE-X-X1"})
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+
+    def test_branch_shape_alone_is_not_a_classifier(self):
+        # A feat/ branch and a store lease that names a DIFFERENT slice: non-slice.
+        repo, base, head, _path = self.build(lease_extra={"id": "wave-other-slice", "slice": "wave-other-slice"})
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=non_slice_requires_independent_review", proc.stdout)
+
+    def test_draft_lease_does_not_classify_a_slice(self):
+        repo, base, head, _path = self.build(
+            lease_extra={"pull_request": 12, "review": {"status": "draft"}}
+        )
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=non_slice_requires_independent_review", proc.stdout)
+
+    def test_lease_that_names_the_pr_only_on_the_head_fails_closed(self):
+        repo, base, head, _path = self.build(lease_extra={"pull_request": 12}, on_base=False)
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=lease_not_on_base", proc.stdout)
+        self.assertIn(".rizzstack/leases/slice.json", proc.stdout)
+
+    def test_label_lease_that_exists_only_on_the_head_fails_closed(self):
+        # The base already carries the gate, so a branch-supplied lease is refused.
+        repo = new_git_repo(self.tmp / "label-head")
+        repo.write("src/slice.py", "base\n")
+        repo.write(".github/scripts/lease_tamper.py", "# the gate, already on main\n")
+        base = repo.commit("base carries the gate")
+        repo.checkout("-b", "feat/wave-x-x1")
+        repo.write(
+            ".rizzstack/leases/slice.json",
+            json.dumps(
+                {
+                    "id": "wave-x-x1",
+                    "source_rev": base,
+                    "scope": {"assigned_files": ["src/slice.py"], "test_files": []},
+                }
+            ),
+        )
+        repo.write("src/slice.py", "implementation\n")
+        head = repo.commit("add a lease and implement")
+
+        proc = self.run_gate(
+            repo, base, head, number=None, labels="lease-contract:.rizzstack/leases/slice.json"
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=lease_not_on_base", proc.stdout)
+
+    def test_body_line_pointer_to_a_base_lease_passes(self):
+        repo, base, head, path = self.build(lease_extra={"pull_request": 12})
+        repo.write(".github/scripts/lease_tamper.py", "# the gate, already on main\n")
+        base = repo.commit("base carries the gate")
+
+        proc = self.run_gate(repo, base, head, number=None, body="Lease-Contract: " + path + "\n")
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+
+    def test_lease_store_edits_are_metadata_not_code(self):
+        # A lease landing changes only the store; the gate reads the store from
+        # base, so a lease file the branch adds is metadata, never a violation.
+        repo, base, head, _path = self.build(lease_extra={"pull_request": 12})
+        repo.write(
+            ".rizzstack/leases/second.json",
+            json.dumps(
+                {
+                    "id": "wave-y-y1",
+                    "source_rev": base,
+                    "scope": {"assigned_files": ["other.py"], "test_files": []},
+                }
+            ),
+        )
+        head = repo.commit("land another slice lease")
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("lease-tamper: OK:", proc.stdout)
+
+    def test_a_store_edit_does_not_exempt_code(self):
+        repo, base, head, _path = self.build(lease_extra={"pull_request": 12})
+        repo.write(".rizzstack/leases/second.json", "{}\n")
+        repo.write("src/unleased.py", "tamper\n")
+        head = repo.commit("smuggle a code change next to a lease")
+
+        proc = self.run_gate(repo, base, head)
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("'src/unleased.py' is outside the slice lease", proc.stdout)
+
+    # -- non-slice review rule --------------------------------------------
+
+    def test_non_slice_pr_without_a_review_fails_named(self):
+        repo, base, head, _path = self.build(lease_extra={"id": "wave-other-slice", "pull_request": 99})
+
+        proc = self.run_gate(repo, base, head, env=self.api_env())
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=non_slice_requires_independent_review", proc.stdout)
+        self.assertIn("None found. Post the review at " + head[:12], proc.stdout)
+
+    def test_non_slice_pr_with_an_approve_at_head_passes(self):
+        repo, base, head, _path = self.build(lease_extra={"id": "wave-other-slice", "pull_request": 99})
+        self.api.reviews[12] = [
+            {
+                "state": "COMMENTED",
+                "commit_id": head,
+                "body": "APPROVE (independent review at %s)\n\nVERDICT: APPROVE" % head,
+            }
+        ]
+
+        proc = self.run_gate(repo, base, head, env=self.api_env())
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("is not a slice", proc.stdout)
+        self.assertIn("independent review (COMMENTED) at head " + head[:12], proc.stdout)
+
+    def test_non_slice_pr_with_an_approved_review_at_head_passes(self):
+        repo, base, head, _path = self.build(lease_extra={"id": "wave-other-slice", "pull_request": 99})
+        self.api.reviews[12] = [{"state": "APPROVED", "commit_id": head, "body": ""}]
+
+        proc = self.run_gate(repo, base, head, env=self.api_env())
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("independent review (APPROVED)", proc.stdout)
+
+    def test_non_slice_pr_with_a_review_at_an_older_head_fails(self):
+        repo, base, head, _path = self.build(lease_extra={"id": "wave-other-slice", "pull_request": 99})
+        repo.write("src/slice.py", "one more commit\n")
+        newer = repo.commit("the head moves after review")
+        self.api.reviews[12] = [{"state": "APPROVED", "commit_id": head, "body": ""}]
+
+        proc = self.run_gate(repo, base, newer, env=self.api_env())
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=non_slice_requires_independent_review", proc.stdout)
+
+    def test_non_slice_changes_requested_is_not_an_approval(self):
+        repo, base, head, _path = self.build(lease_extra={"id": "wave-other-slice", "pull_request": 99})
+        self.api.reviews[12] = [
+            {"state": "COMMENTED", "commit_id": head, "body": "CHANGES REQUESTED: fix the doc"}
+        ]
+
+        proc = self.run_gate(repo, base, head, env=self.api_env())
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("reason=non_slice_requires_independent_review", proc.stdout)
+
+
 # -- merge_queue -----------------------------------------------------------
 
 QUEUE_REPO = "owner/repo"
@@ -454,6 +727,7 @@ class FakeGitHubApi:
 
     def __init__(self):
         self.pulls = {}
+        self.reviews = {}
         self.commit_pulls = {}
         self.check_runs = {}
         self.status = {}
@@ -502,6 +776,9 @@ class FakeGitHubApi:
         return 404, {"message": "no route for " + clean}
 
     def _pull(self, parts):
+        if len(parts) == 6 and parts[5] == "reviews":
+            number = int(parts[4])
+            return 200, self.reviews.get(number, [])
         number = int(parts[4]) if len(parts) == 5 else 0
         if number in self.pulls:
             return 200, self.pulls[number]
