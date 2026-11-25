@@ -120,6 +120,44 @@ pass.
   from the lease check, so recording the verify SHA does not fail the slice.
 - A clean history (no commits after the boundary) passes.
 
+## Merge queue
+
+A merge-queue candidate arrives as a `merge_group` event whose `head_sha` is a
+synthetic merge commit. It may stack several pull requests
+(`max_entries_to_build`), so the gate **does not** run the lease diff against
+the combined group: one lease cannot describe several slices. It proves the
+queue's property instead, per pull request:
+
+1. every `pr-<N>-<sha>` in the queue branch name
+   `refs/heads/gh-readonly-queue/<base>/pr-<N>-<sha>` is resolved with
+   `GET /repos/{repo}/pulls/{N}`;
+2. the entry heads the group stacks are read from its first-parent merge chain
+   and each is resolved to its pull request (a stacked group is checked entry
+   by entry, not just the last one);
+3. for each pull request, the head the group is testing must be the pull
+   request's **current** head, and that exact sha must carry a completed,
+   successful `lease-tamper` check run -- the proof that this gate already
+   passed on the reviewed head.
+
+Failures are hard failures (`exit 1`) with the named reason
+**`merge_group_pr_unresolved`**:
+
+```text
+lease-tamper: FAILED (reason=merge_group_pr_unresolved): [head-moved] ...
+::error title=lease-tamper merge_group_pr_unresolved::[head-moved] ...
+```
+
+It is never a neutral or skipped conclusion. GitHub counts a neutral required
+check as passing, so a neutral result would be a way around the gate; a queue
+that cannot be proved must not merge. Subtypes in the message identify the
+case: `no-pr-in-ref`, `no-credentials`, `api`, `no-pr-for-entry`,
+`head-moved`, `not-green-at-head`, `head-not-in-group`, `entry-missing`,
+`payload-incomplete`.
+
+The job needs `checks: read` for the check-run lookup. A pull request whose
+head moved after its `pull_request` run therefore fails the queue candidate;
+the queue drops the stale group and rebuilds on the new head.
+
 ## Fail-closed conditions
 
 The job fails, rather than skipping, when:
@@ -178,3 +216,11 @@ history, a missing contract (fail closed), a malformed contract, an
 unresolvable verify SHA, label/body contract resolution, a base-branch lease,
 a merge of the base (ignored), and a conflict resolution that rewrites a
 frozen test (fails).
+
+Its `MergeGroupTests` class covers the queue path against a loopback stand-in
+for the GitHub API (real HTTP through urllib): a single-PR group passes, a
+stacked group checks every entry, an earlier entry without a green run fails, an
+unresolvable branch name fails with `merge_group_pr_unresolved`, a pull request
+whose head moved after its `pull_request` run fails, an API 500/502 fails (never
+a skip), and a missing token fails. hyvv carries the same focused cases in
+`tests/test_lease_tamper_merge_group.py`.
