@@ -191,6 +191,36 @@ jobs:
             python3 tools/bee_landed.py "${files[@]}"
           fi
 
+  brief-schemas:
+    name: brief schemas (required)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install development dependencies
+        run: python3 -m pip install --quiet "jsonschema>=4.18,<5" "pytest>=8,<9"
+      - name: Validate the brief and attempt examples
+        run: |
+          python3 tools/check_brief_schemas.py \
+            schemas/examples/rizzstack-brief-minimal.json \
+            schemas/examples/rizzstack-brief-high-tier.json \
+            schemas/examples/rizzstack-brief-ticket.json \
+            schemas/examples/rizzstack-attempt-queued.json \
+            schemas/examples/rizzstack-attempt-running.json \
+            schemas/examples/rizzstack-attempt-backoff-rate-limited.json \
+            schemas/examples/rizzstack-attempt-backoff-transient.json \
+            schemas/examples/rizzstack-attempt-succeeded.json \
+            schemas/examples/rizzstack-attempt-failed.json \
+            schemas/examples/rizzstack-attempt-cancelled.json \
+            schemas/examples/rizzstack-attempt-expired.json
+      - name: Brief schema tests (required, no skips)
+        run: python3 -m pytest -q tests/test_brief_schemas.py
+
   campaign-report:
     name: campaign report protocol
     # Validates rizzstack.campaign-report/1: implementation vs integration vs
@@ -429,6 +459,7 @@ jobs:
       - secret-scan
       - feature-packet
       - bee-landed
+      - brief-schemas
       - campaign-report
       - return-manifest
       - recovery-protocol

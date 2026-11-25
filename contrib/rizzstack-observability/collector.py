@@ -17,15 +17,18 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
   yields rows the section marks itself ``stale`` with ``source:
   dispatch_leases``;
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
+- local Git revisions, deployed file bytes and the hyvv deploy marker for
+  read-only deploy parity,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
 The bottlenecks section is computed from the same records (job documents,
 the feature queue, the claim store, recorded approval decisions, verify
-results, scheduler metrics, the fleet, open pull requests): per stage queue
-depth, oldest-item age, dwell-time median and p95, throughput, WIP versus
-capacity, and the coordinator reconciler's own invariant of eligible work
-waiting despite available scheduler capacity. Dwell targets per stage are
-threshold configuration, not constants.
+results, scheduler metrics, the fleet, open pull requests) plus deploy
+parity: per stage queue depth, oldest-item age, dwell-time median and p95,
+throughput, WIP versus capacity, and the coordinator reconciler's own
+invariant of eligible work waiting despite available scheduler capacity.
+Open pull requests are reported separately, never counted as deploy debt.
+Dwell targets per stage are threshold configuration, not constants.
 
 Fleet rows and pipeline rows are honest about what their source shows. A
 fleet row whose active state is older than the staleness threshold is
@@ -58,12 +61,14 @@ reasons are reported as generic codes). Stdlib only.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import hmac
 import json
 import math
 import os
-import stat
 import re
+import sqlite3
+import stat
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -199,6 +204,11 @@ BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 CHECK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .,_()/-]{0,119}$")
 HEX_REV_RE = re.compile(r"^[0-9a-f]{40,64}$")
 ID_TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+ROLE_RE = re.compile(r"^[a-z_]{1,24}$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+USAGE_SOURCE = "bee.usage/v1"
+RAILS_USAGE_SOURCE = "rizzstack-rails/usage.observed"
+WORKER_ROLES = frozenset({"work", "verify", "worker"})
 PROVIDER_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # Routes a bundlebees route record may name (explicit launcher model prefixes).
 REPORTED_ROUTES = frozenset({"go", "deepseek", "zoo", "kimi", "nous"})
@@ -234,8 +244,8 @@ CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
 # Bottleneck stages. Each maps to the real record that shows work waiting
 # there: verify counts job tasks in the verifying state, review counts
 # features ready for review on the action queue, integrate counts verified
-# and integrating tasks at the integration wave, and deploy counts open
-# pull requests.
+# and integrating tasks at the integration wave, and deploy counts surfaces
+# whose deployed revision differs from merged main. Open PRs are separate.
 STAGE_NAMES = ("verify", "review", "integrate", "deploy")
 VERIFY_ENTRY_STATES = frozenset({"verifying"})
 VERIFY_MEMBER_STATES = frozenset({"verifying"})
@@ -271,6 +281,22 @@ WORKING_FLEET_STATES = frozenset({"running", "working"})
 # How many dispatch-lease records the fleet fallback reads at most (the
 # newest ones by mtime), so one crowded store cannot balloon a snapshot.
 FLEET_FALLBACK_LEASE_LIMIT = 24
+
+DEPLOY_SURFACES = ("plugin", "collector", "obs_app", "hyvv")
+DEPLOY_COLLECTOR_MAIN = "contrib/rizzstack-observability/collector.py"
+DEPLOY_OBS_APP_MAIN = "apps/rizzstack-observatory/app.js"
+DEPLOY_FULL_REV_RE = re.compile(r"^[0-9a-f]{40}$")
+DEPLOY_FILE_LIMIT = 16 * 1024 * 1024
+DEFAULT_DEPLOY_PATHS = {
+    "plugin_dir": Path.home() / ".hermes" / "plugins" / "bundlebees",
+    "plugin_repo": Path.home() / "rizzstack" / "bundlebees",
+    "workflow_repo": Path.home() / "rizzstack" / "workflow-closeout",
+    "obs_app_repo": Path.home() / "rizzstack" / "orbitdesktop",
+    "collector_deployed": Path.home() / ".local" / "share" / "rizzstack-obs" / "collector.py",
+    "obs_app_deployed": Path.home() / "orbitdesktop-deploy" / DEPLOY_OBS_APP_MAIN,
+    "hyvv_repo": Path.home() / "rizzstack" / "hyvv",
+    "hyvv_marker": Path.home() / ".hermes" / "plugin-data" / "bundlebees" / "hyvv-deployed-sha",
+}
 
 DEFAULT_THRESHOLDS = {
     "deepseek_balance_below_usd": 5,
@@ -424,6 +450,247 @@ def first_count(record: Mapping[str, Any], keys: Sequence[str]) -> int | None:
     return None
 
 
+def role_name(value: Any) -> str:
+    """Bucket a usage row's role: coordinator, worker, or unknown."""
+    if not isinstance(value, str) or ROLE_RE.match(value) is None:
+        return "unknown"
+    if value == "coordinator":
+        return "coordinator"
+    if value in WORKER_ROLES:
+        return "worker"
+    return "unknown"
+
+
+def _new_usage_counter() -> dict[str, Any]:
+    return {
+        "requests": 0,
+        "input": 0,
+        "output": 0,
+        "thinking": 0,
+        "total": 0,
+        "cost": 0.0,
+        "cache_read": 0,
+        "has_input": False,
+        "has_output": False,
+        "has_thinking": False,
+        "has_total": False,
+        "has_cache_read": False,
+        "priced": 0,
+        "unknown_cost": 0,
+        "attempts": set(),
+    }
+
+
+def _add_usage_counter(
+    counter: dict[str, Any],
+    *,
+    inp: int | None,
+    outp: int | None,
+    total: int | None,
+    cost: float | None,
+    cache: int | None = None,
+    thinking: int | None = None,
+) -> None:
+    counter["requests"] += 1
+    if inp is not None:
+        counter["input"] += inp
+        counter["has_input"] = True
+    if outp is not None:
+        counter["output"] += outp
+        counter["has_output"] = True
+    if thinking is not None:
+        counter["thinking"] += thinking
+        counter["has_thinking"] = True
+    if total is not None:
+        counter["total"] += total
+        counter["has_total"] = True
+    if cost is None:
+        counter["unknown_cost"] += 1
+    else:
+        counter["cost"] += cost
+        counter["priced"] += 1
+    if cache is not None:
+        counter["cache_read"] += cache
+        counter["has_cache_read"] = True
+
+
+def _add_worker_event(counter: dict[str, Any], event: Mapping[str, Any]) -> None:
+    counter["requests"] += 1
+    inp = event.get("input")
+    outp = event.get("output")
+    thinking = event.get("thinking")
+    row_total = 0
+    any_token = False
+    for key, value in (("input", inp), ("output", outp), ("thinking", thinking)):
+        if value is not None:
+            counter[key] += value
+            counter["has_" + key] = True
+            row_total += value
+            any_token = True
+    if any_token:
+        counter["total"] += row_total
+        counter["has_total"] = True
+        counter["unknown_cost"] += 1
+        if event.get("attempt"):
+            counter["attempts"].add(event["attempt"])
+
+
+def _counter_value(counter: Mapping[str, Any], name: str, *, zero: bool = False) -> int | None:
+    if zero:
+        return 0
+    return counter[name] if counter.get("has_" + name) else None
+
+
+def _usage_role_row(
+    counter: Mapping[str, Any],
+    status: str,
+    source: str,
+    *,
+    zero: bool = False,
+    include_thinking: bool = False,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "status": status,
+        "source": source,
+        "requests": 0 if zero else counter["requests"],
+        "input": _counter_value(counter, "input", zero=zero),
+        "output": _counter_value(counter, "output", zero=zero),
+        "total": _counter_value(counter, "total", zero=zero),
+        "cost_usd": round(counter["cost"], 6) if counter["priced"] and not zero else None,
+        "priced": 0 if zero else counter["priced"],
+        "unknown_cost": 0 if zero else counter["unknown_cost"],
+        "cache_read": _counter_value(counter, "cache_read", zero=zero),
+    }
+    if include_thinking:
+        row["thinking"] = _counter_value(counter, "thinking", zero=zero)
+    return row
+
+
+def _unavailable_worker_row(error: str | None = None) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "status": "unavailable",
+        "source": RAILS_USAGE_SOURCE,
+        "requests": None,
+        "input": None,
+        "output": None,
+        "thinking": None,
+        "total": None,
+        "cost_usd": None,
+        "priced": 0,
+        "unknown_cost": 0,
+        "cache_read": None,
+    }
+    if error:
+        row["error"] = error
+    return row
+
+
+def _json_role_status(seen_any: bool, counter: Mapping[str, Any]) -> str:
+    if not seen_any:
+        return "unavailable"
+    return "known" if counter["requests"] else "unknown"
+
+
+def _worker_event(envelope: Mapping[str, Any]) -> dict[str, Any]:
+    payload = envelope.get("payload")
+    payload = payload if isinstance(payload, dict) else {}
+    scope = envelope.get("scope")
+    scope = scope if isinstance(scope, dict) else {}
+    attempt = scope.get("attempt_id")
+    if not attempt:
+        attempt = payload.get("metric_scope")
+    return {
+        "attempt": id_token(attempt),
+        "input": first_count(payload, ("input_tokens",)),
+        "output": first_count(payload, ("output_tokens",)),
+        "thinking": first_count(payload, ("thinking_tokens",)),
+        "model": id_token(payload.get("model")) or "unknown",
+        "provider": provider_label(payload.get("provider")) or "unknown",
+    }
+
+
+def dedupe_rails_events(rows: Iterable[Any]) -> list[Any]:
+    """Keep the latest envelope per (chain_id, dedupe_key)."""
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    chosen: dict[tuple[Any, Any], tuple[datetime, Any]] = {}
+    for index, raw in enumerate(rows):
+        try:
+            envelope = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(envelope, dict):
+            continue
+        key = (
+            envelope.get("chain_id"),
+            envelope.get("dedupe_key") or envelope.get("event_id") or f"row{index}",
+        )
+        moment = parse_ts(envelope.get("recorded_at")) or oldest
+        previous = chosen.get(key)
+        if previous is None or moment >= previous[0]:
+            chosen[key] = (moment, envelope)
+    return [envelope for _, envelope in chosen.values()]
+
+
+def _worker_bee_row(
+    counter: Mapping[str, Any], status: str, *, zero: bool = False
+) -> dict[str, Any]:
+    row = _usage_role_row(counter, status, RAILS_USAGE_SOURCE, zero=zero, include_thinking=True)
+    row.pop("cache_read")
+    row["attempts"] = 0 if zero else len(counter["attempts"])
+    row["by_model"] = []
+    row["by_repo"] = []
+    return row
+
+
+def _worker_model_row(key: tuple[str, str], counter: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "model": key[0],
+        "provider": key[1],
+        "requests": counter["requests"],
+        "input": _counter_value(counter, "input"),
+        "output": _counter_value(counter, "output"),
+        "thinking": _counter_value(counter, "thinking"),
+        "total": _counter_value(counter, "total"),
+        "cost_usd": None,
+        "priced": 0,
+        "unknown_cost": counter["unknown_cost"],
+    }
+
+
+def _worker_repo_row(repo: str, counter: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "repo": repo,
+        "attempts": len(counter["attempts"]),
+        "requests": counter["requests"],
+        "input": _counter_value(counter, "input"),
+        "output": _counter_value(counter, "output"),
+        "thinking": _counter_value(counter, "thinking"),
+        "total": _counter_value(counter, "total"),
+    }
+
+
+def _tokens_per_patch(numerator: int | None, denominator: int) -> dict[str, Any]:
+    value = None
+    if numerator is not None and denominator > 0:
+        value = round(numerator / denominator, 1)
+    return {
+        "value": value,
+        "numerator": numerator,
+        "denominator": denominator,
+        "unit": "tokens",
+        "denominator_rule": (
+            "distinct attempt ids whose verify-results/<attempt_id>.json has ok true "
+            "and sha matching ^[0-9a-f]{40}$"
+        ),
+        "basis": "worker usage.observed receipts: input+output+thinking tokens",
+        "scope": "all time",
+        "cost": {
+            "status": "partial",
+            "note": "launcher receipts carry no cost; worker cost_usd is null",
+        },
+    }
+
+
 def first_bool(record: Mapping[str, Any], keys: Sequence[str]) -> bool | None:
     for key in keys:
         value = record.get(key)
@@ -477,18 +744,17 @@ def unwrap_job_envelope(data: dict[str, Any]) -> dict[str, Any] | None:
     (docs/22-autonomy-architecture.md: jobs/<job_id>.json, HMAC). This is a
     read-only, keyless collector: when the envelope shape is present the
     body is used as the document and the MAC is NOT verified here - the
-    reconciler, which holds the state key, is the verifier of record. An
-    envelope whose body is not an object yields None (the caller counts the
-    file unreadable, an owner message, never a silent zero); a plain
-    document with neither key passes through so legacy shapes and RETURN
-    reports keep reading.
+    reconciler, which holds the state key, is the verifier of record. Only
+    the sealed envelope shape is readable: every other document - including
+    a plain document with neither key, and an envelope whose body is not an
+    object - yields None so the caller treats the file as unreadable (the
+    pipeline skips it, the invariant counts an owner message, never a silent
+    zero).
     """
     body = data.get("body")
     if isinstance(body, dict):
         return body
-    if "body" in data or "mac" in data:
-        return None
-    return data
+    return None
 
 
 def file_age_s(path: Path, now: datetime) -> int | None:
@@ -746,6 +1012,50 @@ def subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, str, 
 
 
 Runner = Callable[[Sequence[str]], tuple[int, str, str]]
+DeployOutput = bytes | str
+DeployRunner = Callable[[Sequence[str]], tuple[int, DeployOutput, DeployOutput]]
+
+
+def deploy_subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, bytes, bytes]:
+    """Byte-preserving read-only Git output; stderr is never propagated."""
+    try:
+        proc = subprocess.run(  # noqa: S603 - fixed read-only Git argv
+            list(argv),
+            capture_output=True,
+            timeout=timeout_s,
+            check=False,
+        )
+        return proc.returncode, proc.stdout or b"", b""
+    except subprocess.TimeoutExpired:
+        return 124, b"", b""
+    except OSError:
+        return 127, b"", b""
+
+
+def read_regular_bytes(path: Path, limit: int) -> bytes | None:
+    """Read one bounded regular file without following a final symlink."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+            return None
+        chunks: list[bytes] = []
+        remaining = limit + 1
+        while remaining:
+            chunk = os.read(fd, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+    raw = b"".join(chunks)
+    return raw if len(raw) <= limit else None
 
 
 def _lease_token(value: Any) -> str | None:
@@ -812,6 +1122,24 @@ def _wave_job(job_id: str, group: Mapping[str, Any], generated: str, counts: dic
     }
 
 
+def _deploy_path_overrides(overrides: Mapping[str, Path | str] | None) -> dict[str, Path]:
+    paths = dict(DEFAULT_DEPLOY_PATHS)
+    if overrides:
+        for key in DEFAULT_DEPLOY_PATHS:
+            if key in overrides:
+                paths[key] = Path(overrides[key])
+    return paths
+
+
+def _threshold_overrides(overrides: Mapping[str, float] | None) -> dict[str, float]:
+    thresholds = dict(DEFAULT_THRESHOLDS)
+    if overrides:
+        for key, value in overrides.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                thresholds[key] = value
+    return thresholds
+
+
 class Collector:
     """Read-only snapshot builder. Every read degrades independently."""
 
@@ -820,6 +1148,7 @@ class Collector:
         *,
         state_dir: Path | None = None,
         usage_path: Path | None = None,
+        rails_ledger: Path | None = None,
         repos: Sequence[str] = (),
         stale_after_s: int = 1800,
         bundlebees_bin: str = "hermes",
@@ -833,9 +1162,12 @@ class Collector:
         kanban_boards: Sequence[str] = (),
         kanban_bin: str | None = None,
         kanban_runner: Runner | None = None,
+        deploy_paths: Mapping[str, Path | str] | None = None,
+        deploy_runner: DeployRunner | None = None,
     ) -> None:
         self.state_dir = Path(state_dir) if state_dir else None
         self.usage_path = Path(usage_path) if usage_path else None
+        self.rails_ledger = Path(rails_ledger) if rails_ledger else None
         self.extra_repos = [slug for slug in (repo_slug(r) for r in repos) if slug]
         self.stale_after_s = stale_after_s
         self.bundlebees_bin = bundlebees_bin
@@ -847,17 +1179,19 @@ class Collector:
         self.kanban_boards = [b for b in (id_token(x) for x in kanban_boards) if b]
         self.kanban_bin = kanban_bin or bundlebees_bin
         self._kanban_runner = kanban_runner
+        self.deploy_paths = _deploy_path_overrides(deploy_paths)
+        self._deploy_runner = deploy_runner
         self._lease_cache: dict[str, tuple[int, int, dict[str, Any]]] = {}
+        # The rails ledger keeps a peer's verbatim envelopes in
+        # imported_origin_rows; selecting them costs a scan of a multi-GB
+        # file, so the last read is reused until the database changes.
+        self._rails_usage_cache: tuple[tuple[int, ...], list[str]] | None = None
         self._now_fn = now_fn or (lambda: datetime.now(timezone.utc))
         # Independent read-only CLI reads (fleet attempts/status, one gh read per
         # repo) run concurrently, so a snapshot costs the slowest read rather than
         # their sum. 1 restores strictly sequential reads.
         self.cli_workers = max(1, int(cli_workers))
-        self.thresholds = dict(DEFAULT_THRESHOLDS)
-        if thresholds:
-            for key, value in thresholds.items():
-                if isinstance(value, (int, float)) and not isinstance(value, bool):
-                    self.thresholds[key] = value
+        self.thresholds = _threshold_overrides(thresholds)
 
     # ------------------------------------------------------------------ time
     def now(self) -> datetime:
@@ -1301,29 +1635,223 @@ class Collector:
         }
         summary: dict[str, Any] = {"today_cost_usd": 0.0, "today_known": 0, "quota_rows": []}
         error = "source_missing"
+        body = None
         if self.usage_path is not None:
             try:
-                return self._aggregate_usage(now, generated, jsonl_rows(self.usage_path))
+                body, summary = self._aggregate_usage(now, generated, jsonl_rows(self.usage_path))
             except FileNotFoundError:
                 pass
             except OSError:
                 # Discard even the subtotal if the ledger failed halfway through.
                 error = "source_unreadable"
-        return section(now, "unavailable", error, source=empty_source, totals=empty_totals,
-                       by_model=[], by_repo=[]), summary
+        if body is None:
+            body = section(now, "unavailable", error, source=empty_source, totals=empty_totals,
+                           by_model=[], by_repo=[], by_role=self._empty_by_role())
+        return self._with_worker_usage(body), summary
+
+    def _empty_by_role(self) -> dict[str, dict[str, Any]]:
+        empty = _new_usage_counter()
+        return {
+            "coordinator": _usage_role_row(empty, "unavailable", USAGE_SOURCE),
+            "worker": _unavailable_worker_row(),
+            "unknown": _usage_role_row(empty, "unavailable", USAGE_SOURCE),
+        }
+
+    def _with_worker_usage(self, body: dict[str, Any]) -> dict[str, Any]:
+        worker, bee, ratio = self._worker_usage()
+        body["by_role"]["worker"] = worker
+        body["bee"] = bee
+        body["tokens_per_verified_patch"] = ratio
+        return body
+
+    def _worker_usage(self) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
+        if self.rails_ledger is None:
+            return _unavailable_worker_row(), None, None
+        try:
+            envelopes = self._read_rails_events()
+        except (OSError, sqlite3.Error, ValueError):
+            return _unavailable_worker_row("rails_ledger_unreadable"), None, None
+        events = [_worker_event(envelope) for envelope in dedupe_rails_events(envelopes)]
+        zero = not events
+        if zero:
+            # A measured empty ledger needs no attempt join; a missing state
+            # directory only means the verify ratio has no denominator.
+            try:
+                denominator = self._verified_attempt_count()
+            except (OSError, ValueError):
+                denominator = 0
+            repos: dict[str, str] = {}
+        else:
+            try:
+                repos = self._read_delivery_repos()
+                denominator = self._verified_attempt_count()
+            except (OSError, ValueError):
+                return _unavailable_worker_row("state_unreadable"), None, None
+        bee, counter = self._build_worker_bee(events, repos)
+        worker = _usage_role_row(
+            counter,
+            "empty" if zero else "known",
+            RAILS_USAGE_SOURCE,
+            zero=zero,
+            include_thinking=True,
+        )
+        numerator = counter["total"] if counter["has_total"] or zero else None
+        ratio = _tokens_per_patch(numerator, denominator) if denominator > 0 else None
+        return worker, bee, ratio
+
+    def _build_worker_bee(
+        self, events: Sequence[Mapping[str, Any]], repos: Mapping[str, str]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        counter = _new_usage_counter()
+        by_model: dict[tuple[str, str], dict[str, Any]] = {}
+        by_repo: dict[str, dict[str, Any]] = {}
+        for event in events:
+            _add_worker_event(counter, event)
+            model_key = (event["model"], event["provider"])
+            by_model.setdefault(model_key, _new_usage_counter())
+            _add_worker_event(by_model[model_key], event)
+            # attempt -> delivery join: <state-dir>/deliveries/<attempt_id>.json
+            # carries the delivery's repo; an attempt with no delivery record
+            # is counted in the literal "unknown" bucket, never guessed.
+            repo = repos.get(event.get("attempt"), "unknown") or "unknown"
+            by_repo.setdefault(repo, _new_usage_counter())
+            _add_worker_event(by_repo[repo], event)
+        zero = not events
+        bee = _worker_bee_row(counter, "empty" if zero else "known", zero=zero)
+        bee["by_model"] = sorted(
+            (_worker_model_row(key, value) for key, value in by_model.items()),
+            key=lambda row: (
+                -(row["total"] if row["total"] is not None else -1),
+                row["model"],
+                row["provider"],
+            ),
+        )
+        bee["by_repo"] = sorted(
+            (_worker_repo_row(repo, value) for repo, value in by_repo.items()),
+            key=lambda row: row["repo"],
+        )
+        return bee, counter
+
+    def _worker_state_dirs(self) -> tuple[Path, Path]:
+        if self.state_dir is None:
+            raise OSError("state directory unavailable")
+        deliveries = self.state_dir / "deliveries"
+        verify = self.state_dir / "verify-results"
+        if not deliveries.is_dir() or not verify.is_dir():
+            raise OSError("worker state directory unavailable")
+        return deliveries, verify
+
+    def _ledger_stamp(self) -> tuple[int, ...] | None:
+        """Identity of the ledger bytes, including a WAL that holds commits."""
+        ledger = self.rails_ledger
+        if ledger is None:
+            return None
+        try:
+            main = ledger.stat()
+        except OSError:
+            return None
+        stamp = [main.st_mtime_ns, main.st_size]
+        try:
+            wal = Path(str(ledger) + "-wal").stat()
+        except OSError:
+            stamp.extend((0, 0))
+        else:
+            stamp.extend((wal.st_mtime_ns, wal.st_size))
+        return tuple(stamp)
+
+    def _read_rails_events(self) -> list[Any]:
+        if self.rails_ledger is None:
+            return []
+        stamp = self._ledger_stamp()
+        cached = self._rails_usage_cache
+        if cached is not None and stamp is not None and cached[0] == stamp:
+            return list(cached[1])
+        connection = sqlite3.connect(f"file:{self.rails_ledger}?mode=ro", uri=True)
+        try:
+            connection.execute("PRAGMA query_only=ON")
+            rows = connection.execute(
+                "SELECT envelope_json FROM event_rows WHERE kind='usage.observed'"
+            ).fetchall()
+            rows.extend(self._imported_usage_rows(connection))
+        finally:
+            connection.close()
+        envelopes = [row[0] for row in rows]
+        if stamp is not None:
+            self._rails_usage_cache = (stamp, envelopes)
+        return envelopes
+
+    @staticmethod
+    def _imported_usage_rows(connection: sqlite3.Connection) -> list[tuple[Any]]:
+        """A peer's receipts arrive in imported_origin_rows, not event_rows.
+
+        The launcher ingest commits the worker's verbatim ``rizzstack.rails/1``
+        envelopes to the origin store (the same evidence the Rails query
+        projection reads), so worker usage never appears in this ledger's own
+        event_rows. A ledger written before that store existed has no table and
+        contributes nothing; LIKE narrows the scan and the parsed kind decides.
+        """
+        present = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='imported_origin_rows'"
+        ).fetchone()
+        if not present:
+            return []
+        rows = connection.execute(
+            "SELECT origin_bytes FROM imported_origin_rows"
+            " WHERE json_extract(origin_bytes,'$.kind')='usage.observed'"
+        ).fetchall()
+        return [(row[0],) for row in rows]
+
+    def _read_delivery_repos(self) -> dict[str, str]:
+        deliveries, _ = self._worker_state_dirs()
+        repos: dict[str, str] = {}
+        for path in deliveries.glob("*.json"):
+            data = read_json_dict(path)
+            if data is None:
+                continue
+            attempt = id_token(first_str(data, ("attempt_id",))) or id_token(path.stem)
+            repo = repo_slug(first_str(data, ("repo", "repository", "project")))
+            if attempt and repo:
+                repos[attempt] = repo
+        return repos
+
+    def _verified_attempt_count(self) -> int:
+        _, verify = self._worker_state_dirs()
+        seen: set[str] = set()
+        for path in verify.glob("*.json"):
+            data = read_json_dict(path)
+            if data is None:
+                continue
+            ok = data.get("ok")
+            sha = data.get("sha")
+            if not (ok is True or ok == "true"):
+                continue
+            if not isinstance(sha, str) or SHA_RE.match(sha) is None:
+                continue
+            attempt = id_token(first_str(data, ("attempt_id",))) or id_token(path.stem)
+            if attempt:
+                seen.add(attempt)
+        return len(seen)
 
     def _aggregate_usage(self, now: datetime, generated: str, records: Iterable[Any]) -> tuple[dict, dict]:
         summary: dict[str, Any] = {"today_cost_usd": 0.0, "today_known": 0, "quota_rows": []}
         parse_errors = 0
         today_prefix = now.astimezone(timezone.utc).strftime("%Y-%m-%d")
         totals = {"input": 0, "output": 0, "total": 0, "cost": 0.0}
+        # known counts rows that carry a value (for publishing totals);
+        # known_usage counts only usage-bearing rows, so status numerators
+        # share the totals.requests denominator.
         known = {"input": 0, "output": 0, "total": 0, "cost": 0}
+        known_usage = {"input": 0, "output": 0, "total": 0, "cost": 0}
+        # Two denominators: totals.requests counts usage-bearing records,
+        # source.record_count counts every parsed dict record.
+        parsed_records = 0
         requests = 0
         unknown_cost = 0
         http_429_count = 0
         fallback_count = 0
         by_model: dict[tuple[str, str], dict[str, Any]] = {}
         by_repo: dict[str, dict[str, Any]] = {}
+        role_counters = {"coordinator": _new_usage_counter(), "unknown": _new_usage_counter()}
         seen_any = False
         latest_quota: dict[tuple[str, str | None], tuple[datetime | None, dict[str, Any]]] = {}
 
@@ -1340,36 +1868,61 @@ class Collector:
                 parse_errors += 1
                 continue
             seen_any = True
-            requests += 1
+            parsed_records += 1
             model = scrub(first_str(record, ("served_model", "model", "requested_model")), 64) or "unknown"
             model = model if ID_TOKEN_RE.match(model) else "unknown"
             provider = provider_label(first_str(record, ("route", "provider"))) or "unknown"
             inp = first_count(record, ("input_tokens", "prompt_tokens"))
             outp = first_count(record, ("output_tokens", "completion_tokens"))
             total = first_count(record, ("total_tokens", "tokens"))
+            cache = first_count(record, ("cache_read_tokens", "cache_read_input_tokens", "cache_read"))
             # Orbit keeps the producer's total in usage_raw for extension-only
             # events. Cache/thinking semantics vary; prefer the reported total.
             if total is None and isinstance(record.get("usage_raw"), dict):
                 total = first_count(record["usage_raw"], ("total",))
             if total is None and inp is not None and outp is not None:
                 total = inp + outp
+            usage_bearing = any(count is not None and count > 0 for count in (inp, outp, total))
+            if usage_bearing:
+                requests += 1
             cost = first_number(record, ("cost_usd_list", "cost_usd", "cost_usd_total", "cost"))
             if cost is not None and cost < 0:
                 cost = None
-            if cost is None:
+            # Only a usage-bearing row can be an unpriced request; a zero-token
+            # null-cost heartbeat must not trip the Hive coverage guard.
+            if cost is None and usage_bearing:
                 unknown_cost += 1
             if inp is not None:
                 totals["input"] += inp
                 known["input"] += 1
+                if usage_bearing:
+                    known_usage["input"] += 1
             if outp is not None:
                 totals["output"] += outp
                 known["output"] += 1
+                if usage_bearing:
+                    known_usage["output"] += 1
             if total is not None:
                 totals["total"] += total
                 known["total"] += 1
+                if usage_bearing:
+                    known_usage["total"] += 1
             if cost is not None:
                 totals["cost"] += cost
                 known["cost"] += 1
+                if usage_bearing:
+                    known_usage["cost"] += 1
+
+            role = role_name(record.get("role"))
+            if usage_bearing:
+                # The split must reconcile with totals.requests: a role-tagged
+                # quota heartbeat is not a request. A role this ledger does not
+                # bucket (work/verify) lands in unknown instead of vanishing;
+                # the worker bucket is the Rails receipts block, not this file.
+                role_counter = role_counters.get(role, role_counters["unknown"])
+                _add_usage_counter(
+                    role_counter, inp=inp, outp=outp, total=total, cost=cost, cache=cache
+                )
 
             http_429 = first_count(record, ("http_429", "http_429_count", "count_429"))
             if isinstance(record.get("http_429"), bool):
@@ -1420,6 +1973,7 @@ class Collector:
                 summary["today_cost_usd"] += cost
                 summary["today_known"] += 1
 
+            # Bucket requests count records seen; totals.requests counts usage-bearing rows.
             key = (model, provider)
             if key not in by_model:
                 by_model[key] = self._usage_bucket(generated, model=model, provider=provider)
@@ -1433,8 +1987,11 @@ class Collector:
             self._usage_accumulate(by_repo[repo], requests_delta=1, inp=inp, outp=outp, total=total, cost=cost)
 
         summary["quota_rows"] = [hint for _, hint in latest_quota.values()]
-        tokens_status = token_status(known, requests)
-        cost_status = "unavailable" if not seen_any else agg_status(known["cost"], requests, seen_any)
+        # Status numerators are scoped to usage-bearing rows so they cannot
+        # regress against the usage-bearing requests denominator, while the
+        # published token/cost totals still include every ledger value.
+        tokens_status = token_status(known_usage, requests)
+        cost_status = "unavailable" if not seen_any else agg_status(known_usage["cost"], requests, seen_any)
         usage_status = "unavailable" if not seen_any else ("known" if parse_errors == 0 else "partial")
         totals_row = {
             "schema": SCHEMA,
@@ -1463,6 +2020,19 @@ class Collector:
             age = file_age_s(self.usage_path, now)
             if age is not None and age > self.stale_after_s:
                 status, error = "stale", "ledger_older_than_threshold"
+        by_role = {
+            "coordinator": _usage_role_row(
+                role_counters["coordinator"],
+                _json_role_status(seen_any, role_counters["coordinator"]),
+                USAGE_SOURCE,
+            ),
+            "worker": _unavailable_worker_row(),
+            "unknown": _usage_role_row(
+                role_counters["unknown"],
+                _json_role_status(seen_any, role_counters["unknown"]),
+                USAGE_SOURCE,
+            ),
+        }
         body = section(
             now,
             status,
@@ -1470,13 +2040,14 @@ class Collector:
             source={
                 "schema": SCHEMA,
                 "generated_at": generated,
-                "record_count": requests,
+                "record_count": parsed_records,
                 "parse_errors": parse_errors,
                 "usage_status": usage_status,
             },
             totals=totals_row,
             by_model=model_rows,
             by_repo=repo_rows,
+            by_role=by_role,
         )
         return body, summary
 
@@ -2153,8 +2724,9 @@ class Collector:
         ``from->to`` string (job.py transition). An event record that
         cannot yield a transition still counts as seen, so a half-readable
         history degrades to partial or unknown instead of passing as
-        complete. An envelope whose body is not an object counts as an
-        unreadable job.
+        complete. Only the sealed envelope shape is accepted: any other
+        document (a bare job, or an envelope whose body is not an object)
+        counts as an unreadable job.
 
         Returns (documents, unreadable_document_count).
         """
@@ -2565,6 +3137,119 @@ class Collector:
             "requests": requests,
         }
 
+    # ------------------------------------------------------------ deploy debt
+    def _deploy_run(self, argv: Sequence[str]) -> tuple[int, DeployOutput, DeployOutput]:
+        runner = self._deploy_runner or (
+            lambda args: deploy_subprocess_runner(args, self.cli_timeout_s)
+        )
+        try:
+            return runner(argv)
+        except Exception:
+            return 127, b"", b""
+
+    @staticmethod
+    def _deploy_bytes(output: DeployOutput) -> bytes:
+        return output.encode("utf-8") if isinstance(output, str) else output
+
+    @staticmethod
+    def _deploy_revision(output: DeployOutput) -> str | None:
+        try:
+            text = output.decode("ascii") if isinstance(output, bytes) else output
+        except (UnicodeDecodeError, ValueError):
+            return None
+        if not isinstance(text, str):
+            return None
+        revision = text.strip().lower()
+        return revision if DEPLOY_FULL_REV_RE.match(revision) else None
+
+    def _deploy_git_rev(self, repo: Path, ref: str) -> str | None:
+        try:
+            if not repo.is_dir():
+                return None
+        except OSError:
+            return None
+        code, out, _ = self._deploy_run(["git", "-C", str(repo), "rev-parse", ref])
+        return self._deploy_revision(out) if code == 0 else None
+
+    @staticmethod
+    def _deploy_row(surface: str, deployed: str | None, merged: str | None) -> dict[str, Any]:
+        if deployed is None or merged is None:
+            return {"surface": surface, "merged": None, "deployed": None, "verdict": "unknown"}
+        return {
+            "surface": surface,
+            "merged": merged,
+            "deployed": deployed,
+            "verdict": "parity" if deployed == merged else "drift",
+        }
+
+    def _deploy_plugin_row(self) -> dict[str, Any]:
+        deployed = self._deploy_git_rev(self.deploy_paths["plugin_dir"], "HEAD")
+        merged = self._deploy_git_rev(self.deploy_paths["plugin_repo"], "origin/main")
+        return self._deploy_row("plugin", deployed, merged)
+
+    def _deploy_file_row(self, surface: str, repo_key: str, deployed_key: str, main_path: str) -> dict[str, Any]:
+        deployed_bytes = read_regular_bytes(self.deploy_paths[deployed_key], DEPLOY_FILE_LIMIT)
+        repo = self.deploy_paths[repo_key]
+        try:
+            repo_readable = repo.is_dir()
+        except OSError:
+            repo_readable = False
+        if deployed_bytes is None or not repo_readable:
+            return self._deploy_row(surface, None, None)
+        code, out, _ = self._deploy_run(
+            ["git", "-C", str(repo), "cat-file", "blob", f"origin/main:{main_path}"]
+        )
+        if code != 0:
+            return self._deploy_row(surface, None, None)
+        merged_bytes = self._deploy_bytes(out)
+        deployed = hashlib.sha256(deployed_bytes).hexdigest()[:12]
+        merged = hashlib.sha256(merged_bytes).hexdigest()[:12]
+        return self._deploy_row(surface, deployed, merged)
+
+    def _deploy_hyvv_row(self) -> dict[str, Any]:
+        raw = read_regular_bytes(self.deploy_paths["hyvv_marker"], 4096)
+        deployed = self._deploy_revision(raw) if raw is not None else None
+        merged = self._deploy_git_rev(self.deploy_paths["hyvv_repo"], "origin/main")
+        return self._deploy_row("hyvv", deployed, merged)
+
+    def deploy_debt_section(self, open_prs: int | None = None) -> dict[str, Any]:
+        """Compare the four deployed surfaces with merged main, read-only."""
+        rows = [
+            self._deploy_plugin_row(),
+            self._deploy_file_row(
+                "collector", "workflow_repo", "collector_deployed", DEPLOY_COLLECTOR_MAIN
+            ),
+            self._deploy_file_row(
+                "obs_app", "obs_app_repo", "obs_app_deployed", DEPLOY_OBS_APP_MAIN
+            ),
+            self._deploy_hyvv_row(),
+        ]
+        readable = sum(row["verdict"] != "unknown" for row in rows)
+        if readable == len(DEPLOY_SURFACES):
+            status = "known"
+            debt: int | None = sum(row["verdict"] == "drift" for row in rows)
+        elif readable:
+            status = "partial"
+            debt = None
+        else:
+            status = "unavailable"
+            debt = None
+        return {"status": status, "debt": debt, "open_prs": open_prs, "surfaces": rows}
+
+    @staticmethod
+    def _open_pr_count(ci_body: Mapping[str, Any]) -> int | None:
+        if ci_body.get("status") == "unavailable":
+            return None
+        repos = [row for row in as_list(ci_body.get("repos")) if isinstance(row, dict)]
+        if repos:
+            counts = [row.get("open_prs") for row in repos]
+            if all(type(count) is int and count >= 0 for count in counts):
+                return sum(counts)
+            return None
+        if ci_body.get("status") not in ("live", "stale"):
+            return None
+        return sum(isinstance(pr, dict) for pr in as_list(ci_body.get("prs")))
+
     def bottlenecks_section(
         self,
         *,
@@ -2577,7 +3262,8 @@ class Collector:
         """Compute the bottlenecks section read-only from records the other
         sections already read: job documents, the feature queue, the claim
         store, recorded approval decisions, review reports, scheduler
-        metrics, the fleet, and open pull requests. Each contributing source
+        metrics, the fleet, open pull requests, and deploy parity. Open pull
+        requests stay separate from deploy debt. Each contributing source
         degrades independently: a metric its source cannot show stays null
         with a status marker, never zero. The fleet section no longer
         surfaces the CLI status bee_cap (it is launcher configuration, not
@@ -2593,6 +3279,9 @@ class Collector:
         pipeline_readable = pipeline_body.get("status") != "unavailable"
         queue_readable = backlog_body.get("status") != "unavailable"
         ci_readable = ci_body.get("status") != "unavailable"
+        open_prs = self._open_pr_count(ci_body)
+        deploy_debt = self.deploy_debt_section(open_prs)
+        deploy_readable = deploy_debt["status"] != "unavailable"
         features = [f for f in as_list(backlog_body.get("features")) if isinstance(f, dict)]
         docs_by_id = {doc["job_id"]: doc for doc in docs}
 
@@ -2660,7 +3349,7 @@ class Collector:
                 now, generated, docs, transitions, report_by_attempt,
                 dispatch_by_attempt, pipeline_readable, targets["integrate"], event_status,
             ),
-            self._deploy_stage_row(now, generated, ci_body, ci_readable, targets["deploy"]),
+            self._deploy_stage_row(now, generated, deploy_debt, targets["deploy"]),
         ]
         invariant = self._bottleneck_invariant(
             now,
@@ -2670,8 +3359,8 @@ class Collector:
             docs=docs,
             unreadable_jobs=unreadable_jobs,
             pipeline_readable=pipeline_readable,
-            ci_body=ci_body,
-            ci_readable=ci_readable,
+            deploy_debt=deploy_debt,
+            deploy_readable=deploy_readable,
             events=events,
             metrics_seen=metrics_seen,
             report_by_attempt=report_by_attempt,
@@ -2682,6 +3371,7 @@ class Collector:
             pipeline_readable,
             queue_readable,
             ci_readable,
+            deploy_readable,
             fleet_body.get("status") != "unavailable",
             metrics_seen,
         ]
@@ -2692,6 +3382,7 @@ class Collector:
                 pipeline_body.get("status") == "live",
                 backlog_body.get("status") == "live",
                 ci_body.get("status") == "live",
+                deploy_readable,
                 fleet_body.get("status") == "live",
             ]
             if events:
@@ -2709,6 +3400,8 @@ class Collector:
             stages=stages,
             invariant=invariant,
             thresholds={stage: {"dwell_target_s": targets[stage]} for stage in STAGE_NAMES},
+            open_prs=open_prs,
+            deploy_debt=deploy_debt,
         )
 
     def _verify_stage_row(
@@ -2916,45 +3609,24 @@ class Collector:
         self,
         now: datetime,
         generated: str,
-        ci_body: Mapping[str, Any],
-        source_readable: bool,
+        deploy_debt: Mapping[str, Any],
         target: float | None,
     ) -> dict[str, Any]:
-        rows = [pr for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)]
-        if not source_readable:
-            return _stage_row(
-                generated,
-                "deploy",
-                now=now,
-                queue_depth=None,
-                oldest_item_age_s=None,
-                dwell_samples=[],
-                dwell_status="unavailable",
-                advanced=[],
-                throughput_status="unavailable",
-                wip=None,
-                capacity=None,
-                capacity_source=None,
-                target=target,
-            )
-        opened = [
-            moment
-            for moment in (parse_ts(pr.get("created_at")) for pr in rows)
-            if moment is not None
-        ]
-        oldest = min(opened) if opened else None
-        # Open pull requests carry no record here of completed stays or of
-        # merges, so dwell and throughput stay unknown.
+        status = deploy_debt.get("status")
+        readable = status != "unavailable"
+        # Parity rows name revisions, not when a surface drifted. Deploy age,
+        # completed dwell and throughput therefore remain unknown; open PR
+        # timestamps belong only to the separate open_prs observation.
         return _stage_row(
             generated,
             "deploy",
             now=now,
-            queue_depth=len(rows),
-            oldest_item_age_s=_age_s(oldest, now),
+            queue_depth=deploy_debt.get("debt") if readable else None,
+            oldest_item_age_s=None,
             dwell_samples=[],
-            dwell_status="unknown",
+            dwell_status="unknown" if readable else "unavailable",
             advanced=[],
-            throughput_status="unknown",
+            throughput_status="unknown" if readable else "unavailable",
             wip=None,
             capacity=None,
             capacity_source=None,
@@ -3037,8 +3709,8 @@ class Collector:
         docs: Sequence[Mapping[str, Any]],
         unreadable_jobs: int,
         pipeline_readable: bool,
-        ci_body: Mapping[str, Any],
-        ci_readable: bool,
+        deploy_debt: Mapping[str, Any],
+        deploy_readable: bool,
         events: Sequence[Mapping[str, Any]],
         metrics_seen: bool,
         report_by_attempt: Mapping[str, Mapping[str, Any]],
@@ -3135,11 +3807,7 @@ class Collector:
             active_workers = sum(1 for task in tasks if task["state"] == "running")
             claimed = sum(1 for task in tasks if task["state"] in CLAIMED_TASK_STATES)
 
-        awaiting_deploy = None
-        if ci_readable:
-            awaiting_deploy = sum(
-                1 for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)
-            )
+        awaiting_deploy = deploy_debt.get("debt") if deploy_readable else None
 
         blocked_known = queue_readable and pipeline_readable
         # An unreadable claim store is itself a known one-message refusal,
@@ -3182,7 +3850,7 @@ class Collector:
         sources = [
             queue_readable,
             pipeline_readable,
-            ci_readable,
+            deploy_debt.get("status") == "known",
             metrics_seen,
             claims_dir_seen,
             approval_state["source"],
@@ -3665,6 +4333,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--state-dir", type=Path, default=None, help="plugin local state directory")
     parser.add_argument("--usage", type=Path, default=None, dest="usage_path", help="bee.usage/v1 JSONL path")
+    parser.add_argument("--rails-ledger", type=Path, default=None, dest="rails_ledger", help="rizzstack-rails SQLite ledger (read-only)")
     parser.add_argument("--repo", action="append", default=[], metavar="OWNER/NAME", help="repo for the ci section (repeatable)")
     parser.add_argument("--stale-after-s", type=int, default=1800, help="freshness threshold in seconds")
     parser.add_argument("--bundlebees-bin", default="hermes", help="Hermes CLI binary for the fleet section")
@@ -3689,6 +4358,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     collector = Collector(
         state_dir=args.state_dir,
         usage_path=args.usage_path,
+        rails_ledger=args.rails_ledger,
         repos=args.repo,
         stale_after_s=args.stale_after_s,
         bundlebees_bin=args.bundlebees_bin,
