@@ -78,9 +78,10 @@ class TestRailsBenchIndexArms(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.b.drop_attempt_index(path)
 
-    def test_existing_soak_cap_unchanged_by_this_slice(self):
+    def test_soak_cap_is_bounded(self):
+        # T4-FIXHIST raised the cap from 1800 to 14,400 s (P2 4 h soak); above it is still refused.
         with self.assertRaises(SystemExit):
-            self.parse('--soak-seconds', '1801')
+            self.parse('--soak-seconds', '14401')
 
 
 if __name__ == '__main__':

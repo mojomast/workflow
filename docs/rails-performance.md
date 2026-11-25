@@ -19,6 +19,8 @@ Since bundlebees #84 a new ledger creates the local-attempt index itself, so the
 - **none** (`--no-attempt-index`): drop `rails_local_attempt_scan` before seeding, as the unindexed control.
 - **migrated** (`--migrate-attempt-index`): drop the index, seed without it, then run the pinned BundleBees installer over the existing ledger.
 
+Every `RailsLedger` writer open re-creates the index, so the ten producers bring it back during seeding. After they join and the receipt/count checks pass, the none and migrated arms drop it again; the migrated arm then installs it on the existing ledger and must report `installed`. `seed` checks the resulting state with `check_arm` and fails closed if it does not match the arm. Seed timing therefore includes index maintenance in all arms.
+
 Reports record `config.index_mode` and keep `config.attempt_index` (`false` only for the none arm). Seed stats record `index_mode` and `index_present_after_seed`; the migrated arm also records `migrate_ms`. Measurements from different arms are not interchangeable. `reads` measures the shared query API, not multi-request HTTP pagination.
 
 The P1 shape is five runs per arm, with a fresh output path each time:
@@ -30,6 +32,17 @@ nice -n 10 ionice -c3 timeout 2h python3 scripts/bench_rails.py \
 ```
 
 Omit the bracket for the default arm; `--soak-seconds 0` skips all browser and stream checks, so P1 needs no Chromium or `node_modules`.
+
+## Soak arms
+
+P2 compares two four-hour soak arms against the live viewport. **Arm A** (no flag) starts the live selector empty and records how memory grows as marks accumulate. **Arm B** (`--fixed-history`) appends 2,000 live events to window 0 before `t=0`, saturating the renderer's 2,000-mark cap, so any memory that still grows in that arm is a leak rather than retained marks. The stream report records `fixed_history_seeded` (the pre-seeded count, 2,000 in a full Arm B run, absent otherwise); reports record `config.fixed_history`. `--soak-seconds` accepts `0..14400` (default 1,800) and `--fixed-history` requires a positive soak. Neither arm may reuse an output path:
+
+```sh
+nice -n 10 ionice -c3 timeout 5h python3 scripts/bench_rails.py \
+  --soak-seconds 14400 [--fixed-history] --output <fresh path>
+```
+
+Run each arm once for four hours (14,400 s); compare the per-window medians, last windows and peaks within and between arms. The timed loop cadence is unchanged from the shorter soak, and no soak is part of the offline test suite.
 
 ## What the report measures
 

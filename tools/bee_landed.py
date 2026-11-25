@@ -27,6 +27,8 @@ SCHEMA_PATH = BASE / "schemas" / "bee-landed.schema.json"
 
 EVENT_TYPE = "rizzstack.bee.landed.v1"
 PAYLOAD_SCHEMA = "rizzstack.bee-landed/1"
+DATASCHEMA = "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json"
+LEGACY_DATASCHEMAS = frozenset({"https://rizstack.dev/schemas/bee-landed/v1"})
 STATES = ("succeeded", "failed", "cancelled")
 MAX_EVENT_BYTES = 64 * 1024
 
@@ -103,6 +105,16 @@ def canonical_json(value: Any) -> str:
 
 def load_schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def dataschema_status(value: Any) -> str:
+    if value is None:
+        return "absent"
+    if value == DATASCHEMA:
+        return "canonical"
+    if isinstance(value, str) and value in LEGACY_DATASCHEMAS:
+        return "legacy"
+    return "other"
 
 
 def _is_text(value: Any, *, maximum: int | None = None) -> bool:
@@ -209,9 +221,14 @@ def _validate_envelope(event: Mapping[str, Any]) -> None:
     if "datacontenttype" in event and event["datacontenttype"] != "application/json":
         _fail("bee_invalid", "datacontenttype must be application/json when present",
               "Use application/json or omit the attribute.")
-    if "dataschema" in event and not _is_text(event["dataschema"], maximum=2048):
-        _fail("bee_invalid", "dataschema must be a non-empty string when present",
-              "Use a schema URI or omit the attribute.")
+    if "dataschema" in event:
+        dataschema = event["dataschema"]
+        if not _is_text(dataschema, maximum=2048):
+            _fail("bee_invalid", "dataschema must be a non-empty string when present",
+                  "Use a schema URI or omit the attribute.")
+        if dataschema_status(dataschema) == "other":
+            _fail("bee_dataschema", f"dataschema {dataschema!r} is not canonical or deprecated legacy",
+                  f"Emit dataschema {DATASCHEMA} or omit the attribute.")
 
 
 def _validate_data(data: Any) -> None:

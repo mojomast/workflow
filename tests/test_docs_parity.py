@@ -540,6 +540,78 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "T3-RAILSDEC: `evidence/rails-rc/release/DECISION-2026-11-24-index-default.md` is ",
         "keywords": ("evidence/rails-rc/release/DECISION-2026-11-24-index-default.md", "rails_local_attempt_scan", "evidence/rails-rc/README.md",),
     },
+    {
+        # WA-BACKLOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 147,
+        "name": "WA-BACKLOG: `plans/backlog.json` records the 20 wave A slices (`WA-*`) from the ",
+        "keywords": ("plans/backlog.json", ") from the next-level review, with lane ",),
+    },
+    {
+        # T3-ROADMAP (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 144,
+        "name": "T3-ROADMAP: `ROADMAP.md` refreshed after the 24 November merges: workflow #7 (He",
+        "keywords": ("ROADMAP.md", "contrib/hermes-forge.md", "evidence/rails-rc/release/DECISION-2026-11-24-index-default.md",),
+    },
+    {
+        # WA-DES-B (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 141,
+        "name": "WA-DES-B: Wave B design (`docs/design/wave-b-worker-contract.md`): draft `rizz",
+        "keywords": ("docs/design/wave-b-worker-contract.md", "rizzstack.brief/1", "rizzstack.attempt/1",),
+    },
+    {
+        # WA-DEC-CHANGELOG (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 148,
+        "name": "WA-DEC-CHANGELOG: Design: changelog fragments (`changelog.d/<branch-slug>.md`) counted",
+        "keywords": ("changelog.d/<branch-slug>.md", "docs-parity", "scripts/changelog_assemble.py",),
+    },
+    {
+        # WA-DES-D (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 142,
+        "name": "WA-DES-D: Wave D design (`docs/design/wave-d-core-and-log.md`): one `rizzstack",
+        "keywords": ("docs/design/wave-d-core-and-log.md", "rizzstack_core",),
+    },
+    {
+        # T4-NOIDXFIX (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 146,
+        "name": "T4-NOIDXFIX: `scripts/bench_rails.py` settles the P1 index arms after seeding: ev",
+        "keywords": ("scripts/bench_rails.py", "RailsLedger", "rails_local_attempt_scan",),
+    },
+    {
+        # T4-FIXHIST (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 145,
+        "name": "T4-FIXHIST: Rails bench fixed-history arm (workflow, T4-FIXHIST): `scripts/bench",
+        "keywords": ("scripts/bench_rails.py", "--soak-seconds", "14400",),
+    },
+    {
+        # WA-A12A (t1634 merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 149,
+        "name": "WA-A12A: bee-landed dataschema identity (workflow #149, WA-A12A): `tools/bee_",
+        "keywords": ("tools/bee_landed.py", "DATASCHEMA", "https://github.com/mojomast/workflow/schemas/bee-landed.schema.json",),
+    },
+    {
+        # Speed-up C (merge queue): row rides in its own PR so the merge leaves main green.
+        "pr": 150,
+        "name": "CI-MERGEQ: CI and slop-lint run on merge_group",
+        "keywords": ("merge_group", "bee-ci/reference",),
+    },
+    {
+        # P2 harness fix (Kyle 15:02 ET): row rides in its own PR so the merge leaves main green.
+        "pr": 151,
+        "name": "P2-LIVECAP: soak windows inside the live view",
+        "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
+    },
+    {
+        # Metrics contracts (#153 merged without its row; added here so main is green again).
+        "pr": 153,
+        "name": "OBS-METRICS: metrics fact record contracts and METRICS.md catalog",
+        "keywords": ("observability/METRICS.md", "gen_ai.inference/v1", "task.outcome/v1",),
+    },
+    {
+        # Hive Unknowns fix (Kyle t1685u): row rides in its own PR so the merge leaves main green.
+        "pr": 152,
+        "name": "OBS-KANBAN: kanban backlog feed, observed wave jobs, lease-bound fleet identity",
+        "keywords": ("--kanban-board", "kanban_unavailable", "bundlebees.attempt-route/1", "test_obs_attempt_binding.py",),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the

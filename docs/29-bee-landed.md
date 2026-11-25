@@ -13,6 +13,8 @@ it and are addressed by digest or reference.
 
 - Wire schema: `rizzstack.bee-landed/1`
 - CloudEvents type: `rizzstack.bee.landed.v1`
+- Canonical CloudEvents dataschema: `https://github.com/mojomast/workflow/schemas/bee-landed.schema.json`
+- Deprecated legacy dataschema (accepted for compatibility): `https://rizstack.dev/schemas/bee-landed/v1`
 - Schema: `schemas/bee-landed.schema.json`
 - Validator: `tools/bee_landed.py`
 - Tests: `tests/test_bee_landed.py`
@@ -59,6 +61,10 @@ The event is a CloudEvents 1.0 envelope. Required attributes:
 CloudEvents extension attributes are permitted at the envelope root. The `data`
 object is closed: producer-defined payload fields are refused. An extension must
 not be used to smuggle a receiver-side claim, a credential or a patch body.
+
+The optional `dataschema` attribute accepts the canonical schema `$id` above and
+the deprecated legacy value. `tools/bee_landed.py:dataschema_status` classifies
+it as `canonical`, `legacy`, `other` or `absent`; other values are refused.
 
 ## Payload
 

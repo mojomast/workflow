@@ -62,6 +62,7 @@ import hmac
 import json
 import math
 import os
+import stat
 import re
 import subprocess
 import sys
@@ -199,6 +200,34 @@ CHECK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .,_()/-]{0,119}$")
 HEX_REV_RE = re.compile(r"^[0-9a-f]{40,64}$")
 ID_TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 PROVIDER_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+# Routes a bundlebees route record may name (explicit launcher model prefixes).
+REPORTED_ROUTES = frozenset({"go", "deepseek", "zoo", "kimi", "nous"})
+# Hermes kanban card status -> backlog queue status. Done/archived cards are
+# not backlog; a todo or scheduled card waits on something, like blocked.
+KANBAN_QUEUE_STATUS = {
+    "ready": "queued",
+    "running": "running",
+    "review": "ready_for_review",
+    "blocked": "blocked",
+    "todo": "blocked",
+    "scheduled": "blocked",
+    "triage": "needs_approval",
+}
+# Fleet state -> task state for attempts observed through dispatch leases.
+FLEET_TASK_STATE = {
+    "queued": "dispatched",
+    "starting": "dispatched",
+    "running": "running",
+    "working": "running",
+    "backoff": "running",
+    "verified": "verified",
+    "accepted": "accepted",
+    "succeeded": "verifying",
+    "failed": "failed",
+    "expired": "failed",
+    "cancelled": "failed",
+    "rejected": "rejected",
+}
 URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S+")
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
 
@@ -448,18 +477,17 @@ def unwrap_job_envelope(data: dict[str, Any]) -> dict[str, Any] | None:
     (docs/22-autonomy-architecture.md: jobs/<job_id>.json, HMAC). This is a
     read-only, keyless collector: when the envelope shape is present the
     body is used as the document and the MAC is NOT verified here - the
-    reconciler, which holds the state key, is the verifier of record. An
-    envelope whose body is not an object yields None (the caller counts the
-    file unreadable, an owner message, never a silent zero); a plain
-    document with neither key passes through so legacy shapes and RETURN
-    reports keep reading.
+    reconciler, which holds the state key, is the verifier of record. Only
+    the sealed envelope shape is readable: every other document - including
+    a plain document with neither key, and an envelope whose body is not an
+    object - yields None so the caller treats the file as unreadable (the
+    pipeline skips it, the invariant counts an owner message, never a silent
+    zero).
     """
     body = data.get("body")
     if isinstance(body, dict):
         return body
-    if "body" in data or "mac" in data:
-        return None
-    return data
+    return None
 
 
 def file_age_s(path: Path, now: datetime) -> int | None:
@@ -719,6 +747,70 @@ def subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, str, 
 Runner = Callable[[Sequence[str]], tuple[int, str, str]]
 
 
+def _lease_token(value: Any) -> str | None:
+    tok = id_token(value)
+    return tok if tok and ".." not in tok else None
+
+
+def _lease_identity(data: Mapping[str, Any] | None, attempt_id: str) -> dict[str, Any]:
+    """task_id/wave/project from a lease document naming this attempt, else {}."""
+    if data is None or data.get("attempt_id") != attempt_id:
+        return {}
+    brief = data.get("brief") if isinstance(data.get("brief"), dict) else {}
+    return {
+        "task_id": _lease_token(data.get("task_id"))
+        or _lease_token(brief.get("task_id"))
+        or _lease_token(brief.get("label")),
+        "wave": _lease_token(brief.get("wave")),
+        "project": _lease_token(brief.get("project")),
+    }
+
+
+def _consistent_route(route: Any, model: Any) -> str | None:
+    """The route only when the model names it as its explicit provider prefix."""
+    if not isinstance(route, str) or route not in REPORTED_ROUTES or not isinstance(model, str):
+        return None
+    prefix, sep, rest = model.partition(":")
+    return route if sep and rest and prefix == route else None
+
+
+def _wave_task_state(row: Mapping[str, Any]) -> str | None:
+    """The pipeline task state for a fleet row; an unverified finish is verifying."""
+    state = FLEET_TASK_STATE.get(row.get("state"))
+    if state is None and row.get("state") == "unknown" and row.get("detail") == "unverified":
+        return "verifying"
+    return state
+
+
+def _wave_job(job_id: str, group: Mapping[str, Any], generated: str, counts: dict[str, int]) -> dict[str, Any]:
+    """One observed wave job (not a job document); bumps ``counts`` per task state."""
+    tasks = []
+    for task_id in sorted(group["tasks"]):
+        task = group["tasks"][task_id]
+        tasks.append({
+            "schema": SCHEMA,
+            "generated_at": generated,
+            "task_id": task_id,
+            "title": None,
+            "state": task["state"],
+            "attempts_count": task["count"],
+            "reason": None,
+        })
+        counts[task["state"]] = counts.get(task["state"], 0) + 1
+    return {
+        "schema": SCHEMA,
+        "generated_at": generated,
+        "job_id": job_id,
+        "title": scrub(f"Wave {group['wave']} dispatch ({group['project']})"),
+        "summary": "Observed from dispatch leases; not a job document.",
+        "repo": group["repo"],
+        "base_rev": None,
+        "task_count": len(tasks),
+        "tasks": tasks,
+        "escalation_count": 0,
+    }
+
+
 class Collector:
     """Read-only snapshot builder. Every read degrades independently."""
 
@@ -737,6 +829,9 @@ class Collector:
         now_fn: Callable[[], datetime] | None = None,
         thresholds: Mapping[str, float] | None = None,
         cli_workers: int = 8,
+        kanban_boards: Sequence[str] = (),
+        kanban_bin: str | None = None,
+        kanban_runner: Runner | None = None,
     ) -> None:
         self.state_dir = Path(state_dir) if state_dir else None
         self.usage_path = Path(usage_path) if usage_path else None
@@ -747,6 +842,11 @@ class Collector:
         self.cli_timeout_s = cli_timeout_s
         self._fleet_runner = fleet_runner
         self._gh_runner = gh_runner
+        # Read-only backlog feed from named Hermes kanban boards (public CLI).
+        self.kanban_boards = [b for b in (id_token(x) for x in kanban_boards) if b]
+        self.kanban_bin = kanban_bin or bundlebees_bin
+        self._kanban_runner = kanban_runner
+        self._lease_cache: dict[str, tuple[int, int, dict[str, Any]]] = {}
         self._now_fn = now_fn or (lambda: datetime.now(timezone.utc))
         # Independent read-only CLI reads (fleet attempts/status, one gh read per
         # repo) run concurrently, so a snapshot costs the slowest read rather than
@@ -931,20 +1031,99 @@ class Collector:
         ):
             state = "unknown"
             detail = raw_state
+        bound = self._bound_identity(raw, attempt_id)
         return {
             "schema": SCHEMA,
             "generated_at": generated,
             "attempt_id": attempt_id or "unknown",
             "state": state,
             "job_id": id_token(first_str(raw, ("job_id", "job"))),
-            "task_id": id_token(first_str(raw, ("task_id", "task"))),
-            "repo": repo_slug(first_str(raw, ("repo", "repository"))),
+            "task_id": bound["task_id"],
+            "repo": bound["repo"],
             "branch": branch_name(first_str(raw, ("branch", "head_branch"))),
-            "route": self._route_of(raw),
-            "started_at": parse_iso_or_none(first_str(raw, ("started_at", "started", "ts"))),
+            "route": bound["route"],
+            "started_at": parse_iso_or_none(first_str(raw, ("started_at", "started", "ts", "created_at"))),
             "updated_at": parse_iso_or_none(first_str(raw, ("updated_at", "updated", "heartbeat_at"))),
             "detail": detail,
         }
+
+    # ------------------------------------------------ dispatch-lease binding
+    def _bound_identity(self, raw: Mapping[str, Any], attempt_id: str | None) -> dict[str, Any]:
+        """task_id, repo and route: the CLI row first, then the coordinator records."""
+        binding = self._lease_binding(attempt_id) if attempt_id else {}
+        route = self._route_of(raw)
+        if route is None and attempt_id:
+            route = self._reported_route(attempt_id)
+        repo = repo_slug(first_str(raw, ("repo", "repository")))
+        if repo is None:
+            repo = self._project_repo(first_str(raw, ("project",)) or binding.get("project"))
+        return {
+            "task_id": id_token(first_str(raw, ("task_id", "task"))) or binding.get("task_id"),
+            "repo": repo,
+            "route": route,
+        }
+
+    def _read_private_json(self, path: Path, limit: int) -> tuple[dict[str, Any] | None, tuple[int, int] | None]:
+        """A bounded regular-file JSON object read with O_NOFOLLOW; never raises."""
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        except OSError:
+            return None, None
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+                return None, None
+            key = (info.st_mtime_ns, info.st_size)
+            raw = os.read(fd, limit + 1)
+        except OSError:
+            return None, None
+        finally:
+            os.close(fd)
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            return None, key
+        return (data if isinstance(data, dict) else None), key
+
+    def _lease_binding(self, attempt_id: str) -> dict[str, Any]:
+        """Task identity the coordinator's dispatch lease names for an attempt.
+
+        ``task_id`` is the lease's own (bundlebees binds it at dispatch), else
+        the brief's ``task_id`` or the coordinator ``label``; ``wave`` and
+        ``project`` come from the brief. Only identifier-shaped values survive.
+        The lease is read, never verified or trusted for anything else.
+        """
+        if self.state_dir is None or id_token(attempt_id) is None:
+            return {}
+        path = self.state_dir / "leases" / f"{attempt_id}.json"
+        try:
+            info = os.lstat(path)
+        except OSError:
+            return {}
+        cached = self._lease_cache.get(attempt_id)
+        if cached and cached[:2] == (info.st_mtime_ns, info.st_size):
+            return cached[2]
+        data, key = self._read_private_json(path, 262144)
+        binding = _lease_identity(data, attempt_id)
+        if key is not None:
+            self._lease_cache[attempt_id] = (key[0], key[1], binding)
+        return binding
+
+    def _reported_route(self, attempt_id: str) -> str | None:
+        """The launcher-reported route bundlebees recorded, when self-consistent."""
+        if self.state_dir is None or id_token(attempt_id) is None:
+            return None
+        data, _ = self._read_private_json(self.state_dir / "attempt-routes" / f"{attempt_id}.json", 4096)
+        if not data or data.get("schema") != "bundlebees.attempt-route/1" or data.get("attempt_id") != attempt_id:
+            return None
+        return _consistent_route(data.get("route"), data.get("model"))
+
+    def _project_repo(self, project: Any) -> str | None:
+        """The one configured repo whose name is this project label, else None."""
+        if not isinstance(project, str) or not project:
+            return None
+        matches = [slug for slug in self.extra_repos if slug.split("/", 1)[-1] == project]
+        return matches[0] if len(matches) == 1 else None
 
     def _normalize_fleet_state(self, raw_state: str) -> str:
         lowered = raw_state.strip().lower().replace("-", "_").replace(" ", "_")
@@ -1137,7 +1316,14 @@ class Collector:
         parse_errors = 0
         today_prefix = now.astimezone(timezone.utc).strftime("%Y-%m-%d")
         totals = {"input": 0, "output": 0, "total": 0, "cost": 0.0}
+        # known counts rows that carry a value (for publishing totals);
+        # known_usage counts only usage-bearing rows, so status numerators
+        # share the totals.requests denominator.
         known = {"input": 0, "output": 0, "total": 0, "cost": 0}
+        known_usage = {"input": 0, "output": 0, "total": 0, "cost": 0}
+        # Two denominators: totals.requests counts usage-bearing records,
+        # source.record_count counts every parsed dict record.
+        parsed_records = 0
         requests = 0
         unknown_cost = 0
         http_429_count = 0
@@ -1160,7 +1346,7 @@ class Collector:
                 parse_errors += 1
                 continue
             seen_any = True
-            requests += 1
+            parsed_records += 1
             model = scrub(first_str(record, ("served_model", "model", "requested_model")), 64) or "unknown"
             model = model if ID_TOKEN_RE.match(model) else "unknown"
             provider = provider_label(first_str(record, ("route", "provider"))) or "unknown"
@@ -1173,23 +1359,36 @@ class Collector:
                 total = first_count(record["usage_raw"], ("total",))
             if total is None and inp is not None and outp is not None:
                 total = inp + outp
+            usage_bearing = any(count is not None and count > 0 for count in (inp, outp, total))
+            if usage_bearing:
+                requests += 1
             cost = first_number(record, ("cost_usd_list", "cost_usd", "cost_usd_total", "cost"))
             if cost is not None and cost < 0:
                 cost = None
-            if cost is None:
+            # Only a usage-bearing row can be an unpriced request; a zero-token
+            # null-cost heartbeat must not trip the Hive coverage guard.
+            if cost is None and usage_bearing:
                 unknown_cost += 1
             if inp is not None:
                 totals["input"] += inp
                 known["input"] += 1
+                if usage_bearing:
+                    known_usage["input"] += 1
             if outp is not None:
                 totals["output"] += outp
                 known["output"] += 1
+                if usage_bearing:
+                    known_usage["output"] += 1
             if total is not None:
                 totals["total"] += total
                 known["total"] += 1
+                if usage_bearing:
+                    known_usage["total"] += 1
             if cost is not None:
                 totals["cost"] += cost
                 known["cost"] += 1
+                if usage_bearing:
+                    known_usage["cost"] += 1
 
             http_429 = first_count(record, ("http_429", "http_429_count", "count_429"))
             if isinstance(record.get("http_429"), bool):
@@ -1240,6 +1439,7 @@ class Collector:
                 summary["today_cost_usd"] += cost
                 summary["today_known"] += 1
 
+            # Bucket requests count records seen; totals.requests counts usage-bearing rows.
             key = (model, provider)
             if key not in by_model:
                 by_model[key] = self._usage_bucket(generated, model=model, provider=provider)
@@ -1253,8 +1453,11 @@ class Collector:
             self._usage_accumulate(by_repo[repo], requests_delta=1, inp=inp, outp=outp, total=total, cost=cost)
 
         summary["quota_rows"] = [hint for _, hint in latest_quota.values()]
-        tokens_status = token_status(known, requests)
-        cost_status = "unavailable" if not seen_any else agg_status(known["cost"], requests, seen_any)
+        # Status numerators are scoped to usage-bearing rows so they cannot
+        # regress against the usage-bearing requests denominator, while the
+        # published token/cost totals still include every ledger value.
+        tokens_status = token_status(known_usage, requests)
+        cost_status = "unavailable" if not seen_any else agg_status(known_usage["cost"], requests, seen_any)
         usage_status = "unavailable" if not seen_any else ("known" if parse_errors == 0 else "partial")
         totals_row = {
             "schema": SCHEMA,
@@ -1290,7 +1493,7 @@ class Collector:
             source={
                 "schema": SCHEMA,
                 "generated_at": generated,
-                "record_count": requests,
+                "record_count": parsed_records,
                 "parse_errors": parse_errors,
                 "usage_status": usage_status,
             },
@@ -1558,6 +1761,62 @@ class Collector:
             return parse_iso_or_none(first_str(attempts[-1], ("ts", "created_at", "time")))
         return None
 
+    def _with_wave_jobs(
+        self, pipeline: dict[str, Any], fleet: Mapping[str, Any], now: datetime, generated: str
+    ) -> dict[str, Any]:
+        """Add observed wave jobs from fresh lease-bound attempts.
+
+        Wave dispatch writes dispatch leases, not job documents, so the job
+        store alone goes stale while bees run. Each fresh attempt whose lease
+        names a task is grouped into one observed job per (wave, project) --
+        ``wave-<wave>-<project>`` -- with one task per task id, the newest
+        attempt's state winning and ``attempts_count`` counting them all. These
+        are observations: they add no blockers or escalations, and the
+        reconciler invariant still reads only the job documents. When any is
+        present the section is live, because current work is being observed.
+        """
+        if not isinstance(pipeline, dict):
+            return pipeline
+        groups: dict[str, dict[str, Any]] = {}
+        for row in as_list(fleet.get("attempts")):
+            observed = self._wave_observation(row, now)
+            if observed is None:
+                continue
+            job_id, task_id, project, wave, state, updated = observed
+            group = groups.setdefault(job_id, {"repo": self._project_repo(project), "wave": wave,
+                                               "project": project, "tasks": {}})
+            task = group["tasks"].setdefault(task_id, {"count": 0, "at": None, "state": None})
+            task["count"] += 1
+            if task["at"] is None or updated > task["at"]:
+                task["at"], task["state"] = updated, state
+        if not groups:
+            return pipeline
+        jobs = list(as_list(pipeline.get("jobs")))
+        counts = dict(pipeline.get("counts") or {})
+        existing = {j.get("job_id") for j in jobs if isinstance(j, dict)}
+        for job_id in sorted(set(groups) - existing):
+            jobs.append(_wave_job(job_id, groups[job_id], generated, counts))
+        out = dict(pipeline)
+        out.update(jobs=jobs, counts=counts, status="live", error=None)
+        return out
+
+    def _wave_observation(self, row: Any, now: datetime) -> tuple[str, str, str, str, str, datetime] | None:
+        """(job_id, task_id, project, wave, task state, updated) for a fresh lease-bound row."""
+        if not isinstance(row, dict) or not isinstance(row.get("attempt_id"), str):
+            return None
+        updated = parse_ts(row.get("updated_at"))
+        if updated is None or (now - updated) > timedelta(seconds=self.stale_after_s):
+            return None
+        binding = self._lease_binding(row["attempt_id"])
+        task_id, wave, project = binding.get("task_id"), binding.get("wave"), binding.get("project")
+        if not (task_id and wave and project):
+            return None
+        state = _wave_task_state(row)
+        job_id = id_token(f"wave-{wave}-{project}"[:128])
+        if state is None or job_id is None:
+            return None
+        return job_id, task_id, project, wave, state, updated
+
     # --------------------------------------------------------------- backlog
     def backlog_section(self) -> dict[str, Any]:
         now = self.now()
@@ -1610,7 +1869,61 @@ class Collector:
             age = file_age_s(queue_path, now) if queue_path else None
             if age is not None and age > self.stale_after_s:
                 status, error = "stale", "queue_older_than_threshold"
+        if self.kanban_boards:
+            board_rows = self._kanban_features(generated)
+            if board_rows is None:
+                # A board that cannot be read never yields a live backlog.
+                if status == "live" or error == "source_missing":
+                    status = "stale" if status == "live" else status
+                error = "kanban_unavailable"
+            else:
+                # Every board answered: the board is the live backlog. A queue
+                # file older than the threshold no longer speaks for it.
+                if status != "live":
+                    features, counts = [], {}
+                seen = {f["feature_id"] for f in features}
+                for feature in board_rows:
+                    if feature["feature_id"] in seen:
+                        continue
+                    seen.add(feature["feature_id"])
+                    features.append(feature)
+                    counts[feature["status"]] = counts.get(feature["status"], 0) + 1
+                status, error = "live", None
         return section(now, status, error, features=features, counts=counts)
+
+    def _kanban_features(self, generated: str) -> list[dict[str, Any]] | None:
+        """Open cards of every configured board as backlog features; None if any read fails."""
+        calls = [
+            (lambda slug=slug: self._run(
+                self._kanban_runner, [self.kanban_bin, "kanban", "--board", slug, "list", "--json"]
+            ))
+            for slug in self.kanban_boards
+        ]
+        rows: list[dict[str, Any]] = []
+        for code, out, _ in self._parallel(calls):
+            payload = extract_json(out) if code == 0 else None
+            cards = payload if isinstance(payload, list) else (
+                payload.get("tasks") if isinstance(payload, dict) and isinstance(payload.get("tasks"), list) else None
+            )
+            if cards is None:
+                return None
+            for card in cards:
+                if not isinstance(card, dict):
+                    continue
+                fid = id_token(card.get("id"))
+                raw = card.get("status")
+                mapped = KANBAN_QUEUE_STATUS.get(raw.strip().lower()) if isinstance(raw, str) else None
+                if fid is None or ".." in fid or mapped is None:
+                    continue
+                rows.append({
+                    "schema": SCHEMA,
+                    "generated_at": generated,
+                    "feature_id": fid,
+                    "job_id": None,
+                    "status": mapped,
+                    "depends_on": [],
+                })
+        return rows
 
     # -------------------------------------------------------------------- ci
     def ci_section(self, pipeline_jobs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -1863,8 +2176,9 @@ class Collector:
         ``from->to`` string (job.py transition). An event record that
         cannot yield a transition still counts as seen, so a half-readable
         history degrades to partial or unknown instead of passing as
-        complete. An envelope whose body is not an object counts as an
-        unreadable job.
+        complete. Only the sealed envelope shape is accepted: any other
+        document (a bare job, or an envelope whose body is not an object)
+        counts as an unreadable job.
 
         Returns (documents, unreadable_document_count).
         """
@@ -3172,6 +3486,7 @@ class Collector:
         fleet_result, rest = self._parallel([self.fleet_section, local_and_ci])
         fleet, in_flight, bee_cap = fleet_result
         usage, usage_summary, pipeline, blockers, backlog, ci, failures, decisions = rest
+        pipeline = self._with_wave_jobs(pipeline, fleet, now, generated)
         bottlenecks = self.bottlenecks_section(
             pipeline_body=pipeline,
             backlog_body=backlog,
@@ -3380,6 +3695,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gh-bin", default="gh", help="GitHub CLI binary for the ci section")
     parser.add_argument("--cli-timeout-s", type=float, default=10.0, help="subprocess timeout in seconds")
     parser.add_argument("--cli-workers", type=int, default=8, help="concurrent read-only CLI reads (1 = sequential)")
+    parser.add_argument("--kanban-board", action="append", default=[], metavar="SLUG", help="Hermes kanban board feeding the backlog section (repeatable)")
     parser.add_argument("--print", action="store_true", dest="print_snapshot", help="print the snapshot to stdout (default)")
     parser.add_argument("--serve", action="store_true", help="serve the snapshot over loopback HTTP")
     parser.add_argument("--host", default="127.0.0.1", help="bind address (loopback only)")
@@ -3404,6 +3720,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         cli_timeout_s=args.cli_timeout_s,
         thresholds=thresholds,
         cli_workers=args.cli_workers,
+        kanban_boards=args.kanban_board,
     )
     if args.serve:
         credential = resolve_credential(args)
