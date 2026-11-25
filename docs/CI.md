@@ -46,14 +46,17 @@ aggregate over the matrix legs, so a failed or cancelled leg fails
 
 ## Lease/tamper
 
-`lease-tamper` is a required member of `ci-gate`. It reads the pull request's
-slice contract (label, PR body or `.rizzstack/lease.json`) and fails if any
-commit after the verify boundary touches a file outside
-`scope.assigned_files` or a frozen test in `scope.test_files` /
-`scope.prohibited` / `scope.read_only`. A missing contract fails closed. The
-rule applies to every author, including the coordinator and triage lanes;
-triage lanes have no test edit rights. Full behavior and the failure text:
-[`32-lease-tamper-gate.md`](32-lease-tamper-gate.md).
+`lease-tamper` is a required member of `ci-gate`. It resolves the pull
+request's slice contract from trusted storage only — a contract hash or path
+named by label/PR body, looked up in `.rizzstack/leases` on the base branch
+(tip or merge-base) or in the frozen contract store, plus the
+`.rizzstack/lease.json` convention on base — and fails if any commit after the
+verify boundary touches a file outside `scope.assigned_files` or a frozen test
+in `scope.test_files` / `scope.prohibited` / `scope.read_only`. A lease that
+exists only on the PR branch fails `lease_not_on_base`; a missing contract
+fails closed. The rule applies to every author, including the coordinator and
+triage lanes; triage lanes have no test edit rights. Full behavior and the
+failure text: [`32-lease-tamper-gate.md`](32-lease-tamper-gate.md).
 
 ## Boundaries
 
