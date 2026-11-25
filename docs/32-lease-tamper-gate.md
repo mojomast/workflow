@@ -12,9 +12,11 @@ coordinator all go through the same job; there is no actor allowlist and no
 bypass label. A coordinator PR that edits a frozen test fails exactly like a
 bee PR.
 
-The check runs in `.github/workflows/ci.yml` as the `lease-tamper` job and is
-listed in `ci-gate.needs`, so the already-required `ci-gate` context cannot
-pass without it. The other Rizzstack repos vendor the same script and job.
+The check runs as the `lease-tamper` job in each repo's gate workflow
+(`.github/workflows/ci.yml`; `gitleaks.yml` in the rizzstack umbrella and
+`test.yml` in orbitdesktop) and is listed in `ci-gate.needs`, so the
+already-required `ci-gate` context cannot pass without it. The other Rizzstack
+repos vendor the same script and job.
 
 ## Triage lanes
 
