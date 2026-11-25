@@ -1,9 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mojomast/workflow/schemas/rizzstack-brief.schema.json",
-  "title": "rizzstack.brief/1 (draft)",
-  "description": "DRAFT, wave B. The one bee brief every dispatch client sends. Not referenced by any code yet; see docs/design/wave-b-worker-contract.md.",
-  "x-status": "draft",
+  "title": "rizzstack.brief/1",
+  "description": "The one bee brief every dispatch client sends. Not referenced by any code yet; see docs/design/wave-b-worker-contract.md.",
   "type": "object",
   "required": [
     "schema",

@@ -1,0 +1,29 @@
+{
+  "schema": "rizzstack.brief/1",
+  "objective": "Freeze the brief and attempt schemas without changing their semantics.",
+  "project": "workflow",
+  "source_rev": "0123456789abcdef0123456789abcdef01234567",
+  "assigned_files": [
+    "schemas/rizzstack-brief.schema.json",
+    "schemas/rizzstack-attempt.schema.json"
+  ],
+  "acceptance": {
+    "criteria": [
+      "Every example validates against its schema.",
+      "A high-tier brief requires a contract."
+    ],
+    "tests": [
+      "tests/test_brief_schemas.py"
+    ]
+  },
+  "risk": {
+    "tier": "high",
+    "reasons": [
+      "The brief changes a cross-repository protocol schema."
+    ]
+  },
+  "contract": {
+    "contract_version": "acdd/1",
+    "id": "wave-b-b2"
+  }
+}
