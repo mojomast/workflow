@@ -1,0 +1,11 @@
+{
+  "schema": "rizzstack.attempt/1",
+  "attempt_id": "att_backoff_transient_001",
+  "run_id": "run_example_001",
+  "project": "workflow",
+  "state": "backoff",
+  "reason": "transient",
+  "created_at": "2026-11-24T00:00:00Z",
+  "updated_at": "2026-11-24T00:02:00Z",
+  "budget_s": 900
+}
