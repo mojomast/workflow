@@ -17,15 +17,18 @@ Assembles one ``rizzstack.observability/snapshot/1`` document from:
   yields rows the section marks itself ``stale`` with ``source:
   dispatch_leases``;
 - ``gh pr list`` / ``gh pr checks`` (read-only) for PR and CI state,
+- local Git revisions, deployed file bytes and the hyvv deploy marker for
+  read-only deploy parity,
 - a ``bee.usage/v1`` JSONL ledger given with ``--usage``.
 
 The bottlenecks section is computed from the same records (job documents,
 the feature queue, the claim store, recorded approval decisions, verify
-results, scheduler metrics, the fleet, open pull requests): per stage queue
-depth, oldest-item age, dwell-time median and p95, throughput, WIP versus
-capacity, and the coordinator reconciler's own invariant of eligible work
-waiting despite available scheduler capacity. Dwell targets per stage are
-threshold configuration, not constants.
+results, scheduler metrics, the fleet, open pull requests) plus deploy
+parity: per stage queue depth, oldest-item age, dwell-time median and p95,
+throughput, WIP versus capacity, and the coordinator reconciler's own
+invariant of eligible work waiting despite available scheduler capacity.
+Open pull requests are reported separately, never counted as deploy debt.
+Dwell targets per stage are threshold configuration, not constants.
 
 Fleet rows and pipeline rows are honest about what their source shows. A
 fleet row whose active state is older than the staleness threshold is
@@ -58,6 +61,7 @@ reasons are reported as generic codes). Stdlib only.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import hmac
 import json
 import math
@@ -240,8 +244,8 @@ CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
 # Bottleneck stages. Each maps to the real record that shows work waiting
 # there: verify counts job tasks in the verifying state, review counts
 # features ready for review on the action queue, integrate counts verified
-# and integrating tasks at the integration wave, and deploy counts open
-# pull requests.
+# and integrating tasks at the integration wave, and deploy counts surfaces
+# whose deployed revision differs from merged main. Open PRs are separate.
 STAGE_NAMES = ("verify", "review", "integrate", "deploy")
 VERIFY_ENTRY_STATES = frozenset({"verifying"})
 VERIFY_MEMBER_STATES = frozenset({"verifying"})
@@ -277,6 +281,22 @@ WORKING_FLEET_STATES = frozenset({"running", "working"})
 # How many dispatch-lease records the fleet fallback reads at most (the
 # newest ones by mtime), so one crowded store cannot balloon a snapshot.
 FLEET_FALLBACK_LEASE_LIMIT = 24
+
+DEPLOY_SURFACES = ("plugin", "collector", "obs_app", "hyvv")
+DEPLOY_COLLECTOR_MAIN = "contrib/rizzstack-observability/collector.py"
+DEPLOY_OBS_APP_MAIN = "apps/rizzstack-observatory/app.js"
+DEPLOY_FULL_REV_RE = re.compile(r"^[0-9a-f]{40}$")
+DEPLOY_FILE_LIMIT = 16 * 1024 * 1024
+DEFAULT_DEPLOY_PATHS = {
+    "plugin_dir": Path.home() / ".hermes" / "plugins" / "bundlebees",
+    "plugin_repo": Path.home() / "rizzstack" / "bundlebees",
+    "workflow_repo": Path.home() / "rizzstack" / "workflow-closeout",
+    "obs_app_repo": Path.home() / "rizzstack" / "orbitdesktop",
+    "collector_deployed": Path.home() / ".local" / "share" / "rizzstack-obs" / "collector.py",
+    "obs_app_deployed": Path.home() / "orbitdesktop-deploy" / DEPLOY_OBS_APP_MAIN,
+    "hyvv_repo": Path.home() / "rizzstack" / "hyvv",
+    "hyvv_marker": Path.home() / ".hermes" / "plugin-data" / "bundlebees" / "hyvv-deployed-sha",
+}
 
 DEFAULT_THRESHOLDS = {
     "deepseek_balance_below_usd": 5,
@@ -992,6 +1012,50 @@ def subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, str, 
 
 
 Runner = Callable[[Sequence[str]], tuple[int, str, str]]
+DeployOutput = bytes | str
+DeployRunner = Callable[[Sequence[str]], tuple[int, DeployOutput, DeployOutput]]
+
+
+def deploy_subprocess_runner(argv: Sequence[str], timeout_s: float) -> tuple[int, bytes, bytes]:
+    """Byte-preserving read-only Git output; stderr is never propagated."""
+    try:
+        proc = subprocess.run(  # noqa: S603 - fixed read-only Git argv
+            list(argv),
+            capture_output=True,
+            timeout=timeout_s,
+            check=False,
+        )
+        return proc.returncode, proc.stdout or b"", b""
+    except subprocess.TimeoutExpired:
+        return 124, b"", b""
+    except OSError:
+        return 127, b"", b""
+
+
+def read_regular_bytes(path: Path, limit: int) -> bytes | None:
+    """Read one bounded regular file without following a final symlink."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+            return None
+        chunks: list[bytes] = []
+        remaining = limit + 1
+        while remaining:
+            chunk = os.read(fd, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+    raw = b"".join(chunks)
+    return raw if len(raw) <= limit else None
 
 
 def _lease_token(value: Any) -> str | None:
@@ -1058,6 +1122,24 @@ def _wave_job(job_id: str, group: Mapping[str, Any], generated: str, counts: dic
     }
 
 
+def _deploy_path_overrides(overrides: Mapping[str, Path | str] | None) -> dict[str, Path]:
+    paths = dict(DEFAULT_DEPLOY_PATHS)
+    if overrides:
+        for key in DEFAULT_DEPLOY_PATHS:
+            if key in overrides:
+                paths[key] = Path(overrides[key])
+    return paths
+
+
+def _threshold_overrides(overrides: Mapping[str, float] | None) -> dict[str, float]:
+    thresholds = dict(DEFAULT_THRESHOLDS)
+    if overrides:
+        for key, value in overrides.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                thresholds[key] = value
+    return thresholds
+
+
 class Collector:
     """Read-only snapshot builder. Every read degrades independently."""
 
@@ -1080,6 +1162,8 @@ class Collector:
         kanban_boards: Sequence[str] = (),
         kanban_bin: str | None = None,
         kanban_runner: Runner | None = None,
+        deploy_paths: Mapping[str, Path | str] | None = None,
+        deploy_runner: DeployRunner | None = None,
     ) -> None:
         self.state_dir = Path(state_dir) if state_dir else None
         self.usage_path = Path(usage_path) if usage_path else None
@@ -1095,6 +1179,8 @@ class Collector:
         self.kanban_boards = [b for b in (id_token(x) for x in kanban_boards) if b]
         self.kanban_bin = kanban_bin or bundlebees_bin
         self._kanban_runner = kanban_runner
+        self.deploy_paths = _deploy_path_overrides(deploy_paths)
+        self._deploy_runner = deploy_runner
         self._lease_cache: dict[str, tuple[int, int, dict[str, Any]]] = {}
         # The rails ledger keeps a peer's verbatim envelopes in
         # imported_origin_rows; selecting them costs a scan of a multi-GB
@@ -1105,11 +1191,7 @@ class Collector:
         # repo) run concurrently, so a snapshot costs the slowest read rather than
         # their sum. 1 restores strictly sequential reads.
         self.cli_workers = max(1, int(cli_workers))
-        self.thresholds = dict(DEFAULT_THRESHOLDS)
-        if thresholds:
-            for key, value in thresholds.items():
-                if isinstance(value, (int, float)) and not isinstance(value, bool):
-                    self.thresholds[key] = value
+        self.thresholds = _threshold_overrides(thresholds)
 
     # ------------------------------------------------------------------ time
     def now(self) -> datetime:
@@ -3051,6 +3133,119 @@ class Collector:
             "requests": requests,
         }
 
+    # ------------------------------------------------------------ deploy debt
+    def _deploy_run(self, argv: Sequence[str]) -> tuple[int, DeployOutput, DeployOutput]:
+        runner = self._deploy_runner or (
+            lambda args: deploy_subprocess_runner(args, self.cli_timeout_s)
+        )
+        try:
+            return runner(argv)
+        except Exception:
+            return 127, b"", b""
+
+    @staticmethod
+    def _deploy_bytes(output: DeployOutput) -> bytes:
+        return output.encode("utf-8") if isinstance(output, str) else output
+
+    @staticmethod
+    def _deploy_revision(output: DeployOutput) -> str | None:
+        try:
+            text = output.decode("ascii") if isinstance(output, bytes) else output
+        except (UnicodeDecodeError, ValueError):
+            return None
+        if not isinstance(text, str):
+            return None
+        revision = text.strip().lower()
+        return revision if DEPLOY_FULL_REV_RE.match(revision) else None
+
+    def _deploy_git_rev(self, repo: Path, ref: str) -> str | None:
+        try:
+            if not repo.is_dir():
+                return None
+        except OSError:
+            return None
+        code, out, _ = self._deploy_run(["git", "-C", str(repo), "rev-parse", ref])
+        return self._deploy_revision(out) if code == 0 else None
+
+    @staticmethod
+    def _deploy_row(surface: str, deployed: str | None, merged: str | None) -> dict[str, Any]:
+        if deployed is None or merged is None:
+            return {"surface": surface, "merged": None, "deployed": None, "verdict": "unknown"}
+        return {
+            "surface": surface,
+            "merged": merged,
+            "deployed": deployed,
+            "verdict": "parity" if deployed == merged else "drift",
+        }
+
+    def _deploy_plugin_row(self) -> dict[str, Any]:
+        deployed = self._deploy_git_rev(self.deploy_paths["plugin_dir"], "HEAD")
+        merged = self._deploy_git_rev(self.deploy_paths["plugin_repo"], "origin/main")
+        return self._deploy_row("plugin", deployed, merged)
+
+    def _deploy_file_row(self, surface: str, repo_key: str, deployed_key: str, main_path: str) -> dict[str, Any]:
+        deployed_bytes = read_regular_bytes(self.deploy_paths[deployed_key], DEPLOY_FILE_LIMIT)
+        repo = self.deploy_paths[repo_key]
+        try:
+            repo_readable = repo.is_dir()
+        except OSError:
+            repo_readable = False
+        if deployed_bytes is None or not repo_readable:
+            return self._deploy_row(surface, None, None)
+        code, out, _ = self._deploy_run(
+            ["git", "-C", str(repo), "cat-file", "blob", f"origin/main:{main_path}"]
+        )
+        if code != 0:
+            return self._deploy_row(surface, None, None)
+        merged_bytes = self._deploy_bytes(out)
+        deployed = hashlib.sha256(deployed_bytes).hexdigest()[:12]
+        merged = hashlib.sha256(merged_bytes).hexdigest()[:12]
+        return self._deploy_row(surface, deployed, merged)
+
+    def _deploy_hyvv_row(self) -> dict[str, Any]:
+        raw = read_regular_bytes(self.deploy_paths["hyvv_marker"], 4096)
+        deployed = self._deploy_revision(raw) if raw is not None else None
+        merged = self._deploy_git_rev(self.deploy_paths["hyvv_repo"], "origin/main")
+        return self._deploy_row("hyvv", deployed, merged)
+
+    def deploy_debt_section(self, open_prs: int | None = None) -> dict[str, Any]:
+        """Compare the four deployed surfaces with merged main, read-only."""
+        rows = [
+            self._deploy_plugin_row(),
+            self._deploy_file_row(
+                "collector", "workflow_repo", "collector_deployed", DEPLOY_COLLECTOR_MAIN
+            ),
+            self._deploy_file_row(
+                "obs_app", "obs_app_repo", "obs_app_deployed", DEPLOY_OBS_APP_MAIN
+            ),
+            self._deploy_hyvv_row(),
+        ]
+        readable = sum(row["verdict"] != "unknown" for row in rows)
+        if readable == len(DEPLOY_SURFACES):
+            status = "known"
+            debt: int | None = sum(row["verdict"] == "drift" for row in rows)
+        elif readable:
+            status = "partial"
+            debt = None
+        else:
+            status = "unavailable"
+            debt = None
+        return {"status": status, "debt": debt, "open_prs": open_prs, "surfaces": rows}
+
+    @staticmethod
+    def _open_pr_count(ci_body: Mapping[str, Any]) -> int | None:
+        if ci_body.get("status") == "unavailable":
+            return None
+        repos = [row for row in as_list(ci_body.get("repos")) if isinstance(row, dict)]
+        if repos:
+            counts = [row.get("open_prs") for row in repos]
+            if all(type(count) is int and count >= 0 for count in counts):
+                return sum(counts)
+            return None
+        if ci_body.get("status") not in ("live", "stale"):
+            return None
+        return sum(isinstance(pr, dict) for pr in as_list(ci_body.get("prs")))
+
     def bottlenecks_section(
         self,
         *,
@@ -3063,7 +3258,8 @@ class Collector:
         """Compute the bottlenecks section read-only from records the other
         sections already read: job documents, the feature queue, the claim
         store, recorded approval decisions, review reports, scheduler
-        metrics, the fleet, and open pull requests. Each contributing source
+        metrics, the fleet, open pull requests, and deploy parity. Open pull
+        requests stay separate from deploy debt. Each contributing source
         degrades independently: a metric its source cannot show stays null
         with a status marker, never zero. The fleet section no longer
         surfaces the CLI status bee_cap (it is launcher configuration, not
@@ -3079,6 +3275,9 @@ class Collector:
         pipeline_readable = pipeline_body.get("status") != "unavailable"
         queue_readable = backlog_body.get("status") != "unavailable"
         ci_readable = ci_body.get("status") != "unavailable"
+        open_prs = self._open_pr_count(ci_body)
+        deploy_debt = self.deploy_debt_section(open_prs)
+        deploy_readable = deploy_debt["status"] != "unavailable"
         features = [f for f in as_list(backlog_body.get("features")) if isinstance(f, dict)]
         docs_by_id = {doc["job_id"]: doc for doc in docs}
 
@@ -3146,7 +3345,7 @@ class Collector:
                 now, generated, docs, transitions, report_by_attempt,
                 dispatch_by_attempt, pipeline_readable, targets["integrate"], event_status,
             ),
-            self._deploy_stage_row(now, generated, ci_body, ci_readable, targets["deploy"]),
+            self._deploy_stage_row(now, generated, deploy_debt, targets["deploy"]),
         ]
         invariant = self._bottleneck_invariant(
             now,
@@ -3156,8 +3355,8 @@ class Collector:
             docs=docs,
             unreadable_jobs=unreadable_jobs,
             pipeline_readable=pipeline_readable,
-            ci_body=ci_body,
-            ci_readable=ci_readable,
+            deploy_debt=deploy_debt,
+            deploy_readable=deploy_readable,
             events=events,
             metrics_seen=metrics_seen,
             report_by_attempt=report_by_attempt,
@@ -3168,6 +3367,7 @@ class Collector:
             pipeline_readable,
             queue_readable,
             ci_readable,
+            deploy_readable,
             fleet_body.get("status") != "unavailable",
             metrics_seen,
         ]
@@ -3178,6 +3378,7 @@ class Collector:
                 pipeline_body.get("status") == "live",
                 backlog_body.get("status") == "live",
                 ci_body.get("status") == "live",
+                deploy_readable,
                 fleet_body.get("status") == "live",
             ]
             if events:
@@ -3195,6 +3396,8 @@ class Collector:
             stages=stages,
             invariant=invariant,
             thresholds={stage: {"dwell_target_s": targets[stage]} for stage in STAGE_NAMES},
+            open_prs=open_prs,
+            deploy_debt=deploy_debt,
         )
 
     def _verify_stage_row(
@@ -3402,45 +3605,24 @@ class Collector:
         self,
         now: datetime,
         generated: str,
-        ci_body: Mapping[str, Any],
-        source_readable: bool,
+        deploy_debt: Mapping[str, Any],
         target: float | None,
     ) -> dict[str, Any]:
-        rows = [pr for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)]
-        if not source_readable:
-            return _stage_row(
-                generated,
-                "deploy",
-                now=now,
-                queue_depth=None,
-                oldest_item_age_s=None,
-                dwell_samples=[],
-                dwell_status="unavailable",
-                advanced=[],
-                throughput_status="unavailable",
-                wip=None,
-                capacity=None,
-                capacity_source=None,
-                target=target,
-            )
-        opened = [
-            moment
-            for moment in (parse_ts(pr.get("created_at")) for pr in rows)
-            if moment is not None
-        ]
-        oldest = min(opened) if opened else None
-        # Open pull requests carry no record here of completed stays or of
-        # merges, so dwell and throughput stay unknown.
+        status = deploy_debt.get("status")
+        readable = status != "unavailable"
+        # Parity rows name revisions, not when a surface drifted. Deploy age,
+        # completed dwell and throughput therefore remain unknown; open PR
+        # timestamps belong only to the separate open_prs observation.
         return _stage_row(
             generated,
             "deploy",
             now=now,
-            queue_depth=len(rows),
-            oldest_item_age_s=_age_s(oldest, now),
+            queue_depth=deploy_debt.get("debt") if readable else None,
+            oldest_item_age_s=None,
             dwell_samples=[],
-            dwell_status="unknown",
+            dwell_status="unknown" if readable else "unavailable",
             advanced=[],
-            throughput_status="unknown",
+            throughput_status="unknown" if readable else "unavailable",
             wip=None,
             capacity=None,
             capacity_source=None,
@@ -3523,8 +3705,8 @@ class Collector:
         docs: Sequence[Mapping[str, Any]],
         unreadable_jobs: int,
         pipeline_readable: bool,
-        ci_body: Mapping[str, Any],
-        ci_readable: bool,
+        deploy_debt: Mapping[str, Any],
+        deploy_readable: bool,
         events: Sequence[Mapping[str, Any]],
         metrics_seen: bool,
         report_by_attempt: Mapping[str, Mapping[str, Any]],
@@ -3621,11 +3803,7 @@ class Collector:
             active_workers = sum(1 for task in tasks if task["state"] == "running")
             claimed = sum(1 for task in tasks if task["state"] in CLAIMED_TASK_STATES)
 
-        awaiting_deploy = None
-        if ci_readable:
-            awaiting_deploy = sum(
-                1 for pr in as_list(ci_body.get("prs")) if isinstance(pr, dict)
-            )
+        awaiting_deploy = deploy_debt.get("debt") if deploy_readable else None
 
         blocked_known = queue_readable and pipeline_readable
         # An unreadable claim store is itself a known one-message refusal,
@@ -3668,7 +3846,7 @@ class Collector:
         sources = [
             queue_readable,
             pipeline_readable,
-            ci_readable,
+            deploy_debt.get("status") == "known",
             metrics_seen,
             claims_dir_seen,
             approval_state["source"],
