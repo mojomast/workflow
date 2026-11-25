@@ -145,6 +145,13 @@ target the writer's own subtree, `.quarantine/<writer-slug>/` (the writer id
 with the kind separator replaced by a hyphen). Anything else is refused with
 `write_quarantined`.
 
+Quarantine is **not a readable zone**. `query` (and the `memory-query`
+recall endpoint built on it) reads only promoted zones, so a lesson stored in
+`.quarantine/<writer-slug>/` never appears in recall results — not while it
+waits, and not after a promotion is refused. Retention still evaluates
+quarantined leftovers so an abandoned write can expire; index rows are built
+from the same promoted zones as recall.
+
 A write outside the subtree carries an `authority` grant:
 
 ```json

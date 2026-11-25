@@ -394,6 +394,11 @@ def zone_of(path: str) -> str:
     return "service-owned"
 
 
+def is_quarantined(path: str) -> bool:
+    """True for a path inside the write-quarantine tree."""
+    return path == QUARANTINE_ROOT or path.startswith(QUARANTINE_ROOT + "/")
+
+
 def quarantine_prefix(writer: str) -> str:
     return f"{QUARANTINE_ROOT}/{writer.replace(':', '-')}/"
 
@@ -661,15 +666,23 @@ class DiskVault:
 
     # -- scanning ----------------------------------------------------------
 
-    def _candidate_paths(self) -> list:
+    def _candidate_paths(self, *, include_quarantine: bool = False) -> list:
+        """Every markdown document this vault reads.
+
+        Quarantine is not a recallable zone. A lesson a writer stored there has
+        not been reviewed or promoted, so it is excluded by default and can
+        never reach ``query``. Integrity and retention passes that must still
+        see abandoned writes opt in with ``include_quarantine=True``.
+        """
         paths = []
         for name in sorted(set(TYPE_DIR.values())):
             directory = self.root / name
             if directory.is_dir():
                 paths.extend(directory.rglob("*.md"))
-        quarantine = self.root / QUARANTINE_ROOT
-        if quarantine.is_dir():
-            paths.extend(quarantine.rglob("*.md"))
+        if include_quarantine:
+            quarantine = self.root / QUARANTINE_ROOT
+            if quarantine.is_dir():
+                paths.extend(quarantine.rglob("*.md"))
         for name in CURATED_FILES:
             if (self.root / name).is_file():
                 paths.append(self.root / name)
@@ -685,9 +698,9 @@ class DiskVault:
         validate_frontmatter(record)
         return record, body
 
-    def _scan(self) -> list:
+    def _scan(self, *, include_quarantine: bool = False) -> list:
         entries = []
-        for target in self._candidate_paths():
+        for target in self._candidate_paths(include_quarantine=include_quarantine):
             rel = target.relative_to(self.root).as_posix()
             if zone_of(rel) == "service-owned":
                 continue
@@ -739,7 +752,7 @@ class DiskVault:
         if existing is None:
             if op["expected_sha"] is not None:
                 refuse("sha_conflict", "the target does not exist; re-read and create without a digest", reread=True)
-            for entry in self._scan():
+            for entry in self._scan(include_quarantine=True):
                 if entry["path"] == path:
                     continue
                 if entry["record"]["id"] == record["id"]:
@@ -830,7 +843,9 @@ class DiskVault:
         if not isinstance(now, str) or not TIME_RE.match(now):
             refuse("schema_invalid", "now must be an RFC 3339 timestamp")
         records = []
-        for entry in self._scan():
+        # Retention still sees quarantined leftovers: only recall is blind to
+        # them. Skipping them here would let an abandoned write live forever.
+        for entry in self._scan(include_quarantine=True):
             if include_expired or not is_expired(entry["record"], now):
                 records.append(copy.deepcopy(entry["record"]))
         return records
@@ -897,6 +912,10 @@ class DiskVault:
             try:
                 target = self._resolve(stored["path"])
             except ContractError:
+                continue
+            if is_quarantined(stored["path"]):
+                # A stale index row must not turn an unpromoted write into a
+                # recall hit.
                 continue
             if not target.is_file():
                 continue
@@ -992,6 +1011,7 @@ __all__ = [
     "DiskVault",
     "excerpt_of",
     "is_expired",
+    "is_quarantined",
     "memory_sha",
     "parse_memory",
     "quarantine_prefix",

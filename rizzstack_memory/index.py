@@ -19,11 +19,11 @@ from pathlib import Path
 
 from .vault import (
     CURATED_FILES,
-    QUARANTINE_ROOT,
     TYPE_DIR,
     ContractError,
     _score,
     _title_of,
+    is_quarantined,
     parse_memory,
     validate_frontmatter,
     zone_of,
@@ -90,14 +90,17 @@ class Index:
     # -- markdown scan -----------------------------------------------------
 
     def _candidate_paths(self) -> list:
+        """Every markdown document the index may hold.
+
+        Quarantine is excluded for the same reason the vault excludes it: an
+        unpromoted write is not recallable, so it must not have a searchable
+        row either.
+        """
         paths = []
         for name in sorted(set(TYPE_DIR.values())):
             directory = self.root / name
             if directory.is_dir():
                 paths.extend(directory.rglob("*.md"))
-        quarantine = self.root / QUARANTINE_ROOT
-        if quarantine.is_dir():
-            paths.extend(quarantine.rglob("*.md"))
         for name in CURATED_FILES:
             target = self.root / name
             if target.is_file():
@@ -114,7 +117,7 @@ class Index:
             rel = target.relative_to(self.root).as_posix()
         except ValueError:
             return None
-        if zone_of(rel) == "service-owned":
+        if zone_of(rel) == "service-owned" or is_quarantined(rel):
             return None
         try:
             record, body = parse_memory(target.read_text(encoding="utf-8"))

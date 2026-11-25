@@ -4,8 +4,10 @@ rizzstack.memory/1 vault from docs/28-agent-lessons.md.
 Every ``### L-NN · Title`` section becomes one ``learning`` memory with id
 ``lesson-l-NN``, written through DiskVault into the seed writer's QUARANTINE
 zone (writer ``agent:lessons-seed``); promotion to curated dirs still needs a
-human grant, so the seeder never writes outside quarantine. Re-running is
-idempotent. ``--dry-run`` lists what it would write and touches nothing.
+human grant, so the seeder never writes outside quarantine. A quarantined
+lesson is deliberately not recallable: the query endpoint reads promoted zones
+only, so these become visible to recall only after a human promotion. Re-running
+is idempotent. ``--dry-run`` lists what it would write and touches nothing.
 """
 
 from __future__ import annotations
@@ -67,11 +69,25 @@ class TestSeedMemoryFromLessons(unittest.TestCase):
             for path in written:
                 self.assertTrue(path.startswith(prefix), f"seeder wrote outside quarantine: {path}")
 
-    def test_seeded_lessons_are_queryable(self):
+    def test_seeded_lessons_stay_out_of_recall_until_promoted(self):
         with tempfile.TemporaryDirectory() as root:
             self.assertEqual(run(["--vault", root, "--now", NOW]).returncode, 0)
-            result = DiskVault(root).query({"op": "query", "q": "manufacture human gesture", "k": 3}, now=NOW)
-            self.assertIn("lesson-l-20", [h["id"] for h in result["hits"]])
+            vault = DiskVault(root)
+            query = {"op": "query", "q": "manufacture human gesture", "k": 3}
+            self.assertEqual(
+                vault.query(query, now=NOW)["hits"],
+                [],
+                "a lesson written to quarantine must never reach recall",
+            )
+            grant = {
+                "grant_ref": "approvals/2026-11-24-seed-promotion.md",
+                "approved_by": "human:owner",
+                "approved_at": NOW,
+            }
+            promoted = vault.promote("lesson-l-20", grant)
+            self.assertEqual(promoted["path"], "learnings/lesson-l-20.md")
+            hits = [hit["id"] for hit in vault.query(query, now=NOW)["hits"]]
+            self.assertIn("lesson-l-20", hits)
 
     def test_rerun_is_idempotent(self):
         with tempfile.TemporaryDirectory() as root:
