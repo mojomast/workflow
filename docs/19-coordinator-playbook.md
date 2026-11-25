@@ -241,7 +241,7 @@ Order is proven by signed sequence numbers and the previous record's hash, not g
 | Tag or create a release | Yes, per tag | No tag is implied by a merge |
 | Publish a package (PyPI, npm and so on) | Yes | |
 | Catalog submissions or edits (e.g. the Nous plugin catalog) | Yes | |
-| Deploy or restart a production system or shared host | Yes, per deploy | Take a backup and record the rollback SHA first |
+| Deploy or restart a production system or shared host | Yes, per deploy | Take a backup and record the rollback SHA first; follow DEPLOY-CADENCE in [deployment-runbook.md](deployment-runbook.md) |
 | Change live worker-host or launcher configuration, or credentials | Yes | Only the owning agent applies it |
 | Unpause worker dispatch | Yes | |
 | Delete anything: branches, folders, files, repos | Yes, per item | Check it's pushed first. No branch deletion or history rewrite without a yes |
