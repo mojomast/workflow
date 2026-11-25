@@ -59,6 +59,7 @@ class ExamplesValidateTests(unittest.TestCase):
             [
                 "alert-thresholds-override.schema.json",
                 "alert-thresholds.schema.json",
+                "audit-anchor.schema.json",
                 "board-snapshot.schema.json",
                 "ci-run.schema.json",
                 "common.schema.json",

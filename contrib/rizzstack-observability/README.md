@@ -448,3 +448,23 @@ is missing.
   an attempt from near timestamps.
 - Nothing here creates a second scheduler, a broker or a feedback database, and
   no rails read triggers a retry.
+
+## Audit chain anchors (`audit_anchor.py`)
+
+`audit_anchor.py` checkpoints the uirizz action audit chain outside uirizz
+(contract: [`observability/schemas/audit-anchor.schema.json`](../../observability/schemas/audit-anchor.schema.json),
+`rizzstack.audit-anchor/1`). It reads `actions.jsonl` and its rotation backup
+`actions.jsonl.1`, verifies both hash chains, and appends one anchor per 100
+entries of a segment plus one for the last entry of a rotated-out segment to its
+own append-only file. It never writes the audit log and refuses (exit 1, nothing
+written) on an unparseable line, a broken chain, or a rotation that does not
+continue its backup. Re-runs add only missing anchors.
+
+```sh
+python3 audit_anchor.py --log <uirizz data>/audit/actions.jsonl --anchors <evidence dir>/audit-anchors.jsonl
+```
+
+uirizz verifies a log against these anchors (`uirizz verify --anchors FILE`).
+This raises the bar against silent edits; someone with shell on the host can
+still rewrite both files, and anchors are not signed yet. Running it on a
+schedule on the Hermes host is a deploy step and needs the owner's yes.

@@ -601,6 +601,12 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "keywords": ("LIVE_CYCLES_MAX", "LIVE_VIEW_LIMIT",),
     },
     {
+        # BEST-PRACTICE item 3: row rides in its own PR so the merge leaves main green.
+        "pr": 155,
+        "name": "Audit chain anchors: rizzstack.audit-anchor/1 + collector",
+        "keywords": ("rizzstack.audit-anchor/1", "audit_anchor.py",),
+    },
+    {
         # BEST-PRACTICE items 13/14: row rides in its own PR so the merge leaves main green.
         "pr": 154,
         "name": "FACTORY-BALANCE + SUPERSEDE-DONT-AMEND playbook rules, snapshot balance section",

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojomast/workflow/observability/schemas/audit-anchor.schema.json",
+  "title": "Audit chain anchor (rizzstack.audit-anchor/1)",
+  "description": "A checkpoint of the uirizz action audit chain, written by a collector outside uirizz (contrib/rizzstack-observability/audit_anchor.py) to its own append-only file. One anchor per 100 entries of a log segment (reason interval) and one for the last entry of a segment when the log rotates (reason rotation). A verifier recomputes the chain and fails on any anchor that does not match. It raises the bar against silent edits; it is not a signed or public transparency log.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "log_id", "seq", "head_hash", "ts", "reason"],
+  "properties": {
+    "schema": { "const": "rizzstack.audit-anchor/1" },
+    "log_id": {
+      "description": "Identifies one log segment: the hash of the segment's first entry (seq 1). A rotation starts a new segment.",
+      "$ref": "#/$defs/sha256_hex"
+    },
+    "seq": { "type": "integer", "minimum": 1, "description": "The anchored entry's seq within its segment." },
+    "head_hash": { "description": "The anchored entry's chain hash.", "$ref": "#/$defs/sha256_hex" },
+    "ts": { "description": "When the collector wrote the anchor.", "$ref": "common.schema.json#/$defs/utc_timestamp" },
+    "reason": { "enum": ["interval", "rotation"] }
+  },
+  "$defs": {
+    "sha256_hex": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
