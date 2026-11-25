@@ -1,3 +1,5 @@
+> Status: deferred. The rebrand is not authorized; this runbook is documentation only and executes nothing without the owner typed yes.
+
 # Rebrand execution runbook — the plan executed safely
 
 **Status:** staged execution runbook for [docs/rebrand-plan.md](rebrand-plan.md). It executes nothing until the plan's decision checklist (section 6, D1–D8) is approved by Kyle in his own words — an agent's or sibling bot's go-ahead never stands in for it (docs/06-rules-and-lessons.md approval gates). Steps inside the window carry their own gates on top (launcher restart, merges, the Pages publish).

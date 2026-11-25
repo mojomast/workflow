@@ -1,10 +1,15 @@
 # CI required contexts
 
-The main-branch ruleset requires three status contexts by name:
+The main-branch ruleset requires these status contexts by name:
 
+- `ci-gate`
 - `bee-ci/reference`
 - `bee-ci/project-state`
 - `bee-ci/secret-scan`
+
+`ci-gate` is the overall job gate: it passes only when every job in
+`.github/workflows/ci.yml` succeeded, including `lease-tamper`. It cannot
+report success on its own.
 
 The substantive work in `.github/workflows/ci.yml` keeps its existing job IDs and
 check names. Three additional gate jobs carry the required context names and
@@ -38,6 +43,17 @@ does not run the substantive job's commands again and never reports success
 unconditionally. For `project-state`, `needs.project-state.result` is the
 aggregate over the matrix legs, so a failed or cancelled leg fails
 `bee-ci/project-state`.
+
+## Lease/tamper
+
+`lease-tamper` is a required member of `ci-gate`. It reads the pull request's
+slice contract (label, PR body or `.rizzstack/lease.json`) and fails if any
+commit after the verify boundary touches a file outside
+`scope.assigned_files` or a frozen test in `scope.test_files` /
+`scope.prohibited` / `scope.read_only`. A missing contract fails closed. The
+rule applies to every author, including the coordinator and triage lanes;
+triage lanes have no test edit rights. Full behavior and the failure text:
+[`32-lease-tamper-gate.md`](32-lease-tamper-gate.md).
 
 ## Boundaries
 
