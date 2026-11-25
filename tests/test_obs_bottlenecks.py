@@ -72,6 +72,16 @@ collector = load_collector_module()
 VALIDATOR = Validator(ROOT / "observability" / "schemas")
 
 
+@pytest.fixture(autouse=True)
+def isolate_deploy_sources(monkeypatch, tmp_path: Path):
+    missing = tmp_path / "ambient-deploy-inputs-absent"
+    monkeypatch.setattr(
+        collector,
+        "DEFAULT_DEPLOY_PATHS",
+        {key: missing / key for key in collector.DEFAULT_DEPLOY_PATHS},
+    )
+
+
 def validated(doc) -> None:
     VALIDATOR.validate(doc, VALIDATOR.load(SNAPSHOT_SCHEMA))
 
@@ -366,6 +376,28 @@ def gh_runner(argv):
     return 0, json.dumps(prs), ""
 
 
+def open_pr_gh(count: int):
+    def run(argv):
+        if "checks" in argv:
+            return 0, json.dumps([]), ""
+        repo = argv[argv.index("--repo") + 1]
+        prs = []
+        if repo == "mojomast/workflow":
+            prs = [
+                {
+                    "number": index + 1,
+                    "headRefName": f"feat/deploy-{index + 1}",
+                    "state": "OPEN",
+                    "createdAt": at(index),
+                    "statusCheckRollup": [{"name": "unit tests", "state": "SUCCESS"}],
+                }
+                for index in range(count)
+            ]
+        return 0, json.dumps(prs), ""
+
+    return run
+
+
 def make_state(tmp_path: Path, *, with_queue: bool = True) -> Path:
     state = tmp_path / "state"
     for subdir in ("jobs", "metrics", "verify-results", "queue", "approvals"):
@@ -442,6 +474,30 @@ class TestBottlenecksSchema:
         for pr in snap["ci"]["prs"]:
             pr.pop("created_at", None)
         validated(snap)
+
+    def test_deploy_debt_is_additive_and_has_a_closed_surface_contract(self, tmp_path: Path) -> None:
+        snap = bottleneck_collector(tmp_path).build_snapshot()
+        validated(snap)
+        body = bottlenecks_of(snap)
+        assert "open_prs" in body
+        assert "deploy_debt" in body
+        old_body = dict(body)
+        old_body.pop("open_prs")
+        old_body.pop("deploy_debt")
+        snap["bottlenecks"] = old_body
+        validated(snap)
+
+        schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
+        section_schema = schema["$defs"]["bottlenecks_section"]
+        assert "open_prs" not in section_schema["required"]
+        assert "deploy_debt" not in section_schema["required"]
+        debt_schema = schema["$defs"]["deploy_debt"]
+        assert set(debt_schema["required"]) == {"status", "debt", "open_prs", "surfaces"}
+        surface_schema = schema["$defs"]["deploy_surface"]
+        assert set(surface_schema["required"]) == {"surface", "merged", "deployed", "verdict"}
+        assert surface_schema["properties"]["surface"]["enum"] == [
+            "plugin", "collector", "obs_app", "hyvv"
+        ]
 
     def test_stage_vocabulary_is_the_four_pipeline_stages(self) -> None:
         schema = VALIDATOR.load(SNAPSHOT_SCHEMA)
@@ -603,11 +659,14 @@ class TestBottlenecksComputed:
         assert row["state"] == "ok"
 
     def test_deploy_stage_metrics_from_open_pull_requests(self, section: dict) -> None:
+        assert section["open_prs"] == 1
+        assert section["deploy_debt"]["open_prs"] == 1
+        assert section["deploy_debt"]["status"] == "unavailable"
         row = stage_of(section, "deploy")
-        assert row["queue_depth"] == 1
-        assert row["oldest_item_age_s"] == 5400
-        assert row["dwell_status"] == "unknown"
-        assert row["throughput_status"] == "unknown"
+        assert row["queue_depth"] is None
+        assert row["oldest_item_age_s"] is None
+        assert row["dwell_status"] == "unavailable"
+        assert row["throughput_status"] == "unavailable"
         assert row["capacity_source"] is None
 
     def test_invariant_pins_the_reconciler_formula_on_the_fixture(self, section: dict) -> None:
@@ -622,7 +681,7 @@ class TestBottlenecksComputed:
         # blocked dependency 1) enshrined the double count the r2 review
         # rejected.
         invariant = section["invariant"]
-        assert invariant["status"] == "known"
+        assert invariant["status"] == "partial"
         assert invariant["total_outstanding"] == 4
         assert invariant["ready"] == 1
         assert invariant["claimed"] == 0
@@ -630,7 +689,7 @@ class TestBottlenecksComputed:
         assert invariant["awaiting_verify"] == 1
         assert invariant["awaiting_review"] == 1
         assert invariant["awaiting_integrate"] == 2
-        assert invariant["awaiting_deploy"] == 1
+        assert invariant["awaiting_deploy"] is None
         assert invariant["active_claims"] == 1
         assert invariant["capacity"] == {"max_active": 4, "in_use": 2, "available": 2}
         assert invariant["waiting_despite_capacity"] is False
@@ -1401,6 +1460,219 @@ class TestBottlenecksReconcilerAlignment:
         assert report["invariant"]["owner_messages_required"] == (
             invariant["human_approvals_required"] + invariant["blocked_with_reason"]
         ) == 1
+
+
+# ------------------------------------------------------------------ deploy debt
+
+
+class DeployFixture:
+    def __init__(self, root: Path) -> None:
+        self.paths = {
+            "plugin_dir": root / "plugin-installed",
+            "plugin_repo": root / "plugin-repo",
+            "workflow_repo": root / "workflow-repo",
+            "obs_app_repo": root / "obs-app-repo",
+            "collector_deployed": root / "deployed" / "collector.py",
+            "obs_app_deployed": root / "deployed" / "observatory" / "app.js",
+            "hyvv_repo": root / "hyvv-repo",
+            "hyvv_marker": root / "state" / "hyvv-deployed-sha",
+        }
+        for key in ("plugin_dir", "plugin_repo", "workflow_repo", "obs_app_repo", "hyvv_repo"):
+            self.paths[key].mkdir(parents=True)
+        self.paths["collector_deployed"].parent.mkdir(parents=True)
+        self.paths["obs_app_deployed"].parent.mkdir(parents=True)
+        self.paths["hyvv_marker"].parent.mkdir(parents=True)
+        self.collector_bytes = b"collector fixture\r\n"
+        self.obs_app_bytes = b"observatory fixture\n"
+        self.paths["collector_deployed"].write_bytes(self.collector_bytes)
+        self.paths["obs_app_deployed"].write_bytes(self.obs_app_bytes)
+        self.paths["hyvv_marker"].write_text(HEX_A + "\n", encoding="utf-8")
+        self.revisions = {
+            (str(self.paths["plugin_dir"]), "HEAD"): HEX_A,
+            (str(self.paths["plugin_repo"]), "origin/main"): HEX_A,
+            (str(self.paths["hyvv_repo"]), "origin/main"): HEX_A,
+        }
+        self.blobs = {
+            (str(self.paths["workflow_repo"]), collector.DEPLOY_COLLECTOR_MAIN): self.collector_bytes,
+            (str(self.paths["obs_app_repo"]), collector.DEPLOY_OBS_APP_MAIN): self.obs_app_bytes,
+        }
+        self.calls: list[list[str]] = []
+
+    def runner(self, argv):
+        self.calls.append(list(argv))
+        assert argv[:2] == ["git", "-C"]
+        repo = argv[2]
+        if argv[3] == "rev-parse":
+            revision = self.revisions.get((repo, argv[4]))
+            return (0, revision + "\n", "") if revision is not None else (1, "", "")
+        assert argv[3:5] == ["cat-file", "blob"]
+        spec = argv[5]
+        assert spec.startswith("origin/main:")
+        blob = self.blobs.get((repo, spec.removeprefix("origin/main:")))
+        return (0, blob, b"") if blob is not None else (1, b"", b"")
+
+    def collector_kwargs(self) -> dict:
+        return {"deploy_paths": self.paths, "deploy_runner": self.runner}
+
+    def snapshot(self, tmp_path: Path, open_prs: int = 0) -> dict:
+        snap = bottleneck_collector(
+            tmp_path,
+            gh_runner=open_pr_gh(open_prs),
+            **self.collector_kwargs(),
+        ).build_snapshot()
+        validated(snap)
+        return snap
+
+
+def deploy_surface(body: dict, name: str) -> dict:
+    rows = {row["surface"]: row for row in body["deploy_debt"]["surfaces"]}
+    assert set(rows) == {"plugin", "collector", "obs_app", "hyvv"}
+    return rows[name]
+
+
+def _assert_drift_surfaces(body: dict) -> None:
+    assert body["open_prs"] == 3
+    assert body["deploy_debt"]["status"] == "known"
+    assert body["deploy_debt"]["debt"] == 2
+    assert stage_of(body, "deploy")["queue_depth"] == 2
+    assert body["invariant"]["awaiting_deploy"] == 2
+    assert body["invariant"]["status"] == "known"
+    assert deploy_surface(body, "plugin") == {
+        "surface": "plugin", "merged": HEX_B, "deployed": HEX_A, "verdict": "drift"
+    }
+    assert deploy_surface(body, "hyvv") == {
+        "surface": "hyvv", "merged": HEX_A, "deployed": HEX_C, "verdict": "drift"
+    }
+
+
+def _assert_open_pr_count_independent(body: dict, changed_prs: dict) -> None:
+    assert deploy_surface(body, "collector")["verdict"] == "parity"
+    assert deploy_surface(body, "obs_app")["verdict"] == "parity"
+    assert changed_prs["open_prs"] == 7
+    assert changed_prs["deploy_debt"]["open_prs"] == 7
+    assert changed_prs["deploy_debt"]["debt"] == 2
+    assert stage_of(changed_prs, "deploy")["queue_depth"] == 2
+    assert changed_prs["invariant"]["awaiting_deploy"] == 2
+    assert changed_prs["deploy_debt"]["surfaces"] == body["deploy_debt"]["surfaces"]
+
+
+def _assert_partial_debt(body: dict) -> None:
+    assert body["open_prs"] == 26
+    assert body["deploy_debt"]["status"] == "partial"
+    assert body["deploy_debt"]["debt"] is None
+    assert stage_of(body, "deploy")["queue_depth"] is None
+    assert body["invariant"]["awaiting_deploy"] is None
+
+
+def _assert_one_unknown_surface(body: dict, surface: str) -> None:
+    assert body["invariant"]["status"] == "partial"
+    unknown = deploy_surface(body, surface)
+    assert unknown["verdict"] == "unknown"
+    assert unknown["deployed"] is None
+    assert unknown["merged"] is None
+    assert sum(row["verdict"] == "unknown" for row in body["deploy_debt"]["surfaces"]) == 1
+
+
+def _assert_revision_parity(body: dict, fixture: DeployFixture) -> None:
+    assert body["deploy_debt"]["status"] == "known"
+    assert body["deploy_debt"]["debt"] == 0
+    assert deploy_surface(body, "plugin")["deployed"] == HEX_A
+    assert deploy_surface(body, "hyvv")["deployed"] == HEX_A
+    for surface, content in (("collector", fixture.collector_bytes), ("obs_app", fixture.obs_app_bytes)):
+        row = deploy_surface(body, surface)
+        expected = hashlib.sha256(content).hexdigest()[:12]
+        assert row["deployed"] == expected
+        assert row["merged"] == expected
+        assert row["verdict"] == "parity"
+
+
+def _assert_prefix_drift(drifted: dict) -> None:
+    assert deploy_surface(drifted, "plugin")["verdict"] == "drift"
+    assert drifted["deploy_debt"]["debt"] == 1
+
+
+def _assert_file_digest_drift(file_drift: dict, fixture: DeployFixture) -> None:
+    row = deploy_surface(file_drift, "collector")
+    assert row["verdict"] == "drift"
+    assert row["deployed"] == hashlib.sha256(b"collector fixture\n").hexdigest()[:12]
+    assert row["merged"] == hashlib.sha256(fixture.collector_bytes).hexdigest()[:12]
+    assert file_drift["deploy_debt"]["debt"] == 1
+    assert all("71cf42c3" not in " ".join(call) for call in fixture.calls)
+
+
+class TestDeployDebt:
+    def test_source_rev_red_proof_and_26_open_prs_are_not_deploy_debt(self, tmp_path: Path) -> None:
+        # The source-revision RED proof is recorded in the delivery report.
+        # This head-only assertion is hermetic: it never loads another revision.
+        snap = bottleneck_collector(tmp_path, gh_runner=open_pr_gh(26)).build_snapshot()
+        validated(snap)
+        body = bottlenecks_of(snap)
+        assert body["open_prs"] == 26
+        assert body["deploy_debt"]["open_prs"] == 26
+        assert body["deploy_debt"]["status"] == "unavailable"
+        assert body["deploy_debt"]["debt"] is None
+        assert stage_of(body, "deploy")["queue_depth"] is None
+        assert body["invariant"]["awaiting_deploy"] is None
+        assert all(
+            row["verdict"] == "unknown" and row["deployed"] is None and row["merged"] is None
+            for row in body["deploy_debt"]["surfaces"]
+        )
+
+    def test_two_drift_surfaces_are_debt_and_open_pr_count_is_independent(self, tmp_path: Path) -> None:
+        fixture = DeployFixture(tmp_path / "deploy-fixture")
+        fixture.revisions[(str(fixture.paths["plugin_repo"]), "origin/main")] = HEX_B
+        fixture.paths["hyvv_marker"].write_text(HEX_C, encoding="utf-8")
+        body = bottlenecks_of(fixture.snapshot(tmp_path, open_prs=3))
+        _assert_drift_surfaces(body)
+
+        changed_prs = bottlenecks_of(fixture.snapshot(tmp_path, open_prs=7))
+        _assert_open_pr_count_independent(body, changed_prs)
+
+    @pytest.mark.parametrize(
+        ("case", "surface"),
+        [
+            ("missing_repo", "collector"),
+            ("missing_file", "obs_app"),
+            ("missing_marker", "hyvv"),
+            ("malformed_marker", "hyvv"),
+            ("truncated_marker", "hyvv"),
+        ],
+    )
+    def test_one_unreadable_surface_makes_debt_unknown_not_zero(
+        self, tmp_path: Path, case: str, surface: str
+    ) -> None:
+        fixture = DeployFixture(tmp_path / "deploy-fixture")
+        if case == "missing_repo":
+            fixture.paths["workflow_repo"] = tmp_path / "missing-workflow-repo"
+        elif case == "missing_file":
+            fixture.paths["obs_app_deployed"].unlink()
+        elif case == "missing_marker":
+            fixture.paths["hyvv_marker"].unlink()
+        elif case == "malformed_marker":
+            fixture.paths["hyvv_marker"].write_text("not-a-revision", encoding="utf-8")
+        else:
+            fixture.paths["hyvv_marker"].write_text(HEX_A[:12], encoding="utf-8")
+        body = bottlenecks_of(fixture.snapshot(tmp_path, open_prs=26))
+        _assert_partial_debt(body)
+        _assert_one_unknown_surface(body, surface)
+
+    def test_full_revisions_and_file_digest_prefixes_match_deploy_parity(self, tmp_path: Path) -> None:
+        fixture = DeployFixture(tmp_path / "deploy-fixture")
+        fixture.revisions[(str(fixture.paths["plugin_dir"]), "HEAD")] = "  " + HEX_A.upper() + "\n"
+        fixture.paths["hyvv_marker"].write_text("\t" + HEX_A.upper() + "  \n", encoding="utf-8")
+        body = bottlenecks_of(fixture.snapshot(tmp_path))
+        _assert_revision_parity(body, fixture)
+
+        same_prefix_drift = HEX_A[:12] + "0" * 28
+        assert same_prefix_drift != HEX_A
+        fixture.revisions[(str(fixture.paths["plugin_repo"]), "origin/main")] = same_prefix_drift
+        drifted = bottlenecks_of(fixture.snapshot(tmp_path))
+        _assert_prefix_drift(drifted)
+
+        fixture.revisions[(str(fixture.paths["plugin_repo"]), "origin/main")] = HEX_A
+        fixture.paths["collector_deployed"].write_bytes(b"collector fixture\n")
+        file_drift = bottlenecks_of(fixture.snapshot(tmp_path))
+        _assert_file_digest_drift(file_drift, fixture)
 
 
 # ------------------------------------------------------------------ read-only
