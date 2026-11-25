@@ -1,0 +1,18 @@
+{
+  "schema": "rizzstack.brief/1",
+  "objective": "Validate a brief carrying a dispatch ticket.",
+  "project": "workflow",
+  "source_rev": "0123456789abcdef0123456789abcdef01234567",
+  "assigned_files": [
+    "schemas/rizzstack-brief.schema.json"
+  ],
+  "acceptance": {
+    "criteria": [
+      "The ticket is carried as a string."
+    ]
+  },
+  "risk": {
+    "tier": "low"
+  },
+  "ticket": "header.payload.signature"
+}

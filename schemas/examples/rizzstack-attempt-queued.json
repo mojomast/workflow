@@ -1,0 +1,8 @@
+{
+  "schema": "rizzstack.attempt/1",
+  "attempt_id": "att_queued_001",
+  "project": "workflow",
+  "state": "queued",
+  "created_at": "2026-11-24T00:00:00Z",
+  "updated_at": "2026-11-24T00:00:00Z"
+}
