@@ -636,6 +636,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "name": "OBS-KANBAN: kanban backlog feed, observed wave jobs, lease-bound fleet identity",
         "keywords": ("--kanban-board", "kanban_unavailable", "bundlebees.attempt-route/1", "test_obs_attempt_binding.py",),
     },
+    {
+        # feat/memory-quarantine-excluded: DiskVault/Index candidate paths stop
+        # reading .quarantine/** so recall returns only promoted lessons.
+        "pr": 178,
+        "name": "memory recall excludes the quarantine zone",
+        "keywords": ("include_quarantine", ".quarantine/**", "_keyword_ranked"),
+    },
 )
 
 #: The in-review wave: no coordinator-dispatched campaign PR is open as of the
