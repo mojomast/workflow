@@ -48,19 +48,25 @@ aggregate over the matrix legs, so a failed or cancelled leg fails
 
 `lease-tamper` is a required member of `ci-gate`. It classifies the pull
 request first: a **slice** is a PR that a frozen lease committed on the base
-branch names (by `pull_request`, `branch` or `slice`/`id`, or by a
-`lease-contract:` label / `Lease-Contract:` body line naming a base lease);
-a **non-slice** PR is any other change and passes only with an independent
-review at its exact head (`APPROVED`, or a `COMMENTED` review whose first line
-starts `APPROVE` and names an independent review). A slice is then judged
-against its lease: any commit after the verify boundary that touches a file
-outside `scope.assigned_files`, or a frozen test in `scope.test_files` /
-`scope.prohibited` / `scope.read_only`, fails. A lease that exists only on the
-PR branch fails `lease_not_on_base`; a non-slice PR without a review at its
-head fails `non_slice_requires_independent_review`. The rule applies to every
-author, including the coordinator and triage lanes; triage lanes have no test
-edit rights. Full behavior and the failure text:
-[`32-lease-tamper-gate.md`](32-lease-tamper-gate.md).
+branch names (by `pull_request`, `branch` or `slice`/`id`); every other
+change — including any PR that adds or edits `.rizzstack/leases/**`,
+`.rizzstack/contracts/**` or `.rizzstack/lease.json` — is **non-slice** and
+passes only with an independent review at its exact head (`APPROVED`, or a
+`COMMENTED` review whose first line starts `APPROVE` and names an independent
+review). Labels and PR-body lines never select a lease or move the verify
+boundary. A lease is usable only when it declares `review.status`
+`approved`/`frozen`, a `contract_sha256`, and the matching approved contract
+sits at `.rizzstack/contracts/<contract_sha256>.json` on base with the same
+`source_rev` and scope lists. A slice is then judged against that lease: any
+commit after the verify boundary that touches a file outside
+`scope.assigned_files`, or a frozen test in `scope.test_files` /
+`scope.prohibited` / `scope.read_only`, fails; a wildcard in
+`scope.assigned_files` fails `lease_glob_scope`. A lease that is not frozen,
+or whose contract hash is missing/unapproved/mismatched, fails closed. The
+rule applies to every author, including the coordinator and triage lanes;
+triage lanes have no test edit rights. Full behavior and the failure text:
+[`32-lease-tamper-gate.md`](32-lease-tamper-gate.md). The bypass regression
+suite is `.github/scripts/lease_tamper_poc.py` (all five cases must exit 1).
 
 ## Boundaries
 

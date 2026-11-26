@@ -31,50 +31,58 @@ The coordinator is included in "every author": a coordinator cleanup,
 docs-sync companion or merge repair is a leased slice too. There is no
 coordinator exception in the script.
 
-## Where the contract comes from
+## Where the lease comes from
 
-The gate resolves the contract path in this order:
+The gate reads **one** source of truth: `.rizzstack/leases/*.json` on the base
+branch. There is no `lease-contract:` label, no `Lease-Contract:` body line and
+no head-revision fallback — a pull request cannot supply, point at or edit the
+lease it is judged by.
 
-1. `--contract` (local runs and tests);
-2. a pull-request label `lease-contract:<path>` (`lease:<path>` also works);
-3. a pull-request body line:
+A lease is usable only when it names an **approved frozen contract** that is
+already committed to the base branch:
 
-   ```text
-   Lease-Contract: .rizzstack/contracts/my-slice.json
-   ```
+1. the lease declares `review.status` `approved` or `frozen` **and** a non-empty
+   `review.approved_by` — a lease with no review block is not frozen;
+2. the lease declares `contract_sha256`;
+3. `.rizzstack/contracts/<contract_sha256>.json` exists at the base tip, and
+   its own canonical hash (compact, key-sorted JSON with the `review` block
+   removed) equals the hash in its file name and in the lease;
+4. that contract's `review.status` is `approved`/`frozen` with a non-empty
+   `review.approved_by`;
+5. the contract's `source_rev` and all four scope lists equal the lease's.
 
-   `Contract-Path:` is accepted as an alias;
-4. the frozen slice store `.rizzstack/leases/*.json` on the **base** branch,
-   matched to the pull request by the lease's own `pull_request`/`pr`,
-   `branch` or `slice`/`id` field;
-5. the repository convention `.rizzstack/lease.json`, read at the base
-   revision first and the head revision second.
+Any mismatch fails closed with a named reason (`lease_contract_missing`,
+`lease_contract_not_approved`, `lease_contract_hash_mismatch`,
+`lease_contract_mismatch`). The hash pins the exact approved text, and the
+field comparison makes a widened or narrowed lease unusable, so the lease can
+never say more than the contract the owner approved.
 
-If none of these resolves the pull request is **not a slice**, and the
+If nothing names the pull request it is **not a slice**, and the
 independent-review rule below applies. There is no "no lease" pass.
 
 ## Slice or non-slice
 
 The classification is explicit and lives on the base branch:
 
-- A pull request is a **slice** when a frozen lease/contract committed on the
-  **base** branch names it — by number (`"pull_request": 64`), by branch
-  (`"branch": "feat/wave-b-b1"`), by slice name (`"slice"`/`"id"` equal to the
-  branch's last path segment, case-insensitively), or by a coordinator
-  `lease-contract:` label / `Lease-Contract:` body line that names a lease
-  already committed to the base branch.
+- A pull request is a **slice** when a frozen lease committed on the **base**
+  branch names it — by number (`"pull_request": 64`), by branch
+  (`"branch": "feat/wave-b-b1"`), or by slice name (`"slice"`/`"id"` equal to
+  the branch's last path segment, case-insensitively).
 - The shape of the branch name is **never** a classifier: `feat/`, `fix/` or
   any other prefix proves nothing, and a lease that does not name the pull
   request does not apply to it.
-- A lease that exists only on the pull-request branch never classifies it and
-  fails closed with `lease_not_on_base`: a pull request may not supply or edit
-  the lease it is judged by.
+- **Any change to `.rizzstack/leases/**`, `.rizzstack/contracts/**` or
+  `.rizzstack/lease.json` in the pull request's own commits makes it
+  non-slice.** Landing a lease or a contract is gate-metadata work: it always
+  needs an independent review at its head, and the gate prints
+  `NOT A SLICE: it changes gate metadata (…)`. A pull request therefore cannot
+  grant itself a scope, and it cannot land the contract it will be judged by.
 - A lease whose `review.status` is anything other than `approved` or `frozen`
   (a draft) does not classify a slice.
 
-A **non-slice** pull request — a docs fix, a release chore, a gate change with
-no slice lease — passes only with an independent review recorded at its exact
-head commit:
+A **non-slice** pull request — a docs fix, a release chore, a gate change, a
+lease or contract landing — passes only with an independent review recorded at
+its exact head commit:
 
 - a review whose `state` is `APPROVED`, or
 - a `COMMENTED` review whose first line starts `APPROVE`, names an
@@ -86,58 +94,57 @@ the job fails closed with the named reason
 `non_slice_requires_independent_review`. The job needs `pull-requests: read`
 to read the reviews; without a token it fails closed rather than skipping.
 
-**Keep the default path out of long-lived `main`.** Once a slice-specific
-`.rizzstack/lease.json` is merged, every later pull request inherits it (the
-file is present in their head tree) and is judged against the wrong lease. Put
-slice leases at a named path such as `.rizzstack/leases/<slice>.json` and name
-that path from the PR body or a label. Reserve the default
-`.rizzstack/lease.json` for a repository-wide lease policy that genuinely
-applies to every pull request, if such a policy is ever adopted.
+**Every slice lease lives at `.rizzstack/leases/<slice>.json` on `main`.** A
+lease that names no pull request is inert, so a stale file cannot mis-judge a
+later pull request; a file named `.rizzstack/lease.json` is now only a
+metadata change to review, never an automatic lease. Land a lease (and the
+contract it names) in a small non-slice pull request with an independent
+review at its head; never in the slice's own pull request.
 
-The contract is an `acdd/1` contract or a lease record with the same shape:
+**Every lease is derived from an approved contract in `.rizzstack/contracts/`.**
+The contract is an `acdd/1` contract; the lease copies its `scope` and
+`source_rev` verbatim and names it by hash:
 
 ```json
 {
-  "source_rev": "0123456789abcdef0123456789abcdef01234567",
+  "id": "wave-b-b3",
+  "lease_version": "rizzstack.lease/1",
+  "slice": "wave-b-b3",
+  "pull_request": 177,
+  "branch": "feat/wave-b-b3",
+  "contract_sha256": "9b971bd3e91f138af656c06c4f49f7edcbd85dcde0d8c82964b2d48f7a10f7ae",
+  "source_rev": "a330f7d3fa7a817cb3e8a5a3465048890d2d07a6",
   "scope": {
-    "assigned_files": ["src/slice.py", "docs/slice.md"],
-    "test_files": ["tests/test_slice.py"],
-    "prohibited": ["tests/**", "schemas/**"],
-    "read_only": ["README.md"]
-  }
+    "assigned_files": ["validators/python/rizzstack_validators.py", "validators/js/rizzstack-validators.mjs"],
+    "test_files": ["tests/test_wave_b_validators.py"],
+    "prohibited": ["tests/test_wave_b_validators.py", "bundlebees_plugin", ".github/workflows/ci.yml"],
+    "read_only": ["schemas/rizzstack-brief.schema.json"]
+  },
+  "review": {"status": "frozen", "approved_by": "owner directive 2026-11-25"}
 }
 ```
 
-`scope.assigned_files` is a non-empty list of repository-relative file paths
-(globs are accepted by the matcher, but leases should enumerate files).
-`test_files`, `prohibited` and `read_only` are exact paths or `fnmatch`
-patterns; `tests/**` covers the whole test tree. An empty or missing
-`assigned_files` fails closed.
-
-A `.rizzstack/lease.json` file may be a pointer instead of the contract
-itself:
-
-```json
-{
-  "contract_path": ".rizzstack/contracts/my-slice.json",
-  "verify_sha": "89abcdef0123456789abcdef0123456789abcdef"
-}
-```
+`scope.assigned_files` is a non-empty list of **concrete** repository-relative
+file paths. A wildcard entry (`*`, `**`, `?`, `[`) in `assigned_files` is
+rejected with `lease_glob_scope`: the allow-list must enumerate files, because
+`*` grants the whole tree. `test_files`, `prohibited` and `read_only` remain
+exact paths or `fnmatch` patterns — a glob there is a deny pattern and is
+strictly safer. An empty or missing `assigned_files` fails closed.
 
 ## The verify boundary
 
 The gate checks commits in `<boundary>..<head>` that are not reachable from
 the pull request base. The boundary is resolved, in order:
 
-1. `--verify-sha` (local runs and tests);
-2. a `lease-verify:<sha>` label on the pull request;
-3. a pull-request body line `Lease-Verify: <sha>`;
-4. `verify_sha` / `verified_sha` / `verification.sha` in the lease file;
-5. the contract's `source_rev`.
+1. `--verify-sha` (a local/test argument; never read from the event payload);
+2. `verify_sha` / `verified_sha` / `verification.sha` in the **base-branch**
+   lease;
+3. the approved contract's `source_rev`.
 
-Labels and the pull-request body are coordinator-controlled (a bee cannot set
-them); prefer them for the verify SHA. The lease file is also accepted for
-repos that do not label PRs, and is committed like any other slice file.
+Labels and the pull-request body are **never** read as a boundary. A pull
+request that could set `Lease-Verify: <head>` (body or `lease-verify:` label)
+would move the boundary to its own head and have zero commits checked — a
+complete bypass of the lease.
 
 The boundary must be an ancestor of the PR head. If it is not, the gate fails
 closed: the lease cannot be applied to a rewritten history. Deviating from a
@@ -153,12 +160,11 @@ pass.
   base is ignored. Conflict resolutions and evil merges are still inspected
   when a path differs from both parents; a resolution that rewrites a frozen
   test fails.
-- The contract file, `.rizzstack/lease.json` and every file under
-  `.rizzstack/leases/` are metadata and are exempt from the lease check: the
-  gate reads the lease store from the base branch, so a branch that edits it
-  does not change the verdict, and a lease-landing PR changes no code. Recording
-  the verify SHA therefore never fails the slice, and landing a lease never
-  needs a lease to cover the lease store.
+- The lease/contract store (`.rizzstack/leases/**`, `.rizzstack/contracts/**`)
+  and `.rizzstack/lease.json` are metadata. A commit that changes them makes
+  the pull request **non-slice** before any scope check runs (see above), so
+  metadata changes always need an independent review at the head; the
+  exemption only keeps base-merge history from raising a false violation.
 - A clean history (no commits after the boundary) passes.
 
 ## Merge queue
