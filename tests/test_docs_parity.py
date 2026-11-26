@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    192: (
+        "docs-sync companion (the workflow #178 coverage row + its Unreleased bullet: memory "
+        "recall no longer reads the quarantine zone): a registry bookkeeping change whose only "
+        "content is this exclusion plus the #178 row; it carries its own exclusion so merging "
+        "it leaves main green"
+    ),
     171: (
         "wave C slice C1 (rizzstack.ticket/1 claims schema + one synthetic example): "
         "a schema-only contract registration with no runtime behavior; its acceptance gate "
