@@ -252,6 +252,20 @@ Order is proven by signed sequence numbers and the previous record's hash, not g
 
 Asking well: one question per gate, the exact action, the exact target (PR number and head SHA), what evidence you have, and what happens if the answer is no.
 
+### No lease-landing lane (retired)
+
+The **`coordinator-lease-landing` lane is retired**. It was a lane identity — not a permission — used to merge lease PRs with `"reviews": "none (coordinator PR, owner-directed)"`, and it produced the self-issued gate leases in workflow #181 and hyvv #73: a lease with no approved contract, no prohibited paths and an allowed-files glob, judged by the same PR that wrote it.
+
+The rule that replaces it:
+
+- **Gate/infra changes are non-slice and never get leases.** A docs-sync, a release chore, a gate fix or a lease landing is judged by the independent-review rule, never by a lease.
+- **No lane flag, label, body line, environment variable or coordinator identity substitutes for an independent review at the head.** There is no lane path that skips the review: the lane's own name is worth nothing to the gate.
+- **A lease is usable only when it names an approved frozen contract** by `contract_sha256` (verbatim scope, same `source_rev`) that is already committed on the base branch, and it must declare `review.status` `approved`/`frozen` with an approver. A lease that cannot name one is inert.
+- **No glob scopes in any lease.** `scope.assigned_files` enumerates concrete files; `*`/`**` there is refused.
+- **Any change to `.rizzstack/leases/**`, `.rizzstack/contracts/**` or `.rizzstack/lease.json` makes the PR non-slice**: it prints `NOT A SLICE: it changes gate metadata (…)` and it needs `APPROVE (independent review at <head>)` at its exact head before merge.
+
+Verifying it is mechanical, not prose: read the `lease-tamper` job's output for the PR. `OK: contract …` with the slice's own lease is a slice pass; `NOT A SLICE: it changes gate metadata` plus the review check is the metadata path; `reason=lease_contract_missing` / `lease_contract_not_approved` / `lease_contract_hash_mismatch` / `lease_contract_mismatch` / `lease_glob_scope` is a lease that is not usable. A merge record whose `lane` field would have excused a missing review is not evidence — the check run is.
+
 ---
 
 ## 7. Security hygiene
