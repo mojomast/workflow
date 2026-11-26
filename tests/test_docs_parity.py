@@ -46,6 +46,12 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    192: (
+        "docs-sync companion (the workflow #178 coverage row + its Unreleased bullet: memory "
+        "recall no longer reads the quarantine zone): a registry bookkeeping change whose only "
+        "content is this exclusion plus the #178 row; it carries its own exclusion so merging "
+        "it leaves main green"
+    ),
     171: (
         "wave C slice C1 (rizzstack.ticket/1 claims schema + one synthetic example): "
         "a schema-only contract registration with no runtime behavior; its acceptance gate "
@@ -635,6 +641,13 @@ MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
         "pr": 152,
         "name": "OBS-KANBAN: kanban backlog feed, observed wave jobs, lease-bound fleet identity",
         "keywords": ("--kanban-board", "kanban_unavailable", "bundlebees.attempt-route/1", "test_obs_attempt_binding.py",),
+    },
+    {
+        # feat/memory-quarantine-excluded: DiskVault/Index candidate paths stop
+        # reading .quarantine/** so recall returns only promoted lessons.
+        "pr": 178,
+        "name": "memory recall excludes the quarantine zone",
+        "keywords": ("include_quarantine", ".quarantine/**", "_keyword_ranked"),
     },
 )
 
