@@ -21,22 +21,39 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from rizzstack_memory import DiskVault, quarantine_prefix  # noqa: E402
-from tests.test_memory_contract import TYPE_POLICY, WRITER, base_record, sealed, write_op  # noqa: E402
+from rizzstack_memory import ContractError, DiskVault, quarantine_prefix  # noqa: E402
+from rizzstack_memory.index import Index  # noqa: E402
+from tests.test_memory_contract import (  # noqa: E402
+    TYPE_POLICY,
+    WRITER,
+    base_record,
+    grant,
+    sealed,
+    write_op,
+)
 
 BODIES = (
     ("lease-recovery", "# Lease recovery\n\nRe-read the lease file before the next wave; a stale lease blocks dispatch.\n"),
     ("naming", "# Naming conventions\n\nA quiet note about naming conventions for receipts.\n"),
 )
 
+PUBLISHED_BODY = (
+    "# Published lease lesson\n\nA stale lease in a promoted zone blocks dispatch after the wave.\n"
+)
+QUARANTINE_BODY = (
+    "# Quarantined lease lesson\n\nA stale lease in quarantine still blocks dispatch after the wave.\n"
+)
+
 
 def seeded_vault(root: str) -> None:
     vault = DiskVault(root)
-    prefix = quarantine_prefix(WRITER)
+    # Recall only reads promoted zones; a fixture written straight to
+    # quarantine is deliberately invisible to the query endpoint.
     for memory_id, body in BODIES:
         record = sealed(base_record(id=memory_id, type="learning",
                                     retention={"policy": TYPE_POLICY["learning"], "expires": None, "superseded_by": None}), body)
-        vault.write(write_op(path=prefix + f"{memory_id}.md", record=record, body=body))
+        vault.write(write_op(path="learnings/" + memory_id + ".md", record=record, body=body,
+                             authority=grant(approved_by="orbit:coordinator")))
 
 
 def run_cli(args, stdin=None, env_extra=None):
@@ -108,6 +125,56 @@ class TestMemoryQueryCli(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertEqual(proc.stdout.strip(), "")
             self.assertFalse(os.path.exists(missing), "query must never create a vault")
+
+    def test_quarantined_lesson_never_reaches_recall(self):
+        with tempfile.TemporaryDirectory() as root:
+            vault = DiskVault(root)
+            published = sealed(
+                base_record(
+                    id="published-lease-lesson",
+                    type="learning",
+                    retention={"policy": TYPE_POLICY["learning"], "expires": None, "superseded_by": None},
+                ),
+                PUBLISHED_BODY,
+            )
+            vault.write(
+                write_op(
+                    path="learnings/published-lease-lesson.md",
+                    record=published,
+                    body=PUBLISHED_BODY,
+                    authority=grant(approved_by="orbit:coordinator"),
+                )
+            )
+            quarantined = sealed(
+                base_record(
+                    id="quarantined-lease-lesson",
+                    type="learning",
+                    retention={"policy": TYPE_POLICY["learning"], "expires": None, "superseded_by": None},
+                ),
+                QUARANTINE_BODY,
+            )
+            quarantined_path = quarantine_prefix(WRITER) + "quarantined-lease-lesson.md"
+            vault.write(write_op(path=quarantined_path, record=quarantined, body=QUARANTINE_BODY))
+
+            def recalled_ids():
+                proc = run_cli(["query", "--vault", root, "stale lease wave"], stdin=request("stale lease wave"))
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                return [item["id"] for item in json.loads(proc.stdout)["items"]]
+
+            # Both lessons match the same terms; only the promoted one is recall.
+            self.assertEqual(recalled_ids(), ["published-lease-lesson"])
+            self.assertNotIn("quarantined-lease-lesson", Index(root).create().search(["stale", "lease"]))
+
+            with self.assertRaises(ContractError) as denied:
+                vault.promote("quarantined-lease-lesson", grant(approved_by="agent:bee-9"))
+            self.assertEqual(denied.exception.code, "write_bad_grant")
+            self.assertTrue(
+                (Path(root) / quarantined_path).is_file(),
+                "a denied promotion must leave the quarantined lesson in place",
+            )
+            # A denied promotion changes nothing: the lesson stays out of recall
+            # and the promoted lesson is still returned.
+            self.assertEqual(recalled_ids(), ["published-lease-lesson"])
 
     def test_query_never_writes(self):
         with tempfile.TemporaryDirectory() as root:

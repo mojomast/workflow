@@ -107,7 +107,9 @@ def _judge(record: dict, now: str):
 
 def _scan(vault: DiskVault):
     """Yield ``(path, record, body)`` for every parseable memory document."""
-    for target in vault._candidate_paths():
+    # Retention must also expire abandoned quarantine writes; recall is the
+    # only surface that excludes them.
+    for target in vault._candidate_paths(include_quarantine=True):
         rel = target.relative_to(vault.root).as_posix()
         if zone_of(rel) == "service-owned":
             continue
