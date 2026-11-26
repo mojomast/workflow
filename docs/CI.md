@@ -52,7 +52,16 @@ branch names (by `pull_request`, `branch` or `slice`/`id`, or by a
 `lease-contract:` label / `Lease-Contract:` body line naming a base lease);
 a **non-slice** PR is any other change and passes only with an independent
 review at its exact head (`APPROVED`, or a `COMMENTED` review whose first line
-starts `APPROVE` and names an independent review). A slice is then judged
+is `APPROVE (independent review) at <sha>`; the pre-canonical em-dash and
+`APPROVE (independent review at <sha>)` forms are accepted by the same shared
+parser the merge lane uses), or with a review at an earlier head that carries
+forward: every commit after it is a merge of the base and the PR's diff against
+the base is byte-identical (per-file blob equality). The newest decisive review
+governs: a `CHANGES_REQUESTED` review, or a `COMMENTED` review whose first line
+starts `CHANGES REQUESTED`, submitted after the approval at that commit or a
+later one refuses it. An authored commit, an unrelated merge or any content
+change needs a new review. On a passing run the gate prints
+`lease-tamper: class=slice`/`class=non-slice` for the lane. A slice is then judged
 against its lease: any commit after the verify boundary that touches a file
 outside `scope.assigned_files`, or a frozen test in `scope.test_files` /
 `scope.prohibited` / `scope.read_only`, fails. A lease that exists only on the

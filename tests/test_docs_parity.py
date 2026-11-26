@@ -191,6 +191,15 @@ MERGE_SUBJECT_RE = re.compile(r"^Merge pull request #(\d+) from ", re.MULTILINE)
 #: next campaign PR merges.
 MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
     {
+        # gate/review-carry-forward: a non-slice review at an earlier head
+        # counts over a base-merge-only update with a byte-identical diff.
+        # Registered before merge so the PR carries its own coverage and
+        # merging it leaves main green.
+        "pr": 190,
+        "name": "lease/tamper review carry-forward",
+        "keywords": ("review carry-forward", "review_carry_authored_commit", "byte-identical"),
+    },
+    {
         # feat/campaign-closeout: merge_order as a 1..N ordinal compared as an
         # exact sequence; each audit carries status clean|findings|not_run.
         "pr": 35,
