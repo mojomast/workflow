@@ -77,9 +77,27 @@ no slice lease — passes only with an independent review recorded at its exact
 head commit:
 
 - a review whose `state` is `APPROVED`, or
-- a `COMMENTED` review whose first line starts `APPROVE`, names an
-  `independent review`, and (when it quotes a sha) quotes the commit the review
-  is posted at.
+- a `COMMENTED` review whose first line is the canonical attestation
+  `APPROVE (independent review) at <sha>`. The pre-canonical forms
+  `APPROVE — independent review ...` and `APPROVE (independent review at
+  <sha>)` are accepted by the same parser, as is markdown bold or a leading
+  bullet. `APPROVED` as a word, `APPROVE?`, bare `APPROVE` and `APPROVE (not
+  an independent review ...)` do not qualify.
+
+When the line quotes a sha it must be a prefix of the review's `commit_id`.
+The parser is one shared policy block vendored byte-identically in this gate and
+in the merge lane (`scripts/merge_lane_v5.py`): two parsers drifted once and
+rejected review wording the other accepted.
+
+**The newest decisive review governs.** A rejection — `state`
+`CHANGES_REQUESTED`, or a `COMMENTED` review whose first line starts
+`CHANGES REQUESTED` (canonical `CHANGES REQUESTED (<why>) at <sha>`) —
+submitted after the approval being used refuses it when it is recorded at that
+approval's commit or at any later commit (the head counts). A later
+re-approval supersedes the rejection in its turn; a rejection the approval
+supersedes (recorded at an earlier commit) does not block. Without this rule an
+approval followed by `CHANGES_REQUESTED` at the same head, or by a rejection at
+the new head after a base merge, still passed.
 
 The review's `commit_id` must equal the head being checked, or sit at an
 earlier head that **carries forward** (owner rule, 2026-11-25). It carries only
@@ -108,8 +126,18 @@ that fails any condition fails closed under the same top-level reason
 `review_carry_unreadable`.
 
 With no review at all the job fails closed with the named reason
-`non_slice_requires_independent_review`. The job needs `pull-requests: read`
-to read the reviews; without a token it fails closed rather than skipping.
+`non_slice_requires_independent_review`; an approval overridden by a later
+rejection fails under the same reason and names `review_changes_requested`.
+The job needs `pull-requests: read` to read the reviews; without a token it
+fails closed rather than skipping.
+
+On a passing run the gate prints one machine-readable class line —
+`lease-tamper: class=slice` or `lease-tamper: class=non-slice` — so the merge
+lane takes the class from the trusted gate output instead of re-deriving it
+from a branch name. The review line, rejection rule, carry predicate,
+sensitive-path list and only-SUCCESS-green rule live in a marked shared block;
+`tests/test_lease_tamper.py` pins its sha256 and runs the same review-line and
+carry fixtures as the lane's suite.
 
 **Keep the default path out of long-lived `main`.** Once a slice-specific
 `.rizzstack/lease.json` is merged, every later pull request inherits it (the
