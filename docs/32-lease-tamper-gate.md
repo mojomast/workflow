@@ -97,8 +97,11 @@ when all three hold:
 
 Updating a branch with the base therefore no longer demands a fresh review just
 to move `commit_id`, while a real commit, an unrelated merge or any content
-change still does. A review at an older head that fails any condition fails
-closed under the same top-level reason
+change still does. That matters because the workflow ruleset sets
+`strict_required_status_checks_policy`, so every merge to `main` makes open
+pull requests behind it update their branch; without the carry-forward each
+such update forced a re-review of unchanged code. A review at an older head
+that fails any condition fails closed under the same top-level reason
 `non_slice_requires_independent_review`, and the message names the condition:
 `review_not_ancestor`, `review_carry_authored_commit`,
 `review_carry_unrelated_merge`, `review_carry_content_changed` or
