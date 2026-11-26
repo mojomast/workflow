@@ -208,6 +208,14 @@ MERGE_SUBJECT_RE = re.compile(r"^Merge pull request #(\d+) from ", re.MULTILINE)
 #: next campaign PR merges.
 MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
     {
+        # fix/docs-parity-own-pr-row: a pull_request run requires the number
+        # under test, so this row rides in the same PR and the merge leaves
+        # main green. Registered before the merge for exactly that reason.
+        "pr": 193,
+        "name": "docs parity requires the pull request's own coverage row",
+        "keywords": ("pull request's own number", "_pull_request_number", "companion PR"),
+    },
+    {
         # gate/review-carry-forward: a non-slice review at an earlier head
         # counts over a base-merge-only update with a byte-identical diff.
         # Registered before merge so the PR carries its own coverage and
