@@ -1,0 +1,197 @@
+{
+  "contract_version": "acdd/1",
+  "id": "wave-b-b3",
+  "title": "Vendor one Python and one JavaScript validator for the frozen brief and attempt schemas",
+  "outcome": {
+    "summary": "Wave B's frozen schemas get exactly two vendored validators and no new runtime dependency: a standard-library Python module that bundlebees and hyvv copy, and a standalone ES module that Orbit and the control plane copy. Both expose one function per schema, return a list of problems (empty means valid), and reach the same verdict as jsonschema reading the frozen schemas on a shared 38-document corpus. The Python module is driven by the schemas directory it is handed; the JavaScript module carries the schema rules inside itself because it may not import anything. No consumer code, no dispatch wiring and no CI job changes in this slice.",
+    "observable_behavior": [
+      "validators/python/rizzstack_validators.py imports only the standard library and runs under python3 -I -S, so it cannot depend on an installed jsonschema",
+      "validate_brief returns [] for the minimal brief and for the approved brief examples, and a non-empty list for a brief missing any required field or a high-tier brief without contract",
+      "validate_attempt returns [] for the minimal attempt and the approved attempt examples, and a non-empty list for an unknown state or an unknown field",
+      "pointing validate_brief at a copied schemas directory whose required list was extended adds the new field to the refusal, proving the schema drives the verdict",
+      "validators/js/rizzstack-validators.mjs exports validateBrief and validateAttempt, contains no import or require, and returns the same verdicts as the Python module",
+      "both validators agree with jsonschema on all 38 corpus documents (27 constructed cases plus 11 approved examples) and with each other",
+      "validators/ ships no package.json, requirements.txt, pyproject.toml or Pipfile, so no consumer acquires a runtime dependency by vendoring it"
+    ]
+  },
+  "interfaces": [
+    {
+      "name": "validators/python/rizzstack_validators.py",
+      "kind": "module",
+      "change": "add",
+      "notes": "stdlib only; validate_brief(document, *, schema_dir=None) -> list[str] and validate_attempt(document, *, schema_dir=None) -> list[str]; empty list means valid; schema_dir defaults to <repo>/schemas and must govern the verdict"
+    },
+    {
+      "name": "validators/js/rizzstack-validators.mjs",
+      "kind": "module",
+      "change": "add",
+      "notes": "standalone ES module, no imports and no package.json; export validateBrief(document) -> string[] and validateAttempt(document) -> string[]; schema rules embedded because the module may not read the files at runtime"
+    },
+    {
+      "name": "schemas/rizzstack-brief.schema.json",
+      "kind": "schema",
+      "change": "none",
+      "notes": "read-only source of truth; the B3 validators must follow it, not redefine it"
+    },
+    {
+      "name": "schemas/rizzstack-attempt.schema.json",
+      "kind": "schema",
+      "change": "none",
+      "notes": "read-only source of truth; the seven-state enum and success shape are enforced by both validators"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "statement": "the Python validator accepts the minimal brief and attempt, refuses a brief missing any of the seven required fields, and refuses a high-tier brief without contract while accepting the same brief with one",
+      "verification": "test",
+      "tests": [
+        "tests/test_wave_b_validators.py::test_python_validator_accepts_the_minimal_brief",
+        "tests/test_wave_b_validators.py::test_python_validator_accepts_the_minimal_attempt",
+        "tests/test_wave_b_validators.py::test_python_validator_refuses_a_missing_required_field",
+        "tests/test_wave_b_validators.py::test_python_validator_refuses_a_high_tier_brief_without_contract"
+      ]
+    },
+    {
+      "id": "AC-002",
+      "statement": "the JavaScript validator reaches the same accept/refuse verdicts as the Python validator on the minimal documents, every missing required field, and the high-tier contract rule",
+      "verification": "test",
+      "tests": [
+        "tests/test_wave_b_validators.py::test_js_validator_accepts_the_minimal_brief",
+        "tests/test_wave_b_validators.py::test_js_validator_accepts_the_minimal_attempt",
+        "tests/test_wave_b_validators.py::test_js_validator_refuses_a_missing_required_field",
+        "tests/test_wave_b_validators.py::test_js_validator_refuses_a_high_tier_brief_without_contract"
+      ]
+    },
+    {
+      "id": "AC-003",
+      "statement": "both validators are checked against the frozen schemas: the Python verdict follows an alternate schema_dir, and both match jsonschema on the shared 38-document corpus including every approved example",
+      "verification": "test",
+      "tests": [
+        "tests/test_wave_b_validators.py::test_python_validator_reads_the_frozen_schema_it_is_given",
+        "tests/test_wave_b_validators.py::test_both_validators_match_the_frozen_schemas_on_the_shared_corpus"
+      ]
+    },
+    {
+      "id": "AC-004",
+      "statement": "neither validator ships or needs a runtime dependency: no dependency manifest exists under validators/, the Python module imports only the standard library and runs under -I -S, and the JavaScript module contains no import or require",
+      "verification": "test",
+      "tests": [
+        "tests/test_wave_b_validators.py::test_the_validators_ship_no_dependency_manifest",
+        "tests/test_wave_b_validators.py::test_the_python_validator_imports_only_the_standard_library",
+        "tests/test_wave_b_validators.py::test_the_javascript_validator_has_no_imports",
+        "tests/test_wave_b_validators.py::test_the_python_validator_runs_without_site_packages"
+      ]
+    },
+    {
+      "id": "AC-005",
+      "statement": "the two module interfaces match the contract exactly: one function per schema, a list of string problems returned, empty meaning valid, and the documented schema_dir keyword on the Python side",
+      "verification": "review"
+    },
+    {
+      "id": "AC-006",
+      "statement": "bundlebees and hyvv can vendor the Python file and Orbit and the control plane can vendor the JS file unchanged, with no per-consumer fork or schema copy in this slice",
+      "verification": "review"
+    },
+    {
+      "id": "AC-007",
+      "statement": "the full tests/ suite passes with no new failures beyond the pre-existing environmental set, and no consumer, schema, CI or changelog file is modified",
+      "verification": "integration",
+      "regression": true,
+      "tests": [
+        "tests/test_brief_schemas.py"
+      ]
+    }
+  ],
+  "assumptions": [
+    "one canonical Python module serves both bundlebees and hyvv, and one canonical ES module serves both Orbit and the control plane; consumers vendor a copy rather than importing across repositories",
+    "the JavaScript module cannot load the schema files without importing fs, so it carries the schema-derived rules; the parity test, not a code generator, is what proves it is checked against the frozen schemas",
+    "jsonschema stays a test-only dependency (already installed in CI); the shipped validators must run with the standard library alone, which python3 -I -S measures",
+    "node is preinstalled on GitHub-hosted ubuntu runners and on the dispatch hosts; the JS tests fail closed with a clear message if node is absent rather than skipping",
+    "the shared corpus is 27 constructed cases plus the 11 approved files under schemas/examples/rizzstack-{brief,attempt}-*.json; json-schema format is an annotation in the oracle, and the corpus has no format-only case",
+    "the existing pytest job that owns tests/ collects the new module; no CI edit is needed and none is assigned"
+  ],
+  "scope": {
+    "assigned_files": [
+      "validators/python/rizzstack_validators.py",
+      "validators/js/rizzstack-validators.mjs"
+    ],
+    "test_files": [
+      "tests/test_wave_b_validators.py"
+    ],
+    "read_only": [
+      "schemas/rizzstack-brief.schema.json",
+      "schemas/rizzstack-attempt.schema.json",
+      "schemas/examples",
+      "docs/design/wave-b-worker-contract.md",
+      "observability/validate.py"
+    ],
+    "prohibited": [
+      "tests/test_wave_b_validators.py",
+      "bundlebees_plugin",
+      ".github/workflows/ci.yml",
+      "CHANGELOG.md",
+      "pyproject.toml",
+      "requirements.txt",
+      "package.json"
+    ]
+  },
+  "source_rev": "a330f7d3fa7a817cb3e8a5a3465048890d2d07a6",
+  "tdd": {
+    "applicable": true,
+    "test_first": true
+  },
+  "verification": {
+    "independent": true,
+    "commands": [
+      "python3 -m pytest -q tests/test_wave_b_validators.py",
+      "python3 -m pytest -q tests/test_brief_schemas.py"
+    ],
+    "integration": false
+  },
+  "evidence_required": [
+    "red",
+    "green",
+    "review"
+  ],
+  "authorization": {
+    "human_gates": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish"
+    ],
+    "not_authorized": [
+      "merge",
+      "tag",
+      "release",
+      "deploy",
+      "publish",
+      "restart",
+      "force-push",
+      "branch deletion",
+      "editing the approved tests"
+    ]
+  },
+  "risk": {
+    "tier": "high",
+    "reasons": [
+      "the two modules become the single cross-repo truth for brief and attempt validation in bundlebees, hyvv, Orbit and the control plane",
+      "a validator that is stricter or looser than the frozen schema silently changes what every dispatch client accepts",
+      "a dependency added to either module would propagate into four consumers, which is exactly what this slice forbids"
+    ],
+    "blast_radius": "bundlebees, hyvv, orbitdesktop and the orbit control plane brief/attempt handling"
+  },
+  "review": {
+    "status": "approved",
+    "approved_by": "owner priority: B3 RED classification fix, 2026-11-25",
+    "approved_at": "2026-11-25T17:51:36Z",
+    "contract_sha256": "9b971bd3e91f138af656c06c4f49f7edcbd85dcde0d8c82964b2d48f7a10f7ae",
+    "test_collection": {
+      "manifest_sha256": "b79852455fc2426caf92df7201a1905e9f70712678455e066e17c339e61b3816",
+      "source_rev": "a330f7d3fa7a817cb3e8a5a3465048890d2d07a6",
+      "collected": 26
+    }
+  }
+}
