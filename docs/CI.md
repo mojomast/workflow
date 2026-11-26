@@ -52,7 +52,11 @@ branch names (by `pull_request`, `branch` or `slice`/`id`, or by a
 `lease-contract:` label / `Lease-Contract:` body line naming a base lease);
 a **non-slice** PR is any other change and passes only with an independent
 review at its exact head (`APPROVED`, or a `COMMENTED` review whose first line
-starts `APPROVE` and names an independent review). A slice is then judged
+starts `APPROVE` and names an independent review), or with a review at an
+earlier head that carries forward: every commit after it is a merge of the base
+and the PR's diff against the base is byte-identical (per-file blob equality).
+An authored commit, an unrelated merge or any content change needs a new
+review. A slice is then judged
 against its lease: any commit after the verify boundary that touches a file
 outside `scope.assigned_files`, or a frozen test in `scope.test_files` /
 `scope.prohibited` / `scope.read_only`, fails. A lease that exists only on the

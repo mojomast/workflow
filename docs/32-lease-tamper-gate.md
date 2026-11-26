@@ -78,11 +78,33 @@ head commit:
 
 - a review whose `state` is `APPROVED`, or
 - a `COMMENTED` review whose first line starts `APPROVE`, names an
-  `independent review`, and (when it quotes a sha) quotes the head.
+  `independent review`, and (when it quotes a sha) quotes the commit the review
+  is posted at.
 
-The review's `commit_id` must equal the head being checked: an approval at an
-older head proves nothing about the code that would merge. With no such review
-the job fails closed with the named reason
+The review's `commit_id` must equal the head being checked, or sit at an
+earlier head that **carries forward** (owner rule, 2026-11-25). It carries only
+when all three hold:
+
+1. the review commit is an ancestor of the head -- a review whose commit was
+   rewritten away judged different code and never carries;
+2. every commit after it that is not already on the base is a merge commit
+   whose non-first parents are on the base. Merging the base into the branch is
+   bookkeeping; an authored commit, or a merge of any other branch, is not;
+3. the pull request's diff against the base (`git diff base...head`) is
+   byte-identical to the diff the review saw (`git diff base...review_sha`):
+   the same paths with the same blob shas (`--raw --no-renames`, so a rename is
+   a delete plus an add).
+
+Updating a branch with the base therefore no longer demands a fresh review just
+to move `commit_id`, while a real commit, an unrelated merge or any content
+change still does. A review at an older head that fails any condition fails
+closed under the same top-level reason
+`non_slice_requires_independent_review`, and the message names the condition:
+`review_not_ancestor`, `review_carry_authored_commit`,
+`review_carry_unrelated_merge`, `review_carry_content_changed` or
+`review_carry_unreadable`.
+
+With no review at all the job fails closed with the named reason
 `non_slice_requires_independent_review`. The job needs `pull-requests: read`
 to read the reviews; without a token it fails closed rather than skipping.
 
@@ -205,7 +227,8 @@ The job fails, rather than skipping, when:
 
 - no frozen lease on the base branch names the pull request (by number,
   branch, slice, label or body line) **and** no independent review exists at
-  the exact head (`non_slice_requires_independent_review`);
+  the exact head or at an earlier head that carries forward by the rule above
+  (`non_slice_requires_independent_review`, with the carry condition named);
 - a lease names the pull request only on the head branch
   (`lease_not_on_base`);
 - no contract is named and `.rizzstack/lease.json` is absent at head and base;
@@ -233,10 +256,11 @@ An unresolvable contract gets:
 lease-tamper: FAILED: no frozen lease on base 123456789abc names PR #123 (head abcdef012345, branch feat/x): no 'pull_request'/'branch'/'slice' match in .rizzstack/leases/*.json, no lease-contract label or body line, and no .rizzstack/lease.json at head or base.
 ```
 
-A non-slice pull request without a review at the head gets:
+A non-slice pull request without a review at the head, or with one at an
+earlier head that does not carry forward, gets:
 
 ```text
-lease-tamper: FAILED (reason=non_slice_requires_independent_review): PR #123 is not a slice: no frozen lease on base 123456789abc names it ... A non-slice pull request passes only with an independent review at its exact head abcdef012345 ...
+lease-tamper: FAILED (reason=non_slice_requires_independent_review): PR #123 is not a slice: no frozen lease on base 123456789abc names it ... A non-slice pull request passes only with an independent review at its exact head abcdef012345, or with one at an earlier head that carries forward. The newest approval (commit 0987654321fe) does not carry: [review_carry_authored_commit] commit 13579bdf0246 ("..." ) was authored after the review; only merges of the base may follow a review. ...
 ```
 
 ## Adding a lease to a pull request
@@ -280,8 +304,15 @@ a different slice does not; a draft lease does not; a lease naming the PR only
 on the head fails `lease_not_on_base`; and a non-slice pull request fails
 `non_slice_requires_independent_review` without a review at its exact head,
 while passing with an `APPROVED` review or an `APPROVE (independent review ...)`
-comment at the head, and failing with that review at an older head or with
-`CHANGES REQUESTED`.
+comment at the head, and failing with `CHANGES REQUESTED`.
+
+Its `BaseMergeReviewCarryTests` class covers the owner's carry-forward rule:
+a base-merge-only update after the review passes (including two base merges in
+a row), while an authored commit, a conflict resolution that changes the
+reviewed content, a merge of an unrelated branch, and a review whose commit was
+rewritten away each fail closed with their named condition
+(`review_carry_authored_commit`, `review_carry_content_changed`,
+`review_carry_unrelated_merge`, `review_not_ancestor`).
 
 Its `MergeGroupTests` class covers the queue path against a loopback stand-in
 for the GitHub API (real HTTP through urllib): a single-PR group passes, a
