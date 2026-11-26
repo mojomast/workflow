@@ -1,0 +1,21 @@
+{
+  "action": "submitted",
+  "number": 43,
+  "review": {
+    "state": "APPROVED",
+    "commit_id": "5c7e9a1b3d5f708192a3c4e5f60718293a4b5c6d",
+    "body": "APPROVE (independent review) at 4a8d2b0e3c5f6172839405a6b7c8d9e0f0123456"
+  },
+  "pull_request": {
+    "number": 43,
+    "state": "open",
+    "title": "fixture: no hold label on a review event",
+    "head": {"sha": "4a8d2b0e3c5f6172839405a6b7c8d9e0f0123456", "ref": "feat/clear"},
+    "base": {"ref": "main", "sha": "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"},
+    "labels": [
+      {"name": "ci"},
+      {"name": "docs"}
+    ]
+  },
+  "repository": {"full_name": "mojomast/fixture", "default_branch": "main"}
+}

@@ -252,6 +252,25 @@ The job needs `checks: read` for the check-run lookup. A pull request whose
 head moved after its `pull_request` run therefore fails the queue candidate;
 the queue drops the stale group and rebuilds on the new head.
 
+## Review events
+
+A submitted review re-runs the required checks (`pull_request_review` with
+`types: [submitted]`), because an approval or a rejection changes the answer for
+a non-slice pull request. The event is a **pull request re-check**: the gate
+reads the base, the head, the labels and the number from `event.pull_request`,
+exactly as it does for `pull_request`, and applies the same rules to
+`pull_request.head.sha`.
+
+A review payload also carries `event.review.commit_id`, the commit the review
+was submitted against. It is never used as the head: it may be older than the
+head, and substituting it would let a review move the gate back to a commit it
+already passed. A review payload without `pull_request.head.sha` fails closed
+with `review_event_head_missing` instead of falling back to `commit_id`. Which
+reviews decide a non-slice pull request is still read from
+`GET /repos/{repo}/pulls/{N}/reviews` under the exact-head and carry-forward
+rules above, so a review recorded at an older head is judged by those rules and
+not by the payload.
+
 ## Fail-closed conditions
 
 The job fails, rather than skipping, when:
@@ -308,9 +327,9 @@ lease-tamper: FAILED (reason=non_slice_requires_independent_review): PR #123 is 
    `scope.prohibited` patterns for generated or frozen trees.
 4. After verification, record the verify commit with a `lease-verify:<sha>`
    label or a `verify_sha` field in the lease file.
-5. Re-run the PR (`synchronize`, or any event that carries the pull request)
-   after changing the label or lease; the check reads the event's labels and
-   the checkout at the PR head.
+5. Re-run the PR (`synchronize`, a submitted review, or any event that carries
+   the pull request) after changing the label or lease; the check reads the
+   event's labels and the checkout at the PR head.
 
 A one-commit documentation PR is a **non-slice** pull request: it needs no
 lease, but it passes only with an independent review at its head. Land the
@@ -324,6 +343,13 @@ history, a missing contract (fail closed), a malformed contract, an
 unresolvable verify SHA, label/body contract resolution, a base-branch lease,
 a merge of the base (ignored), and a conflict resolution that rewrites a
 frozen test (fails).
+
+The event payloads are covered for both shapes: a `pull_request` event and a
+`pull_request_review` event read the same head, a review whose `commit_id` is
+the clean parent (or a tampered descendant) of the head is judged by the head in
+both directions, a review payload with no `pull_request.head.sha` fails closed
+with `review_event_head_missing`, and a non-slice pull request is decided by the
+reviews at the head on either event.
 
 The store is metadata: a branch may add a lease file without a lease covering
 it, and such an edit never exempts a code path in the same commit.

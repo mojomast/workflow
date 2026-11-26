@@ -4,6 +4,8 @@ Both events are covered with fixtures:
 
 - ``pull_request``: labels come from the payload, with and without the
   ``owner-held`` label (plus a near-miss label that must not match);
+- ``pull_request_review``: the same payload read on a submitted review, which
+  re-runs ``ci-gate`` and therefore must re-evaluate the hold;
 - ``merge_group``: the queued pull request is resolved from
   ``github.event.merge_group.head_sha`` through the commit -> pulls API, with and
   without the ``owner-held`` label, plus the fail-closed paths (API error,
@@ -121,6 +123,42 @@ class PullRequestEventTests(unittest.TestCase):
         proc = run_cli(FIXTURES / "does-not-exist.json", "pull_request")
         self.assertEqual(proc.returncode, 1)
         self.assertIn("cannot read event payload", proc.stderr)
+
+
+class PullRequestReviewEventTests(unittest.TestCase):
+    """A submitted review re-runs ci-gate, so it must re-evaluate the hold.
+
+    The review payload carries the same pull request object (labels included)
+    plus a ``review.commit_id`` that is not the head; the hold is decided by the
+    labels on ``pull_request``, and treating the event as "no pull request to
+    hold" would let an owner-held pull request go green by adding a review.
+    """
+
+    def test_owner_held_label_on_a_review_event_fails(self):
+        proc = run_cli(fixture_path("pull_request_review_held.json"), "pull_request_review")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("pull_request #42 labels: ci, owner-held", proc.stdout)
+        self.assertIn("owner-held is present", proc.stdout)
+
+    def test_review_event_without_owner_held_label_passes(self):
+        proc = run_cli(fixture_path("pull_request_review_clear.json"), "pull_request_review")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("pull_request #43 labels: ci, docs", proc.stdout)
+        self.assertIn("pass; no owner-held label", proc.stdout)
+
+    def test_event_name_is_inferred_from_a_review_payload_when_unset(self):
+        env = cli_env("pull_request_review")
+        env.pop("GITHUB_EVENT_NAME")
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT), str(fixture_path("pull_request_review_held.json"))],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("event=pull_request_review", proc.stdout)
+        self.assertIn("owner-held is present", proc.stdout)
 
 
 class MergeGroupEventTests(unittest.TestCase):
