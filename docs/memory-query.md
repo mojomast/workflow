@@ -43,6 +43,11 @@ Each item carries `id`, `type`, `sha`, `path`, `title` and `excerpt`. Items stop
 before the summed length of those six fields would exceed `max_total_chars`. An
 empty vault returns `"items": []` — an honest empty, never padding.
 
+Quarantine is never returned. The query endpoint reads promoted zones only, so
+a lesson written to `.quarantine/<writer-slug>/` is absent from the response
+while it waits and stays absent if its promotion is refused. Promotion is what
+makes a memory recallable.
+
 ## bundlebees wiring
 
 `BUNDLEBEES_MEMORY_QUERY` names the program the recall client runs:

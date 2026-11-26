@@ -267,20 +267,27 @@ def scenario_type_and_path_refusals(root) -> dict:
 
 def scenario_expiry(root) -> dict:
     vault = DiskVault(root)
-    prefix = quarantine_prefix(WRITER)
+    # Recall only reads promoted zones, so the fixture writes through a grant
+    # into the contract zone instead of leaving unpublished quarantine files.
     active = vault.write(
-        write_op(path=prefix + "active.md", record=typed_record("learning", "active-learning"))
+        write_op(
+            path="learnings/active.md",
+            record=typed_record("learning", "active-learning"),
+            authority=grant(approved_by="orbit:coordinator"),
+        )
     )
     stale = vault.write(
         write_op(
-            path=prefix + "stale.md",
+            path="concepts/stale.md",
             record=typed_record("reference", "stale-reference", expires="2026-01-01T00:00:00Z"),
+            authority=grant(),
         )
     )
     superseded = vault.write(
         write_op(
-            path=prefix + "superseded.md",
+            path="learnings/superseded.md",
             record=typed_record("learning", "superseded-learning", superseded_by="newer-learning"),
+            authority=grant(approved_by="orbit:coordinator"),
         )
     )
     active_default = vault.active_records(NOW)
@@ -299,12 +306,20 @@ def scenario_expiry(root) -> dict:
 
 def scenario_query_and_injection(root) -> dict:
     vault = DiskVault(root)
-    prefix = quarantine_prefix(WRITER)
     receipts = []
     for index, body in enumerate(QUERY_BODIES):
         memory_id = f"query-memory-{index}"
         record = typed_record("learning", memory_id, body)
-        receipts.append(vault.write(write_op(path=prefix + f"query-{index}.md", record=record, body=body)))
+        receipts.append(
+            vault.write(
+                write_op(
+                    path=f"learnings/query-{index}.md",
+                    record=record,
+                    body=body,
+                    authority=grant(approved_by="orbit:coordinator"),
+                )
+            )
+        )
     result = vault.query({"op": "query", "q": "workbench crash lease", "k": 2, "mode": "hybrid"}, now=NOW)
     ranked = []
     for hit in result["hits"]:

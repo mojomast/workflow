@@ -30,9 +30,8 @@ from tests.test_memory_contract import (  # noqa: E402
     NOW,
     TYPE_POLICY,
     WORKED_BODY,
-    WRITER,
     base_record,
-    quarantine_prefix,
+    grant,
     sealed,
     write_op,
 )
@@ -71,13 +70,15 @@ def record_for(memory_type: str, memory_id: str, body: str = None, **retention) 
 
 def build_vault(root) -> DiskVault:
     vault = DiskVault(root)
-    prefix = quarantine_prefix(WRITER)
+    # Recall only sees promoted zones: seed through a grant so the fixture is a
+    # published memory rather than an unpublished quarantine file.
     for memory_id, body in BODIES.items():
         vault.write(
             write_op(
-                path=prefix + memory_id + ".md",
+                path="learnings/" + memory_id + ".md",
                 record=record_for("learning", memory_id, body),
                 body=body,
+                authority=grant(approved_by="orbit:coordinator"),
             )
         )
     return vault
@@ -203,12 +204,12 @@ class IncrementalUpdateTests(unittest.TestCase):
 
             memory_id = "fresh-incremental-note"
             body = "# Fresh incremental note\n\nThe incremental refresh finds this new lease note.\n"
-            prefix = quarantine_prefix(WRITER)
             vault.write(
                 write_op(
-                    path=prefix + memory_id + ".md",
+                    path="learnings/" + memory_id + ".md",
                     record=record_for("learning", memory_id, body),
                     body=body,
+                    authority=grant(approved_by="orbit:coordinator"),
                 )
             )
 
@@ -222,12 +223,11 @@ class RetentionIsNotIndexAuthoritativeTests(unittest.TestCase):
     def test_expired_and_superseded_items_stay_hidden_by_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = build_vault(tmp)
-            prefix = quarantine_prefix(WRITER)
 
             stale_body = "# Stale lease reference\n\nThe stale lease reference points at an old workbench.\n"
             vault.write(
                 write_op(
-                    path=prefix + "stale-reference.md",
+                    path="concepts/stale-reference.md",
                     record=record_for(
                         "reference",
                         "stale-reference",
@@ -235,12 +235,13 @@ class RetentionIsNotIndexAuthoritativeTests(unittest.TestCase):
                         expires="2026-01-01T00:00:00Z",
                     ),
                     body=stale_body,
+                    authority=grant(),
                 )
             )
             old_body = "# Superseded lease learning\n\nThis superseded lease learning is hidden until asked for.\n"
             vault.write(
                 write_op(
-                    path=prefix + "superseded-learning.md",
+                    path="learnings/superseded-learning.md",
                     record=record_for(
                         "learning",
                         "superseded-learning",
@@ -248,6 +249,7 @@ class RetentionIsNotIndexAuthoritativeTests(unittest.TestCase):
                         superseded_by="workbench-crash-resume",
                     ),
                     body=old_body,
+                    authority=grant(approved_by="orbit:coordinator"),
                 )
             )
 
