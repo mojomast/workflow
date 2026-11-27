@@ -31,7 +31,7 @@ The chapter is generic. Values that belong to Kyle's setup, such as caps, names,
 
 ### GitHub identities (target)
 
-The stack is moving to one GitHub login per role. Until the migration finishes, agents still act through the owner's account. Live migration status: [policy/identities.md](https://github.com/mojomast/rizzstack/blob/main/policy/identities.md) in rizzstack (it lands with rizzstack #42). Setup guide (manifests, scripts, key custody, rotation): [rizzstack docs/github-apps.md](https://github.com/mojomast/rizzstack/blob/main/docs/github-apps.md).
+The stack is moving to one GitHub login per role. Until the migration finishes, agents still act through the owner's account. Live migration status: [policy/identities.md](https://github.com/mojomast/rizzstack/blob/main/policy/identities.md) in rizzstack. Setup guide (manifests, scripts, key custody, rotation): [rizzstack docs/github-apps.md](https://github.com/mojomast/rizzstack/blob/main/docs/github-apps.md).
 
 | Role | Target GitHub identity | Will use it for |
 |---|---|---|

@@ -84,7 +84,7 @@ head commit:
   bullet. `APPROVED` as a word, `APPROVE?`, bare `APPROVE` and `APPROVE (not
   an independent review ...)` do not qualify.
 
-Today the gate checks the review's text and state, not who wrote it, because every agent posts through the owner's account. **Planned:** once the coordinator and reviewer have their own GitHub App identities ([rizzstack docs/github-apps.md](https://github.com/mojomast/rizzstack/blob/main/docs/github-apps.md)), an independent approval will count only from the reviewer bot's login (`rizzstack-reviewer[bot]`) or the owner's, and reviews by the coordinator bot will count for nothing. That change will be a gate PR of its own. Live migration status: [policy/identities.md](https://github.com/mojomast/rizzstack/blob/main/policy/identities.md) in rizzstack (it lands with rizzstack #42).
+Today the gate checks the review's text and state, not who wrote it, because every agent posts through the owner's account. **Planned:** once the coordinator and reviewer have their own GitHub App identities ([rizzstack docs/github-apps.md](https://github.com/mojomast/rizzstack/blob/main/docs/github-apps.md)), an independent approval will count only from the reviewer bot's login (`rizzstack-reviewer[bot]`) or the owner's, and reviews by the coordinator bot will count for nothing. That change will be a gate PR of its own. Live migration status: [policy/identities.md](https://github.com/mojomast/rizzstack/blob/main/policy/identities.md) in rizzstack.
 
 When the line quotes a sha it must be a prefix of the review's `commit_id`.
 The parser is one shared policy block vendored byte-identically in this gate and
