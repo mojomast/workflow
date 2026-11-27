@@ -57,6 +57,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    196: (
+        "ci-only: vendors rizzstack's tier-aware lease_tamper.py (risk_tier + always-T3) "
+        "into this repository for the merge lane; no product or changelog surface, and it "
+        "carries its own exclusion so merging it leaves main green"
+    ),
     195: (
         "ci-only: narrows the review-rerun workflow to lease-tamper only (ci-gate is its "
         "dependent); no product or changelog surface, and it carries its own exclusion so "
