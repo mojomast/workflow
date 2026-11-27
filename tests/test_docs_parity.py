@@ -57,6 +57,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    194: (
+        "ci-only: replaces the full-CI pull_request_review trigger with a small workflow that "
+        "re-runs the failed jobs of the pull_request run for the reviewed head; no product or "
+        "changelog surface, and it carries its own exclusion so merging it leaves main green"
+    ),
     192: (
         "docs-sync companion (the workflow #178 coverage row + its Unreleased bullet: memory "
         "recall no longer reads the quarantine zone): a registry bookkeeping change whose only "
