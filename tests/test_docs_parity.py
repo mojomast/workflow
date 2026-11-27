@@ -59,7 +59,7 @@ FIRST_COVERED_PR = 35
 EXCLUDED_PRS: dict[int, str] = {
     197: (
         "docs-only: points the coordinator playbook and the lease-tamper gate doc at "
-        "rizzstack's GitHub App identity guide (coordinator/reviewer bots; gate by login "
+        "rizzstack's GitHub App identity guide (target coordinator/reviewer bots; gate by login "
         "marked planned); no product or changelog surface, and it carries its own exclusion "
         "so merging it leaves main green"
     ),
