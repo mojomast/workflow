@@ -21,12 +21,23 @@ stands in for the log; it was verified against main's first-parent history
 (755d6c4 #35 ... 9850efa #40). Either way the next campaign PR that merges
 without a row (or whose row's keywords are absent from the changelog) fails
 this test. No network, launcher, token, Docker or SSH access.
+
+A ``pull_request`` run also requires the number **under test**: the event's own
+PR number joins the required set, so the row (or the exclusion reason) has to
+ride in the same pull request. That closes the loop where a merge with no row
+reddened ``main`` and the companion PR fixing it had to exclude itself — the
+duty then never converged, because every repair created the next missing row.
+``push`` and ``merge_group`` runs cover a commit, not an open pull request, and
+still check merged history only.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -196,6 +207,14 @@ MERGE_SUBJECT_RE = re.compile(r"^Merge pull request #(\d+) from ", re.MULTILINE)
 #: diff actually introduced, not the PR number. Extend this registry when the
 #: next campaign PR merges.
 MERGED_WINDOW_ROWS: tuple[dict[str, object], ...] = (
+    {
+        # fix/docs-parity-own-pr-row: a pull_request run requires the number
+        # under test, so this row rides in the same PR and the merge leaves
+        # main green. Registered before the merge for exactly that reason.
+        "pr": 193,
+        "name": "docs parity requires the pull request's own coverage row",
+        "keywords": ("pull request's own number", "_pull_request_number", "companion PR"),
+    },
     {
         # gate/review-carry-forward: a non-slice review at an earlier head
         # counts over a base-merge-only update with a byte-identical diff.
@@ -763,26 +782,197 @@ def _merged_pr_numbers() -> tuple[int, ...] | None:
     return tuple(numbers) or None
 
 
-def _required_pr_numbers() -> tuple[int, ...]:
-    merged = _merged_pr_numbers()
+#: The ref shapes a pull request checkout uses: ``refs/pull/<n>/merge`` for a
+#: ``pull_request`` run and ``refs/pull/<n>/head`` for a ``pull_request_target``
+#: one. The event file is the primary source; this is the fallback.
+PULL_REQUEST_REF_RE = re.compile(r"^refs/pull/(\d+)/(?:merge|head)$")
+
+
+def _pull_request_number_from_event(payload: object) -> int | None:
+    """The pull request number a GitHub event payload names, or ``None``.
+
+    Only ``pull_request``-family payloads carry a ``pull_request`` object. A
+    ``push`` payload names a commit and a ``merge_group`` payload names a queued
+    merge ref, so neither identifies an open pull request here.
+    """
+
+    if not isinstance(payload, dict) or "pull_request" not in payload:
+        return None
+    candidates = [payload.get("number")]
+    pull_request = payload.get("pull_request")
+    if isinstance(pull_request, dict):
+        candidates.append(pull_request.get("number"))
+    for candidate in candidates:
+        if isinstance(candidate, int) and not isinstance(candidate, bool):
+            return candidate
+    return None
+
+
+def _pull_request_number_from_ref(ref: str) -> int | None:
+    match = PULL_REQUEST_REF_RE.match(ref.strip())
+    return int(match.group(1)) if match else None
+
+
+def _pull_request_number() -> int | None:
+    """The pull request number this run belongs to, or ``None`` off a PR.
+
+    Reads ``GITHUB_EVENT_PATH`` first (the payload's ``number``, then
+    ``pull_request.number``) and falls back to ``GITHUB_REF``. Local runs set
+    neither, so they behave exactly as before: merged history only.
+    """
+
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path:
+        try:
+            payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            payload = None
+        number = _pull_request_number_from_event(payload)
+        if number is not None:
+            return number
+    return _pull_request_number_from_ref(os.environ.get("GITHUB_REF", ""))
+
+
+def _required_pr_numbers(
+    merged: tuple[int, ...] | None = None,
+    own_pull_request: int | None = None,
+) -> tuple[int, ...]:
+    """Every PR number this run must find covered, sorted.
+
+    ``merged`` defaults to this checkout's merge history, or to the pinned
+    snapshot set when the history is squashed. ``own_pull_request`` is the
+    number under test on a ``pull_request`` run; it is required like any merged
+    number, so its registry row (or exclusion) has to be part of the same diff.
+    """
+
     if merged is None:
-        merged = SNAPSHOT_MERGED_PRS
-    return tuple(n for n in merged if n >= FIRST_COVERED_PR)
+        merged = _merged_pr_numbers()
+        if merged is None:
+            merged = SNAPSHOT_MERGED_PRS
+    numbers = {int(number) for number in merged if int(number) >= FIRST_COVERED_PR}
+    if own_pull_request is not None and own_pull_request >= FIRST_COVERED_PR:
+        numbers.add(int(own_pull_request))
+    return tuple(sorted(numbers))
+
+
+def _uncovered_pr_numbers(
+    required: tuple[int, ...],
+    registered: set[int],
+    excluded: Mapping[int, str],
+) -> list[int]:
+    """The required numbers with neither a registry row nor an exclusion."""
+
+    return [n for n in required if n not in registered and n not in excluded]
+
+
+def test_pull_request_number_is_read_from_the_event_payload() -> None:
+    payload = {
+        "number": 192,
+        "pull_request": {"number": 192, "head": {"sha": "a" * 40}},
+    }
+    assert _pull_request_number_from_event(payload) == 192
+    # `number` is the documented top-level key; the nested one is the fallback.
+    assert _pull_request_number_from_event({"pull_request": {"number": 86}}) == 86
+
+
+def test_events_that_name_no_pull_request_yield_no_number() -> None:
+    assert _pull_request_number_from_event(None) is None
+    assert _pull_request_number_from_event("not a payload") is None
+    assert _pull_request_number_from_event({"ref": "refs/heads/main", "after": "0" * 40}) is None
+    assert _pull_request_number_from_event(
+        {"merge_group": {"head_ref": "refs/heads/gh-readonly-queue/main/pr-192-abc"}}
+    ) is None
+    # A string or a bool is not a PR number; never coerce one into the duty.
+    assert _pull_request_number_from_event({"pull_request": {"number": "192"}}) is None
+    assert _pull_request_number_from_event({"number": True, "pull_request": {}}) is None
+
+
+def test_pull_request_number_is_read_from_the_pull_request_ref() -> None:
+    assert _pull_request_number_from_ref("refs/pull/192/merge") == 192
+    assert _pull_request_number_from_ref("refs/pull/86/head") == 86
+    assert _pull_request_number_from_ref("refs/heads/main") is None
+    assert _pull_request_number_from_ref("refs/pull/not-a-number/merge") is None
+
+
+def test_pull_request_number_is_read_from_the_actions_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps({"number": 192, "pull_request": {"number": 192}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
+    assert _pull_request_number() == 192
+
+
+def test_pull_request_number_falls_back_to_the_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(tmp_path / "missing.json"))
+    monkeypatch.setenv("GITHUB_REF", "refs/pull/86/merge")
+    assert _pull_request_number() == 86
+    # An unreadable event file plus a branch ref is not a pull request run.
+    monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
+    assert _pull_request_number() is None
+
+
+def test_a_pull_request_run_requires_the_number_under_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps({"number": 9999, "pull_request": {"number": 9999}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    monkeypatch.delenv("GITHUB_REF", raising=False)
+    required = _required_pr_numbers(own_pull_request=_pull_request_number())
+    assert 9999 in required
+    assert 9999 in _uncovered_pr_numbers(required, registered=set(), excluded={})
+
+
+def test_merged_history_only_is_required_off_a_pull_request() -> None:
+    assert _required_pr_numbers(merged=(35, 40), own_pull_request=None) == (35, 40)
+    # Below FIRST_COVERED_PR there is no docs duty, exactly as for the history.
+    assert _required_pr_numbers(merged=(35,), own_pull_request=34) == (35,)
+
+
+def test_the_pull_request_own_number_must_be_registered_in_the_same_pr() -> None:
+    required = _required_pr_numbers(merged=(35, 178), own_pull_request=192)
+    assert required == (35, 178, 192)
+    # The row the PR about to merge carries for itself: this is the loop-breaker.
+    assert _uncovered_pr_numbers(required, registered={35, 178}, excluded={}) == [192]
+    assert _uncovered_pr_numbers(required, registered={35, 178, 192}, excluded={}) == []
+    assert _uncovered_pr_numbers(
+        required, registered={35, 178}, excluded={192: "docs-only companion"}
+    ) == []
+    # Merged history keeps the old duty: a merge without a row is still refused.
+    assert _uncovered_pr_numbers(
+        _required_pr_numbers(merged=(35, 178), own_pull_request=None),
+        registered={35},
+        excluded={},
+    ) == [178]
 
 
 def test_registry_covers_every_merged_campaign_pr_in_window() -> None:
-    required = _required_pr_numbers()
+    own_pull_request = _pull_request_number()
+    required = _required_pr_numbers(own_pull_request=own_pull_request)
     assert required, "the merge history (or its snapshot fallback) must be non-empty"
     registered = {int(entry["pr"]) for entry in MERGED_WINDOW_ROWS}
-    unregistered = [
-        n for n in required
-        if n not in registered and n not in EXCLUDED_PRS
-    ]
+    unregistered = _uncovered_pr_numbers(required, registered, EXCLUDED_PRS)
+    own_duty = (
+        f" Pull request #{own_pull_request} must register itself here, in this "
+        "diff: a row added after the merge reddens main and forces a companion "
+        "PR that has to exclude itself."
+        if own_pull_request in unregistered
+        else ""
+    )
     assert not unregistered, (
         f"merged campaign PR(s) {unregistered} have no coverage registry entry: "
         "add a MERGED_WINDOW_ROWS row whose keywords the changelog must contain, "
         "or an explicit EXCLUDED_PRS reason for a non-feature merge "
-        "(docs-sync duty: merged work must be discoverable in the changelog)"
+        "(docs-sync duty: merged work must be discoverable in the changelog)."
+        f"{own_duty}"
     )
     for number, reason in EXCLUDED_PRS.items():
         assert reason.strip(), f"exclusion for PR #{number} must state why"
