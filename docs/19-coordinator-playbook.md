@@ -29,6 +29,18 @@ The chapter is generic. Values that belong to Kyle's setup, such as caps, names,
 | Executor subagents | Worker lanes | Launched by the coordinator, one per workstream |
 | Bees | Workers | Run on Kyle's PC through the worker host (hyvv, extracted from the PC launcher), dispatched via bundlebees |
 
+### GitHub identities
+
+Each role acts on GitHub under its own login. The full setup guide (manifests, scripts, key custody, rotation) is [rizzstack docs/github-apps.md](https://github.com/mojomast/rizzstack/blob/main/docs/github-apps.md).
+
+| Role | GitHub identity | Uses it for |
+|---|---|---|
+| Approver | the owner's own account | approvals, typed yeses, rulesets and settings, creating and installing the apps |
+| Coordinator and its lanes | the coordinator app (`rizzstack-coordinator[bot]`) | pushing branches, opening, updating and merging PRs, labels and PR comments, rerunning CI |
+| Outside reviewer | the reviewer app (`rizzstack-reviewer[bot]`) | posting PR reviews, nothing else |
+
+The coordinator mints short-lived installation tokens from its app key and never holds the owner's token. The coordinator app has no administration or secrets permission, so it can't change rulesets or settings. A merge still needs the approver's yes, as section 6 says. Today the gates still read review text. Trusting reviews by bot login is planned and will arrive as its own gate change.
+
 ### The four layers you coordinate
 
 Bottom to top: **workflow** (the method; this repository), **hyvv** (the worker host; owns the versioned `/v1` worker API), **bundlebees** (orchestration; a Hermes plugin), **Orbit** (the control surface; `mojomast/orbitdesktop`). A rename of bundlebees to swrm has been discussed but not started. Don't rename anything in docs, code or packages until Kyle says so.
