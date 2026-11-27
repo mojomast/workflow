@@ -57,6 +57,11 @@ FIRST_COVERED_PR = 35
 #: exclusion states why; a merge number missing from both the registry and this
 #: mapping is a test failure.
 EXCLUDED_PRS: dict[int, str] = {
+    195: (
+        "ci-only: narrows the review-rerun workflow to lease-tamper only (ci-gate is its "
+        "dependent); no product or changelog surface, and it carries its own exclusion so "
+        "merging it leaves main green"
+    ),
     194: (
         "ci-only: replaces the full-CI pull_request_review trigger with a small workflow that "
         "re-runs the failed jobs of the pull_request run for the reviewed head; no product or "
